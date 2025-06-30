@@ -4,580 +4,602 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Linq;
 
+/// <summary>
+/// Main game engine based on Pascal USURPER.PAS
+/// Handles the core game loop, initialization, and game state management
+/// </summary>
 public partial class GameEngine : Node
 {
     private static GameEngine instance;
     public static GameEngine Instance => instance;
     
-    private GameState currentState;
-    private Player currentPlayer;
+    // Core game components
+    private GameState gameState;
+    private Character currentPlayer;
     private List<NPC> worldNPCs;
+    private List<Monster> worldMonsters;
     private TerminalEmulator terminal;
-    private WorldSimulator worldSim;
-    private DailySystemManager dailySystem;
+    private LocationManager locationManager;
+    private SaveManager saveManager;
+    private DailySystemManager dailyManager;
+    private CombatEngine combatEngine;
+    private WorldSimulator worldSimulator;
     
-    public GameState CurrentState => currentState;
-    public Player CurrentPlayer => currentPlayer;
-    public TerminalEmulator Terminal => terminal;
-    public List<NPC> WorldNPCs => worldNPCs;
-    public WorldSimulator WorldSimulator => worldSim;
+    // Game configuration
+    private ConfigRecord config;
+    private KingRecord kingRecord;
+    
+    // Online system
+    private List<OnlinePlayer> onlinePlayers;
+    private bool multiNodeMode;
     
     public override void _Ready()
     {
         instance = this;
-        InitializeSystems();
-        LoadGameData();
-        _ = ShowMainMenu(); // Fire and forget async
-    }
-    
-    private void InitializeSystems()
-    {
-        // Create terminal
-        terminal = new TerminalEmulator();
-        AddChild(terminal);
+        GD.Print("Usurper Reborn - Initializing Game Engine...");
         
-        // Initialize systems
-        worldSim = new WorldSimulator();
-        dailySystem = new DailySystemManager();
-        worldNPCs = new List<NPC>();
+        // Initialize core systems
+        InitializeGame();
         
-        LoadDataFiles();
-        InitializeNPCs();
+        // Show title screen and start main menu
+        ShowTitleScreen();
+        MainMenu();
     }
     
-    private void LoadDataFiles()
+    /// <summary>
+    /// Initialize game systems - based on Init_Usurper procedure from Pascal
+    /// </summary>
+    private void InitializeGame()
     {
-        // These would be implemented by data manager classes
-        GD.Print("Loading game data files...");
-        // ItemManager.LoadItems("res://Data/items.json");
-        // CharacterClassManager.LoadClasses("res://Data/characters.json");
-        // NPCDataManager.LoadNPCs("res://Data/npcs.json");
-        // MonsterManager.LoadMonsters("res://Data/monsters.json");
-        // EventManager.LoadEvents("res://Data/events.json");
-        // FormulaManager.LoadFormulas("res://Data/formulas.json");
-        // DialogueManager.LoadDialogues("res://Data/dialogue.json");
-        // ConfigManager.LoadConfig("res://Data/game_config.json");
-    }
-    
-    private void InitializeNPCs()
-    {
-        // Create some basic NPCs for testing
-        var npcData = new[]
+        GD.Print("Reading configuration...");
+        ReadStartCfgValues();
+        
+        GD.Print("Initializing game data...");
+        InitializeItems();      // From INIT.PAS Init_Items
+        InitializeMonsters();   // From INIT.PAS Init_Monsters
+        InitializeNPCs();       // From INIT.PAS Init_NPCs
+        InitializeLevels();     // From INIT.PAS Init_Levels
+        InitializeGuards();     // From INIT.PAS Init_Guards
+        
+        GD.Print("Setting up game state...");
+        gameState = new GameState
         {
-            new { Name = "Seth Able", Archetype = "thug", Class = CharacterClass.Warrior, Level = 5 },
-            new { Name = "Mary the Merchant", Archetype = "merchant", Class = CharacterClass.Thief, Level = 8 },
-            new { Name = "Captain Harris", Archetype = "guard", Class = CharacterClass.Warrior, Level = 15 },
-            new { Name = "Brother Thomas", Archetype = "priest", Class = CharacterClass.Cleric, Level = 18 },
-            new { Name = "Elena the Mystic", Archetype = "mystic", Class = CharacterClass.Mage, Level = 20 }
+            GameDate = 1,
+            LastDayRun = 0,
+            PlayersOnline = 0,
+            MaintenanceRunning = false
         };
         
-        foreach (var data in npcData)
-        {
-            var npc = new NPC(data.Name, data.Archetype, data.Class, data.Level);
-            var personality = PersonalityProfile.GenerateRandom(data.Archetype);
-            npc.Brain = new NPCBrain(npc, personality);
-            worldNPCs.Add(npc);
-        }
+        // Initialize core systems
+        terminal = GetNode<TerminalEmulator>("Terminal");
+        locationManager = new LocationManager(terminal);
+        saveManager = new SaveManager();
+        dailyManager = new DailySystemManager();
+        combatEngine = new CombatEngine();
+        worldSimulator = new WorldSimulator();
         
-        GD.Print($"Initialized {worldNPCs.Count} NPCs");
+        // Initialize collections
+        worldNPCs = new List<NPC>();
+        worldMonsters = new List<Monster>();
+        onlinePlayers = new List<OnlinePlayer>();
+        
+        GD.Print("Game engine initialized successfully!");
     }
     
-    private async Task ShowMainMenu()
+    /// <summary>
+    /// Show title screen - displays USURPER.ANS from Pascal
+    /// </summary>
+    private void ShowTitleScreen()
     {
-        while (true)
+        terminal.ClearScreen();
+        terminal.ShowANSIArt("USURPER");
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("USURPER - The Dungeon of Death");
+        terminal.WriteLine("Reborn Edition");
+        terminal.WriteLine("");
+        terminal.SetColor("gray");
+        terminal.WriteLine("Original by Jakob Dangarden");
+        terminal.WriteLine("Reborn by AI Assistant");
+        terminal.WriteLine("");
+        terminal.WriteLine("Press any key to continue...");
+        terminal.WaitForKey();
+    }
+    
+    /// <summary>
+    /// Main menu - based on Town_Menu procedure from Pascal
+    /// </summary>
+    private void MainMenu()
+    {
+        bool done = false;
+        
+        while (!done)
         {
             terminal.ClearScreen();
-            terminal.ShowASCIIArt("usurper_title");
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine("USURPER - The Dungeon of Death");
+            terminal.SetColor("yellow");
+            terminal.WriteLine("═══════════════════════════════");
+            terminal.WriteLine("");
+            terminal.SetColor("white");
             
             var options = new List<MenuOption>
             {
-                new MenuOption { Text = "New Game", Action = async () => await StartNewGame() },
-                new MenuOption { Text = "Load Game", Action = async () => await LoadGame() },
-                new MenuOption { Text = "Instructions", Action = async () => await ShowInstructions() },
-                new MenuOption { Text = "Credits", Action = async () => await ShowCredits() },
-                new MenuOption { Text = "Quit", Action = async () => await QuitGame() }
+                new MenuOption { Key = "E", Text = "Enter the Game", Action = async () => await EnterGame() },
+                new MenuOption { Key = "I", Text = "Instructions", Action = async () => await ShowInstructions() },
+                new MenuOption { Key = "L", Text = "List Players", Action = async () => await ListPlayers() },
+                new MenuOption { Key = "T", Text = "Teams", Action = async () => await ShowTeams() },
+                new MenuOption { Key = "N", Text = "Yesterday's News", Action = async () => await ShowNews() },
+                new MenuOption { Key = "S", Text = "Game Settings", Action = async () => await ShowGameSettings() },
+                new MenuOption { Key = "Q", Text = "Quit", Action = async () => { done = true; } }
             };
             
             var choice = await terminal.GetMenuChoice(options);
-            if (choice >= 0)
+            if (choice >= 0 && choice < options.Count)
             {
                 await options[choice].Action();
             }
-            else
-            {
-                await QuitGame();
-            }
         }
     }
     
-    public async Task StartNewGame()
+    /// <summary>
+    /// Enter the game - handles player login/creation
+    /// </summary>
+    private async Task EnterGame()
     {
         terminal.ClearScreen();
-        terminal.ShowASCIIArt("usurper_title");
-        await terminal.PressAnyKey("Press any key to begin your adventure...");
-        
-        currentPlayer = await CreateCharacter();
-        currentState = new GameState
-        {
-            Day = 1,
-            Hour = 6,
-            TurnsRemaining = 250 // ConfigManager.TurnsPerDay
-        };
-        
-        await EnterGameWorld();
-    }
-    
-    private async Task<Player> CreateCharacter()
-    {
-        terminal.ClearScreen();
-        terminal.WriteLine("╔══════════════════ CHARACTER CREATION ══════════════════╗", "bright_blue");
-        terminal.WriteLine("║                                                        ║", "bright_blue");
-        terminal.WriteLine("║  Welcome to the realm! Create your character below.   ║", "white");
-        terminal.WriteLine("║                                                        ║", "bright_blue");
-        terminal.WriteLine("╚════════════════════════════════════════════════════════╝", "bright_blue");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("Enter the Game");
+        terminal.WriteLine("══════════════");
         terminal.WriteLine("");
         
-        var realName = await terminal.GetInput("Enter your real name: ");
-        var characterName = await terminal.GetInput("Enter your character name: ");
+        var playerName = await terminal.GetInput("Enter your name: ");
         
-        // Choose class
-        terminal.WriteLine("\nChoose your class:", "yellow");
-        var classOptions = new List<MenuOption>
+        if (string.IsNullOrWhiteSpace(playerName))
         {
-            new MenuOption { Text = "Warrior - Strong fighter, high HP", Action = null },
-            new MenuOption { Text = "Thief - Fast and sneaky, good with locks", Action = null },
-            new MenuOption { Text = "Cleric - Healer with divine magic", Action = null },
-            new MenuOption { Text = "Mage - Powerful magic user, low HP", Action = null }
-        };
+            terminal.WriteLine("Invalid name!", "red");
+            await Task.Delay(2000);
+            return;
+        }
         
-        var classChoice = await terminal.GetMenuChoice(classOptions);
-        var selectedClass = (CharacterClass)classChoice;
+        // Try to load existing player
+        currentPlayer = saveManager.LoadPlayer(playerName);
         
-        var player = new Player(realName, characterName, selectedClass);
-        
-        terminal.WriteLine("");
-        terminal.WriteLine($"Welcome, {characterName} the {selectedClass}!", "bright_green");
-        await terminal.PressAnyKey();
-        
-        return player;
-    }
-    
-    private async Task EnterGameWorld()
-    {
-        worldSim.StartSimulation(worldNPCs);
-        await MainGameLoop();
-    }
-    
-    private async Task MainGameLoop()
-    {
-        while (currentPlayer.IsAlive && currentPlayer.HasTurns())
+        if (currentPlayer == null)
         {
-            // Check for daily reset
-            await dailySystem.CheckDailyReset();
-            
-            // Show current location
-            await ShowLocation();
-            
-            // Process world simulation
-            worldSim.SimulateStep();
-            
-            // Update game time
-            currentState.Hour++;
-            if (currentState.Hour >= 24)
+            // New player - create character
+            currentPlayer = await CreateNewPlayer(playerName);
+            if (currentPlayer == null)
             {
-                currentState.Hour = 0;
-                currentState.Day++;
-            }
-            
-            // Check win conditions
-            if (currentPlayer.IsRuler)
-            {
-                await ShowVictoryScreen();
-                break;
+                return; // Player cancelled creation
             }
         }
         
+        // Check if player is allowed to play
+        if (!currentPlayer.Allowed)
+        {
+            terminal.WriteLine("You are not allowed to play today!", "red");
+            await Task.Delay(2000);
+            return;
+        }
+        
+        // Check daily limits
+        if (!CheckDailyLimits())
+        {
+            terminal.WriteLine($"You have used all your turns for today! ({currentPlayer.TurnsLeft} left)", "red");
+            await Task.Delay(2000);
+            return;
+        }
+        
+        // Check if player is in prison
+        if (currentPlayer.DaysInPrison > 0)
+        {
+            await HandlePrison();
+            return;
+        }
+        
+        // Check if player is dead
         if (!currentPlayer.IsAlive)
         {
-            await ShowDeathScreen();
+            await HandleDeath();
+            return;
         }
-        else if (!currentPlayer.HasTurns())
-        {
-            await ShowOutOfTurnsScreen();
-        }
+        
+        // Enter main game using location system
+        await locationManager.EnterLocation(GameLocation.MainStreet, currentPlayer);
     }
     
-    private async Task ShowLocation()
+    /// <summary>
+    /// Create new player - based on NEW_PLAYER procedure from Pascal
+    /// </summary>
+    private async Task<Character> CreateNewPlayer(string playerName)
     {
         terminal.ClearScreen();
-        terminal.ShowStatusBar(
-            currentPlayer.Name,
-            currentPlayer.Level,
-            currentPlayer.CurrentHP,
-            currentPlayer.MaxHP,
-            currentPlayer.Gold,
-            currentPlayer.TurnsRemaining
-        );
-        
-        // Show current location (simplified for now)
-        switch (currentPlayer.CurrentLocation)
-        {
-            case "town_square":
-                await ShowTownSquare();
-                break;
-            case "tavern":
-                await ShowTavern();
-                break;
-            default:
-                await ShowTownSquare();
-                break;
-        }
-    }
-    
-    private async Task ShowTownSquare()
-    {
-        terminal.WriteLine("╔══════════════════════ TOWN SQUARE ══════════════════════╗", "yellow");
-        terminal.WriteLine("║                                                         ║", "yellow");
-        terminal.WriteLine("║  You stand in the bustling town square. People mill    ║", "white");
-        terminal.WriteLine("║  about, conducting their daily business.               ║", "white");
-        terminal.WriteLine("║                                                         ║", "yellow");
-        terminal.WriteLine("╚═════════════════════════════════════════════════════════╝", "yellow");
+        terminal.SetColor("bright_green");
+        terminal.WriteLine("Character Creation");
+        terminal.WriteLine("═════════════════");
+        terminal.WriteLine("");
+        terminal.SetColor("white");
+        terminal.WriteLine($"Welcome, {playerName}!");
+        terminal.WriteLine("You are about to enter the world of Usurper...");
         terminal.WriteLine("");
         
-        // Show NPCs present
-        var npcsHere = worldNPCs.Where(npc => npc.CurrentLocation == "town_square" && npc.IsAlive).ToList();
-        if (npcsHere.Any())
+        var newPlayer = new Character
         {
-            terminal.WriteLine("People here:", "cyan");
-            foreach (var npc in npcsHere.Take(5))
+            Name1 = playerName,
+            Name2 = playerName,
+            AI = CharacterAI.Human,
+            Age = 18,
+            Gold = 2000,
+            HP = 50,
+            MaxHP = 50,
+            Experience = 0,
+            Level = 1,
+            Strength = 10,
+            Defence = 10,
+            Stamina = 10,
+            Agility = 10,
+            Charisma = 10,
+            Dexterity = 10,
+            Wisdom = 10,
+            Mana = 10,
+            MaxMana = 10,
+            Allowed = true,
+            ID = Guid.NewGuid().ToString("N")[..15] // Generate unique ID
+        };
+        
+        // Character creation steps
+        newPlayer.Sex = await SelectSex();
+        newPlayer.Race = await SelectRace();
+        newPlayer.Class = await SelectClass();
+        
+        // Apply racial and class bonuses
+        ApplyRacialBonuses(newPlayer);
+        ApplyClassBonuses(newPlayer);
+        
+        // Set initial equipment
+        SetInitialEquipment(newPlayer);
+        
+        // Show character summary
+        await ShowCharacterSummary(newPlayer);
+        
+        var confirm = await terminal.GetInput("Create this character? (Y/N): ");
+        if (confirm.ToUpper() != "Y")
+        {
+            return null;
+        }
+        
+        // Save new player
+        saveManager.SavePlayer(newPlayer);
+        
+        terminal.WriteLine("Character created successfully!", "green");
+        await Task.Delay(2000);
+        
+        return newPlayer;
+    }
+    
+    /// <summary>
+    /// Get current location description for compatibility
+    /// </summary>
+    public string GetCurrentLocationDescription()
+    {
+        return locationManager?.GetCurrentLocationDescription() ?? "Unknown location";
+    }
+    
+    /// <summary>
+    /// Update status line with player info
+    /// </summary>
+    private void UpdateStatusLine()
+    {
+        var statusText = $"[{currentPlayer.DisplayName}] " +
+                        $"Level: {currentPlayer.Level} " +
+                        $"HP: {currentPlayer.HP}/{currentPlayer.MaxHP} " +
+                        $"Gold: {currentPlayer.Gold} " +
+                        $"Turns: {currentPlayer.TurnsLeft}";
+        
+        terminal.SetStatusLine(statusText);
+    }
+    
+    /// <summary>
+    /// Get NPCs in a specific location (for location system compatibility)
+    /// </summary>
+    public List<NPC> GetNPCsInLocation(GameLocation locationId)
+    {
+        return locationManager?.GetNPCsInLocation(locationId) ?? new List<NPC>();
+    }
+    
+    /// <summary>
+    /// Add NPC to a specific location
+    /// </summary>
+    public void AddNPCToLocation(GameLocation locationId, NPC npc)
+    {
+        locationManager?.AddNPCToLocation(locationId, npc);
+    }
+    
+    /// <summary>
+    /// Get current player for location system
+    /// </summary>
+    public Character GetCurrentPlayer()
+    {
+        return currentPlayer;
+    }
+    
+    /// <summary>
+    /// Check daily limits - based on CHECK_ALLOWED from Pascal
+    /// </summary>
+    private bool CheckDailyLimits()
+    {
+        // Check if it's a new day
+        if (dailyManager.IsNewDay())
+        {
+            dailyManager.RunDailyMaintenance(currentPlayer);
+        }
+        
+        return currentPlayer.TurnsLeft > 0;
+    }
+    
+    /// <summary>
+    /// Handle player death - based on death handling from Pascal
+    /// </summary>
+    private async Task HandleDeath()
+    {
+        terminal.ClearScreen();
+        terminal.ShowANSIArt("DEATH");
+        terminal.SetColor("red");
+        terminal.WriteLine("You are DEAD!");
+        terminal.WriteLine("");
+        terminal.SetColor("white");
+        terminal.WriteLine("Your reign of terror has come to an end...");
+        terminal.WriteLine("");
+        
+        // Check resurrections
+        if (currentPlayer.Resurrections > 0)
+        {
+            terminal.WriteLine($"You have {currentPlayer.Resurrections} resurrections left.");
+            var resurrect = await terminal.GetInput("Do you want to resurrect? (Y/N): ");
+            
+            if (resurrect.ToUpper() == "Y")
             {
-                terminal.WriteLine($"  • {npc.GetDisplayInfo()}", "white");
+                currentPlayer.Resurrections--;
+                currentPlayer.HP = currentPlayer.MaxHP / 2;
+                currentPlayer.Gold /= 2; // Lose half gold
+                
+                terminal.WriteLine("You have been resurrected!", "green");
+                await Task.Delay(2000);
+                return;
             }
-            terminal.WriteLine("");
         }
         
-        var options = new List<MenuOption>
-        {
-            new MenuOption { Text = "Go to the Tavern", Action = async () => { currentPlayer.CurrentLocation = "tavern"; } },
-            new MenuOption { Text = "Visit the Market", Action = async () => { currentPlayer.CurrentLocation = "market"; } },
-            new MenuOption { Text = "Enter the Dungeon", Action = async () => await EnterDungeon() },
-            new MenuOption { Text = "View Character Stats", Action = async () => await ShowCharacterStats() },
-            new MenuOption { Text = "Save and Quit", Action = async () => await SaveAndQuit() }
-        };
+        // Player chooses to stay dead or out of resurrections
+        terminal.WriteLine("Your adventure ends here...", "gray");
+        await Task.Delay(3000);
         
-        if (npcsHere.Any())
+        // Add to hall of fame if high level
+        if (currentPlayer.Level >= 10)
         {
-            options.Insert(0, new MenuOption { Text = "Talk to someone", Action = async () => await TalkToNPC(npcsHere) });
+            // TODO: Add to fame file
         }
         
-        var choice = await terminal.GetMenuChoice(options);
-        if (choice >= 0)
-        {
-            await options[choice].Action();
-            currentPlayer.SpendTurn();
-        }
+        // Delete character or mark as dead
+        currentPlayer.Deleted = true;
+        saveManager.SavePlayer(currentPlayer);
     }
     
-    private async Task ShowTavern()
+    /// <summary>
+    /// Handle prison - based on prison handling from Pascal
+    /// </summary>
+    private async Task HandlePrison()
     {
-        terminal.WriteLine("╔═════════════════ THE DRUNKEN DRAGON TAVERN ═════════════════╗", "yellow");
-        terminal.WriteLine("║                                                             ║", "yellow");
-        terminal.WriteLine("║  The smoky tavern is filled with boisterous laughter and   ║", "white");
-        terminal.WriteLine("║  the clash of tankards. A fireplace crackles in the corner.║", "white");
-        terminal.WriteLine("║                                                             ║", "yellow");
-        terminal.WriteLine("╚═════════════════════════════════════════════════════════════╝", "yellow");
+        terminal.ClearScreen();
+        terminal.SetColor("gray");
+        terminal.WriteLine("You are in PRISON!");
+        terminal.WriteLine("═══════════════════");
         terminal.WriteLine("");
+        terminal.WriteLine($"Days remaining: {currentPlayer.DaysInPrison}");
+        terminal.WriteLine("");
+        terminal.WriteLine("1. Wait it out");
+        terminal.WriteLine("2. Attempt escape");
+        terminal.WriteLine("3. Quit");
         
-        var options = new List<MenuOption>
-        {
-            new MenuOption { Text = "Order a drink (5 gold)", Action = async () => await OrderDrink() },
-            new MenuOption { Text = "Listen for rumors", Action = async () => await ListenForRumors() },
-            new MenuOption { Text = "Rest for the night (20 gold)", Action = async () => await Rest() },
-            new MenuOption { Text = "Return to Town Square", Action = async () => { currentPlayer.CurrentLocation = "town_square"; } }
-        };
+        var choice = await terminal.GetMenuChoice();
         
-        var choice = await terminal.GetMenuChoice(options);
-        if (choice >= 0)
+        switch (choice)
         {
-            await options[choice].Action();
-            if (choice != 3) // Don't spend turn for leaving
-                currentPlayer.SpendTurn();
+            case 0: // Wait
+                currentPlayer.DaysInPrison--;
+                terminal.WriteLine("You wait patiently...", "gray");
+                await Task.Delay(2000);
+                break;
+                
+            case 1: // Escape
+                if (currentPlayer.PrisonEscapes > 0)
+                {
+                    await AttemptPrisonEscape();
+                }
+                else
+                {
+                    terminal.WriteLine("You have no escape attempts left!", "red");
+                    await Task.Delay(2000);
+                }
+                break;
+                
+            case 2: // Quit
+                await QuitGame();
+                break;
         }
     }
     
-    private async Task OrderDrink()
+    /// <summary>
+    /// Attempt prison escape
+    /// </summary>
+    private async Task AttemptPrisonEscape()
     {
-        if (!currentPlayer.CanAfford(5))
+        currentPlayer.PrisonEscapes--;
+        
+        terminal.WriteLine("You attempt to escape...", "yellow");
+        await Task.Delay(1000);
+        
+        // Escape chance based on stats
+        var escapeChance = (currentPlayer.Dexterity + currentPlayer.Agility) / 4;
+        var roll = GD.RandRange(1, 100);
+        
+        if (roll <= escapeChance)
         {
-            terminal.WriteLine("You don't have enough gold!", "red");
-            await terminal.PressAnyKey();
-            return;
-        }
-        
-        currentPlayer.SpendGold(5);
-        terminal.WriteLine("You order a frothy mug of ale and drink deeply.", "yellow");
-        
-        // Small chance of getting drunk or hearing rumors
-        if (GD.Randf() < 0.3f)
-        {
-            terminal.WriteLine("The ale loosens your tongue and you overhear some interesting gossip...", "cyan");
-            await ListenForRumors();
-        }
-        
-        currentPlayer.Heal(5);
-        await terminal.PressAnyKey();
-    }
-    
-    private async Task ListenForRumors()
-    {
-        terminal.WriteLine("\nYou listen carefully to the tavern chatter...", "cyan");
-        await Task.Delay(1500);
-        
-        var rumors = new[]
-        {
-            "I heard strange noises coming from the dungeon last night...",
-            "The king has been acting strangely lately.",
-            "Someone found a magical sword deep in the dungeon!",
-            "The merchant's guild is looking for caravan guards.",
-            "They say the deeper dungeon levels hold incredible treasures...",
-            "I wouldn't trust the castle guards if I were you.",
-            "There's talk of forming a new gang to challenge the rulers."
-        };
-        
-        var rumor = rumors[GD.RandRange(0, rumors.Length - 1)];
-        terminal.WriteLine($"\"{rumor}\"", "bright_cyan");
-        await terminal.PressAnyKey();
-    }
-    
-    private async Task Rest()
-    {
-        if (!currentPlayer.CanAfford(20))
-        {
-            terminal.WriteLine("You don't have enough gold to rent a room!", "red");
-            await terminal.PressAnyKey();
-            return;
-        }
-        
-        currentPlayer.SpendGold(20);
-        terminal.WriteLine("You rent a room and get a good night's rest.", "green");
-        
-        var healAmount = currentPlayer.MaxHP / 2;
-        currentPlayer.Heal(healAmount);
-        
-        terminal.WriteLine($"You feel refreshed! (+{healAmount} HP)", "bright_green");
-        await terminal.PressAnyKey();
-    }
-    
-    private async Task EnterDungeon()
-    {
-        terminal.WriteLine("You descend into the dark dungeon...", "gray");
-        await terminal.PressAnyKey("Press any key to continue into the depths...");
-        
-        // Simple dungeon encounter
-        if (GD.Randf() < 0.7f) // 70% chance of encounter
-        {
-            await DungeonEncounter();
+            terminal.WriteLine("You successfully escape!", "green");
+            currentPlayer.DaysInPrison = 0;
+            currentPlayer.Location = 1; // Return to main street
         }
         else
         {
-            terminal.WriteLine("You explore the dungeon but find nothing of interest.", "gray");
-            await terminal.PressAnyKey();
-        }
-    }
-    
-    private async Task DungeonEncounter()
-    {
-        terminal.WriteLine("A monster emerges from the shadows!", "red");
-        await terminal.PressAnyKey();
-        
-        // Simple combat simulation
-        var monsterHP = 20;
-        var monsterAttack = 8;
-        
-        while (monsterHP > 0 && currentPlayer.IsAlive)
-        {
-            // Player attacks
-            var playerDamage = currentPlayer.GetAttackPower() + GD.RandRange(1, 6);
-            monsterHP -= playerDamage;
-            terminal.WriteLine($"You attack for {playerDamage} damage!", "yellow");
-            
-            if (monsterHP <= 0)
-            {
-                terminal.WriteLine("The monster is defeated!", "bright_green");
-                var exp = 50 + GD.RandRange(10, 30);
-                var gold = GD.RandRange(10, 50);
-                currentPlayer.GainExperience(exp);
-                currentPlayer.GainGold(gold);
-                currentPlayer.MonsterKills++;
-                terminal.WriteLine($"You gain {exp} experience and {gold} gold!", "bright_yellow");
-                break;
-            }
-            
-            // Monster attacks
-            var monsterDamage = monsterAttack + GD.RandRange(1, 4);
-            currentPlayer.TakeDamage(monsterDamage);
-            terminal.WriteLine($"The monster attacks you for {monsterDamage} damage!", "red");
-            
-            if (!currentPlayer.IsAlive)
-            {
-                terminal.WriteLine("You have been defeated!", "bright_red");
-                currentPlayer.Die();
-                break;
-            }
-            
-            await terminal.PressAnyKey("Press any key to continue combat...");
+            terminal.WriteLine("You are caught trying to escape!", "red");
+            currentPlayer.DaysInPrison += 2; // Extra penalty
         }
         
-        await terminal.PressAnyKey();
+        await Task.Delay(2000);
     }
     
-    private async Task TalkToNPC(List<NPC> npcs)
-    {
-        terminal.WriteLine("Who would you like to talk to?", "yellow");
-        
-        var npcOptions = npcs.Select(npc => new MenuOption
-        {
-            Text = npc.GetDisplayInfo(),
-            Action = async () => await InteractWithNPC(npc)
-        }).ToList();
-        
-        var choice = await terminal.GetMenuChoice(npcOptions);
-        if (choice >= 0)
-        {
-            await npcOptions[choice].Action();
-        }
-    }
-    
-    private async Task InteractWithNPC(NPC npc)
-    {
-        var greeting = npc.GetGreeting(currentPlayer);
-        terminal.WriteLine($"{npc.Name}: \"{greeting}\"", "yellow");
-        
-        // Simple interaction options
-        var options = new List<MenuOption>
-        {
-            new MenuOption { Text = "Chat", Action = async () => await ChatWithNPC(npc) },
-            new MenuOption { Text = "Ask about rumors", Action = async () => await AskAboutRumors(npc) }
-        };
-        
-        // Add class-specific options
-        if (npc.Archetype == "merchant")
-        {
-            options.Insert(0, new MenuOption { Text = "Trade", Action = async () => await TradeWithNPC(npc) });
-        }
-        
-        var choice = await terminal.GetMenuChoice(options);
-        if (choice >= 0)
-        {
-            await options[choice].Action();
-        }
-    }
-    
-    private async Task ChatWithNPC(NPC npc)
-    {
-        var responses = new[]
-        {
-            "It's good to see a friendly face around here.",
-            "Times are tough, but we make do.",
-            "Have you heard the latest news?",
-            "Be careful out there - danger lurks everywhere.",
-            "The world is changing, and not for the better."
-        };
-        
-        var response = responses[GD.RandRange(0, responses.Length - 1)];
-        terminal.WriteLine($"{npc.Name}: \"{response}\"", "cyan");
-        await terminal.PressAnyKey();
-    }
-    
-    private async Task AskAboutRumors(NPC npc)
-    {
-        await ListenForRumors(); // Reuse rumor system
-    }
-    
-    private async Task TradeWithNPC(NPC npc)
-    {
-        terminal.WriteLine($"{npc.Name}: \"What would you like to trade?\"", "yellow");
-        terminal.WriteLine("Trading system not yet implemented.", "gray");
-        await terminal.PressAnyKey();
-    }
-    
-    private async Task ShowCharacterStats()
-    {
-        currentPlayer.ShowPlayerStats(terminal);
-        await terminal.PressAnyKey();
-    }
-    
-    private async Task ShowVictoryScreen()
-    {
-        terminal.ClearScreen();
-        terminal.WriteLine("🎉 VICTORY! 🎉", "bright_yellow");
-        terminal.WriteLine("You have become the ruler of the realm!", "bright_green");
-        await terminal.PressAnyKey();
-    }
-    
-    private async Task ShowDeathScreen()
-    {
-        terminal.ClearScreen();
-        terminal.WriteLine("☠ DEATH ☠", "bright_red");
-        terminal.WriteLine("Your adventure has come to an end...", "red");
-        await terminal.PressAnyKey();
-    }
-    
-    private async Task ShowOutOfTurnsScreen()
-    {
-        terminal.ClearScreen();
-        terminal.WriteLine("Out of turns for today!", "yellow");
-        terminal.WriteLine("Come back tomorrow for more adventure!", "cyan");
-        await terminal.PressAnyKey();
-    }
-    
-    private async Task LoadGame()
-    {
-        terminal.WriteLine("Load game not yet implemented.", "gray");
-        await terminal.PressAnyKey();
-    }
-    
-    private async Task ShowInstructions()
-    {
-        terminal.ClearScreen();
-        terminal.WriteLine("USURPER INSTRUCTIONS", "bright_yellow");
-        terminal.WriteLine("", "white");
-        terminal.WriteLine("Your goal is to become the ruler of the realm by gaining", "white");
-        terminal.WriteLine("experience, gold, and power. Fight monsters, interact with", "white");
-        terminal.WriteLine("NPCs, and work your way up from peasant to ruler!", "white");
-        await terminal.PressAnyKey();
-    }
-    
-    private async Task ShowCredits()
-    {
-        terminal.ClearScreen();
-        terminal.WriteLine("USURPER REBORN", "bright_yellow");
-        terminal.WriteLine("", "white");
-        terminal.WriteLine("A remake of the classic BBS door game by Jakob Dangarden", "white");
-        terminal.WriteLine("Remake created with Godot and C#", "white");
-        terminal.WriteLine("Featuring advanced NPC AI and emergent storytelling", "white");
-        await terminal.PressAnyKey();
-    }
-    
-    private async Task SaveAndQuit()
-    {
-        terminal.WriteLine("Saving game...", "yellow");
-        await Task.Delay(1000);
-        terminal.WriteLine("Game saved!", "green");
-        await QuitGame();
-    }
-    
+    /// <summary>
+    /// Quit game and save
+    /// </summary>
     private async Task QuitGame()
     {
-        terminal.WriteLine("Thanks for playing Usurper Reborn!", "bright_cyan");
-        await Task.Delay(2000);
+        terminal.WriteLine("Saving game...", "yellow");
+        
+        if (currentPlayer != null)
+        {
+            saveManager.SavePlayer(currentPlayer);
+        }
+        
+        terminal.WriteLine("Goodbye!", "green");
+        await Task.Delay(1000);
+        
         GetTree().Quit();
     }
+    
+    // Helper methods
+    private string GetTimeOfDay()
+    {
+        var hour = DateTime.Now.Hour;
+        return hour switch
+        {
+            >= 6 and < 12 => "morning",
+            >= 12 and < 18 => "afternoon",
+            >= 18 and < 22 => "evening",
+            _ => "night"
+        };
+    }
+    
+    private string GetWeather()
+    {
+        var weather = new[] { "clear", "cloudy", "misty", "cool", "warm", "breezy" };
+        return weather[GD.RandRange(0, weather.Length - 1)];
+    }
+    
+    /// <summary>
+    /// Navigate to a specific location using the location manager
+    /// </summary>
+    public async Task<bool> NavigateToLocation(GameLocation destination)
+    {
+        return await locationManager.NavigateTo(destination, currentPlayer);
+    }
+    
+    // Placeholder methods for game actions
+    private async Task ShowInstructions() => await ShowInfoScreen("Instructions", "Game instructions will be here...");
+    private async Task ListPlayers() => await ShowInfoScreen("Player List", "Player list will be here...");
+    private async Task ShowTeams() => await ShowInfoScreen("Teams", "Team information will be here...");
+    private async Task ShowNews() => await ShowInfoScreen("News", "Yesterday's news will be here...");
+    private async Task ShowGameSettings() => await ShowInfoScreen("Game Settings", "Game settings will be here...");
+    private async Task ShowStatus() => await ShowInfoScreen("Status", $"Player: {currentPlayer?.DisplayName}\nLevel: {currentPlayer?.Level}\nHP: {currentPlayer?.HP}/{currentPlayer?.MaxHP}");
+    
+    private async Task ShowInfoScreen(string title, string content)
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine(title);
+        terminal.SetColor("cyan");
+        terminal.WriteLine(new string('═', title.Length));
+        terminal.WriteLine("");
+        terminal.SetColor("white");
+        terminal.WriteLine(content);
+        terminal.WriteLine("");
+        terminal.WriteLine("Press any key to continue...");
+        terminal.WaitForKey();
+    }
+    
+    // Placeholder initialization methods
+    private void ReadStartCfgValues() { /* Load config from file */ }
+    private void InitializeItems() { /* Load items from data */ }
+    private void InitializeMonsters() { /* Load monsters from data */ }
+    private void InitializeNPCs() { /* Load NPCs from data */ }
+    private void InitializeLevels() { /* Load level data */ }
+    private void InitializeGuards() { /* Load guard data */ }
+    
+    // Character creation helpers
+    private async Task<CharacterSex> SelectSex() => CharacterSex.Male; // Placeholder
+    private async Task<CharacterRace> SelectRace() => CharacterRace.Human; // Placeholder
+    private async Task<CharacterClass> SelectClass() => CharacterClass.Warrior; // Placeholder
+    private void ApplyRacialBonuses(Character character) { /* Apply bonuses */ }
+    private void ApplyClassBonuses(Character character) { /* Apply bonuses */ }
+    private void SetInitialEquipment(Character character) { /* Set starting gear */ }
+    private async Task ShowCharacterSummary(Character character) { /* Show stats */ }
 }
 
+/// <summary>
+/// Menu option for terminal menus
+/// </summary>
+public class MenuOption
+{
+    public string Key { get; set; } = "";
+    public string Text { get; set; } = "";
+    public Func<Task> Action { get; set; } = async () => { };
+}
+
+/// <summary>
+/// Game state tracking
+/// </summary>
 public class GameState
 {
-    public int Day { get; set; } = 1;
-    public int Hour { get; set; } = 6;
-    public int TurnsRemaining { get; set; } = 250;
+    public int GameDate { get; set; }
+    public int LastDayRun { get; set; }
+    public int PlayersOnline { get; set; }
+    public bool MaintenanceRunning { get; set; }
+}
+
+/// <summary>
+/// Online player tracking
+/// </summary>
+public class OnlinePlayer
+{
+    public string Name { get; set; } = "";
+    public string Node { get; set; } = "";
+    public DateTime Arrived { get; set; }
+    public string Location { get; set; } = "";
+    public bool IsNPC { get; set; }
+}
+
+/// <summary>
+/// Config record based on Pascal ConfigRecord
+/// </summary>
+public class ConfigRecord
+{
+    public bool MarkNPCs { get; set; } = true;
+    public int LevelDiff { get; set; } = 5;
+    public bool FastPlay { get; set; } = false;
+    public string Anchor { get; set; } = "Anchor road";
+    public bool SimulNode { get; set; } = false;
+    public bool AutoMaint { get; set; } = true;
+    // Add more config fields as needed
+}
+
+/// <summary>
+/// King record based on Pascal KingRec
+/// </summary>
+public class KingRecord
+{
+    public string Name { get; set; } = "";
+    public CharacterAI AI { get; set; } = CharacterAI.Computer;
+    public CharacterSex Sex { get; set; } = CharacterSex.Male;
+    public long DaysInPower { get; set; } = 0;
+    public byte Tax { get; set; } = 10;
+    public long Treasury { get; set; } = 50000;
+    // Add more king fields as needed
 } 

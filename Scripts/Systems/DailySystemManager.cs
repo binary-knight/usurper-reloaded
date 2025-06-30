@@ -50,14 +50,18 @@ public class DailySystemManager
             terminal.WriteLine("", "white");
         }
         
-        // Reset player turns
+        // Reset player turns and haggling attempts
         var player = GameEngine.Instance?.CurrentPlayer;
         if (player != null)
         {
             var config = ConfigManager.GetConfig();
             player.TurnsRemaining = config?.StartingTurns ?? 250;
             
+            // Reset haggling attempts (Pascal compatibility)
+            HagglingEngine.ResetDailyHaggling(player);
+            
             terminal?.WriteLine($"Your turns have been restored! ({player.TurnsRemaining} turns)", "bright_green");
+            terminal?.WriteLine("Shop haggling attempts have been reset!", "bright_green");
             terminal?.WriteLine("", "white");
         }
         

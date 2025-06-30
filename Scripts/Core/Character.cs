@@ -2,283 +2,356 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
+/// <summary>
+/// Character class based directly on Pascal UserRec structure from INIT.PAS
+/// This maintains perfect compatibility with the original game data
+/// </summary>
 public class Character
 {
-    public string Id { get; set; }
-    public string Name { get; set; }
-    public CharacterClass Class { get; set; }
-    public int Level { get; set; } = 1;
-    public long Experience { get; set; } = 0;
+    // Basic character info - from Pascal UserRec
+    public string Name1 { get; set; } = "";        // bbs/real name
+    public string Name2 { get; set; } = "";        // game alias (this is the main name used)
+    public CharacterAI AI { get; set; }             // (C)omputer or (H)uman
+    public CharacterRace Race { get; set; }         // races
+    public int Age { get; set; }                    // age
+    public long Gold { get; set; }                  // gold in hand
+    public long HP { get; set; }                    // hitpoints
+    public long Experience { get; set; }            // experience
+    public long Level { get; set; }                 // level
+    public long BankGold { get; set; }              // gold in bank
+    public long Chivalry { get; set; }              // chivalry
+    public long Darkness { get; set; }              // darkness
+    public int Fights { get; set; }                 // dungeon fights
+    public long Strength { get; set; }              // strength
+    public long Defence { get; set; }               // defence
+    public long Healing { get; set; }               // healing potions
+    public bool Allowed { get; set; }               // allowed to play
+    public long MaxHP { get; set; }                 // max hitpoints
+    public long LastOn { get; set; }                // laston, date
+    public int AgePlus { get; set; }                // how soon before getting one year older
+    public int DarkNr { get; set; }                 // dark deeds left
+    public int ChivNr { get; set; }                 // good deeds left
+    public int PFights { get; set; }                // player fights
+    public bool King { get; set; }                  // king?
+    public int Location { get; set; }               // offline location
+    public string Team { get; set; } = "";          // team name
+    public string TeamPW { get; set; } = "";        // team password
+    public int TeamRec { get; set; }                // team record, days had town
+    public int BGuard { get; set; }                 // type of guard
+    public bool CTurf { get; set; }                 // is team in control of town
+    public int GnollP { get; set; }                 // gnoll poison, temporary
+    public int Mental { get; set; }                 // mental health
+    public int Addict { get; set; }                 // drug addiction
+    public bool WellWish { get; set; }              // has visited wishing well
+    public int Height { get; set; }                 // height
+    public int Weight { get; set; }                 // weight
+    public int Eyes { get; set; }                   // eye color
+    public int Hair { get; set; }                   // hair color
+    public int Skin { get; set; }                   // skin color
+    public CharacterSex Sex { get; set; }           // sex, male=1 female=2
+    public long Mana { get; set; }                  // mana, spellcasters only
+    public long MaxMana { get; set; }               // maxmana
+    public long Stamina { get; set; }               // stamina
+    public long Agility { get; set; }               // agility
+    public long Charisma { get; set; }              // charisma
+    public long Dexterity { get; set; }             // dexterity
+    public long Wisdom { get; set; }                // wisdom
+    public long WeapPow { get; set; }               // weapon power
+    public long ArmPow { get; set; }                // armor power
     
-    // Core Stats
-    public int Strength { get; set; }
-    public int Dexterity { get; set; }
-    public int Constitution { get; set; }
-    public int Intelligence { get; set; }
-    public int Wisdom { get; set; }
-    public int Charisma { get; set; }
+    // Disease status
+    public bool Blind { get; set; }                 // blind?
+    public bool Plague { get; set; }                // plague?
+    public bool Smallpox { get; set; }              // smallpox?
+    public bool Measles { get; set; }               // measles?
+    public bool Leprosy { get; set; }               // leprosy?
+    public int Mercy { get; set; }                  // mercy??
     
-    // Health and Mana
-    public int CurrentHP { get; set; }
-    public int MaxHP { get; set; }
-    public int CurrentMana { get; set; }
-    public int MaxMana { get; set; }
+    // Inventory - array from Pascal
+    public List<int> Item { get; set; }             // inventory items (item IDs)
+    public List<ObjType> ItemType { get; set; }     // type of items in inventory
     
-    // Resources
-    public int Gold { get; set; }
-    public int TurnsRemaining { get; set; }
+    // Phrases used in different situations (6 phrases from Pascal)
+    public List<string> Phrases { get; set; }       // phr array[1..6]
+    /*
+     * 1. what to say when being attacked
+     * 2. what to say when you have defeated somebody
+     * 3. what to say when you have been defeated
+     * 4. what to say when you are begging for mercy
+     * 5. what to say when you spare opponents life
+     * 6. what to say when you don't spare opponents life
+     */
     
-    // Location and Status
-    public string CurrentLocation { get; set; } = "town_square";
-    public bool IsAlive => CurrentHP > 0;
-    public bool IsRuler { get; set; } = false;
+    public bool AutoHeal { get; set; }              // autoheal in battle?
+    public CharacterClass Class { get; set; }       // class
+    public int Loyalty { get; set; }                // loyalty% (0-100)
+    public int Haunt { get; set; }                  // how many demons haunt player
+    public char Master { get; set; }                // level master player uses
+    public int TFights { get; set; }                // team fights left
+    public int Thiefs { get; set; }                 // thieveries left
+    public int Brawls { get; set; }                 // brawls left
+    public int Assa { get; set; }                   // assassinations left
     
-    // Equipment
-    public Equipment EquippedWeapon { get; set; }
-    public Equipment EquippedArmor { get; set; }
-    public Equipment EquippedShield { get; set; }
-    public List<Equipment> Inventory { get; set; } = new List<Equipment>();
+    // Player description (4 lines from Pascal)
+    public List<string> Description { get; set; }   // desc array[1..4]
     
-    // Active Effects
-    public Dictionary<string, StatusEffect> ActiveEffects { get; set; } = new Dictionary<string, StatusEffect>();
+    public int Poison { get; set; }                 // poison, adds to weapon
     
-    // Gang/Team
-    public string GangId { get; set; }
-    public List<string> GangMembers { get; set; } = new List<string>();
+    // Spells (from Pascal: array[1..global_maxspells, 1..2] of boolean)
+    public List<List<bool>> Spell { get; set; }     // spells [spell][known/mastered]
     
+    // Close combat skills (from Pascal: array[1..global_maxcombat] of int)
+    public List<int> Skill { get; set; }            // close combat skills
+    
+    public int Trains { get; set; }                 // training sessions
+    
+    // Equipment slots (item pointers from Pascal)
+    public int LHand { get; set; }                  // item in left hand
+    public int RHand { get; set; }                  // item in right hand
+    public int Head { get; set; }                   // head
+    public int Body { get; set; }                   // body
+    public int Arms { get; set; }                   // arms
+    public int LFinger { get; set; }                // left finger
+    public int RFinger { get; set; }                // right finger
+    public int Legs { get; set; }                   // legs
+    public int Feet { get; set; }                   // feet
+    public int Waist { get; set; }                  // waist
+    public int Neck { get; set; }                   // neck
+    public int Neck2 { get; set; }                  // neck2
+    public int Face { get; set; }                   // face
+    public int Shield { get; set; }                 // shield
+    public int Hands { get; set; }                  // hands
+    public int ABody { get; set; }                  // around body
+    
+    public bool Immortal { get; set; }              // never deleted for inactivity
+    public string BattleCry { get; set; } = "";     // battle cry
+    public int BGuardNr { get; set; }               // number of doorguards
+    
+    // Battle temporary flags
+    public bool Casted { get; set; }                // used in battles
+    public long Punch { get; set; }                 // player punch, temporary
+    public long Absorb { get; set; }                // absorb punch, temporary
+    public bool UsedItem { get; set; }              // has used item in battle
+    
+    // Kill statistics
+    public long MKills { get; set; }                // monster kills
+    public long MDefeats { get; set; }              // monster defeats
+    public long PKills { get; set; }                // player kills
+    public long PDefeats { get; set; }              // player defeats
+    
+    // New for version 0.08+
+    public long Interest { get; set; }              // accumulated bank interest
+    public long AliveBonus { get; set; }            // staying alive bonus
+    public bool Expert { get; set; }                // expert menus ON/OFF
+    public int MaxTime { get; set; }                // max minutes per session
+    public byte Ear { get; set; }                   // internode message handling
+    public char CastIn { get; set; }                // casting flag
+    public int Weapon { get; set; }                 // OLD mode weapon
+    public int Armor { get; set; }                  // OLD mode armor
+    public int APow { get; set; }                   // OLD mode armor power
+    public int WPow { get; set; }                   // OLD mode weapon power
+    public byte DisRes { get; set; }                // disease resistance
+    public bool AMember { get; set; }               // alchemist society member
+    
+    // Medals (from Pascal: array[1..20] of boolean)
+    public List<bool> Medal { get; set; }           // medals earned
+    
+    public bool BankGuard { get; set; }             // bank guard?
+    public long BankWage { get; set; }              // salary from bank
+    public byte WeapHag { get; set; } = 3;          // weapon shop haggling attempts left
+    public byte ArmHag { get; set; } = 3;           // armor shop haggling attempts left
+    public int RecNr { get; set; }                  // file record number
+    public bool AutoMenu { get; set; }              // auto draw menus
+    
+    // New for version 0.14+
+    public int Quests { get; set; }                 // completed missions/quests
+    public bool Deleted { get; set; }               // is record deleted
+    public string God { get; set; } = "";           // worshipped god name
+    public long RoyQuests { get; set; }             // royal quests accomplished
+    
+    // New for version 0.17+
+    public long RoyTaxPaid { get; set; }            // royal taxes paid
+    public byte Wrestlings { get; set; }            // wrestling matches left
+    public byte DrinksLeft { get; set; }            // drinks left today
+    public byte DaysInPrison { get; set; }          // days left in prison
+    
+    // New for version 0.18+
+    public byte UmanBearTries { get; set; }         // bear taming attempts
+    public byte Massage { get; set; }               // massages today
+    public byte GymSessions { get; set; }           // gym sessions left
+    public byte GymOwner { get; set; }              // gym controller
+    public byte GymCard { get; set; }               // free gym card
+    public int RoyQuestsToday { get; set; }         // royal quests today
+    public byte KingVotePoll { get; set; }          // days since king vote
+    public byte KingLastVote { get; set; }          // last vote value
+    
+    // Marriage and family
+    public bool Married { get; set; }               // is married?
+    public int Kids { get; set; }                   // number of children
+    public int IntimacyActs { get; set; }           // intimacy acts left today
+    public byte Pregnancy { get; set; }             // pregnancy days (0=not pregnant)
+    public string FatherID { get; set; } = "";      // father's unique ID
+    public byte AutoHate { get; set; }              // auto-worsen relations
+    public string ID { get; set; } = "";            // unique player ID
+    public bool TaxRelief { get; set; }             // free from tax
+    
+    public int MarriedTimes { get; set; }           // marriage counter
+    public int BardSongsLeft { get; set; }          // bard songs left
+    public byte PrisonEscapes { get; set; }         // escape attempts allowed
+    public byte FileType { get; set; }              // file type (1=player, 2=npc)
+    public int Resurrections { get; set; }          // resurrections left
+    
+    // New for version 0.20+
+    public int PickPocketAttempts { get; set; }     // pick pocket attempts
+    public int BankRobberyAttempts { get; set; }    // bank robbery attempts
+    
+    // Constructor to initialize lists
     public Character()
     {
-        Id = Guid.NewGuid().ToString();
-    }
-    
-    public Character(string name, CharacterClass charClass) : this()
-    {
-        Name = name;
-        Class = charClass;
-        InitializeStats();
-    }
-    
-    private void InitializeStats()
-    {
-        var classData = CharacterDataManager.GetClassData(Class);
-        if (classData != null)
-        {
-            Strength = classData.BaseStats["strength"];
-            Dexterity = classData.BaseStats["dexterity"];
-            Constitution = classData.BaseStats["constitution"];
-            Intelligence = classData.BaseStats["intelligence"];
-            Wisdom = classData.BaseStats["wisdom"];
-            Charisma = classData.BaseStats["charisma"];
-            
-            MaxHP = classData.BaseHP;
-            CurrentHP = MaxHP;
-            MaxMana = classData.BaseMana;
-            CurrentMana = MaxMana;
-        }
-    }
-    
-    public void GainExperience(long exp)
-    {
-        Experience += exp;
-        CheckLevelUp();
-    }
-    
-    private void CheckLevelUp()
-    {
-        var expTable = CharacterDataManager.GetExperienceTable();
-        while (Level < expTable.Length - 1 && Experience >= expTable[Level])
-        {
-            LevelUp();
-        }
-    }
-    
-    private void LevelUp()
-    {
-        Level++;
-        var classData = CharacterDataManager.GetClassData(Class);
+        // Initialize lists based on Pascal array sizes
+        Item = new List<int>(new int[GameConfig.MaxItem]);
+        ItemType = new List<ObjType>(new ObjType[GameConfig.MaxItem]);
+        Phrases = new List<string>(new string[6]);
+        Description = new List<string>(new string[4]);
         
-        if (classData != null)
+        // Initialize spells array [maxspells][2]
+        Spell = new List<List<bool>>();
+        for (int i = 0; i < GameConfig.MaxSpells; i++)
         {
-            // Increase stats
-            Strength += classData.StatProgression["strength"];
-            Dexterity += classData.StatProgression["dexterity"];
-            Constitution += classData.StatProgression["constitution"];
-            Intelligence += classData.StatProgression["intelligence"];
-            Wisdom += classData.StatProgression["wisdom"];
-            Charisma += classData.StatProgression["charisma"];
-            
-            // Increase HP and Mana
-            var hpGain = classData.HPPerLevel + GetConstitutionBonus();
-            var manaGain = classData.ManaPerLevel + GetIntelligenceBonus();
-            
-            MaxHP += hpGain;
-            CurrentHP += hpGain; // Full heal on level up
-            MaxMana += manaGain;
-            CurrentMana += manaGain;
+            Spell.Add(new List<bool> { false, false });
         }
         
-        // Trigger level up event
-        OnLevelUp();
-    }
-    
-    protected virtual void OnLevelUp()
-    {
-        // Override in derived classes for specific behavior
-    }
-    
-    public int GetAttackPower()
-    {
-        var baseDamage = GetStrengthBonus();
-        var weaponDamage = EquippedWeapon?.Damage ?? 1;
-        return baseDamage + weaponDamage;
-    }
-    
-    public int GetArmorClass()
-    {
-        var baseAC = 10 + GetDexterityBonus();
-        var armorBonus = EquippedArmor?.ArmorClass ?? 0;
-        var shieldBonus = EquippedShield?.ArmorClass ?? 0;
-        return baseAC + armorBonus + shieldBonus;
-    }
-    
-    public int GetStrengthBonus() => (Strength - 10) / 2;
-    public int GetDexterityBonus() => (Dexterity - 10) / 2;
-    public int GetConstitutionBonus() => (Constitution - 10) / 2;
-    public int GetIntelligenceBonus() => (Intelligence - 10) / 2;
-    public int GetWisdomBonus() => (Wisdom - 10) / 2;
-    public int GetCharismaBonus() => (Charisma - 10) / 2;
-    
-    public void AddEffect(string effectName, int durationMinutes, Dictionary<string, object> parameters = null)
-    {
-        var effect = new StatusEffect
-        {
-            Name = effectName,
-            Duration = durationMinutes,
-            StartTime = DateTime.Now,
-            Parameters = parameters ?? new Dictionary<string, object>()
-        };
+        // Initialize combat skills
+        Skill = new List<int>(new int[GameConfig.MaxCombat]);
         
-        ActiveEffects[effectName] = effect;
+        // Initialize medals
+        Medal = new List<bool>(new bool[20]);
     }
     
-    public void RemoveEffect(string effectName)
+    // Helper properties for commonly used calculations
+    public bool IsAlive => HP > 0;
+    public bool IsPlayer => AI == CharacterAI.Human;
+    public bool IsNPC => AI == CharacterAI.Computer;
+    public string DisplayName => !string.IsNullOrEmpty(Name2) ? Name2 : Name1;
+    public int TurnsLeft => Math.Max(0, GameConfig.TurnsPerDay - Fights - PFights);
+    
+    // Combat-related properties
+    public long WeaponValue => WeapPow;
+    public long ArmorValue => ArmPow;
+    public string WeaponName => GetEquippedItemName(RHand); // Right hand weapon
+    public string ArmorName => GetEquippedItemName(Body);   // Body armor
+    
+    // Status properties
+    public bool Poisoned => Poison > 0;
+    public int PoisonLevel => Poison;
+    public bool OnSteroids => false; // TODO: Implement steroid system
+    public int DrugDays => 0; // TODO: Implement drug system
+    
+    // Social properties
+    public string TeamName => Team;
+    public bool IsTeamLeader => CTurf;
+    public string SpouseName => ""; // TODO: Implement from marriage system
+    public int Children => Kids;
+    
+    // Helper method to get equipped item name (placeholder)
+    private string GetEquippedItemName(int itemId)
     {
-        ActiveEffects.Remove(effectName);
+        if (itemId == 0) return "None";
+        // TODO: Implement item lookup from game data
+        return $"Item{itemId}";
     }
     
-    public bool HasEffect(string effectName)
-    {
-        return ActiveEffects.ContainsKey(effectName) && !ActiveEffects[effectName].IsExpired();
-    }
-    
-    public void UpdateEffects()
-    {
-        var expiredEffects = new List<string>();
-        
-        foreach (var kvp in ActiveEffects)
-        {
-            if (kvp.Value.IsExpired())
-            {
-                expiredEffects.Add(kvp.Key);
-            }
-        }
-        
-        foreach (var effectName in expiredEffects)
-        {
-            ActiveEffects.Remove(effectName);
-        }
-    }
-    
-    public void TakeDamage(int damage)
-    {
-        CurrentHP = Math.Max(0, CurrentHP - damage);
-    }
-    
-    public void Heal(int amount)
-    {
-        CurrentHP = Math.Min(MaxHP, CurrentHP + amount);
-    }
-    
-    public bool CanAfford(int cost)
-    {
-        return Gold >= cost;
-    }
-    
-    public bool SpendGold(int amount)
-    {
-        if (CanAfford(amount))
-        {
-            Gold -= amount;
-            return true;
-        }
-        return false;
-    }
-    
-    public void GainGold(int amount)
-    {
-        Gold += amount;
-    }
-    
-    public bool HasTurns()
-    {
-        return TurnsRemaining > 0;
-    }
-    
-    public void SpendTurn()
-    {
-        if (TurnsRemaining > 0)
-            TurnsRemaining--;
-    }
-    
-    public virtual string GetDisplayInfo()
-    {
-        return $"{Name} (Level {Level} {Class})";
-    }
+    // Pascal-compatible string access for names
+    public string Name => Name2; // Main game name
+    public string RealName => Name1; // BBS name
+    public string KingName => King ? DisplayName : "";
 }
 
+/// <summary>
+/// Character AI type from Pascal
+/// </summary>
+public enum CharacterAI
+{
+    Computer = 'C',
+    Human = 'H'
+}
+
+/// <summary>
+/// Character sex from Pascal (1=male, 2=female)
+/// </summary>
+public enum CharacterSex
+{
+    Male = 1,
+    Female = 2
+}
+
+/// <summary>
+/// Character races from Pascal races enum
+/// </summary>
+public enum CharacterRace
+{
+    Human,      // change RATING.PAS and VARIOUS.PAS when changing # of races
+    Hobbit,
+    Elf,
+    HalfElf,
+    Dwarf,
+    Troll,
+    Orc,
+    Gnome,
+    Gnoll,
+    Mutant
+}
+
+/// <summary>
+/// Character classes from Pascal classes enum
+/// </summary>
 public enum CharacterClass
 {
-    Warrior,
-    Thief,
+    Alchemist,  // change RATING.PAS and VARIOUS.PAS when changing # of classes
+    Assassin,
+    Barbarian,  // no special ability
+    Bard,       // no special ability
     Cleric,
-    Mage
+    Jester,     // no special ability
+    Magician,
+    Paladin,
+    Ranger,     // no special ability
+    Sage,
+    Warrior     // no special ability
 }
 
-public class StatusEffect
+/// <summary>
+/// Object types from Pascal ObjType enum
+/// </summary>
+public enum ObjType
 {
-    public string Name { get; set; }
-    public int Duration { get; set; } // in minutes
-    public DateTime StartTime { get; set; }
-    public Dictionary<string, object> Parameters { get; set; } = new Dictionary<string, object>();
-    
-    public bool IsExpired()
-    {
-        return DateTime.Now.Subtract(StartTime).TotalMinutes >= Duration;
-    }
-    
-    public int RemainingMinutes()
-    {
-        var elapsed = DateTime.Now.Subtract(StartTime).TotalMinutes;
-        return Math.Max(0, Duration - (int)elapsed);
-    }
+    Head = 1,
+    Body = 2,
+    Arms = 3,
+    Hands = 4,
+    Fingers = 5,
+    Legs = 6,
+    Feet = 7,
+    Waist = 8,
+    Neck = 9,
+    Face = 10,
+    Shield = 11,
+    Food = 12,
+    Drink = 13,
+    Weapon = 14,
+    Abody = 15  // around body
 }
 
-public class Equipment
+/// <summary>
+/// Disease types from Pascal Cures enum
+/// </summary>
+public enum Cures
 {
-    public string Id { get; set; }
-    public string Name { get; set; }
-    public EquipmentType Type { get; set; }
-    public int Damage { get; set; } // For weapons
-    public int ArmorClass { get; set; } // For armor/shields
-    public int Value { get; set; }
-    public Dictionary<string, int> StatBonuses { get; set; } = new Dictionary<string, int>();
-    public string Description { get; set; }
-}
-
-public enum EquipmentType
-{
-    Weapon,
-    Armor,
-    Shield,
-    Accessory
+    Nothing,
+    All,
+    Blindness,
+    Plague,
+    Smallpox,
+    Measles,
+    Leprosy
 } 

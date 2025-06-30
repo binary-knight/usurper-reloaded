@@ -2,397 +2,482 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
+/// <summary>
+/// NPC class that extends Character with AI behavior
+/// Based on Pascal NPC system with enhanced AI features
+/// </summary>
 public class NPC : Character
 {
-    public NPCBrain Brain { get; set; }
-    public string Archetype { get; set; }
-    public string Background { get; set; }
-    public List<string> SpecialTraits { get; set; } = new List<string>();
-    public Dictionary<string, List<string>> DialogueOptions { get; set; } = new Dictionary<string, List<string>>();
-    
     // NPC-specific properties
-    public Activity CurrentActivity { get; set; } = Activity.Idle;
-    public DateTime LastActionTime { get; set; } = DateTime.Now;
-    public string LastKnownLocation { get; set; }
-    public int ActionPoints { get; set; } = 10; // For AI decision making
+    public NPCBrain Brain { get; set; }
+    public PersonalityProfile Personality { get; set; }
+    public MemorySystem Memory { get; set; }
+    public RelationshipManager Relationships { get; set; }
+    public EmotionalState EmotionalState { get; set; }
+    public GoalSystem Goals { get; set; }
     
-    // Relationships and social connections
-    public List<string> KnownCharacters { get; set; } = new List<string>();
-    public List<string> Enemies { get; set; } = new List<string>();
-    public List<string> Allies { get; set; } = new List<string>();
+    // NPC behavior settings
+    public string Archetype { get; set; } = "citizen";        // thug, merchant, guard, priest, etc.
+    public string CurrentLocation { get; set; } = "main_street";
+    public bool IsSpecialNPC { get; set; } = false;           // Special scripted NPCs like Seth Able
+    public string SpecialScript { get; set; } = "";           // Name of special behavior script
     
-    // NPC state tracking
-    public NPCState CurrentState { get; set; } = NPCState.Active;
-    public DateTime StateChangeTime { get; set; } = DateTime.Now;
-    public Dictionary<string, object> StateData { get; set; } = new Dictionary<string, object>();
+    // Daily behavior tracking
+    public DateTime LastInteraction { get; set; }
+    public int InteractionsToday { get; set; }
+    public string LastSpokenTo { get; set; } = "";
     
-    public NPC() : base()
+    // NPC state flags
+    public bool IsAwake { get; set; } = true;
+    public bool IsAvailable { get; set; } = true;
+    public bool IsInConversation { get; set; } = false;
+    public bool IsHostile { get; set; } = false;
+    
+    // Pascal compatibility flags
+    public bool CanInteract => IsAwake && IsAvailable && !IsInConversation;
+    public string Location => CurrentLocation;  // Pascal compatibility
+    public bool IsNPC => true;                  // For compatibility checks
+    
+    /// <summary>
+    /// Constructor for creating a new NPC
+    /// </summary>
+    public NPC(string name, string archetype, CharacterClass characterClass, int level = 1)
     {
-        // NPCs start with some basic equipment and gold
-        Gold = GD.RandRange(50, 300);
-        TurnsRemaining = int.MaxValue; // NPCs don't have turn limitations
-    }
-    
-    public NPC(string name, string archetype, CharacterClass charClass, int level = 1) : base(name, charClass)
-    {
-        Archetype = archetype;
+        // Set basic character properties
+        Name1 = name;
+        Name2 = name;
+        AI = CharacterAI.Computer;
+        Class = characterClass;
         Level = level;
+        Archetype = archetype;
         
-        // Set level-appropriate experience
-        if (level > 1)
-        {
-            var expTable = CharacterDataManager.GetExperienceTable();
-            if (level < expTable.Length)
-            {
-                Experience = expTable[level - 1];
-            }
-        }
+        // Generate appropriate stats for the archetype and level
+        GenerateStatsForArchetype(archetype, level);
         
-        // Generate starting resources based on archetype and level
-        GenerateStartingResources();
+        // Initialize NPC systems
+        InitializeNPCSystems();
         
-        // NPCs don't have turn limitations
-        TurnsRemaining = int.MaxValue;
-        
-        InitializeFromArchetype();
+        // Set initial equipment and location based on archetype
+        SetArchetypeDefaults();
     }
     
-    private void InitializeFromArchetype()
+    /// <summary>
+    /// Initialize NPC AI systems
+    /// </summary>
+    private void InitializeNPCSystems()
+    {
+        // Create personality based on archetype
+        Personality = PersonalityProfile.GenerateForArchetype(Archetype);
+        
+        // Initialize memory system
+        Memory = new MemorySystem(this);
+        
+        // Initialize relationship manager
+        Relationships = new RelationshipManager(this);
+        
+        // Initialize emotional state
+        EmotionalState = new EmotionalState(Personality);
+        
+        // Initialize goal system
+        Goals = new GoalSystem(this, Personality);
+        
+        // Create brain with all systems
+        Brain = new NPCBrain(this, Personality, Memory, Goals, Relationships, EmotionalState);
+        
+        // Check if this is a special Pascal NPC
+        CheckForSpecialNPC();
+    }
+    
+    /// <summary>
+    /// Check if this NPC has special scripted behavior from Pascal
+    /// </summary>
+    private void CheckForSpecialNPC()
+    {
+        var specialNPCs = new Dictionary<string, string>
+        {
+            {"Seth Able", "drunk_fighter"},
+            {"Dungeon Guard", "dungeon_guardian"},
+            {"King's Guard", "castle_guard"},
+            {"Death Knight", "dungeon_boss"},
+            {"Bob", "tavern_keeper"},
+            {"Bishop", "church_leader"},
+            {"Gossip Monger", "love_corner_keeper"},
+            {"Gym Masseur", "gym_worker"}
+        };
+        
+        if (specialNPCs.ContainsKey(Name2))
+        {
+            IsSpecialNPC = true;
+            SpecialScript = specialNPCs[Name2];
+        }
+    }
+    
+    /// <summary>
+    /// Generate stats appropriate for archetype and level
+    /// </summary>
+    private void GenerateStatsForArchetype(string archetype, int level)
+    {
+        // Base stats
+        var baseStats = GetBaseStatsForArchetype(archetype);
+        
+        // Apply level scaling
+        Strength = baseStats.Strength + (level * 2);
+        Defence = baseStats.Defence + (level * 2);
+        Dexterity = baseStats.Dexterity + (level * 2);
+        Agility = baseStats.Agility + (level * 2);
+        Charisma = baseStats.Charisma + level;
+        Wisdom = baseStats.Wisdom + level;
+        Stamina = baseStats.Stamina + (level * 3);
+        
+        // Calculate HP and Mana
+        MaxHP = 20 + (level * 8) + (Stamina / 2);
+        HP = MaxHP;
+        MaxMana = 10 + (level * 2) + (Wisdom / 3);
+        Mana = MaxMana;
+        
+        // Set gold based on archetype and level
+        Gold = GetBaseGold(archetype) * level;
+        
+        // Set experience
+        Experience = GetExperienceForLevel(level);
+    }
+    
+    /// <summary>
+    /// Get base stats for different archetypes
+    /// </summary>
+    private (int Strength, int Defence, int Dexterity, int Agility, int Charisma, int Wisdom, int Stamina) GetBaseStatsForArchetype(string archetype)
+    {
+        return archetype.ToLower() switch
+        {
+            "thug" or "fighter" => (15, 12, 10, 8, 6, 7, 14),
+            "guard" => (14, 15, 8, 7, 9, 8, 16),
+            "merchant" => (8, 10, 12, 10, 15, 12, 10),
+            "priest" or "cleric" => (9, 11, 8, 7, 12, 16, 12),
+            "mystic" or "mage" => (7, 8, 10, 9, 11, 18, 8),
+            "assassin" or "thief" => (11, 9, 16, 15, 10, 12, 11),
+            "noble" => (10, 12, 11, 10, 16, 14, 12),
+            "citizen" => (10, 10, 10, 10, 10, 10, 10),
+            _ => (10, 10, 10, 10, 10, 10, 10)
+        };
+    }
+    
+    /// <summary>
+    /// Get base gold for archetype
+    /// </summary>
+    private long GetBaseGold(string archetype)
+    {
+        return archetype.ToLower() switch
+        {
+            "noble" => 500,
+            "merchant" => 300,
+            "priest" => 200,
+            "guard" => 150,
+            "citizen" => 100,
+            "thug" => 50,
+            _ => 75
+        };
+    }
+    
+    /// <summary>
+    /// Set archetype-specific defaults
+    /// </summary>
+    private void SetArchetypeDefaults()
     {
         switch (Archetype.ToLower())
         {
             case "thug":
-            case "brawler":
-                SpecialTraits.AddRange(new[] { "violent", "intimidating", "reckless" });
-                CurrentActivity = Activity.Looking;
-                break;
-                
-            case "merchant":
-            case "trader":
-                SpecialTraits.AddRange(new[] { "greedy", "talkative", "observant" });
-                CurrentActivity = Activity.Trading;
+                CurrentLocation = "tavern";
+                Race = (CharacterRace)GD.RandRange(0, 9); // Random race
+                Sex = (CharacterSex)GD.RandRange(1, 2);
+                IsHostile = GD.Randf() < 0.3f; // 30% chance of being hostile
                 break;
                 
             case "guard":
-            case "soldier":
-                SpecialTraits.AddRange(new[] { "lawful", "vigilant", "dutiful" });
-                CurrentActivity = Activity.Patrolling;
+                CurrentLocation = GD.RandRange(0, 2) == 0 ? "castle" : "main_street";
+                Race = CharacterRace.Human; // Guards are usually human
+                Sex = (CharacterSex)GD.RandRange(1, 2);
+                break;
+                
+            case "merchant":
+                CurrentLocation = "market";
+                Race = CharacterRace.Human;
+                Sex = (CharacterSex)GD.RandRange(1, 2);
                 break;
                 
             case "priest":
-            case "cleric":
-                SpecialTraits.AddRange(new[] { "holy", "peaceful", "wise" });
-                CurrentActivity = Activity.Praying;
-                break;
-                
-            case "noble":
-            case "aristocrat":
-                SpecialTraits.AddRange(new[] { "arrogant", "wealthy", "influential" });
-                CurrentActivity = Activity.Socializing;
+                CurrentLocation = "chapel";
+                Race = CharacterRace.Human;
+                Sex = (CharacterSex)GD.RandRange(1, 2);
+                Chivalry = Level * 10; // Priests start with chivalry
                 break;
                 
             case "mystic":
-            case "mage":
-                SpecialTraits.AddRange(new[] { "mysterious", "intelligent", "powerful" });
-                CurrentActivity = Activity.Studying;
-                break;
-                
-            case "craftsman":
-            case "artisan":
-                SpecialTraits.AddRange(new[] { "skilled", "hardworking", "precise" });
-                CurrentActivity = Activity.Working;
+                CurrentLocation = "magic_shop";
+                Race = CharacterRace.Elf;
+                Sex = (CharacterSex)GD.RandRange(1, 2);
                 break;
                 
             default:
-                SpecialTraits.AddRange(new[] { "ordinary", "cautious" });
-                CurrentActivity = Activity.Idle;
+                CurrentLocation = "main_street";
+                Race = (CharacterRace)GD.RandRange(0, 9);
+                Sex = (CharacterSex)GD.RandRange(1, 2);
                 break;
         }
+        
+        // Set age based on level and archetype
+        Age = 18 + Level + GD.RandRange(-5, 10);
+        if (Age < 16) Age = 16;
+        if (Age > 80) Age = 80;
     }
     
-    private void GenerateStartingResources()
+    /// <summary>
+    /// Get experience needed for a specific level (Pascal compatible)
+    /// </summary>
+    private long GetExperienceForLevel(int level)
     {
-        var baseGold = Level * 50;
-        var variation = GD.RandRange(-20, 50);
-        Gold = Math.Max(10, baseGold + variation);
+        if (level <= 1) return 0;
         
-        // Merchants start with more gold
-        if (Archetype.ToLower() == "merchant" || Archetype.ToLower() == "trader")
+        // Experience formula compatible with Pascal
+        long exp = 0;
+        for (int i = 2; i <= level; i++)
         {
-            Gold *= 3;
+            exp += (long)(Math.Pow(i, 2.5) * 100);
         }
-        
-        // Nobles start with even more
-        if (Archetype.ToLower() == "noble" || Archetype.ToLower() == "aristocrat")
-        {
-            Gold *= 5;
-        }
-        
-        // Guards and soldiers have steady income
-        if (Archetype.ToLower() == "guard" || Archetype.ToLower() == "soldier")
-        {
-            Gold += 200;
-        }
+        return exp;
     }
     
-    protected override void OnLevelUp()
+    /// <summary>
+    /// Main NPC update method - called by world simulator
+    /// </summary>
+    public void UpdateNPC(float deltaTime)
     {
-        base.OnLevelUp();
+        // Update emotional state
+        EmotionalState.Update(deltaTime);
         
-        // NPC-specific level up behavior
-        Brain?.OnNPCLevelUp();
+        // Process goals and decide actions
+        var action = Brain.DecideNextAction(GetWorldState());
         
-        // Update activity based on new capabilities
-        if (Level % 5 == 0)
-        {
-            // Every 5 levels, NPCs might change their primary activity
-            ConsiderActivityChange();
-        }
+        // Execute the action
+        ExecuteAction(action);
         
-        // Gain more gold and possibly better equipment
-        var goldGain = Level * 25 + GD.RandRange(10, 50);
-        Gold += goldGain;
+        // Update memory with recent events
+        Memory.ProcessNewMemories();
         
-        // Notify other NPCs of this character's growth
-        Brain?.Memory?.RecordEvent(new MemoryEvent
-        {
-            Type = MemoryType.PersonalAchievement,
-            Description = $"Reached level {Level}",
-            Importance = 0.6f,
-            Location = CurrentLocation
-        });
+        // Update relationships
+        Relationships.UpdateRelationships();
     }
     
-    private void ConsiderActivityChange()
+    /// <summary>
+    /// Execute an NPC action
+    /// </summary>
+    private void ExecuteAction(NPCAction action)
     {
-        if (Brain == null) return;
-        
-        var personality = Brain.Personality;
-        var currentGoals = Brain.Goals.GetActiveGoals();
-        
-        // Ambitious NPCs might change activities more often
-        if (personality.Ambition > 0.7f && GD.Randf() < 0.3f)
+        switch (action.Type)
         {
-            var newActivity = GetActivityForAmbition();
-            if (newActivity != CurrentActivity)
-            {
-                ChangeActivity(newActivity, "Seeking new opportunities");
-            }
-        }
-    }
-    
-    private Activity GetActivityForAmbition()
-    {
-        return Archetype.ToLower() switch
-        {
-            "thug" => Activity.Hunting, // Hunt for stronger opponents
-            "merchant" => Activity.Trading,
-            "guard" => Activity.Patrolling,
-            "noble" => Activity.Scheming,
-            "mage" => Activity.Studying,
-            _ => Activity.Exploring
-        };
-    }
-    
-    public void ChangeActivity(Activity newActivity, string reason = "")
-    {
-        var oldActivity = CurrentActivity;
-        CurrentActivity = newActivity;
-        LastActionTime = DateTime.Now;
-        
-        Brain?.Memory?.RecordEvent(new MemoryEvent
-        {
-            Type = MemoryType.ActivityChange,
-            Description = $"Changed from {oldActivity} to {newActivity}. {reason}",
-            Importance = 0.3f,
-            Location = CurrentLocation
-        });
-    }
-    
-    public void SetState(NPCState newState, Dictionary<string, object> stateData = null)
-    {
-        CurrentState = newState;
-        StateChangeTime = DateTime.Now;
-        StateData = stateData ?? new Dictionary<string, object>();
-        
-        // Log state change
-        Brain?.Memory?.RecordEvent(new MemoryEvent
-        {
-            Type = MemoryType.StateChange,
-            Description = $"State changed to {newState}",
-            Importance = 0.4f,
-            Location = CurrentLocation
-        });
-    }
-    
-    public void UpdateLocation(string newLocation)
-    {
-        if (newLocation != CurrentLocation)
-        {
-            LastKnownLocation = CurrentLocation;
-            CurrentLocation = newLocation;
-            
-            Brain?.Memory?.RecordEvent(new MemoryEvent
-            {
-                Type = MemoryType.LocationChange,
-                Description = $"Moved to {newLocation}",
-                Importance = 0.2f,
-                Location = newLocation
-            });
-        }
-    }
-    
-    public void AddRelationship(string characterId, RelationshipType type)
-    {
-        Brain?.Relationships?.SetRelationship(characterId, type);
-        
-        if (!KnownCharacters.Contains(characterId))
-        {
-            KnownCharacters.Add(characterId);
-        }
-        
-        switch (type)
-        {
-            case RelationshipType.Enemy:
-            case RelationshipType.Nemesis:
-                if (!Enemies.Contains(characterId))
-                    Enemies.Add(characterId);
-                Allies.Remove(characterId);
+            case NPCActionType.Move:
+                Move(action.Target);
                 break;
                 
-            case RelationshipType.Brother:
-            case RelationshipType.CloseFriend:
-            case RelationshipType.Friend:
-                if (!Allies.Contains(characterId))
-                    Allies.Add(characterId);
-                Enemies.Remove(characterId);
+            case NPCActionType.Talk:
+                // Handled by conversation system
+                break;
+                
+            case NPCActionType.Fight:
+                InitiateFight(action.Target);
+                break;
+                
+            case NPCActionType.Trade:
+                // Handled by trading system
+                break;
+                
+            case NPCActionType.Rest:
+                Rest();
+                break;
+                
+            case NPCActionType.Work:
+                Work();
+                break;
+                
+            case NPCActionType.Socialize:
+                Socialize();
+                break;
+                
+            case NPCActionType.Idle:
+                // Do nothing
                 break;
         }
     }
     
-    public bool IsEnemyOf(string characterId)
+    /// <summary>
+    /// Move to a new location
+    /// </summary>
+    private void Move(string newLocation)
     {
-        return Enemies.Contains(characterId);
-    }
-    
-    public bool IsAllyOf(string characterId)
-    {
-        return Allies.Contains(characterId);
-    }
-    
-    public bool KnowsCharacter(string characterId)
-    {
-        return KnownCharacters.Contains(characterId);
-    }
-    
-    public string GetGreeting(Character other)
-    {
-        if (Brain?.Relationships != null)
+        if (!string.IsNullOrEmpty(newLocation) && newLocation != CurrentLocation)
         {
-            var relationship = Brain.Relationships.GetRelationship(other.Id);
-            var relationshipType = relationship?.GetRelationshipType() ?? RelationshipType.Stranger;
-            
-            return GetGreetingByRelationship(relationshipType, other);
+            CurrentLocation = newLocation;
+            Memory.AddMemory($"I moved to {newLocation}", "movement", DateTime.Now);
+        }
+    }
+    
+    /// <summary>
+    /// Initiate combat with target
+    /// </summary>
+    private void InitiateFight(string target)
+    {
+        // This would trigger the combat system
+        Memory.AddMemory($"I fought with {target}", "combat", DateTime.Now);
+    }
+    
+    /// <summary>
+    /// Rest and recover
+    /// </summary>
+    private void Rest()
+    {
+        HP = Math.Min(HP + 10, MaxHP);
+        Mana = Math.Min(Mana + 5, MaxMana);
+    }
+    
+    /// <summary>
+    /// Work at job (archetype-specific)
+    /// </summary>
+    private void Work()
+    {
+        switch (Archetype.ToLower())
+        {
+            case "merchant":
+                Gold += GD.RandRange(5, 20);
+                break;
+                
+            case "guard":
+                // Guards patrol
+                var locations = new[] { "main_street", "castle", "market" };
+                CurrentLocation = locations[GD.RandRange(0, locations.Length - 1)];
+                break;
+                
+            case "priest":
+                // Priests help others
+                Chivalry += 1;
+                break;
+        }
+    }
+    
+    /// <summary>
+    /// Socialize with other NPCs/players
+    /// </summary>
+    private void Socialize()
+    {
+        // This would interact with other characters in the same location
+        EmotionalState.AdjustMood("social", 0.1f);
+    }
+    
+    /// <summary>
+    /// Get current world state for decision making
+    /// </summary>
+    private WorldState GetWorldState()
+    {
+        return new WorldState
+        {
+            CurrentLocation = CurrentLocation,
+            TimeOfDay = DateTime.Now.Hour,
+            PlayersInArea = GetPlayersInLocation(CurrentLocation),
+            NPCsInArea = GetNPCsInLocation(CurrentLocation),
+            DangerLevel = CalculateDangerLevel()
+        };
+    }
+    
+    /// <summary>
+    /// Get greeting for a player (Pascal compatible)
+    /// </summary>
+    public string GetGreeting(Character player)
+    {
+        if (IsSpecialNPC)
+        {
+            return GetSpecialGreeting(player);
         }
         
-        return GetDefaultGreeting(other);
+        // Use personality and relationship to generate greeting
+        var relationship = Relationships.GetRelationshipWith(player.Name2);
+        return Brain.GenerateGreeting(player, relationship);
     }
     
-    private string GetGreetingByRelationship(RelationshipType relationship, Character other)
+    /// <summary>
+    /// Get special greeting for special NPCs (Pascal behavior)
+    /// </summary>
+    private string GetSpecialGreeting(Character player)
     {
-        var greetings = relationship switch
+        return SpecialScript switch
         {
-            RelationshipType.Brother => new[] { "Brother! It's good to see you!", "My trusted ally!", "Welcome, my friend!" },
-            RelationshipType.CloseFriend => new[] { "Good to see you, friend!", "How are you doing?", "Welcome!" },
-            RelationshipType.Friend => new[] { "Hello there!", "Good day!", "Nice to see you again." },
-            RelationshipType.Enemy => new[] { "You...", "What do you want?", "I don't have time for you." },
-            RelationshipType.Nemesis => new[] { "YOU! How dare you show your face here!", "Get away from me!", "I should kill you where you stand!" },
-            RelationshipType.Feared => new[] { "P-please don't hurt me...", "I-I haven't done anything!", "Have mercy..." },
-            _ => GetDefaultGreeting(other)
-        };
-        
-        if (greetings.Length > 0)
-        {
-            return greetings[GD.RandRange(0, greetings.Length - 1)];
-        }
-        
-        return GetDefaultGreeting(other);
-    }
-    
-    private string GetDefaultGreeting(Character other)
-    {
-        if (DialogueOptions.ContainsKey("greeting") && DialogueOptions["greeting"].Count > 0)
-        {
-            var greetings = DialogueOptions["greeting"];
-            return greetings[GD.RandRange(0, greetings.Count - 1)];
-        }
-        
-        // Fallback greetings based on archetype
-        return Archetype.ToLower() switch
-        {
-            "thug" => "What do you want?",
-            "merchant" => "Welcome! Looking to buy or sell?",
-            "guard" => "State your business.",
-            "priest" => "May the light guide you.",
-            "noble" => "Greetings, commoner.",
-            "mage" => "Interesting... what brings you here?",
-            _ => "Hello."
+            "drunk_fighter" => GetSethAbleGreeting(player),
+            "dungeon_guardian" => "The dungeon is dangerous! Many never return...",
+            "castle_guard" => "Halt! State your business in the castle!",
+            "tavern_keeper" => "Welcome to my establishment! What can I get you?",
+            _ => "Hello there, traveler."
         };
     }
     
-    public override string GetDisplayInfo()
+    /// <summary>
+    /// Seth Able specific greetings (from Pascal)
+    /// </summary>
+    private string GetSethAbleGreeting(Character player)
     {
-        var activity = CurrentActivity switch
+        var greetings = new[]
         {
-            Activity.Idle => "idling",
-            Activity.Trading => "trading",
-            Activity.Fighting => "fighting",
-            Activity.Drinking => "drinking",
-            Activity.Talking => "talking",
-            Activity.Resting => "resting",
-            Activity.Patrolling => "patrolling",
-            Activity.Studying => "studying",
-            Activity.Praying => "praying",
-            Activity.Working => "working",
-            Activity.Scheming => "scheming",
-            Activity.Hunting => "hunting",
-            Activity.Exploring => "exploring",
-            Activity.Looking => "looking around",
-            Activity.Socializing => "socializing",
-            _ => "doing something"
+            "You lookin' at me funny?!",
+            "*hiccup* Want to fight?",
+            "I can take anyone in this place!",
+            "*burp* You think you're tough?",
+            "Another pretty boy... pfft!"
         };
         
-        return $"{Name} (Level {Level} {Class}) - {activity}";
+        return greetings[GD.RandRange(0, greetings.Length - 1)];
+    }
+    
+    /// <summary>
+    /// Get display info for terminal
+    /// </summary>
+    public string GetDisplayInfo()
+    {
+        var marker = IsNPC ? GameConfig.NpcMark : "";
+        var status = IsHostile ? " (Hostile)" : "";
+        return $"{marker}{DisplayName} [{Archetype}, Level {Level}]{status}";
+    }
+    
+    // Helper methods for world state
+    private List<string> GetPlayersInLocation(string location)
+    {
+        // This would query the game engine for players in the location
+        return new List<string>();
+    }
+    
+    private List<string> GetNPCsInLocation(string location)
+    {
+        // This would query the game engine for NPCs in the location
+        return new List<string>();
+    }
+    
+    private float CalculateDangerLevel()
+    {
+        // Calculate danger based on location, time, etc.
+        return CurrentLocation switch
+        {
+            "dungeon" => 0.8f,
+            "tavern" => 0.3f,
+            "main_street" => 0.1f,
+            "castle" => 0.2f,
+            _ => 0.1f
+        };
     }
 }
 
-public enum Activity
+/// <summary>
+/// World state information for NPC decision making
+/// </summary>
+public class WorldState
 {
-    Idle,
-    Trading,
-    Fighting,
-    Drinking,
-    Talking,
-    Resting,
-    Patrolling,
-    Studying,
-    Praying,
-    Working,
-    Scheming,
-    Hunting,
-    Exploring,
-    Looking,
-    Socializing
-}
-
-public enum NPCState
-{
-    Active,      // Normal operation
-    Busy,        // Engaged in important task
-    Hostile,     // In combat or aggressive
-    Friendly,    // Open to interaction
-    Suspicious,  // Wary of others
-    Afraid,      // Scared or intimidated
-    Unconscious, // Knocked out or sleeping
-    Dead         // Permanently dead
+    public string CurrentLocation { get; set; } = "";
+    public int TimeOfDay { get; set; }
+    public List<string> PlayersInArea { get; set; } = new();
+    public List<string> NPCsInArea { get; set; } = new();
+    public float DangerLevel { get; set; }
 } 
