@@ -827,6 +827,96 @@ Barbarian - Savage fighters, incredible strength
     public const int QuestFailureChivalryLoss = 50;        // Chivalry lost on quest failure
     public const int QuestFailureGoldLoss = 1000;          // Gold lost on quest failure
     public const int QuestFailureExpLoss = 500;            // Experience lost on quest failure
+
+    // News System Constants (Phase 17)
+    // From Pascal global_nwfile and GENNEWS.PAS
+    public const string NewsAsciiFile = ScoreDir + "NEWS.ASC";         // global_nwfileasc
+    public const string NewsAnsiFile = ScoreDir + "NEWS.ANS";          // global_nwfileans
+    public const string YesterdayNewsAsciiFile = ScoreDir + "YNEWS.ASC"; // global_ynwfileasc
+    public const string YesterdayNewsAnsiFile = ScoreDir + "YNEWS.ANS";  // global_ynwfileans
+    
+    // Specialized News Files (GENNEWS.PAS categories)
+    public const string MonarchNewsAsciiFile = ScoreDir + "MONARCHS.ASC"; // global_MonarchsASCI
+    public const string MonarchNewsAnsiFile = ScoreDir + "MONARCHS.ANS";  // global_MonarchsANSI
+    public const string GodsNewsAsciiFile = ScoreDir + "GODS.ASC";        // global_GodsASCI
+    public const string GodsNewsAnsiFile = ScoreDir + "GODS.ANS";         // global_GodsANSI
+    public const string MarriageNewsAsciiFile = ScoreDir + "MARRHIST.ASC"; // global_MarrHistASCI
+    public const string MarriageNewsAnsiFile = ScoreDir + "MARRHIST.ANS";  // global_MarrHistANSI
+    public const string BirthNewsAsciiFile = ScoreDir + "BIRTHIST.ASC";   // global_ChildBirthHistASCI
+    public const string BirthNewsAnsiFile = ScoreDir + "BIRTHIST.ANS";    // global_ChildBirthHistANSI
+    
+    // News System Settings
+    public const int MaxNewsLines = 1000;          // Maximum lines per news file before rotation
+    public const int MaxNewsAge = 7;               // Days to keep news before archiving
+    public const int MaxDailyNewsEntries = 500;    // Maximum news entries per day
+    public const int NewsLineLength = 120;         // Maximum characters per news line
+    public const string NewsDateFormat = "MM/dd/yyyy HH:mm";  // Date format for news entries
+    public const string NewsTimeFormat = "HH:mm";  // Time format for news entries
+    
+    // News Categories (Pascal newsy types)
+    public enum NewsCategory
+    {
+        General = 0,        // General daily news (newsy function)
+        Royal = 1,          // King/Queen announcements (generic_news royal)
+        Marriage = 2,       // Marriage/divorce news (generic_news marriage)
+        Birth = 3,          // Child birth announcements (generic_news birth)
+        Holy = 4,           // God-related events (generic_news holy)
+        System = 5          // System maintenance and events
+    }
+    
+    // News Location Settings
+    public const string DefaultNewsLocation = "Usurper Daily News";
+    public const string NewsLocationGreeting = "Welcome to the Daily News!";
+    public const string NewsLocationMenu = "Read";
+    
+    // News Menu Options
+    public const string NewsMenuDaily = "D";           // Daily news
+    public const string NewsMenuRoyal = "R";           // Royal announcements
+    public const string NewsMenuMarriage = "M";        // Marriage/relationship news
+    public const string NewsMenuBirth = "B";           // Birth announcements
+    public const string NewsMenuHoly = "H";            // Holy/god news
+    public const string NewsMenuYesterday = "Y";       // Yesterday's news
+    public const string NewsMenuReturn = "Q";          // Return to main street
+    
+    // News File Headers
+    public const string NewsHeaderDaily = "=== USURPER DAILY NEWS ===";
+    public const string NewsHeaderRoyal = "=== ROYAL PROCLAMATIONS ===";
+    public const string NewsHeaderMarriage = "=== MARRIAGE & RELATIONSHIP NEWS ===";
+    public const string NewsHeaderBirth = "=== BIRTH ANNOUNCEMENTS ===";
+    public const string NewsHeaderHoly = "=== HOLY NEWS & GOD EVENTS ===";
+    public const string NewsHeaderYesterday = "=== YESTERDAY'S NEWS ===";
+    
+    // News Entry Prefixes (Pascal style)
+    public const string NewsPrefixTime = "[{0}] ";     // Time prefix for entries
+    public const string NewsPrefixDeath = "† ";        // Death announcement
+    public const string NewsPrefixBirth = "♦ ";        // Birth announcement
+    public const string NewsPrefixMarriage = "♥ ";     // Marriage announcement
+    public const string NewsPrefixDivorce = "♠ ";      // Divorce announcement
+    public const string NewsPrefixRoyal = "♔ ";        // Royal announcement
+    public const string NewsPrefixHoly = "☩ ";         // Holy event
+    public const string NewsPrefixCombat = "⚔ ";       // Combat event
+    public const string NewsPrefixQuest = "◊ ";        // Quest event
+    public const string NewsPrefixTeam = "▲ ";         // Team/gang event
+    public const string NewsPrefixPrison = "■ ";       // Prison event
+    
+    // Daily Maintenance News Settings
+    public const bool RotateNewsDaily = true;          // Rotate news files during maintenance
+    public const bool ArchiveOldNews = true;           // Keep archived news files
+    public const string NewsArchivePrefix = "ARCH_";   // Prefix for archived news files
+    
+    // News Color Codes (Pascal ANSI color integration)
+    public const string NewsColorDefault = "`2";       // Green text (config.textcol1)
+    public const string NewsColorHighlight = "`5";     // Magenta text (config.textcol2)
+    public const string NewsColorTime = "`3";          // Yellow text for timestamps
+    public const string NewsColorPlayer = "`A";        // Bright green for player names
+    public const string NewsColorRoyal = "`E";         // Bright yellow for royal
+    public const string NewsColorHoly = "`9";          // Bright blue for holy
+    public const string NewsColorDeath = "`4";         // Red for death
+    public const string NewsColorBirth = "`6";         // Cyan for birth
+    
+    // Integration Points
+    public const int NewsLocationId = 50;              // Location ID for news reading
+    public const string NewsLocationName = "News Stand"; // Display name for location
 }
 
 /// <summary>

@@ -185,8 +185,8 @@ public class MainStreetLocation : BaseLocation
                 return true;
                 
             case "N":
-                await ShowNews();
-                return false;
+                await NavigateToNewsLocation();
+                return true;
                 
             case "L":
                 await ListCharacters();
@@ -321,20 +321,14 @@ public class MainStreetLocation : BaseLocation
         await terminal.PressAnyKey();
     }
     
-    private async Task ShowNews()
+    private async Task NavigateToNewsLocation()
     {
-        terminal.ClearScreen();
-        terminal.SetColor("bright_yellow");
-        terminal.WriteLine("Yesterday's News");
-        terminal.WriteLine("===============");
-        terminal.WriteLine("");
-        terminal.SetColor("white");
-        terminal.WriteLine("• A new challenger has emerged in the dungeons!");
-        terminal.WriteLine("• The King announced new tax rates for the kingdom.");
-        terminal.WriteLine("• Strange lights were seen over the Dark Alley last night.");
-        terminal.WriteLine("• The Inn is serving a new ale that boosts strength!");
-        terminal.WriteLine("");
-        await terminal.PressAnyKey();
+        terminal.WriteLine("You approach the Usurper Daily News stand...", "yellow");
+        await Task.Delay(1000);
+        
+        // Navigate to NewsLocation
+        var newsLocation = new NewsLocation();
+        await NavigateToLocation(newsLocation);
     }
     
     private async Task ShowFame()
