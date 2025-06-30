@@ -632,16 +632,4 @@ public class NPC : Character
             _ => 0.1f
         };
     }
-}
-
-/// <summary>
-/// World state information for NPC decision making
-/// </summary>
-public class WorldState
-{
-    public string CurrentLocation { get; set; } = "";
-    public int TimeOfDay { get; set; }
-    public List<string> PlayersInArea { get; set; } = new();
-    public List<string> NPCsInArea { get; set; } = new();
-    public float DangerLevel { get; set; }
 } 

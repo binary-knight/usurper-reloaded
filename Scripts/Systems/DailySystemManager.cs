@@ -273,25 +273,9 @@ public class DailySystemManager
 // Simple config manager placeholder
 public static class ConfigManager
 {
-    public static GameConfig GetConfig()
+    public static void LoadConfig()
     {
-        // This would normally load from JSON
-        return new GameConfig
-        {
-            StartingGold = 500,
-            StartingTurns = 250,
-            DeathPenalty = true,
-            PermaDeath = false,
-            DeathPenaltyXP = 0.1f
-        };
+        // This would normally load from JSON and set static properties
+        // For now, the GameConfig class already has default values
     }
-}
-
-public class GameConfig
-{
-    public int StartingGold { get; set; } = 500;
-    public int StartingTurns { get; set; } = 250;
-    public bool DeathPenalty { get; set; } = true;
-    public bool PermaDeath { get; set; } = false;
-    public float DeathPenaltyXP { get; set; } = 0.1f;
 } 

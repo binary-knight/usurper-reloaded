@@ -13,8 +13,8 @@ using System.Threading.Tasks;
 public class AdvancedCombatEngine : Node
 {
     private NewsSystem newsSystem;
-    private MailSystem mailSystem;
-    private SpellSystem spellSystem;
+    // MailSystem is static - no need to instantiate
+    // SpellSystem is static - no need to instantiate
     private RelationshipSystem relationshipSystem;
     
     // Pascal global variables from PLVSMON.PAS

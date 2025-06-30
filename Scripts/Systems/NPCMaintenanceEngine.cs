@@ -571,7 +571,7 @@ public class NPCMaintenanceEngine : Node
     private async Task AttemptGangFormation(NPC leader, List<NPC> candidates) { }
     private async Task CheckGangRivalry(string gang1, string gang2, List<NPC> npcs) { }
     private float CalculateFaithInclination(NPC npc) { return npc.Personality.Sociability * 50f; }
-    private async Task AttemptFaithConversion(NPC npc) { }
+    
     private async Task ProcessBelieverActions(NPC npc) { }
     private async Task OptimizeNPCEquipment(NPC npc) { }
     private async Task RepairNPCEquipment(NPC npc) { }

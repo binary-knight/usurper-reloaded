@@ -14,7 +14,7 @@ public class TeamSystemValidation : Node
 {
     private TeamSystem teamSystem;
     private NewsSystem newsSystem;
-    private MailSystem mailSystem;
+    // MailSystem is static - no need to instantiate
     private CombatEngine combatEngine;
     
     private List<TestResult> testResults = new List<TestResult>();

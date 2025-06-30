@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 public class TournamentSystem : Node
 {
     private NewsSystem newsSystem;
-    private MailSystem mailSystem;
+    // MailSystem is static - no need to instantiate
     private CombatEngine combatEngine;
     private TeamSystem teamSystem;
     private RelationshipSystem relationshipSystem;

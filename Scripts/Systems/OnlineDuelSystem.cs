@@ -13,7 +13,7 @@ using System.IO;
 public class OnlineDuelSystem : Node
 {
     private AdvancedCombatEngine combatEngine;
-    private MailSystem mailSystem;
+    // MailSystem is static - no need to instantiate
     private NewsSystem newsSystem;
     private Random random = new Random();
     

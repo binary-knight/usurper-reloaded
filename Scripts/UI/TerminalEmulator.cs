@@ -262,10 +262,4 @@ public partial class TerminalEmulator : Control
     {
         await GetInput(message);
     }
-}
-
-public class MenuOption
-{
-    public string Text { get; set; }
-    public Func<Task> Action { get; set; }
 } 

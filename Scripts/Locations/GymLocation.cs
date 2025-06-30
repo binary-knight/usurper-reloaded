@@ -14,7 +14,7 @@ public class GymLocation : BaseLocation
 {
     private TournamentSystem tournamentSystem;
     private RelationshipSystem relationshipSystem;
-    private MailSystem mailSystem;
+    // MailSystem is static - no need to instantiate
     private NewsSystem newsSystem;
     private LocationManager locationManager;
     

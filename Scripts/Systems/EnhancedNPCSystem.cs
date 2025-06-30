@@ -10,13 +10,11 @@ using System.Linq;
 /// </summary>
 public class EnhancedNPCSystem : Node
 {
-    private MailSystem mailSystem;
     private NewsSystem newsSystem;
     private Random random = new Random();
     
     public override void _Ready()
     {
-        mailSystem = GetNode<MailSystem>("/root/MailSystem");
         newsSystem = GetNode<NewsSystem>("/root/NewsSystem");
     }
     
@@ -279,7 +277,7 @@ public class EnhancedNPCSystem : Node
         var headers = new[] { "Gold and Glory!", "Loot!", "Looting Party!", "New Stuff!" };
         var header = headers[random.Next(headers.Length)];
         
-        mailSystem?.PostMail(
+        MailSystem.PostMail(
             to: npc.Name2,
             ai: npc.AI,
             anonymous: false,

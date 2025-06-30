@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 /// </summary>
 public class EnhancedNPCBehaviorSystem : Node
 {
-    private MailSystem mailSystem;
+    // MailSystem is static - no need to instantiate
     private NewsSystem newsSystem;
     private RelationshipSystem relationshipSystem;
     private Random random = new Random();
@@ -598,7 +598,7 @@ public class EnhancedNPCBehaviorSystem : Node
     private string GetLocationDescription(int location) { return "in the dungeons"; }
     private string GetSituationText(int situation, ItemDetails newItem, ItemDetails oldItem) { return ""; }
     private async Task InitializeMaintenanceData(List<Character> npcs) { }
-    private async Task ProcessNPCMaintenance(Character npc, ref bool kingFound) { }
+    private async Task ProcessNPCMaintenance(Character npc, bool kingFound) { }
     private async Task ProcessNPCShopping(List<Character> npcs) { }
     private async Task ProcessExistingBeliever(Character npc) { }
     private async Task ProcessPotentialConvert(Character npc) { }

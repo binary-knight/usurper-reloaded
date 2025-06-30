@@ -14,7 +14,7 @@ public class TeamCornerLocation : BaseLocation
 {
     private TeamSystem teamSystem;
     private NewsSystem newsSystem;
-    private MailSystem mailSystem;
+    // MailSystem is static - no need to instantiate
     private RelationshipSystem relationshipSystem;
     
     // Pascal constants from TCORNER.PAS

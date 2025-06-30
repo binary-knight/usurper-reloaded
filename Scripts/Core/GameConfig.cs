@@ -31,7 +31,7 @@ public static class GameConfig
     public const float BackstabMultiplier = 3f;  // From MURDER.PAS
     public const float BerserkMultiplier = 2f;   // From FIGHT.PAS
     public const int MaxPoison = 100;            // maxpoison
-    public const int MaxDarkness = 5;            // maxdarkness
+    public const int MaxDarknessLevel = 5;            // maxdarkness
     public const int MaxDrugs = 100;             // maxdrugs
     
     // Game limits
@@ -670,12 +670,12 @@ Barbarian - Savage fighters, incredible strength
     // Daily Player Processing (Pascal maintenance formulas)
     public const int AliveBonus = 350;                    // level * 350 per day alive
     public const long MaxAliveBonus = 1500000000;         // Maximum alive bonus allowed
-    public const int DefaultDungeonFights = 10;           // Daily dungeon fights reset
-    public const int DefaultPlayerFights = 3;             // Daily player fights reset
+    public const int DailyDungeonFights = 10;           // Daily dungeon fights reset
+    public const int DailyPlayerFights = 3;             // Daily player fights reset
     public const int DefaultTeamFights = 2;               // Daily team fights reset
-    public const int DefaultThiefAttempts = 3;            // Daily thief attempts reset
-    public const int DefaultBrawls = 3;                   // Daily brawl attempts reset
-    public const int DefaultAssassinAttempts = 3;         // Daily assassin attempts reset
+    public const int DailyThiefAttempts = 3;            // Daily thief attempts reset
+    public const int DailyBrawls = 3;                   // Daily brawl attempts reset
+    public const int DailyAssassinAttempts = 3;         // Daily assassin attempts reset
     public const int DefaultBardSongs = 5;                // Daily bard songs reset
     public const int AssassinThiefBonus = 2;              // Extra thief attempts for assassins
     
@@ -713,7 +713,6 @@ Barbarian - Savage fighters, incredible strength
     
     // Mail System Constants (Pascal MAIL.PAS)
     public const int MaxMailRecords = 65500;              // Maximum mail database size
-    public const int MaxMailLines = 15;                   // Maximum lines per mail message
     public const int DefaultMaxMailDays = 30;             // Days before mail expires
     
     // Mail Request Types (Pascal mailrequest_ constants)
@@ -750,7 +749,7 @@ Barbarian - Savage fighters, incredible strength
     
     // System Maintenance Flags (Pascal maintenance control)
     public const string MaintenanceFlagFile = "MAINT.FLG"; // Maintenance lock file
-    public const string DateFile = "DATE.DAT";            // Date tracking file
+    public const string MaintenanceDateFile = "DATE.DAT";            // Date tracking file
     public const int MaintenanceLockDelay = 50;           // Delay between lock attempts
     public const int MaxMaintenanceLockTries = 150;       // Maximum lock attempts
 
@@ -765,7 +764,7 @@ Barbarian - Savage fighters, incredible strength
     public const int MaxCompletedQuests = 3;               // Maximum quest completions per day
     
     // Quest Creation Limits (Pascal royal quest limits)
-    public const int DefaultMaxNewQuests = 5;              // Daily new quest limit for kings
+    public const int QuestMaxNewQuests = 5;              // Daily new quest limit for kings
     public const int MinQuestLevel = 1;                    // Minimum level for quest participation
     public const int MaxQuestLevel = 9999;                 // Maximum level for quest participation
     public const int DefaultQuestDays = 7;                 // Default days to complete quest
