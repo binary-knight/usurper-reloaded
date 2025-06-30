@@ -98,7 +98,7 @@ public class MainStreetLocation : BaseLocation
         terminal.WriteLine("│                                                                             │", "cyan");
         terminal.WriteLine("│  (L)ist Characters  (T)he Marketplace  (X)tra Shops  (Q)uit Game  (9) Combat Test │", "white");
         terminal.WriteLine("│                                                                             │", "cyan");
-        terminal.WriteLine("│  (G)ood Deeds       (E)vil Deeds        (V)isit Master  (*) Suicide  (R)elations │", "white");
+        terminal.WriteLine("│  (G)ood Deeds       (E)vil Deeds        (V)isit Master  (*) Suicide  (Z) Team Corner │", "white");
         terminal.WriteLine("│                                                                             │", "cyan");
         terminal.WriteLine("│  (K) Castle  (P) Prison  (O) Church  (Y) Dark Alley  (Ctrl+W) Who is Online?  (Ctrl+T) Send message │", "white");
         terminal.WriteLine("│                                                                             │", "cyan");
@@ -186,6 +186,10 @@ public class MainStreetLocation : BaseLocation
                 
             case "N":
                 await NavigateToNewsLocation();
+                return true;
+                
+            case "Z":
+                await NavigateToTeamCorner();
                 return true;
                 
             case "L":
@@ -329,6 +333,15 @@ public class MainStreetLocation : BaseLocation
         // Navigate to NewsLocation
         var newsLocation = new NewsLocation();
         await NavigateToLocation(newsLocation);
+    }
+    
+    private async Task NavigateToTeamCorner()
+    {
+        terminal.WriteLine("You head to the Adventurers Team Corner...", "yellow");
+        await Task.Delay(1000);
+        
+        // Navigate to TeamCornerLocation
+        await NavigateToLocation(GameLocation.TeamCorner);
     }
     
     private async Task ShowFame()
