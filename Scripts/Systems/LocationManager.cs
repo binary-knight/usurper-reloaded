@@ -316,7 +316,7 @@ public class PlaceholderLocation : BaseLocation
     {
     }
     
-    protected override void SetupLocation()
+    protected virtual void SetupLocation()
     {
         // Basic exits - most locations can return to main street
         PossibleExits = new List<GameLocation>
@@ -331,7 +331,7 @@ public class PlaceholderLocation : BaseLocation
         };
     }
     
-    protected override async Task<bool> ProcessChoice(string choice)
+    protected virtual async Task<bool> ProcessChoice(string choice)
     {
         var upperChoice = choice.ToUpper().Trim();
         
@@ -354,7 +354,7 @@ public class PlaceholderLocation : BaseLocation
         }
     }
     
-    protected override void DisplayLocation()
+    protected virtual void DisplayLocation()
     {
         terminal.ClearScreen();
         
