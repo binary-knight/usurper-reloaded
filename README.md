@@ -1,4 +1,4 @@
-﻿# Usurper Complete Recovery Project
+﻿# Usurper Reloaded
 
 A comprehensive recreation of the classic 1993 BBS door game "Usurper" by Jakob Dangarden, built with Godot 4 and C# while maintaining perfect Pascal source compatibility and featuring revolutionary enhanced NPC AI systems.
 

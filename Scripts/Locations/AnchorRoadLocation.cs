@@ -26,7 +26,7 @@ public class AnchorRoadLocation : BaseLocation
     private const string LocationDescription = "Conjunction of Destinies";
     private const int MenuOffset = 20; // Pascal offset constant
     
-    public override void _Ready()
+    public new void _Ready()
     {
         base._Ready();
         locationManager = GetNode<LocationManager>("/root/LocationManager");
@@ -42,7 +42,7 @@ public class AnchorRoadLocation : BaseLocation
     /// <summary>
     /// Main menu - Pascal CHALLENG.PAS Meny procedure
     /// </summary>
-    public override async Task ShowLocationMenu(Character player)
+    public new async Task ShowLocationMenu(Character player)
     {
         await DisplayMenu(player, false, false);
     }

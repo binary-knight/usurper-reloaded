@@ -15,7 +15,7 @@ public class RoyalQuestLocation : BaseLocation
     {
     }
     
-    public override async Task Enter(Character player)
+    public new async Task Enter(Character player)
     {
         if (!player.King)
         {

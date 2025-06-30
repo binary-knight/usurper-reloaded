@@ -46,7 +46,7 @@ public class TeamCornerLocation : BaseLocation
         AddMenuOption("R", "Return");
     }
     
-    public override void _Ready()
+    public new void _Ready()
     {
         base._Ready();
         teamSystem = GetNode<TeamSystem>("/root/TeamSystem");
@@ -55,7 +55,7 @@ public class TeamCornerLocation : BaseLocation
         relationshipSystem = GetNode<RelationshipSystem>("/root/RelationshipSystem");
     }
     
-    public override async Task<bool> HandlePlayerInput(string input, Player player)
+    public new async Task<bool> HandlePlayerInput(string input, Player player)
     {
         if (string.IsNullOrEmpty(input))
             return false;
@@ -146,7 +146,7 @@ public class TeamCornerLocation : BaseLocation
         }
     }
     
-    public override void DisplayMenu(bool force = false)
+    public new void DisplayMenu(bool force = false)
     {
         if (!force && CurrentPlayer?.Character.Expert == true)
             return;
@@ -171,7 +171,7 @@ public class TeamCornerLocation : BaseLocation
         terminal.WriteLine($"{GameConfig.NewsColorDefault}(R)eturn");
     }
     
-    public override void DisplayPrompt()
+    public new void DisplayPrompt()
     {
         if (CurrentPlayer?.Character.Expert == false)
         {

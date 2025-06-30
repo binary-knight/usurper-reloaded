@@ -51,7 +51,7 @@ public partial class BankLocation : BaseLocation
         return banker;
     }
     
-    public override void Enter(Character player)
+    public new void Enter(Character player)
     {
         base.Enter(player);
         

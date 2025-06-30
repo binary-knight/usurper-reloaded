@@ -29,7 +29,7 @@ public class AdvancedMagicShopLocation : BaseLocation
     private const long HealingPotionBaseCost = 50;
     private const long HealingPotionMaxCost = 500;
     
-    public override void _Ready()
+    public new void _Ready()
     {
         base._Ready();
         locationManager = GetNode<LocationManager>("/root/LocationManager");
@@ -65,7 +65,7 @@ public class AdvancedMagicShopLocation : BaseLocation
     /// <summary>
     /// Main magic shop menu - Pascal MAGIC.PAS Meny procedure
     /// </summary>
-    public override async Task ShowLocationMenu(Character player)
+    public new async Task ShowLocationMenu(Character player)
     {
         var terminal = GetNode<TerminalEmulator>("/root/TerminalEmulator");
         

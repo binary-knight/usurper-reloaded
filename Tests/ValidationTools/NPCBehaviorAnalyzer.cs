@@ -284,7 +284,7 @@ namespace UsurperReborn.Tests.ValidationTools
         public WorldState WorldState { get; set; }
         public EmotionalState EmotionalState { get; set; }
         public List<Goal> ActiveGoals { get; set; }
-        public List<Memory> RecentMemories { get; set; }
+        public List<MemoryEvent> RecentMemories { get; set; }
     }
 
     public class BehaviorAnalysisReport

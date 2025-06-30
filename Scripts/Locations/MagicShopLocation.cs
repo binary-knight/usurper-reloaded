@@ -116,7 +116,7 @@ public partial class MagicShopLocation : BaseLocation
         _magicInventory.Add(item);
     }
     
-    public override void Enter(Character player)
+    public new void Enter(Character player)
     {
         base.Enter(player);
         DisplayMagicShopMenu(player);

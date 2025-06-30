@@ -15,15 +15,15 @@ public class NewsLocation : BaseLocation
     private const int MaxNewsDisplay = 50; // Maximum news lines to display at once
     private const int PageSize = 20; // Lines per page for paginated display
 
-    public override string LocationName => GameConfig.DefaultNewsLocation;
-    public override GameLocation LocationId => GameLocation.MainStreet; // Accessible from Main Street
+    public new string LocationName => GameConfig.DefaultNewsLocation;
+    public new GameLocation LocationId => GameLocation.MainStreet; // Accessible from Main Street
     
     public NewsLocation()
     {
         _newsSystem = NewsSystem.Instance;
     }
 
-    public override void HandlePlayerEntry(Player player)
+    public new void HandlePlayerEntry(Player player)
     {
         try
         {
@@ -37,7 +37,7 @@ public class NewsLocation : BaseLocation
         }
     }
 
-    public override bool HandlePlayerInput(Player player, string input)
+    public new bool HandlePlayerInput(Player player, string input)
     {
         if (string.IsNullOrWhiteSpace(input))
         {
@@ -316,7 +316,7 @@ public class NewsLocation : BaseLocation
         }
     }
 
-    public override string GetLocationDescription(Player player)
+    public new string GetLocationDescription(Player player)
     {
         var description = new List<string>
         {
@@ -348,7 +348,7 @@ public class NewsLocation : BaseLocation
         return string.Join("\n", description);
     }
 
-    public override List<string> GetAvailableCommands(Player player)
+    public new List<string> GetAvailableCommands(Player player)
     {
         return new List<string>
         {

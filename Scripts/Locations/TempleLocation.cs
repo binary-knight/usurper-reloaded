@@ -32,7 +32,7 @@ public partial class TempleLocation : BaseLocation
     /// <summary>
     /// Main temple processing loop based on Pascal TEMPLE.PAS
     /// </summary>
-    public override async Task<string> ProcessLocation(Character player)
+    public new async Task<string> ProcessLocation(Character player)
     {
         currentPlayer = player;
         terminal.Clear();

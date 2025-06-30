@@ -18,7 +18,7 @@ public class CharacterCreationLocation : BaseLocation
         ShortDescription = "New Player Creation";
     }
     
-    public override async Task EnterLocation(Character player)
+    public new async Task EnterLocation(Character player)
     {
         await base.EnterLocation(player);
         
@@ -248,26 +248,26 @@ public class CharacterCreationLocation : BaseLocation
         terminal.WriteLine("Please restart the game to try again.", "yellow");
     }
     
-    public override async Task<bool> HandleInput(Character player, string input)
+    public new async Task<bool> HandleInput(Character player, string input)
     {
         // This location doesn't handle direct input - it's all automated
         return await base.HandleInput(player, input);
     }
     
-    public override void ShowLocationHeader(Character player)
+    public new void ShowLocationHeader(Character player)
     {
         terminal.WriteLine($"Welcome to {Name}, {player.DisplayName}!", "cyan");
         terminal.WriteLine(Description, "white");
         terminal.WriteLine("");
     }
     
-    public override Task ShowMenu(Character player)
+    public new Task ShowMenu(Character player)
     {
         // No menu needed - character creation is automated
         return Task.CompletedTask;
     }
     
-    public override List<string> GetMenuOptions(Character player)
+    public new List<string> GetMenuOptions(Character player)
     {
         // No menu options - this is an automated process
         return new List<string>();

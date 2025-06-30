@@ -14,14 +14,14 @@ public partial class HealerLocation : BaseLocation
     private const string HealerName = GameConfig.DefaultHealerName;
     private const string Manager = GameConfig.DefaultHealerManager;
     
-    public override void _Ready()
+    public new void _Ready()
     {
         base._Ready();
         Name = "HealerLocation";
         LocationId = (int)GameLocation.Healer;
     }
     
-    protected override void ProcessPlayerInput(string input)
+    protected new void ProcessPlayerInput(string input)
     {
         var choice = input.ToUpper().Trim();
         
@@ -48,7 +48,7 @@ public partial class HealerLocation : BaseLocation
         }
     }
     
-    protected override void DisplayMenu(bool forceDisplay = false)
+    protected new void DisplayMenu(bool forceDisplay = false)
     {
         terminal.Clear();
         terminal.WriteLine("");

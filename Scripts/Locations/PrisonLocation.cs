@@ -38,7 +38,7 @@ public partial class PrisonLocation : BaseLocation
         }
     }
     
-    public override async Task<bool> EnterLocation(Character player)
+    public new async Task<bool> EnterLocation(Character player)
     {
         if (player == null) return false;
         
@@ -493,7 +493,7 @@ public partial class PrisonLocation : BaseLocation
         return false;
     }
     
-    public override async Task<List<string>> GetLocationCommands(Character player)
+    public new async Task<List<string>> GetLocationCommands(Character player)
     {
         var commands = new List<string>
         {
@@ -511,13 +511,13 @@ public partial class PrisonLocation : BaseLocation
         return commands;
     }
     
-    public override async Task<bool> CanEnterLocation(Character player)
+    public new async Task<bool> CanEnterLocation(Character player)
     {
         // Can only enter if actually imprisoned
         return player.DaysInPrison > 0;
     }
     
-    public override async Task<string> GetLocationStatus(Character player)
+    public new async Task<string> GetLocationStatus(Character player)
     {
         int daysLeft = player.DaysInPrison;
         string dayStr = daysLeft == 1 ? "day" : "days";

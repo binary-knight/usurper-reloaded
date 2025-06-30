@@ -13,13 +13,13 @@ public class LoveCornerLocation : BaseLocation
 {
     public LoveCornerLocation() : base(GameConfig.LoveCorner, GameConfig.DefaultLoveCornerName) { }
 
-    public override void OnEnter(Character player)
+    public new void OnEnter(Character player)
     {
         base.OnEnter(player);
         ShowLocationDescription(player);
     }
 
-    public override bool HandleCommand(Character player, string command)
+    public new bool HandleCommand(Character player, string command)
     {
         return command.ToUpper() switch
         {

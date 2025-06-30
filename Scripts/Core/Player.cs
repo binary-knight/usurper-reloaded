@@ -53,7 +53,7 @@ public class Player : Character
         TurnsRemaining = config.StartingTurns;
     }
     
-    protected override void OnLevelUp()
+    protected new void OnLevelUp()
     {
         base.OnLevelUp();
         
@@ -249,7 +249,7 @@ public class Player : Character
         };
     }
     
-    public override string GetDisplayInfo()
+    public new string GetDisplayInfo()
     {
         var title = GetTitle();
         return $"{Name} the {title} (Level {Level} {Class})";

@@ -15,7 +15,7 @@ public class QuestHallLocation : BaseLocation
     {
     }
     
-    public override async Task Enter(Character player)
+    public new async Task Enter(Character player)
     {
         terminal.WriteLine("You enter the Quest Hall.", "white");
         terminal.WriteLine("The royal clerk Pingon is here to distribute assignments.", "white");

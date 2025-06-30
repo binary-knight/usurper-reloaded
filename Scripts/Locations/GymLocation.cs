@@ -28,7 +28,7 @@ public class GymLocation : BaseLocation
     private List<TugTeamMember> homeTeam = new List<TugTeamMember>();
     private List<TugTeamMember> awayTeam = new List<TugTeamMember>();
     
-    public override void _Ready()
+    public new void _Ready()
     {
         base._Ready();
         tournamentSystem = GetNode<TournamentSystem>("/root/TournamentSystem");
@@ -59,7 +59,7 @@ public class GymLocation : BaseLocation
     /// <summary>
     /// Main gym menu - Pascal GYM.PAS main gym procedure
     /// </summary>
-    public override async Task ShowLocationMenu(Character player)
+    public new async Task ShowLocationMenu(Character player)
     {
         var terminal = GetNode<TerminalEmulator>("/root/TerminalEmulator");
         
