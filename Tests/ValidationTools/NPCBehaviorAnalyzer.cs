@@ -1,5 +1,6 @@
-using UsurperReborn.Scripts.Core;
-using UsurperReborn.Scripts.AI;
+using UsurperRemake.Utils;
+using UsurperRemake;
+using UsurperRemake;
 using System.Text;
 
 namespace UsurperReborn.Tests.ValidationTools

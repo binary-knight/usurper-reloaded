@@ -1,6 +1,7 @@
+using UsurperRemake.Utils;
 using NUnit.Framework;
-using UsurperReborn.Scripts.Core;
-using UsurperReborn.Scripts.AI;
+using UsurperRemake;
+using UsurperRemake;
 using FluentAssertions;
 using System.Diagnostics;
 

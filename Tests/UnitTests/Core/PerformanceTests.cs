@@ -1,7 +1,8 @@
+using UsurperRemake.Utils;
 using NUnit.Framework;
-using UsurperReborn.Scripts.Core;
-using UsurperReborn.Scripts.AI;
-using UsurperReborn.Scripts.Systems;
+using UsurperRemake;
+using UsurperRemake;
+using UsurperRemake;
 using FluentAssertions;
 using System.Diagnostics;
 
@@ -170,7 +171,8 @@ namespace UsurperReborn.Tests.UnitTests.Core
             {
                 memory.RecordEvent(new MemoryEvent
                 {
-                    Type = (MemoryEventType[]){
+                    Type = new MemoryEventType[]
+                    {
                         MemoryEventType.WasHelped,
                         MemoryEventType.WasAttacked,
                         MemoryEventType.SharedDrink,
