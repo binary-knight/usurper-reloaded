@@ -205,6 +205,21 @@ public class Character
     public int PickPocketAttempts { get; set; }     // pick pocket attempts
     public int BankRobberyAttempts { get; set; }    // bank robbery attempts
     
+    // Religious and Divine Properties (Pascal UserRec fields)
+    public bool IsMarried { get; set; } = false;       // Marriage status
+    public string SpouseName { get; set; } = "";       // Name of spouse
+    public int MarriageAttempts { get; set; } = 0;     // Daily marriage attempts used
+    public bool BannedFromChurch { get; set; } = false; // Banned from religious services
+    public DateTime LastResurrection { get; set; } = DateTime.MinValue; // Last time resurrected
+    public int ResurrectionsUsed { get; set; } = 0;    // Total resurrections used
+    public int MaxResurrections { get; set; } = 3;     // Maximum resurrections allowed
+    
+    // Divine favor and religious standing  
+    public int DivineBlessing { get; set; } = 0;       // Divine blessing duration (days)
+    public bool HasHolyWater { get; set; } = false;    // Carrying holy water
+    public DateTime LastConfession { get; set; } = DateTime.MinValue; // Last confession
+    public int SacrificesMade { get; set; } = 0;       // Total sacrifices to gods
+    
     // Constructor to initialize lists
     public Character()
     {
@@ -250,7 +265,6 @@ public class Character
     // Social properties
     public string TeamName => Team;
     public bool IsTeamLeader => CTurf;
-    public string SpouseName => ""; // TODO: Implement from marriage system
     public int Children => Kids;
     
     // Helper method to get equipped item name (placeholder)

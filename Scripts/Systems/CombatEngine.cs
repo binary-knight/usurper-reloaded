@@ -786,6 +786,198 @@ public class CombatEngine
         
         await Task.Delay(2000);
     }
+
+    /// <summary>
+    /// Process spell casting during combat
+    /// </summary>
+    private void ProcessSpellCasting(Character player, Character monster)
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("white");
+        terminal.WriteLine("═══ Spell Casting ═══");
+        
+        var availableSpells = SpellSystem.GetAvailableSpells(player);
+        if (availableSpells.Count == 0)
+        {
+            terminal.WriteLine($"{player.DisplayName} doesn't know any spells yet!", "red");
+            terminal.PressAnyKey();
+            return;
+        }
+        
+        // Display available spells
+        terminal.WriteLine("Available Spells:");
+        for (int i = 0; i < availableSpells.Count; i++)
+        {
+            var spell = availableSpells[i];
+            var canCast = SpellSystem.CanCastSpell(player, spell.Level);
+            var color = canCast ? ConsoleColor.White : ConsoleColor.DarkGray;
+            
+            terminal.SetColor(color);
+            terminal.WriteLine($"{i + 1}. {spell.Name} (Level {spell.Level}) - {spell.ManaCost} mana");
+            if (!canCast)
+            {
+                terminal.WriteLine("   (Not enough mana)");
+            }
+        }
+        
+        terminal.WriteLine("");
+        terminal.WriteLine("Enter spell number (0 to cancel): ", ConsoleColor.Yellow, false);
+        string input = terminal.GetInput();
+        
+        if (int.TryParse(input, out int spellChoice) && spellChoice > 0 && spellChoice <= availableSpells.Count)
+        {
+            var selectedSpell = availableSpells[spellChoice - 1];
+            
+            if (!SpellSystem.CanCastSpell(player, selectedSpell.Level))
+            {
+                terminal.WriteLine("You cannot cast this spell right now!", "red");
+                terminal.PressAnyKey();
+                return;
+            }
+            
+            // Cast the spell
+            var spellResult = SpellSystem.CastSpell(player, selectedSpell.Level, monster);
+            
+            terminal.WriteLine("");
+            terminal.WriteLine(spellResult.Message);
+            
+            // Apply spell effects
+            ApplySpellEffects(player, monster, spellResult);
+            
+            terminal.PressAnyKey();
+        }
+        else if (spellChoice != 0)
+        {
+            terminal.WriteLine("Invalid spell selection!", "red");
+            terminal.PressAnyKey();
+        }
+    }
+    
+    /// <summary>
+    /// Apply spell effects to combat
+    /// </summary>
+    private void ApplySpellEffects(Character caster, Character target, SpellSystem.SpellResult spellResult)
+    {
+        // Apply healing to caster
+        if (spellResult.Healing > 0)
+        {
+            int oldHP = caster.HP;
+            caster.HP = Math.Min(caster.HP + spellResult.Healing, caster.MaxHP);
+            int actualHealing = caster.HP - oldHP;
+            terminal.WriteLine($"{caster.DisplayName} heals {actualHealing} hitpoints!", "green");
+        }
+        
+        // Apply damage to target
+        if (spellResult.Damage > 0 && target != null)
+        {
+            target.HP = Math.Max(0, target.HP - spellResult.Damage);
+            terminal.WriteLine($"{target.DisplayName} takes {spellResult.Damage} damage!", "red");
+            
+            if (target.HP <= 0)
+            {
+                terminal.WriteLine($"{target.DisplayName} has been slain by magic!", "dark_red");
+                globalPlayerInFight = false;
+            }
+        }
+        
+        // Apply temporary buffs/debuffs (simplified for now)
+        if (spellResult.ProtectionBonus > 0)
+        {
+            terminal.WriteLine($"{caster.DisplayName} gains +{spellResult.ProtectionBonus} protection!", "blue");
+            // TODO: Implement temporary effect system
+        }
+        
+        if (spellResult.AttackBonus > 0)
+        {
+            terminal.WriteLine($"{caster.DisplayName} gains +{spellResult.AttackBonus} attack power!", "red");
+            // TODO: Implement temporary effect system
+        }
+        
+        // Handle special effects
+        if (!string.IsNullOrEmpty(spellResult.SpecialEffect))
+        {
+            HandleSpecialSpellEffect(caster, target, spellResult.SpecialEffect);
+        }
+    }
+    
+    /// <summary>
+    /// Handle special spell effects
+    /// </summary>
+    private void HandleSpecialSpellEffect(Character caster, Character target, string effect)
+    {
+        switch (effect.ToLower())
+        {
+            case "poison":
+                if (target != null)
+                {
+                    terminal.WriteLine($"{target.DisplayName} is poisoned!", "dark_green");
+                    // TODO: Implement poison status effect
+                }
+                break;
+                
+            case "sleep":
+                if (target != null)
+                {
+                    terminal.WriteLine($"{target.DisplayName} falls into a magical sleep!", "blue");
+                    // TODO: Implement sleep status effect
+                }
+                break;
+                
+            case "freeze":
+                if (target != null)
+                {
+                    terminal.WriteLine($"{target.DisplayName} is frozen solid!", "cyan");
+                    // TODO: Implement freeze status effect
+                }
+                break;
+                
+            case "fear":
+                if (target != null)
+                {
+                    terminal.WriteLine($"{target.DisplayName} is overwhelmed by supernatural fear!", "yellow");
+                    // TODO: Implement fear status effect
+                }
+                break;
+                
+            case "escape":
+                terminal.WriteLine($"{caster.DisplayName} attempts to escape using magic!", "magenta");
+                if (random.Next(100) < 75) // 75% success rate
+                {
+                    terminal.WriteLine("The escape is successful!", "green");
+                    globalEscape = true;
+                }
+                else
+                {
+                    terminal.WriteLine("The escape attempt fails!", "red");
+                }
+                break;
+                
+            case "steal":
+                if (target != null)
+                {
+                    var goldStolen = random.Next(target.Gold / 10);
+                    if (goldStolen > 0)
+                    {
+                        target.Gold -= goldStolen;
+                        caster.Gold += goldStolen;
+                        terminal.WriteLine($"{caster.DisplayName} steals {goldStolen} gold from {target.DisplayName}!", "yellow");
+                    }
+                    else
+                    {
+                        terminal.WriteLine($"The steal attempt finds no gold!", "gray");
+                    }
+                }
+                break;
+                
+            case "convert":
+                if (target != null)
+                {
+                    terminal.WriteLine($"{target.DisplayName} is touched by divine light!", "white");
+                    // TODO: Implement conversion effect (monster may flee or become friendly)
+                }
+                break;
+        }
+    }
 }
 
 /// <summary>

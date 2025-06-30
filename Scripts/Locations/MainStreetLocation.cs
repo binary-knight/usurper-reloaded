@@ -89,19 +89,22 @@ public class MainStreetLocation : BaseLocation
         terminal.WriteLine("Main street actions:");
         terminal.WriteLine("");
         
-        // Left column
-        terminal.SetColor("white");
-        terminal.WriteLine("(S)tatus             (G)ood Deeds             [Global Commands]");
-        terminal.WriteLine("(D)ungeons           (E)vil Deeds             (Ctrl+W) Who is Online?");
-        terminal.WriteLine("(B)ank               (V)isit Master           (Ctrl+T) Send message");
-        terminal.WriteLine("(I)nn                (M)agic Shop             (Ctrl+S) Send stuff");
-        terminal.WriteLine("(C)hallenges         (N)ews");
-        terminal.WriteLine("(A)rmor Shop         (L)ist Characters");
-        terminal.WriteLine("(W)eapon Store       (T)he Marketplace");
-        terminal.WriteLine("(H)ome               (X)tra Shops");
-        terminal.WriteLine("(F)ame               (R)elations");
-        terminal.WriteLine("(1) Healing Hut      (*) Suicide");
-        terminal.WriteLine("(Q)uit Game          (9) Combat Test");
+        terminal.WriteLine("┌─────────────────────────────────────────────────────────────────────────────┐", "cyan");
+        terminal.WriteLine("│                              -= MAIN STREET =-                            │", "cyan");
+        terminal.WriteLine("│                                                                             │", "cyan");
+        terminal.WriteLine("│  (S)tatus          (D)ungeons         (B)ank             (I)nn            │", "white");
+        terminal.WriteLine("│  (C)hallenges      (A)rmor Shop       (W)eapon Shop      (M)agic Shop     │", "white");
+        terminal.WriteLine("│  (T)emple          (N)ews             (F)ame             (R)elations      │", "white");
+        terminal.WriteLine("│                                                                             │", "cyan");
+        terminal.WriteLine("│  (L)ist Characters  (T)he Marketplace  (X)tra Shops  (Q)uit Game  (9) Combat Test │", "white");
+        terminal.WriteLine("│                                                                             │", "cyan");
+        terminal.WriteLine("│  (G)ood Deeds       (E)vil Deeds        (V)isit Master  (*) Suicide  (R)elations │", "white");
+        terminal.WriteLine("│                                                                             │", "cyan");
+        terminal.WriteLine("│  (K) Castle  (P) Prison  (O) Church  (Y) Dark Alley  (Ctrl+W) Who is Online?  (Ctrl+T) Send message │", "white");
+        terminal.WriteLine("│                                                                             │", "cyan");
+        terminal.WriteLine("│  (1) Healing Hut  (Q)uit Game  (2) Send stuff  (Ctrl+S) Send stuff  (3) List Characters │", "white");
+        terminal.WriteLine("│                                                                             │", "cyan");
+        terminal.WriteLine("└─────────────────────────────────────────────────────────────────────────────┘", "cyan");
         terminal.WriteLine("");
         
         // Navigation shortcuts
@@ -190,8 +193,9 @@ public class MainStreetLocation : BaseLocation
                 return false;
                 
             case "T":
-                await NavigateToLocation(GameLocation.Marketplace);
-                return true;
+                terminal.WriteLine("You enter the Temple of the Gods...", "cyan");
+                await Task.Delay(1500);
+                throw new LocationChangeException("temple");
                 
             case "X":
                 await NavigateToLocation(GameLocation.DarkAlley); // Extra shops
@@ -201,18 +205,18 @@ public class MainStreetLocation : BaseLocation
                 await ShowRelations();
                 return false;
                 
-                    case "*":
-            await AttemptSuicide();
-            return false;
+            case "*":
+                await AttemptSuicide();
+                return false;
             
-        case "9":
-            await TestCombat();
-            return false;
+            case "9":
+                await TestCombat();
+                return false;
             
-        // Quick navigation
-        case "K":
-            await NavigateToLocation(GameLocation.Castle);
-            return true;
+            // Quick navigation
+            case "K":
+                await NavigateToLocation(GameLocation.Castle);
+                return true;
                 
             case "P":
                 await NavigateToLocation(GameLocation.Prison);
@@ -223,8 +227,9 @@ public class MainStreetLocation : BaseLocation
                 return true;
                 
             case "Y":
-                await NavigateToLocation(GameLocation.DarkAlley);
-                return true;
+                terminal.WriteLine("You head to the Dark Alley...", "gray");
+                await Task.Delay(1500);
+                throw new LocationChangeException("dark_alley");
                 
             // Global commands
             case "CTRL+W":

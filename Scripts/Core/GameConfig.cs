@@ -1,4 +1,5 @@
 using Godot;
+using System.Collections.Generic;
 
 /// <summary>
 /// Game configuration constants extracted directly from Pascal INIT.PAS
@@ -202,6 +203,668 @@ public static class GameConfig
     // Court Magician
     public const long MagicSpellBaseCost = 500;      // Base cost for royal magic
     public const int MaxRoyalSpells = 10;            // Max spells available to king
+
+    // Bank system constants
+    public const int DefaultBankRobberyAttempts = 3;
+    public const long MaxBankBalance = 2000000000L; // 2 billion gold limit
+    public const int GuardSalaryPerLevel = 50;
+    
+    // Bank guard requirements
+    public const int MaxDarknessForGuard = 100;
+    public const int MinLevelForGuard = 5;
+    
+    // Bank safe guard scaling
+    public const long SafeGuardThreshold1 = 50000L;
+    public const long SafeGuardThreshold2 = 100000L;
+    public const long SafeGuardThreshold3 = 250000L;
+    public const long SafeGuardThreshold4 = 500000L;
+    public const long SafeGuardThreshold5 = 750000L;
+    public const long SafeGuardThreshold6 = 1000000L;
+    
+    // Interest rates (for future implementation)
+    public const float DailyInterestRate = 0.05f; // 5% daily interest
+    
+    // Money transfer limits
+    public const long MaxMoneyTransfer = 1000000L;
+
+    // Magic shop constants
+    public const string DefaultMagicShopOwner = "Ravanella"; // Default gnome owner
+    public const int DefaultIdentificationCost = 1500;
+    public const int HealingPotionLevelMultiplier = 5; // Level × 5 gold per potion
+    public const int MaxHealingPotions = 50; // Maximum potions player can carry
+    
+    // Magic item types sold in shop
+    public const int MagicItemTypeNeck = 10;  // Amulets, necklaces
+    public const int MagicItemTypeFingers = 5; // Rings
+    public const int MagicItemTypeWaist = 9;   // Belts, girdles
+    
+    // Spell system constants (automatic by class/level)
+    public const int MaxSpellLevel = 12;
+    public const int BaseSpellManaCost = 10; // Level 1 spells cost 10 mana
+    public const int ManaPerSpellLevel = 10; // Each spell level adds 10 mana cost
+    
+    // Magic resistance and spell effects
+    public const int BaseSpellResistance = 25;
+    public const int MaxSpellDuration = 10; // Combat rounds
+
+    // Temple/Church System Constants
+    public const string DefaultTempleName = "Temple of the Ancient Ones";
+    public const string DefaultTemplePriest = "Kenga The Faithful";
+    public const int MaxGods = 20;                     // Maximum gods in pantheon
+    public const long SacrificeGoldBaseReturn = 10;    // Base power points per gold sacrificed
+    public const int MaxBelieversPerGod = 1000;        // Maximum believers per deity
+    public const long ResurrectionBaseCost = 5000;     // Base cost for resurrection
+    
+    // Alignment and Morality Constants  
+    public const int MaxChivalry = 30000;              // Maximum chivalry points
+    public const int MaxDarkness = 30000;              // Maximum darkness points
+    public const int ChivalryGoodDeedCost = 1;         // Good deeds consumed per chivalrous act
+    public const int DarknessEvilDeedCost = 1;         // Evil deeds consumed per dark act
+    public const int AlignmentChangeThreshold = 100;   // Points needed to shift alignment
+    
+    // Marriage System (Temple-based)
+    public const long MarriageCost = 1000;             // Cost for marriage ceremony
+    public const long DivorceCost = 2000;              // Cost for divorce/annulment
+    public const int MaxMarriageAttempts = 3;          // Daily marriage attempts
+    public const int MinAgeForMarriage = 16;           // Minimum age to marry
+    
+    // Divine Services
+    public const long BlessingCost = 500;              // Cost for divine blessing
+    public const long HolyWaterCost = 200;             // Cost for holy water
+    public const long ExorcismCost = 1500;             // Cost for exorcism
+    public const int ResurrectionLevelPenalty = 1;     // Level loss upon resurrection
+    
+    // God System
+    public enum GodPower
+    {
+        Fading = 0,      // Very weak god
+        Weak = 1000,     // Weak god
+        Average = 5000,  // Average god  
+        Strong = 15000,  // Strong god
+        Mighty = 50000,  // Mighty god
+        Supreme = 100000 // Supreme god
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // HEALER SYSTEM CONSTANTS
+    // ═══════════════════════════════════════════════════════════════════
+    
+    // Healer Location
+    public const string DefaultHealerName = "The Golden Bow, Healing Hut";
+    public const string DefaultHealerManager = "Jadu The Fat";
+    
+    // Disease Healing Costs (Level-based multipliers from Pascal)
+    public const int BlindnessCostMultiplier = 5000;   // Level * 5000
+    public const int PlagueCostMultiplier = 6000;      // Level * 6000
+    public const int SmallpoxCostMultiplier = 7000;    // Level * 7000
+    public const int MeaslesCostMultiplier = 7500;     // Level * 7500
+    public const int LeprosyCostMultiplier = 8500;     // Level * 8500
+    
+    // Cursed Item Removal
+    public const int CursedItemRemovalMultiplier = 1000; // Level * 1000 per item
+    
+    // Disease Effects
+    public const int DiseaseResistanceBase = 10;  // Base disease resistance
+    public const int MaxDiseaseResistance = 90;   // Maximum disease resistance
+    
+    // Healing Delays (in milliseconds for animations)
+    public const int HealingDelayShort = 800;
+    public const int HealingDelayMedium = 1200;
+    public const int HealingDelayLong = 2000;
+
+    // Temple system constants
+    public const int DefaultTempleCharity = 50;  
+    public const int DefaultTempleMarriage = 300;
+    public const int DefaultTempleResurrection = 400;
+    public const double ResurrectionCostMultiplier = 100.0;  // Level * this amount
+    public const int MarriageBaseNeed = 1000;  
+    public const int MarriageCharmaNeed = 5000;  
+    
+    // Prison system constants
+    public const string DefaultPrisonName = "The Royal Prison";
+    public const string DefaultPrisonCaption = "Ronald"; // Captain of the guard
+    public const int DefaultPrisonEscapeAttempts = 1; // Daily escape attempts
+    public const int PrisonEscapeSuccessRate = 50; // 50% chance of success
+    public const int DefaultPrisonSentence = 1; // Default days imprisoned
+    public const int MaxPrisonSentence = 30; // Maximum days a king can sentence
+    
+    // Prison breaking constants
+    public const int PrisonBreakGuardCount = 4; // Guards that respond to prison break
+    public const long PrisonBreakBounty = 5000; // Bounty for catching prison breakers
+    public const int PrisonBreakPenalty = 2; // Extra days for getting caught breaking in
+    
+    // Prison messages and responses
+    public const string PrisonDemandResponse1 = "Haha!";
+    public const string PrisonDemandResponse2 = "Sure! Next year maybe! Haha!";
+    public const string PrisonDemandResponse3 = "SHUT UP! OR WE WILL HURT YOU BAD!";
+    public const string PrisonDemandResponse4 = "GIVE IT A REST IN THERE!";
+    public const string PrisonDemandResponse5 = "Ho ho ho!";
+    
+    // Prison animation delays
+    public const int PrisonCellOpenDelay = 1000; // ms to open cell door
+    public const int PrisonEscapeDelay = 2000; // ms for escape attempt
+    public const int PrisonGuardResponseDelay = 1500; // ms for guard response
+    
+    // Offline location constants (Pascal compatibility)
+    public const int OfflineLocationDormitory = 0;
+    public const int OfflineLocationInnRoom1 = 1;
+    public const int OfflineLocationInnRoom2 = 2;  
+    public const int OfflineLocationInnRoom3 = 3;
+    public const int OfflineLocationInnRoom4 = 4;
+    public const int OfflineLocationBeggarWall = 10;
+    public const int OfflineLocationCastle = 30;
+    public const int OfflineLocationPrison = 40;
+    public const int OfflineLocationHome = 50;
+
+    // Phase 12: Relationship System Constants
+    // Relationship Types (from Pascal CMS.PAS constants)
+    public const int RelationMarried = 10;
+    public const int RelationLove = 20;
+    public const int RelationPassion = 30;
+    public const int RelationFriendship = 40;
+    public const int RelationTrust = 50;
+    public const int RelationRespect = 60;
+    public const int RelationNone = 1;       // returned by social_relation function
+    public const int RelationNormal = 70;    // default relation value
+    public const int RelationSuspicious = 80;
+    public const int RelationAnger = 90;
+    public const int RelationEnemy = 100;
+    public const int RelationHate = 110;
+    
+    // Love Corner Settings
+    public const string DefaultLoveCornerName = "Lover's Corner";
+    public const string DefaultGossipMongerName = "Elvira the Gossip Monger";
+    public const int LoveCorner = 77;            // Location ID from Pascal INIT.PAS
+    
+    // Marriage and Relationship Costs
+    public const long WeddingCostBase = 1000;
+    public const long DivorceCostBase = 500;
+    public const int MinimumAgeToMarry = 18;
+    
+    // Experience Multipliers for Romantic Actions (Pascal LOVERS.PAS)
+    public const int KissExperienceMultiplier = 50;
+    public const int DinnerExperienceMultiplier = 75;
+    public const int HandHoldingExperienceMultiplier = 40;
+    public const int IntimateExperienceMultiplier = 100;
+    
+    // Gift Shop Costs
+    public const long RosesCost = 100;
+    public const long ChocolatesCostBase = 200;
+    public const long JewelryCostBase = 1000;
+    public const long PoisonCostBase = 2000;
+    
+    // Child System Constants (from Pascal CHILDREN.PAS)
+    public const int ChildLocationHome = 1;
+    public const int ChildLocationOrphanage = 2;
+    public const int ChildLocationKidnapped = 3;
+    
+    public const int ChildHealthNormal = 1;
+    public const int ChildHealthPoisoned = 2;
+    public const int ChildHealthCursed = 3;
+    public const int ChildHealthDepressed = 4;
+    
+    public const int ChildAgeUpDays = 30;     // Days per age increment
+    
+    // Wedding Ceremony Messages (Pascal authentic)
+    public static readonly string[] WeddingCeremonyMessages = 
+    {
+        "The priest says a few holy words and you are married!",
+        "A beautiful ceremony filled with love and joy!",
+        "The gods smile upon your union!",
+        "Love conquers all! You are now wed!",
+        "May your marriage be blessed with happiness!",
+        "A match made in heaven!",
+        "Together forever, through good times and bad!",
+        "Your hearts beat as one!",
+        "The kingdom celebrates your union!",
+        "True love has prevailed!"
+    };
+    
+    // Relationship Maintenance Settings
+    public const int RelationshipMaintenanceInterval = 24; // hours
+    public const int AutoDivorceChance = 20;  // 1 in 20 chance per day
+    
+    // Intimacy System
+    public const int DefaultIntimacyActsPerDay = 3;
+    public const int MaxIntimacyActsPerDay = 5;
+    
+    // Phase 13: God System Constants (from Pascal INITGODS.PAS, VARGODS.PAS, TEMPLE.PAS)
+    // Supreme Creator
+    public const string SupremeCreatorName = "Manwe";  // global_supreme_creator from INITGODS.PAS
+    
+    // Temple System
+    public const int TempleLocationId = 47;          // onloc_temple from CMS.PAS
+    public const int HeavenLocationId = 400;         // onloc_heaven from CMS.PAS
+    public const int HeavenBossLocationId = 401;     // onloc_heaven_boss from CMS.PAS
+    
+    // God System Configuration
+    public const int MaxGodRecords = 50;              // Maximum gods that can exist
+    public const int DefaultGodDeedsLeft = 3;         // config.gods_deedsleft - daily deeds for gods
+    public const int MaxGodLevel = 9;                 // Maximum god level
+    public const int MinGodAge = 2;                   // Minimum god age (random(5) + 2)
+    public const int MaxGodAge = 6;                   // Maximum god age (random(5) + 2)
+    
+    // God Level Experience Thresholds (from Pascal God_Level_Raise function)
+    public const long GodLevel2Experience = 5000;     // Level 2: Minor Spirit
+    public const long GodLevel3Experience = 15000;    // Level 3: Spirit
+    public const long GodLevel4Experience = 50000;    // Level 4: Major Spirit
+    public const long GodLevel5Experience = 70000;    // Level 5: Minor Deity
+    public const long GodLevel6Experience = 90000;    // Level 6: Deity
+    public const long GodLevel7Experience = 110000;   // Level 7: Major Deity
+    public const long GodLevel8Experience = 550000;   // Level 8: DemiGod
+    public const long GodLevel9Experience = 1000500;  // Level 9: God
+    
+    // God Titles (from Pascal God_Title function)
+    public static readonly string[] GodTitles = 
+    {
+        "",                 // Index 0 - unused
+        "Lesser Spirit",    // Level 1
+        "Minor Spirit",     // Level 2
+        "Spirit",           // Level 3
+        "Major Spirit",     // Level 4
+        "Minor Deity",      // Level 5
+        "Deity",            // Level 6
+        "Major Deity",      // Level 7
+        "DemiGod",          // Level 8
+        "God"               // Level 9
+    };
+    
+    // Sacrifice Gold Return Tiers (from Pascal Sacrifice_Gold_Return function)
+    public const long SacrificeGoldTier1Max = 20;           // Returns 1 power
+    public const long SacrificeGoldTier2Max = 2000;         // Returns 2 power
+    public const long SacrificeGoldTier3Max = 45000;        // Returns 3 power
+    public const long SacrificeGoldTier4Max = 150000;       // Returns 4 power
+    public const long SacrificeGoldTier5Max = 900000;       // Returns 5 power
+    public const long SacrificeGoldTier6Max = 15000000;     // Returns 6 power
+    public const long SacrificeGoldTier7Max = 110000000;    // Returns 7 power
+    // Above 110000000 returns 8 power
+    
+    // Divine Intervention Settings
+    public const int DivineInterventionCost = 1;            // Deeds cost per intervention
+    public const int GodMaintenanceInterval = 24;           // Hours between god maintenance
+    
+    // Broadcast Messages (from Pascal CMS.PAS)
+    public const string BroadcastGodDesecrated = "∩∩∩1";    // broadcast_GodDesecrated
+    public const string BroadcastGodSacrificed = "∩∩∩2";    // broadcast_GodSacrificed
+    public const string BroadcastNewGod = "*NEW GOD*";      // New god notification
+    public const string BroadcastGodEnteredGame = "god_entered"; // God entered heaven
+    
+    // Temple Menu Options (from Pascal TEMPLE.PAS)
+    public const string TempleMenuWorship = "W";       // Worship a god
+    public const string TempleMenuDesecrate = "D";     // Desecrate altar
+    public const string TempleMenuAltars = "A";        // View altars
+    public const string TempleMenuContribute = "C";    // Contribute/sacrifice
+    public const string TempleMenuStatus = "S";        // Status
+    public const string TempleMenuGodRanking = "G";    // God ranking
+    public const string TempleMenuHolyNews = "H";      // Holy news
+    public const string TempleMenuReturn = "R";        // Return
+    
+    // God World Menu Options (from Pascal GODWORLD.PAS)
+    public const string GodWorldMenuImmortals = "I";       // List immortals
+    public const string GodWorldMenuIntervention = "D";    // Divine intervention
+    public const string GodWorldMenuVisitBoss = "V";       // Visit supreme creator
+    public const string GodWorldMenuBelievers = "B";       // View believers
+    public const string GodWorldMenuListMortals = "L";     // List mortals
+    public const string GodWorldMenuMessage = "M";         // Send message
+    public const string GodWorldMenuExamine = "E";         // Examine mortal
+    public const string GodWorldMenuStatus = "S";          // God status
+    public const string GodWorldMenuComment = "C";         // Comment to mortals
+    public const string GodWorldMenuNews = "N";            // News
+    public const string GodWorldMenuQuit = "Q";            // Quit heaven
+    public const string GodWorldMenuFlock = "F";           // Flock inspection
+    public const string GodWorldMenuSuicide = "*";         // God suicide
+    public const string GodWorldMenuImmortalNews = "1";    // Immortal news
+    
+    // Divine Intervention Menu Options
+    public const string DivineMortals = "M";               // Intervene with mortals
+    public const string DivineChildren = "C";              // Intervene with children  
+    public const string DivinePrisoners = "P";             // Intervene with prisoners
+    public const string DivineHelp = "H";                  // Help menu
+    public const string DivineReturn = "R";                // Return to main menu
+    
+    // God AI Types
+    public const char GodAIHuman = 'H';                    // Human-controlled god
+    public const char GodAIComputer = 'C';                 // Computer-controlled god
+    
+    // God Becoming Requirements
+    public const int MinLevelToBecomeGod = 200;            // Must be max level to become god
+    public const string GodBecomingLocation = "Rurforium"; // bossplace constant
+
+    #region Character Creation System Constants
+
+    // Starting values for new characters (Pascal USERHUNC.PAS)
+    public const int DefaultStartingGold = 2000;  // startm variable
+    public const int DefaultStartingExperience = 10;
+    public const int DefaultStartingLevel = 1;
+    public const int DefaultDungeonFights = 5;    // dngfights
+    public const int DefaultPlayerFights = 3;     // plfights
+    public const int DefaultStartingHealing = 125;
+    public const int DefaultGoodDeeds = 3;        // chivnr
+    public const int DefaultDarkDeeds = 3;        // darknr
+    public const int DefaultLoyalty = 50;
+    public const int DefaultMentalHealth = 100;
+    public const int DefaultTournamentFights = 3; // tfights
+    public const int DefaultThiefAttempts = 3;    // thiefs
+    public const int DefaultBrawls = 3;
+    public const int DefaultAssassinAttempts = 3; // assa
+
+    // Character Class Starting Attributes (Pascal USERHUNC.PAS case statements)
+    public static readonly Dictionary<CharacterClass, CharacterAttributes> ClassStartingAttributes = new()
+    {
+        [CharacterClass.Alchemist] = new() { HP = 1, Strength = 2, Defence = 1, Stamina = 1, Agility = 2, Charisma = 4, Dexterity = 3, Wisdom = 5, Mana = 0, MaxMana = 0 },
+        [CharacterClass.Assassin] = new() { HP = 3, Strength = 4, Defence = 3, Stamina = 3, Agility = 4, Charisma = 2, Dexterity = 5, Wisdom = 2, Mana = 0, MaxMana = 0 },
+        [CharacterClass.Barbarian] = new() { HP = 5, Strength = 5, Defence = 4, Stamina = 5, Agility = 4, Charisma = 1, Dexterity = 2, Wisdom = 1, Mana = 0, MaxMana = 0 },
+        [CharacterClass.Bard] = new() { HP = 3, Strength = 4, Defence = 3, Stamina = 3, Agility = 3, Charisma = 4, Dexterity = 4, Wisdom = 3, Mana = 0, MaxMana = 0 },
+        [CharacterClass.Cleric] = new() { HP = 3, Strength = 3, Defence = 2, Stamina = 2, Agility = 2, Charisma = 4, Dexterity = 2, Wisdom = 4, Mana = 20, MaxMana = 20 },
+        [CharacterClass.Jester] = new() { HP = 2, Strength = 3, Defence = 2, Stamina = 2, Agility = 5, Charisma = 3, Dexterity = 5, Wisdom = 1, Mana = 0, MaxMana = 0 },
+        [CharacterClass.Magician] = new() { HP = 2, Strength = 1, Defence = 1, Stamina = 1, Agility = 2, Charisma = 5, Dexterity = 2, Wisdom = 4, Mana = 40, MaxMana = 40 },
+        [CharacterClass.Paladin] = new() { HP = 4, Strength = 4, Defence = 3, Stamina = 4, Agility = 2, Charisma = 2, Dexterity = 3, Wisdom = 3, Mana = 0, MaxMana = 0 },
+        [CharacterClass.Ranger] = new() { HP = 3, Strength = 3, Defence = 3, Stamina = 4, Agility = 3, Charisma = 2, Dexterity = 4, Wisdom = 3, Mana = 0, MaxMana = 0 },
+        [CharacterClass.Sage] = new() { HP = 1, Strength = 1, Defence = 2, Stamina = 2, Agility = 2, Charisma = 3, Dexterity = 3, Wisdom = 5, Mana = 40, MaxMana = 40 },
+        [CharacterClass.Warrior] = new() { HP = 4, Strength = 4, Defence = 4, Stamina = 4, Agility = 3, Charisma = 2, Dexterity = 2, Wisdom = 2, Mana = 0, MaxMana = 0 }
+    };
+
+    // Character Race Bonuses (Pascal USERHUNC.PAS race case statements)
+    public static readonly Dictionary<CharacterRace, RaceAttributes> RaceAttributes = new()
+    {
+        [CharacterRace.Human] = new() { HPBonus = 14, StrengthBonus = 4, DefenceBonus = 4, StaminaBonus = 4, MinAge = 15, MaxAge = 19, MinHeight = 180, MaxHeight = 219, MinWeight = 75, MaxWeight = 119, SkinColor = 10, HairColors = new[] { 1, 4, 5, 8 } },
+        [CharacterRace.Hobbit] = new() { HPBonus = 12, StrengthBonus = 2, DefenceBonus = 3, StaminaBonus = 3, MinAge = 20, MaxAge = 34, MinHeight = 100, MaxHeight = 136, MinWeight = 40, MaxWeight = 79, SkinColor = 10, HairColors = new[] { 1, 4, 5, 8 } },
+        [CharacterRace.Elf] = new() { HPBonus = 11, StrengthBonus = 3, DefenceBonus = 2, StaminaBonus = 3, MinAge = 20, MaxAge = 34, MinHeight = 160, MaxHeight = 184, MinWeight = 60, MaxWeight = 89, SkinColor = 10, HairColors = new[] { 1, 4, 5, 8 } },
+        [CharacterRace.HalfElf] = new() { HPBonus = 13, StrengthBonus = 2, DefenceBonus = 3, StaminaBonus = 4, MinAge = 16, MaxAge = 25, MinHeight = 165, MaxHeight = 189, MinWeight = 70, MaxWeight = 94, SkinColor = 10, HairColors = new[] { 1, 4, 5, 8 } },
+        [CharacterRace.Dwarf] = new() { HPBonus = 17, StrengthBonus = 5, DefenceBonus = 5, StaminaBonus = 4, MinAge = 25, MaxAge = 39, MinHeight = 160, MaxHeight = 179, MinWeight = 70, MaxWeight = 89, SkinColor = 7, HairColors = new[] { 1, 4, 5, 8 } },
+        [CharacterRace.Troll] = new() { HPBonus = 20, StrengthBonus = 7, DefenceBonus = 7, StaminaBonus = 5, MinAge = 15, MaxAge = 29, MinHeight = 185, MaxHeight = 219, MinWeight = 85, MaxWeight = 114, SkinColor = 5, HairColors = new[] { 5, 4, 4, 5 } },
+        [CharacterRace.Orc] = new() { HPBonus = 14, StrengthBonus = 3, DefenceBonus = 4, StaminaBonus = 3, MinAge = 15, MaxAge = 24, MinHeight = 170, MaxHeight = 189, MinWeight = 70, MaxWeight = 89, SkinColor = 5, HairColors = new[] { 5, 4, 4, 5 } },
+        [CharacterRace.Gnome] = new() { HPBonus = 12, StrengthBonus = 2, DefenceBonus = 3, StaminaBonus = 3, MinAge = 15, MaxAge = 29, MinHeight = 160, MaxHeight = 189, MinWeight = 60, MaxWeight = 74, SkinColor = 3, HairColors = new[] { 3, 3, 4, 9 } },
+        [CharacterRace.Gnoll] = new() { HPBonus = 9, StrengthBonus = 2, DefenceBonus = 2, StaminaBonus = 2, MinAge = 18, MaxAge = 27, MinHeight = 140, MaxHeight = 154, MinWeight = 50, MaxWeight = 64, SkinColor = 4, HairColors = new[] { 3, 3, 4, 9 } },
+        [CharacterRace.Mutant] = new() { HPBonus = 10, StrengthBonus = 1, DefenceBonus = 1, StaminaBonus = 1, MinAge = 18, MaxAge = 32, MinHeight = 150, MaxHeight = 199, MinWeight = 50, MaxWeight = 99, SkinColor = 0, HairColors = new int[0] }  // Random for mutants
+    };
+
+    // Race and Class Names (Pascal constants)
+    public static readonly string[] RaceNames = {
+        "Human", "Hobbit", "Elf", "Half-Elf", "Dwarf", "Troll", "Orc", "Gnome", "Gnoll", "Mutant"
+    };
+
+    public static readonly string[] ClassNames = {
+        "Warrior", "Paladin", "Ranger", "Assassin", "Bard", "Jester", "Alchemist", "Magician", "Cleric", "Sage", "Barbarian"
+    };
+
+    // Race Descriptions for Character Creation
+    public static readonly Dictionary<CharacterRace, string> RaceDescriptions = new()
+    {
+        [CharacterRace.Human] = "a humble Human",
+        [CharacterRace.Hobbit] = "a loyal Hobbit", 
+        [CharacterRace.Elf] = "a graceful Elf",
+        [CharacterRace.HalfElf] = "an allround Half-Elf",
+        [CharacterRace.Dwarf] = "a stubborn Dwarf",
+        [CharacterRace.Troll] = "a stinking Troll",
+        [CharacterRace.Orc] = "an ill-mannered Orc",
+        [CharacterRace.Gnome] = "a willful Gnome",
+        [CharacterRace.Gnoll] = "a puny Gnoll",
+        [CharacterRace.Mutant] = "a weird Mutant"
+    };
+
+    // Physical Appearance Options (Pascal appearance system)
+    public static readonly string[] EyeColors = {
+        "", "Brown", "Blue", "Green", "Hazel", "Gray"  // 1-5 in Pascal
+    };
+
+    public static readonly string[] HairColors = {
+        "", "Black", "Brown", "Red", "Blond", "Dark", "Light", "Auburn", "Golden", "Silver", "White"  // 1-10 in Pascal
+    };
+
+    public static readonly string[] SkinColors = {
+        "", "Very Dark", "Dark", "Tanned", "Brownish", "Green", "Grayish", "Bronze", "Pale", "Fair", "Very Fair"  // 1-10 in Pascal
+    };
+
+    // Forbidden Character Names (Pascal validation)
+    public static readonly string[] ForbiddenNames = {
+        "SYSOP", "COMPUTER", "COMPUTER1", "COMPUTER2", "COMPUTER3", "COMPUTER4", "COMPUTER5"
+    };
+
+    // Character Creation Help Text
+    public const string RaceHelpText = @"
+Race determines your basic physical and mental characteristics:
+
+Human - Well-balanced race, good for beginners
+Hobbit - Small but hardy, excellent constitution
+Elf - Graceful and wise, naturally magical
+Half-Elf - Good balance of human and elven traits
+Dwarf - Short but incredibly strong and tough
+Troll - Massive and powerful, fearsome in combat
+Orc - Strong and aggressive, natural fighters
+Gnome - Small and clever, skilled craftsmen
+Gnoll - Pack hunters with poisonous bite
+Mutant - Unpredictable abilities, random attributes
+";
+
+    public const string ClassHelpText = @"
+Class determines your profession and abilities:
+
+Warrior - Strong fighters, masters of weapons
+Paladin - Holy warriors, cannot be evil races
+Ranger - Woodsmen and trackers, balanced fighters
+Assassin - Deadly killers, masters of stealth
+Bard - Musicians and storytellers, social skills
+Jester - Entertainers and tricksters, very agile
+Alchemist - Potion makers and researchers
+Magician - Powerful spellcasters, low health
+Cleric - Healers and holy magic users
+Sage - Scholars and wise magic users
+Barbarian - Savage fighters, incredible strength
+";
+
+    // Invalid Race/Class Combinations (Pascal validation)
+    public static readonly Dictionary<CharacterRace, CharacterClass[]> InvalidCombinations = new()
+    {
+        [CharacterRace.Troll] = new[] { CharacterClass.Paladin },
+        [CharacterRace.Orc] = new[] { CharacterClass.Paladin }
+    };
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════
+    // DAILY MAINTENANCE SYSTEM CONSTANTS (Pascal MAINT.PAS)
+    // ═══════════════════════════════════════════════════════════════
+    
+    // Daily Player Processing (Pascal maintenance formulas)
+    public const int AliveBonus = 350;                    // level * 350 per day alive
+    public const long MaxAliveBonus = 1500000000;         // Maximum alive bonus allowed
+    public const int DefaultDungeonFights = 10;           // Daily dungeon fights reset
+    public const int DefaultPlayerFights = 3;             // Daily player fights reset
+    public const int DefaultTeamFights = 2;               // Daily team fights reset
+    public const int DefaultThiefAttempts = 3;            // Daily thief attempts reset
+    public const int DefaultBrawls = 3;                   // Daily brawl attempts reset
+    public const int DefaultAssassinAttempts = 3;         // Daily assassin attempts reset
+    public const int DefaultBardSongs = 5;                // Daily bard songs reset
+    public const int AssassinThiefBonus = 2;              // Extra thief attempts for assassins
+    
+    // Daily Limits and Resets (Pascal daily parameter resets)
+    public const int DailyDarknessReset = 6;              // Daily darkness deeds reset
+    public const int DailyChivalryReset = 6;              // Daily chivalry deeds reset
+    public const int DailyMentalStabilityChance = 7;      // 1 in 7 chance for mental stability increase
+    public const int MentalStabilityIncrease = 5;         // Max mental stability increase per day
+    public const int MaxMentalStability = 100;            // Maximum mental stability
+    
+    // Healing Potion Maintenance (Pascal healing potion spoilage)
+    public const float HealingSpoilageRate = 0.5f;        // 50% of overage spoils per day
+    public const int MinHealingSpoilage = 2;               // Minimum spoilage threshold
+    
+    // Player Activity and Cleanup (Pascal inactivity system)
+    public const int DefaultInactivityDays = 30;          // Days before deletion consideration
+    public const int MinInactivityDays = 15;              // Minimum inactivity setting
+    public const int MaxInactivityDays = 999;             // Maximum inactivity setting
+    
+    // Bank and Economic Maintenance (Pascal bank system)
+    public const int DefaultBankInterest = 3;             // Default daily interest rate
+    public const int MinBankInterest = 1;                 // Minimum interest rate
+    public const int MaxBankInterest = 15;                // Maximum interest rate
+    public const int DefaultTownPot = 5000;               // Default town pot value
+    public const int MinTownPot = 100;                    // Minimum town pot
+    public const int MaxTownPot = 500000000;              // Maximum town pot
+    
+    // Royal System Maintenance (Pascal king system daily resets)
+    public const int DailyPrisonSentences = 4;            // King's daily prison sentences
+    public const int DailyExecutions = 3;                 // King's daily executions
+    public const int DefaultMaxNewQuests = 5;             // Max new royal quests per day
+    public const int DefaultMarryActions = 3;             // Max royal marriage actions per day
+    public const int DefaultWolfFeeding = 2;              // Max children to wolves per day
+    public const int DefaultRoyalAdoptions = 3;           // Max royal adoptions per day
+    
+    // Mail System Constants (Pascal MAIL.PAS)
+    public const int MaxMailRecords = 65500;              // Maximum mail database size
+    public const int MaxMailLines = 15;                   // Maximum lines per mail message
+    public const int DefaultMaxMailDays = 30;             // Days before mail expires
+    
+    // Mail Request Types (Pascal mailrequest_ constants)
+    public const byte MailRequestNothing = 0;
+    public const byte MailRequestBirthday = 1;
+    public const byte MailRequestChildBorn = 2;
+    public const byte MailRequestChildDepressed = 3;
+    public const byte MailRequestChildPoisoned = 4;
+    public const byte MailRequestRoyalGuard = 5;
+    public const byte MailRequestMarriage = 6;
+    public const byte MailRequestNews = 7;
+    public const byte MailRequestSystem = 8;
+    
+    // Birthday Gift Types (Pascal birthday system)
+    public const int BirthdayExperienceGift = 1000;       // Experience gift amount
+    public const int BirthdayLoveGift = 500;              // Love/charisma gift amount
+    public const int BirthdayChildGift = 1;               // Adoption gift
+    
+    // Random Event Chances (Pascal random event system)
+    public const float DailyEventChance = 0.15f;          // 15% chance for daily random event
+    public const float WeeklyEventChance = 1.0f;          // 100% chance for weekly events
+    public const float MonthlyEventChance = 1.0f;         // 100% chance for monthly events
+    public const float FlavorTextChance = 0.7f;           // 70% chance for daily flavor text
+    
+    // Maintenance Configuration Indices (Pascal cfg file indices)
+    public const int CFG_DUNGEON_FIGHTS = 6;              // Config index for dungeon fights
+    public const int CFG_PLAYER_FIGHTS = 40;              // Config index for player fights  
+    public const int CFG_BANK_INTEREST = 41;              // Config index for bank interest
+    public const int CFG_INACTIVITY_DAYS = 7;             // Config index for inactivity days
+    public const int CFG_TEAM_FIGHTS = 13;                // Config index for team fights
+    public const int CFG_TOWN_POT = 89;                   // Config index for town pot value
+    public const int CFG_RESURRECTION = 68;               // Config index for resurrection
+    public const int CFG_MAX_TIME = 87;                   // Config index for max time
+    
+    // System Maintenance Flags (Pascal maintenance control)
+    public const string MaintenanceFlagFile = "MAINT.FLG"; // Maintenance lock file
+    public const string DateFile = "DATE.DAT";            // Date tracking file
+    public const int MaintenanceLockDelay = 50;           // Delay between lock attempts
+    public const int MaxMaintenanceLockTries = 150;       // Maximum lock attempts
+
+    // ═══════════════════════════════════════════════════════════════
+    // QUEST SYSTEM CONSTANTS (Pascal PLYQUEST.PAS & RQUESTS.PAS)
+    // ═══════════════════════════════════════════════════════════════
+    
+    // Quest Database Limits (Pascal quest file handling)
+    public const int MaxQuestsAllowed = 65000;             // Maximum quests in database
+    public const int MaxQuestMonsters = 10;                // Maximum monsters per quest (global_maxmon)
+    public const int MaxActiveQuests = 5;                  // Maximum active quests per player
+    public const int MaxCompletedQuests = 3;               // Maximum quest completions per day
+    
+    // Quest Creation Limits (Pascal royal quest limits)
+    public const int DefaultMaxNewQuests = 5;              // Daily new quest limit for kings
+    public const int MinQuestLevel = 1;                    // Minimum level for quest participation
+    public const int MaxQuestLevel = 9999;                 // Maximum level for quest participation
+    public const int DefaultQuestDays = 7;                 // Default days to complete quest
+    public const int MinQuestDays = 1;                     // Minimum days to complete
+    public const int MaxQuestDays = 30;                    // Maximum days to complete
+    
+    // Quest Difficulty Levels (Pascal difficulty system)
+    public const byte QuestDifficultyEasy = 1;             // Easy quest difficulty
+    public const byte QuestDifficultyMedium = 2;           // Medium quest difficulty  
+    public const byte QuestDifficultyHard = 3;             // Hard quest difficulty
+    public const byte QuestDifficultyExtreme = 4;          // Extreme quest difficulty
+    
+    // Quest Reward Levels (Pascal reward system)
+    public const byte QuestRewardNone = 0;                 // No reward
+    public const byte QuestRewardLow = 1;                  // Low reward level
+    public const byte QuestRewardMedium = 2;               // Medium reward level
+    public const byte QuestRewardHigh = 3;                 // High reward level
+    
+    // Quest Experience Rewards (Pascal reward calculations)
+    public const int QuestExpLowMultiplier = 100;          // level * 100 (low exp)
+    public const int QuestExpMediumMultiplier = 500;       // level * 500 (medium exp)
+    public const int QuestExpHighMultiplier = 1000;        // level * 1000 (high exp)
+    
+    // Quest Gold Rewards (Pascal money rewards)
+    public const int QuestGoldLowMultiplier = 1100;        // level * 1100 (low gold)
+    public const int QuestGoldMediumMultiplier = 5100;     // level * 5100 (medium gold)
+    public const int QuestGoldHighMultiplier = 11000;      // level * 11000 (high gold)
+    
+    // Quest Potion Rewards (Pascal healing potion rewards)
+    public const int QuestPotionsLow = 50;                 // Low potion reward
+    public const int QuestPotionsMedium = 100;             // Medium potion reward
+    public const int QuestPotionsHigh = 200;               // High potion reward
+    
+    // Quest Darkness/Chivalry Rewards (Pascal alignment rewards)
+    public const int QuestDarknessLow = 25;                // Low darkness reward
+    public const int QuestDarknessMedium = 75;             // Medium darkness reward
+    public const int QuestDarknessHigh = 110;              // High darkness reward
+    public const int QuestChivalryLow = 25;                // Low chivalry reward
+    public const int QuestChivalryMedium = 75;             // Medium chivalry reward
+    public const int QuestChivalryHigh = 110;              // High chivalry reward
+    
+    // Quest Mail Types (Pascal mail integration)
+    public const byte MailRequestQuestOffer = 9;           // Quest offer mail type
+    public const byte MailRequestQuestComplete = 10;       // Quest completion mail type
+    public const byte MailRequestQuestFailed = 11;         // Quest failure mail type
+    
+    // Quest Master Configuration (Pascal quest hall settings)
+    public const string DefaultQuestMaster = "Pingon";     // Default quest master name
+    public const string QuestHallLocation = "Quest Hall";  // Quest hall location name
+    public const bool AllowKingToInitQuests = true;        // Allow kings to create quests
+    public const bool ForceQuests = false;                 // Allow forcing quests on players
+    
+    // Quest Monster Generation (Pascal monster quest setup)
+    public const int MinQuestMonsters = 1;                 // Minimum monsters in quest
+    public const int MaxQuestMonstersPerType = 20;         // Maximum of single monster type
+    public const int QuestMonsterLevelVariance = 3;        // Monster level variance for quests
+    
+    // Quest Failure Penalties (Pascal quest failure system)
+    public const int QuestFailureDarknessLoss = 50;        // Darkness lost on quest failure
+    public const int QuestFailureChivalryLoss = 50;        // Chivalry lost on quest failure
+    public const int QuestFailureGoldLoss = 1000;          // Gold lost on quest failure
+    public const int QuestFailureExpLoss = 500;            // Experience lost on quest failure
+}
+
+/// <summary>
+/// Character class starting attributes structure
+/// Based on Pascal USERHUNC.PAS class case statements
+/// </summary>
+public class CharacterAttributes
+{
+    public int HP { get; set; }
+    public int Strength { get; set; }
+    public int Defence { get; set; }
+    public int Stamina { get; set; }
+    public int Agility { get; set; }
+    public int Charisma { get; set; }
+    public int Dexterity { get; set; }
+    public int Wisdom { get; set; }
+    public int Mana { get; set; }
+    public int MaxMana { get; set; }
+}
+
+/// <summary>
+/// Character race bonuses and physical appearance data
+/// Based on Pascal USERHUNC.PAS race case statements
+/// </summary>
+public class RaceAttributes
+{
+    public int HPBonus { get; set; }
+    public int StrengthBonus { get; set; }
+    public int DefenceBonus { get; set; }
+    public int StaminaBonus { get; set; }
+    public int MinAge { get; set; }
+    public int MaxAge { get; set; }
+    public int MinHeight { get; set; }
+    public int MaxHeight { get; set; }
+    public int MinWeight { get; set; }
+    public int MaxWeight { get; set; }
+    public int SkinColor { get; set; }  // Fixed skin color for most races, 0 for random (mutants)
+    public int[] HairColors { get; set; } = Array.Empty<int>(); // Possible hair colors for race
 }
 
 /// <summary>
@@ -216,7 +879,12 @@ public enum Places
     Dormy,          // Dormitory
     Prison,
     UmanCave,
-    AtHome
+    AtHome,
+    WeaponShop = 15,
+    MagicShop = 16,
+    
+    // Placeholder locations for future implementation
+    ArmorShop = 20,
 }
 
 /// <summary>

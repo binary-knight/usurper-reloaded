@@ -209,72 +209,70 @@ public partial class GameEngine : Node
     }
     
     /// <summary>
-    /// Create new player - based on NEW_PLAYER procedure from Pascal
+    /// Create new player using comprehensive character creation system
+    /// Based on Pascal USERHUNC.PAS implementation
     /// </summary>
     private async Task<Character> CreateNewPlayer(string playerName)
     {
-        terminal.ClearScreen();
-        terminal.SetColor("bright_green");
-        terminal.WriteLine("Character Creation");
-        terminal.WriteLine("═════════════════");
-        terminal.WriteLine("");
-        terminal.SetColor("white");
-        terminal.WriteLine($"Welcome, {playerName}!");
-        terminal.WriteLine("You are about to enter the world of Usurper...");
-        terminal.WriteLine("");
-        
-        var newPlayer = new Character
+        // Create temporary character object with just the real name
+        var tempCharacter = new Character
         {
             Name1 = playerName,
-            Name2 = playerName,
+            Name2 = playerName, // Will be changed during creation
             AI = CharacterAI.Human,
-            Age = 18,
-            Gold = 2000,
-            HP = 50,
-            MaxHP = 50,
-            Experience = 0,
-            Level = 1,
-            Strength = 10,
-            Defence = 10,
-            Stamina = 10,
-            Agility = 10,
-            Charisma = 10,
-            Dexterity = 10,
-            Wisdom = 10,
-            Mana = 10,
-            MaxMana = 10,
-            Allowed = true,
-            ID = Guid.NewGuid().ToString("N")[..15] // Generate unique ID
+            Allowed = false // Will be set to true after successful creation
         };
         
-        // Character creation steps
-        newPlayer.Sex = await SelectSex();
-        newPlayer.Race = await SelectRace();
-        newPlayer.Class = await SelectClass();
-        
-        // Apply racial and class bonuses
-        ApplyRacialBonuses(newPlayer);
-        ApplyClassBonuses(newPlayer);
-        
-        // Set initial equipment
-        SetInitialEquipment(newPlayer);
-        
-        // Show character summary
-        await ShowCharacterSummary(newPlayer);
-        
-        var confirm = await terminal.GetInput("Create this character? (Y/N): ");
-        if (confirm.ToUpper() != "Y")
+        try
         {
+            // Use the CharacterCreationSystem for full Pascal-compatible creation
+            var creationSystem = new CharacterCreationSystem(terminal);
+            var newCharacter = await creationSystem.CreateNewCharacter(playerName);
+            
+            if (newCharacter == null)
+            {
+                // Character creation was aborted
+                terminal.WriteLine("");
+                terminal.WriteLine("Character creation was cancelled.", "yellow");
+                terminal.WriteLine("You must create a character to play Usurper.", "white");
+                
+                var retry = await terminal.GetInputAsync("Would you like to try again? (Y/N): ");
+                if (retry.ToUpper() == "Y")
+                {
+                    return await CreateNewPlayer(playerName); // Retry
+                }
+                
+                return null; // User chose not to retry
+            }
+            
+            // Character creation successful - save the new player
+            saveManager.SavePlayer(newCharacter);
+            
+            terminal.WriteLine("");
+            terminal.WriteLine("Character successfully saved to the realm!", "bright_green");
+            await Task.Delay(1500);
+            
+            return newCharacter;
+        }
+        catch (OperationCanceledException)
+        {
+            terminal.WriteLine("Character creation aborted by user.", "red");
             return null;
         }
-        
-        // Save new player
-        saveManager.SavePlayer(newPlayer);
-        
-        terminal.WriteLine("Character created successfully!", "green");
-        await Task.Delay(2000);
-        
-        return newPlayer;
+        catch (Exception ex)
+        {
+            terminal.WriteLine($"An error occurred during character creation: {ex.Message}", "red");
+            GD.PrintErr($"Character creation error: {ex}");
+            
+            terminal.WriteLine("Please try again.", "yellow");
+            var retry = await terminal.GetInputAsync("Would you like to try again? (Y/N): ");
+            if (retry.ToUpper() == "Y")
+            {
+                return await CreateNewPlayer(playerName); // Retry
+            }
+            
+            return null;
+        }
     }
     
     /// <summary>
@@ -533,14 +531,32 @@ public partial class GameEngine : Node
     private void InitializeLevels() { /* Load level data */ }
     private void InitializeGuards() { /* Load guard data */ }
     
-    // Character creation helpers
-    private async Task<CharacterSex> SelectSex() => CharacterSex.Male; // Placeholder
-    private async Task<CharacterRace> SelectRace() => CharacterRace.Human; // Placeholder
-    private async Task<CharacterClass> SelectClass() => CharacterClass.Warrior; // Placeholder
-    private void ApplyRacialBonuses(Character character) { /* Apply bonuses */ }
-    private void ApplyClassBonuses(Character character) { /* Apply bonuses */ }
-    private void SetInitialEquipment(Character character) { /* Set starting gear */ }
-    private async Task ShowCharacterSummary(Character character) { /* Show stats */ }
+    // Character creation helpers (now handled by CharacterCreationSystem)
+    // These methods are kept for backwards compatibility but are no longer used
+    private async Task<CharacterSex> SelectSex() => CharacterSex.Male; // Legacy - use CharacterCreationSystem
+    private async Task<CharacterRace> SelectRace() => CharacterRace.Human; // Legacy - use CharacterCreationSystem
+    private async Task<CharacterClass> SelectClass() => CharacterClass.Warrior; // Legacy - use CharacterCreationSystem
+    private void ApplyRacialBonuses(Character character) { /* Legacy - handled by CharacterCreationSystem */ }
+    private void ApplyClassBonuses(Character character) { /* Legacy - handled by CharacterCreationSystem */ }
+    private void SetInitialEquipment(Character character) { /* Legacy - handled by CharacterCreationSystem */ }
+    private async Task ShowCharacterSummary(Character character) { /* Legacy - handled by CharacterCreationSystem */ }
+
+    /// <summary>
+    /// Run magic shop system validation tests
+    /// </summary>
+    public static void TestMagicShopSystem()
+    {
+        try
+        {
+            GD.Print("═══ Running Magic Shop System Tests ═══");
+            MagicShopSystemValidation.RunAllTests();
+            GD.Print("═══ Magic Shop Tests Complete ═══");
+        }
+        catch (System.Exception ex)
+        {
+            GD.PrintErr($"Magic Shop Test Error: {ex.Message}");
+        }
+    }
 }
 
 /// <summary>

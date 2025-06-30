@@ -1,11 +1,18 @@
 using System;
+using System.Threading.Tasks;
 using Godot;
 
+/// <summary>
+/// Daily System Manager - Pascal-compatible daily system controller
+/// Integrates with MaintenanceSystem for complete Pascal MAINT.PAS functionality
+/// </summary>
 public class DailySystemManager
 {
     private DateTime lastResetTime;
     private DateTime gameStartTime;
     private int currentDay = 1;
+    private MaintenanceSystem maintenanceSystem;
+    private TerminalUI terminal;
     
     public int CurrentDay => currentDay;
     
@@ -13,14 +20,43 @@ public class DailySystemManager
     {
         gameStartTime = DateTime.Now;
         lastResetTime = DateTime.Now;
+        
+        // Initialize with terminal from GameEngine when available
+        var gameEngine = GameEngine.Instance;
+        terminal = gameEngine?.Terminal;
+        
+        if (terminal != null)
+        {
+            maintenanceSystem = new MaintenanceSystem(terminal);
+        }
     }
     
+    /// <summary>
+    /// Check and run daily maintenance if needed
+    /// Pascal: Auto maintenance check integration
+    /// </summary>
     public async Task CheckDailyReset()
     {
         var timeSinceReset = DateTime.Now - lastResetTime;
         
         // Check if 24 hours have passed or if it's past midnight
         if (timeSinceReset.TotalHours >= 20 || IsPastMidnight())
+        {
+            await PerformDailyReset();
+        }
+    }
+    
+    /// <summary>
+    /// Force daily maintenance to run
+    /// Pascal: /HMAINT command functionality
+    /// </summary>
+    public async Task ForceDailyMaintenance()
+    {
+        if (maintenanceSystem != null)
+        {
+            await maintenanceSystem.RunDailyMaintenance(forced: true);
+        }
+        else
         {
             await PerformDailyReset();
         }
@@ -35,12 +71,43 @@ public class DailySystemManager
         return lastMidnight > lastResetDate;
     }
     
+    /// <summary>
+    /// Perform daily reset - now integrates with full maintenance system
+    /// Pascal: Complete daily maintenance integration
+    /// </summary>
     private async Task PerformDailyReset()
     {
         currentDay++;
         lastResetTime = DateTime.Now;
         
-        var terminal = GameEngine.Instance?.Terminal;
+        // Use MaintenanceSystem for complete Pascal-compatible maintenance
+        if (maintenanceSystem != null)
+        {
+            var maintenanceRan = await maintenanceSystem.CheckAndRunMaintenance();
+            
+            if (!maintenanceRan)
+            {
+                // Run basic daily reset if maintenance wasn't needed
+                await RunBasicDailyReset();
+            }
+        }
+        else
+        {
+            // Fallback to basic daily reset
+            await RunBasicDailyReset();
+        }
+        
+        // Clean up old mail
+        MailSystem.CleanupOldMail();
+        
+        GD.Print($"[DailySystem] Day {currentDay} reset completed at {DateTime.Now}");
+    }
+    
+    /// <summary>
+    /// Run basic daily reset when full maintenance isn't available
+    /// </summary>
+    private async Task RunBasicDailyReset()
+    {
         if (terminal != null)
         {
             terminal.WriteLine("", "white");
@@ -50,25 +117,30 @@ public class DailySystemManager
             terminal.WriteLine("", "white");
         }
         
-        // Reset player turns and haggling attempts
+        // Reset player daily parameters
         var player = GameEngine.Instance?.CurrentPlayer;
         if (player != null)
         {
-            var config = ConfigManager.GetConfig();
-            player.TurnsRemaining = config?.StartingTurns ?? 250;
-            
-            // Reset haggling attempts (Pascal compatibility)
+            // Basic daily resets (Pascal compatibility)
+            player.TurnsRemaining = 250;
             HagglingEngine.ResetDailyHaggling(player);
             
-            terminal?.WriteLine($"Your turns have been restored! ({player.TurnsRemaining} turns)", "bright_green");
-            terminal?.WriteLine("Shop haggling attempts have been reset!", "bright_green");
-            terminal?.WriteLine("", "white");
+            // Reset daily attempt counters
+            player.Fights = GameConfig.DefaultDungeonFights;
+            player.PFights = GameConfig.DefaultPlayerFights;
+            player.TFights = GameConfig.DefaultTeamFights;
+            player.Thiefs = GameConfig.DefaultThiefAttempts;
+            player.Brawls = GameConfig.DefaultBrawls;
+            player.Assa = GameConfig.DefaultAssassinAttempts;
+            
+            terminal?.WriteLine($"Your daily limits have been restored!", "bright_green");
         }
         
-        // Perform daily events
+        // Process daily events
         await ProcessDailyEvents();
         
-        GD.Print($"[DailySystem] Day {currentDay} reset completed");
+        // Process bank maintenance
+        BankLocation.ProcessDailyMaintenance();
     }
     
     private async Task ProcessDailyEvents()

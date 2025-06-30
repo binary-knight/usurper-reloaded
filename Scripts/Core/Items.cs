@@ -51,6 +51,14 @@ public class Item
     public int Durability { get; set; } = 100;          // Item durability (0-100)
     public int MaxDurability { get; set; } = 100;       // Maximum durability
     
+    // Magic properties
+    public MagicEnhancement MagicProperties { get; set; } = new MagicEnhancement();
+    public MagicItemType MagicType { get; set; } = MagicItemType.None;
+    public bool IsIdentified { get; set; } = true; // Most items start identified
+    public bool IsCursed { get; set; } = false;
+    public bool OnlyForGood { get; set; } = false; // Good alignment required
+    public bool OnlyForEvil { get; set; } = false; // Evil alignment required
+    
     /// <summary>
     /// Constructor for creating items
     /// </summary>
@@ -513,5 +521,49 @@ public static class ItemManager
             .OrderByDescending(a => a.Power)
             .ThenByDescending(a => a.Value)
             .FirstOrDefault();
+    }
+}
+
+/// <summary>
+/// Magic item types for shop categorization
+/// </summary>
+public enum MagicItemType
+{
+    None = 0,
+    Neck = 10,      // Amulets, necklaces
+    Fingers = 5,    // Rings  
+    Waist = 9       // Belts, girdles
+}
+
+/// <summary>
+/// Disease cure types for magic items
+/// </summary>
+public enum CureType
+{
+    None = 0,
+    All,        // Cures all diseases
+    Blindness,  // Cures blindness
+    Plague,     // Cures plague
+    Smallpox,   // Cures smallpox
+    Measles,    // Cures measles
+    Leprosy     // Cures leprosy
+}
+
+/// <summary>
+/// Magic enhancement properties for items
+/// </summary>
+public class MagicEnhancement
+{
+    public int Mana { get; set; }           // Mana bonus/penalty
+    public int Wisdom { get; set; }         // Wisdom bonus/penalty
+    public int Dexterity { get; set; }      // Dexterity bonus/penalty
+    public int MagicResistance { get; set; } // Resistance to spells
+    public CureType DiseaseImmunity { get; set; } // Disease protection
+    public bool AntiMagic { get; set; }     // Blocks all magic
+    public bool SpellReflection { get; set; } // Reflects spells back
+    
+    public MagicEnhancement()
+    {
+        DiseaseImmunity = CureType.None;
     }
 } 
