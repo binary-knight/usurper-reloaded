@@ -1,0 +1,46 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <RootNamespace>UsurperRemake</RootNamespace>
+    <AssemblyName>UsurperRemake</AssemblyName>
+    <Nullable>enable</Nullable>
+    <OutputType>Library</OutputType>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    
+    <!-- Globalization Configuration for CI/CD -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+    
+    <!-- Assembly Info -->
+    <AssemblyTitle>Usurper Remake</AssemblyTitle>
+    <AssemblyDescription>Complete recreation of the 1993 BBS door game Usurper</AssemblyDescription>
+    <AssemblyCompany>Usurper Remake Project</AssemblyCompany>
+    <AssemblyProduct>Usurper Remake</AssemblyProduct>
+    <AssemblyCopyright>Educational Fan Project 2024</AssemblyCopyright>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>portable</DebugType>
+    <Optimize>false</Optimize>
+    <DefineConstants>DEBUG;</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>portable</DebugType>
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Godot.NET.Sdk" Version="4.2.2" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="6.0.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="Scripts/**/*.cs" />
+  </ItemGroup>
+
+</Project>
