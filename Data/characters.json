@@ -1,0 +1,121 @@
+{
+  "classes": {
+    "warrior": {
+      "name": "Warrior",
+      "description": "Masters of combat, strong and hardy but lacking in magical ability.",
+      "baseStats": {
+        "strength": 16,
+        "dexterity": 12,
+        "constitution": 15,
+        "intelligence": 8,
+        "wisdom": 10,
+        "charisma": 9
+      },
+      "statProgression": {
+        "strength": 3,
+        "dexterity": 2,
+        "constitution": 3,
+        "intelligence": 1,
+        "wisdom": 1,
+        "charisma": 1
+      },
+      "baseHP": 25,
+      "hpPerLevel": 8,
+      "baseMana": 5,
+      "manaPerLevel": 1,
+      "specialAbilities": ["power_attack", "defend", "berserker_rage"],
+      "weaponProficiencies": ["sword", "axe", "mace", "spear"],
+      "armorProficiencies": ["light", "medium", "heavy", "shield"]
+    },
+    "thief": {
+      "name": "Thief",
+      "description": "Quick and nimble, excelling at stealth and precision strikes.",
+      "baseStats": {
+        "strength": 12,
+        "dexterity": 16,
+        "constitution": 12,
+        "intelligence": 13,
+        "wisdom": 12,
+        "charisma": 11
+      },
+      "statProgression": {
+        "strength": 2,
+        "dexterity": 3,
+        "constitution": 2,
+        "intelligence": 2,
+        "wisdom": 2,
+        "charisma": 2
+      },
+      "baseHP": 18,
+      "hpPerLevel": 6,
+      "baseMana": 10,
+      "manaPerLevel": 2,
+      "specialAbilities": ["sneak_attack", "steal", "hide_in_shadows"],
+      "weaponProficiencies": ["dagger", "short_sword", "bow", "crossbow"],
+      "armorProficiencies": ["light", "medium"]
+    },
+    "cleric": {
+      "name": "Cleric",
+      "description": "Divine spellcasters with healing powers and undead turning abilities.",
+      "baseStats": {
+        "strength": 13,
+        "dexterity": 10,
+        "constitution": 14,
+        "intelligence": 12,
+        "wisdom": 16,
+        "charisma": 13
+      },
+      "statProgression": {
+        "strength": 2,
+        "dexterity": 1,
+        "constitution": 2,
+        "intelligence": 2,
+        "wisdom": 3,
+        "charisma": 2
+      },
+      "baseHP": 20,
+      "hpPerLevel": 7,
+      "baseMana": 20,
+      "manaPerLevel": 4,
+      "specialAbilities": ["heal", "turn_undead", "bless", "divine_favor"],
+      "weaponProficiencies": ["mace", "staff", "flail"],
+      "armorProficiencies": ["light", "medium", "heavy", "shield"]
+    },
+    "mage": {
+      "name": "Mage",
+      "description": "Masters of arcane magic, physically weak but incredibly powerful spellcasters.",
+      "baseStats": {
+        "strength": 8,
+        "dexterity": 12,
+        "constitution": 10,
+        "intelligence": 16,
+        "wisdom": 14,
+        "charisma": 12
+      },
+      "statProgression": {
+        "strength": 1,
+        "dexterity": 2,
+        "constitution": 1,
+        "intelligence": 3,
+        "wisdom": 2,
+        "charisma": 2
+      },
+      "baseHP": 15,
+      "hpPerLevel": 4,
+      "baseMana": 30,
+      "manaPerLevel": 6,
+      "specialAbilities": ["magic_missile", "fireball", "lightning_bolt", "shield"],
+      "weaponProficiencies": ["staff", "dagger", "dart"],
+      "armorProficiencies": ["light"]
+    }
+  },
+  "levelProgression": {
+    "experienceTable": [
+      0, 1000, 2500, 5000, 8500, 13500, 20000, 28500, 39000, 52000,
+      67500, 85500, 106500, 130500, 158000, 189500, 225500, 266500, 312500, 364000,
+      421500, 485500, 556000, 633500, 718500, 811500, 912500, 1022000, 1140500, 1268500,
+      1406500, 1555000, 1714500, 1885500, 2068500, 2264000, 2472500, 2694500, 2930500, 3180500,
+      3445000, 3724500, 3019500, 4330000, 4656500, 4999500, 5359000, 5735500, 6129500, 6541500
+    ]
+  }
+} 

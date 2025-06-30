@@ -1,0 +1,236 @@
+{
+  "tavern_npcs": [
+    {
+      "id": "seth_able",
+      "name": "Seth Able",
+      "archetype": "thug",
+      "class": "warrior",
+      "level": 5,
+      "startingLocation": "tavern",
+      "baseStats": {
+        "strength": 16,
+        "dexterity": 12,
+        "constitution": 14,
+        "intelligence": 8,
+        "wisdom": 8,
+        "charisma": 10
+      },
+      "equipment": {
+        "weapon": "rusty_sword",
+        "armor": "leather_armor"
+      },
+      "gold": 250,
+      "specialTraits": ["drunk", "brawler", "violent"],
+      "background": "A notorious troublemaker known for starting fights in the tavern",
+      "dialogue": {
+        "greeting": [
+          "Hey there, friend! *hic*",
+          "Looking for trouble, are ya?",
+          "Buy me a drink and we'll talk!"
+        ],
+        "hostile": [
+          "You again?! I haven't forgotten our last meeting!",
+          "Get away from me before I knock your teeth out!"
+        ],
+        "friendly": [
+          "You're alright in my book!",
+          "Want to join me for a drink?"
+        ]
+      }
+    },
+    {
+      "id": "mary_merchant",
+      "name": "Mary the Merchant",
+      "archetype": "merchant",
+      "class": "thief",
+      "level": 8,
+      "startingLocation": "market",
+      "baseStats": {
+        "strength": 10,
+        "dexterity": 16,
+        "constitution": 12,
+        "intelligence": 14,
+        "wisdom": 13,
+        "charisma": 15
+      },
+      "equipment": {
+        "weapon": "fine_dagger",
+        "armor": "merchant_clothes"
+      },
+      "gold": 2000,
+      "specialTraits": ["trader", "gossip", "greedy"],
+      "background": "A shrewd trader who knows all the town's secrets",
+      "dialogue": {
+        "greeting": [
+          "Ah, a potential customer! What can I do for you?",
+          "I have the finest goods in town, just for you!",
+          "Information or items, I deal in both..."
+        ],
+        "trading": [
+          "Let's see what you have to offer...",
+          "I might be interested in that..."
+        ]
+      }
+    },
+    {
+      "id": "gareth_blacksmith",
+      "name": "Gareth the Blacksmith",
+      "archetype": "craftsman",
+      "class": "warrior",
+      "level": 12,
+      "startingLocation": "market",
+      "baseStats": {
+        "strength": 18,
+        "dexterity": 14,
+        "constitution": 16,
+        "intelligence": 12,
+        "wisdom": 11,
+        "charisma": 9
+      },
+      "equipment": {
+        "weapon": "war_hammer",
+        "armor": "chainmail"
+      },
+      "gold": 1500,
+      "specialTraits": ["craftsman", "honest", "hardworking"],
+      "background": "The town's master blacksmith, known for quality work",
+      "dialogue": {
+        "greeting": [
+          "Welcome to my forge!",
+          "Need some quality metalwork?",
+          "I can craft or repair whatever you need."
+        ]
+      }
+    }
+  ],
+  "guard_npcs": [
+    {
+      "id": "captain_harris",
+      "name": "Captain Harris",
+      "archetype": "guard",
+      "class": "warrior",
+      "level": 15,
+      "startingLocation": "castle",
+      "baseStats": {
+        "strength": 18,
+        "dexterity": 14,
+        "constitution": 16,
+        "intelligence": 12,
+        "wisdom": 14,
+        "charisma": 13
+      },
+      "equipment": {
+        "weapon": "guard_sword",
+        "armor": "plate_mail",
+        "shield": "tower_shield"
+      },
+      "gold": 800,
+      "specialTraits": ["lawful", "vigilant", "incorruptible"],
+      "background": "The castle's guard captain, dedicated to maintaining order",
+      "dialogue": {
+        "greeting": [
+          "Halt! State your business in the castle.",
+          "Move along, citizen. No trouble now.",
+          "The King's peace will be maintained."
+        ],
+        "suspicious": [
+          "I'm watching you...",
+          "Don't try anything foolish."
+        ]
+      }
+    },
+    {
+      "id": "sergeant_blake",
+      "name": "Sergeant Blake",
+      "archetype": "guard",
+      "class": "warrior",
+      "level": 10,
+      "startingLocation": "town_square",
+      "baseStats": {
+        "strength": 16,
+        "dexterity": 13,
+        "constitution": 15,
+        "intelligence": 11,
+        "wisdom": 12,
+        "charisma": 11
+      },
+      "equipment": {
+        "weapon": "longsword",
+        "armor": "chainmail",
+        "shield": "round_shield"
+      },
+      "gold": 400,
+      "specialTraits": ["dutiful", "observant"],
+      "background": "A town guard who patrols the streets",
+      "dialogue": {
+        "greeting": [
+          "Keep the peace, citizen.",
+          "Everything in order here?",
+          "Stay out of trouble."
+        ]
+      }
+    }
+  ],
+  "random_npcs": [
+    {
+      "id": "elena_mystic",
+      "name": "Elena the Mystic",
+      "archetype": "mystic",
+      "class": "mage",
+      "level": 20,
+      "startingLocation": "tower",
+      "baseStats": {
+        "strength": 8,
+        "dexterity": 12,
+        "constitution": 10,
+        "intelligence": 18,
+        "wisdom": 16,
+        "charisma": 14
+      },
+      "equipment": {
+        "weapon": "crystal_staff",
+        "armor": "robes_of_power"
+      },
+      "gold": 3000,
+      "specialTraits": ["mysterious", "powerful", "reclusive"],
+      "background": "A powerful mage who keeps to herself in the tower",
+      "dialogue": {
+        "greeting": [
+          "The threads of fate have brought you here...",
+          "I sense great potential in you.",
+          "What brings you to my sanctum?"
+        ]
+      }
+    },
+    {
+      "id": "brother_thomas",
+      "name": "Brother Thomas",
+      "archetype": "priest",
+      "class": "cleric",
+      "level": 18,
+      "startingLocation": "temple",
+      "baseStats": {
+        "strength": 13,
+        "dexterity": 10,
+        "constitution": 14,
+        "intelligence": 12,
+        "wisdom": 18,
+        "charisma": 15
+      },
+      "equipment": {
+        "weapon": "blessed_mace",
+        "armor": "holy_vestments"
+      },
+      "gold": 500,
+      "specialTraits": ["holy", "peaceful", "wise"],
+      "background": "The temple's head priest, known for his wisdom",
+      "dialogue": {
+        "greeting": [
+          "May the light guide you, child.",
+          "Welcome to this sacred place.",
+          "How may I serve the divine through you?"
+        ]
+      }
+    }
+  ]
+} 

@@ -1,0 +1,48 @@
+{
+  "constants": {
+    "maxLevel": 100,
+    "turnsPerDay": 250,
+    "startingGold": 500,
+    "startingTurns": 250,
+    "maxInventorySize": 50,
+    "pvpLevelRange": 10,
+    "deathPenaltyXP": 0.1,
+    "resurrectCost": 1000,
+    "dungeonLevels": 20,
+    "maxGangSize": 6,
+    "maxNPCs": 50,
+    "maxMemories": 100,
+    "memoryDecayDays": 7
+  },
+  "difficultySettings": {
+    "monsterHealthMultiplier": 1.0,
+    "monsterDamageMultiplier": 1.0,
+    "experienceMultiplier": 1.0,
+    "goldMultiplier": 1.0,
+    "deathPenalty": true,
+    "permaDeath": false,
+    "npcDifficulty": 1.0
+  },
+  "worldSettings": {
+    "maxNPCs": 50,
+    "npcRespawnRate": 0.1,
+    "gangFormationChance": 0.05,
+    "betrayalChance": 0.02,
+    "eventFrequency": 0.1,
+    "simulationHoursPerRealHour": 12,
+    "emergentEventChance": 0.15
+  },
+  "timeSettings": {
+    "realTimeMode": false,
+    "minutesPerGameHour": 5,
+    "dailyResetHour": 0,
+    "maxDaysInHistory": 30
+  },
+  "aiSettings": {
+    "decisionUpdateIntervalMinutes": 15,
+    "personalityDriftRate": 0.001,
+    "memoryImportanceThreshold": 0.3,
+    "relationshipUpdateThreshold": 0.1,
+    "goalPriorityDecayRate": 0.05
+  }
+} 

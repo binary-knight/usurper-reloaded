@@ -1,0 +1,34 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+/ios/
+
+# Mono-specific ignores
+.mono/
+data_*/
+mono_crash.*.json
+
+# System
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
+
+# Rider
+.idea/
+
+# User-specific files
+*.user
+*.suo
+
+# Build results
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+
+# User saves and logs
+saves/
+logs/
+*.log 

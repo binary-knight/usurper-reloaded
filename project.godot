@@ -1,0 +1,21 @@
+; Engine configuration file.
+
+[application]
+config/name="Usurper Reborn"
+config/description="A faithful remake of the classic BBS door game with advanced NPC AI"
+run/main_scene="res://Scenes/Main.tscn"
+config/features=PackedStringArray("4.2", "C#", "GL Compatibility")
+config/icon="res://icon.svg"
+
+[display]
+window/size/viewport_width=1280
+window/size/viewport_height=800
+window/stretch/mode="viewport"
+window/stretch/aspect="keep"
+
+[dotnet]
+project/assembly_name="UsurperReborn"
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility" 

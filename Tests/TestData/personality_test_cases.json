@@ -1,0 +1,132 @@
+{
+  "ArchetypePersonalityRanges": {
+    "thug": {
+      "aggression": { "min": 0.7, "max": 1.0 },
+      "courage": { "min": 0.6, "max": 1.0 },
+      "greed": { "min": 0.4, "max": 0.8 },
+      "loyalty": { "min": 0.2, "max": 0.6 },
+      "vengefulness": { "min": 0.6, "max": 0.9 },
+      "impulsiveness": { "min": 0.6, "max": 0.9 },
+      "sociability": { "min": 0.3, "max": 0.7 },
+      "ambition": { "min": 0.3, "max": 0.7 }
+    },
+    "merchant": {
+      "aggression": { "min": 0.0, "max": 0.3 },
+      "courage": { "min": 0.2, "max": 0.6 },
+      "greed": { "min": 0.7, "max": 1.0 },
+      "loyalty": { "min": 0.4, "max": 0.8 },
+      "vengefulness": { "min": 0.1, "max": 0.4 },
+      "impulsiveness": { "min": 0.2, "max": 0.5 },
+      "sociability": { "min": 0.6, "max": 0.9 },
+      "ambition": { "min": 0.5, "max": 0.8 }
+    },
+    "noble": {
+      "aggression": { "min": 0.3, "max": 0.7 },
+      "courage": { "min": 0.5, "max": 0.8 },
+      "greed": { "min": 0.3, "max": 0.6 },
+      "loyalty": { "min": 0.6, "max": 0.9 },
+      "vengefulness": { "min": 0.3, "max": 0.6 },
+      "impulsiveness": { "min": 0.2, "max": 0.5 },
+      "sociability": { "min": 0.5, "max": 0.8 },
+      "ambition": { "min": 0.7, "max": 1.0 }
+    },
+    "warrior": {
+      "aggression": { "min": 0.6, "max": 0.9 },
+      "courage": { "min": 0.8, "max": 1.0 },
+      "greed": { "min": 0.2, "max": 0.5 },
+      "loyalty": { "min": 0.6, "max": 0.9 },
+      "vengefulness": { "min": 0.4, "max": 0.7 },
+      "impulsiveness": { "min": 0.3, "max": 0.6 },
+      "sociability": { "min": 0.4, "max": 0.7 },
+      "ambition": { "min": 0.5, "max": 0.8 }
+    },
+    "scholar": {
+      "aggression": { "min": 0.1, "max": 0.4 },
+      "courage": { "min": 0.3, "max": 0.7 },
+      "greed": { "min": 0.2, "max": 0.5 },
+      "loyalty": { "min": 0.5, "max": 0.8 },
+      "vengefulness": { "min": 0.2, "max": 0.5 },
+      "impulsiveness": { "min": 0.1, "max": 0.4 },
+      "sociability": { "min": 0.3, "max": 0.6 },
+      "ambition": { "min": 0.6, "max": 0.9 }
+    }
+  },
+  "PersonalityBehaviorCorrelations": [
+    {
+      "trait": "aggression",
+      "high_value_behaviors": ["initiates_combat_more_often", "threatens_others", "quick_to_anger"],
+      "low_value_behaviors": ["avoids_conflict", "seeks_peaceful_solutions", "diplomatic_approach"]
+    },
+    {
+      "trait": "greed",
+      "high_value_behaviors": ["prioritizes_wealth_accumulation", "spends_more_time_in_dungeons", "hoards_items"],
+      "low_value_behaviors": ["shares_resources", "generous_with_money", "helps_without_reward"]
+    },
+    {
+      "trait": "courage",
+      "high_value_behaviors": ["takes_risks", "explores_dangerous_areas", "stands_ground_in_combat"],
+      "low_value_behaviors": ["flees_from_combat", "avoids_dangerous_situations", "cautious_approach"]
+    },
+    {
+      "trait": "sociability",
+      "high_value_behaviors": ["spends_time_in_taverns", "initiates_conversations", "forms_friendships_quickly"],
+      "low_value_behaviors": ["avoids_crowds", "minimal_social_interaction", "prefers_solitude"]
+    },
+    {
+      "trait": "vengefulness",
+      "high_value_behaviors": ["actively_hunts_enemies", "remembers_slights_longer", "seeks_retribution"],
+      "low_value_behaviors": ["forgives_easily", "avoids_revenge", "lets_grudges_go"]
+    },
+    {
+      "trait": "ambition",
+      "high_value_behaviors": ["forms_gangs_quickly", "seeks_leadership_roles", "competitive_behavior"],
+      "low_value_behaviors": ["content_with_status_quo", "follows_others", "avoids_responsibility"]
+    }
+  ],
+  "PersonalityCombinations": [
+    {
+      "name": "AgressiveLeader",
+      "traits": {
+        "aggression": 0.9,
+        "ambition": 0.9,
+        "courage": 0.8,
+        "loyalty": 0.3,
+        "sociability": 0.6
+      },
+      "expected_behaviors": ["initiates_combat_more_often", "forms_gangs_quickly", "seeks_leadership_roles"]
+    },
+    {
+      "name": "WealthyMerchant",
+      "traits": {
+        "greed": 0.9,
+        "sociability": 0.8,
+        "aggression": 0.2,
+        "courage": 0.4,
+        "ambition": 0.7
+      },
+      "expected_behaviors": ["prioritizes_wealth_accumulation", "spends_time_in_taverns", "diplomatic_approach"]
+    },
+    {
+      "name": "VengefulThug",
+      "traits": {
+        "vengefulness": 0.9,
+        "aggression": 0.8,
+        "courage": 0.7,
+        "impulsiveness": 0.8,
+        "loyalty": 0.4
+      },
+      "expected_behaviors": ["actively_hunts_enemies", "initiates_combat_more_often", "remembers_slights_longer"]
+    },
+    {
+      "name": "SocialPeacekeeper",
+      "traits": {
+        "sociability": 0.9,
+        "loyalty": 0.8,
+        "aggression": 0.2,
+        "courage": 0.6,
+        "ambition": 0.3
+      },
+      "expected_behaviors": ["spends_time_in_taverns", "seeks_peaceful_solutions", "diplomatic_approach"]
+    }
+  ]
+} 
