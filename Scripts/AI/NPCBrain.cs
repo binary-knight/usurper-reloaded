@@ -15,6 +15,12 @@ public class NPCBrain
     private DateTime lastDecisionTime = DateTime.Now;
     private const int DECISION_COOLDOWN_MINUTES = 15;
     
+    // Phase 21: Enhanced NPC behaviors
+    private DateTime lastShoppingAttempt = DateTime.MinValue;
+    private DateTime lastInventoryCheck = DateTime.MinValue;
+    private Dictionary<string, DateTime> lastActivities = new();
+    private Random random = new Random();
+    
     public NPC Owner => owner;
     public PersonalityProfile Personality => personality;
     public MemorySystem Memory => memory;
@@ -32,7 +38,443 @@ public class NPCBrain
         emotions = new EmotionalState();
         
         InitializeGoals();
-        GD.Print($"[AI] Created brain for {npc.Name} ({profile.Archetype})");
+        InitializeEnhancedBehaviors(); // Phase 21
+        GD.Print($"[AI] Created enhanced brain for {npc.Name} ({profile.Archetype})");
+    }
+    
+    /// <summary>
+    /// Initialize enhanced behaviors from Pascal NPC systems
+    /// </summary>
+    private void InitializeEnhancedBehaviors()
+    {
+        // Initialize shopping preferences based on class
+        InitializeShoppingBehavior();
+        
+        // Initialize gang behavior tendencies
+        InitializeGangBehavior();
+        
+        // Initialize believer system tendencies
+        InitializeBelieverBehavior();
+        
+        // Initialize relationship goals
+        InitializeRelationshipBehavior();
+    }
+    
+    /// <summary>
+    /// Pascal NPCMAINT.PAS shopping behavior initialization
+    /// </summary>
+    private void InitializeShoppingBehavior()
+    {
+        switch (owner.Class)
+        {
+            case CharacterClass.Fighter:
+                goals.AddGoal(new Goal("Maintain Good Equipment", GoalType.Economic, 0.7f));
+                goals.AddGoal(new Goal("Find Better Weapons", GoalType.Economic, 0.8f));
+                break;
+                
+            case CharacterClass.Magician:
+                goals.AddGoal(new Goal("Stock Mana Potions", GoalType.Economic, 0.6f));
+                goals.AddGoal(new Goal("Find Magic Items", GoalType.Economic, 0.7f));
+                break;
+                
+            case CharacterClass.Paladin:
+                goals.AddGoal(new Goal("Maintain Health", GoalType.Personal, 0.8f));
+                goals.AddGoal(new Goal("Help Others", GoalType.Social, 0.7f));
+                break;
+        }
+    }
+    
+    /// <summary>
+    /// Pascal NPCMAINT.PAS gang behavior initialization
+    /// </summary>
+    private void InitializeGangBehavior()
+    {
+        if (personality.IsLikelyToJoinGang())
+        {
+            if (string.IsNullOrEmpty(owner.Team))
+            {
+                goals.AddGoal(new Goal("Find Gang to Join", GoalType.Social, 0.6f));
+            }
+            else
+            {
+                goals.AddGoal(new Goal("Support Gang", GoalType.Social, 0.8f));
+                goals.AddGoal(new Goal("Defend Territory", GoalType.Social, 0.7f));
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Pascal NPCMAINT.PAS believer system initialization
+    /// </summary>
+    private void InitializeBelieverBehavior()
+    {
+        if (string.IsNullOrEmpty(owner.God))
+        {
+            // Potential for conversion based on personality
+            if (personality.Sociability > 0.6f || random.NextDouble() < 0.1)
+            {
+                goals.AddGoal(new Goal("Seek Spiritual Meaning", GoalType.Personal, 0.4f));
+            }
+        }
+        else
+        {
+            goals.AddGoal(new Goal($"Serve {owner.God}", GoalType.Social, 0.6f));
+            goals.AddGoal(new Goal("Spread Faith", GoalType.Social, 0.5f));
+        }
+    }
+    
+    /// <summary>
+    /// Pascal RELATIO2.PAS relationship behavior initialization
+    /// </summary>
+    private void InitializeRelationshipBehavior()
+    {
+        if (string.IsNullOrEmpty(owner.Married) && owner.Level >= 5)
+        {
+            goals.AddGoal(new Goal("Find Life Partner", GoalType.Social, 0.5f));
+        }
+        
+        if (personality.Sociability > 0.6f)
+        {
+            goals.AddGoal(new Goal("Make Friends", GoalType.Social, 0.6f));
+        }
+    }
+    
+    public NPCAction DecideNextAction(WorldState world)
+    {
+        // Only make decisions periodically
+        var timeSinceLastDecision = DateTime.Now - lastDecisionTime;
+        if (timeSinceLastDecision.TotalMinutes < DECISION_COOLDOWN_MINUTES)
+        {
+            return new NPCAction { Type = ActionType.Continue };
+        }
+        
+        lastDecisionTime = DateTime.Now;
+        
+        // Phase 21: Enhanced decision making with Pascal behaviors
+        ProcessEnhancedBehaviors(world);
+        
+        // Update emotional state based on recent events
+        emotions.Update(memory.GetRecentEvents());
+        
+        // Decay old memories
+        memory.DecayMemories();
+        
+        // Re-evaluate goals based on current situation
+        goals.UpdateGoals(owner, world, memory, emotions);
+        
+        // Get current priority goal
+        var currentGoal = goals.GetPriorityGoal();
+        if (currentGoal == null)
+        {
+            return new NPCAction { Type = ActionType.Idle };
+        }
+        
+        // Generate possible actions based on current goal
+        var possibleActions = GenerateActions(currentGoal, world);
+        
+        // Score each action based on personality and current state
+        var bestAction = SelectBestAction(possibleActions);
+        
+        // Record the decision
+        memory.RecordEvent(new MemoryEvent
+        {
+            Type = MemoryType.PersonalAchievement,
+            Description = $"Decided to {bestAction.Type} for goal: {currentGoal.Name}",
+            Importance = 0.3f,
+            Location = owner.CurrentLocation
+        });
+        
+        return bestAction;
+    }
+    
+    /// <summary>
+    /// Phase 21: Enhanced behavior processing with Pascal compatibility
+    /// </summary>
+    private void ProcessEnhancedBehaviors(WorldState world)
+    {
+        // Pascal NPC_CHEC.PAS inventory management
+        if (ShouldCheckInventory())
+        {
+            ProcessInventoryCheck();
+        }
+        
+        // Pascal NPCMAINT.PAS shopping behavior
+        if (ShouldAttemptShopping(world))
+        {
+            ProcessShoppingBehavior(world);
+        }
+        
+        // Pascal NPCMAINT.PAS gang behavior
+        if (ShouldProcessGangBehavior())
+        {
+            ProcessGangBehavior();
+        }
+        
+        // Pascal NPCMAINT.PAS believer system
+        if (ShouldProcessBelieverBehavior())
+        {
+            ProcessBelieverBehavior();
+        }
+        
+        // Pascal RELATIO2.PAS relationship processing
+        if (ShouldProcessRelationships())
+        {
+            ProcessRelationshipBehavior();
+        }
+    }
+    
+    /// <summary>
+    /// Pascal NPC_CHEC.PAS inventory checking logic
+    /// </summary>
+    private bool ShouldCheckInventory()
+    {
+        var timeSinceLastCheck = DateTime.Now - lastInventoryCheck;
+        return timeSinceLastCheck.TotalHours >= 2; // Check every 2 hours
+    }
+    
+    private void ProcessInventoryCheck()
+    {
+        lastInventoryCheck = DateTime.Now;
+        memory.AddMemory("I checked my equipment and inventory", "inventory", DateTime.Now);
+        
+        // Pascal Check_Inventory logic - evaluate current equipment
+        var needsBetterWeapon = owner.WeaponPower < owner.Level * 15;
+        var needsBetterArmor = owner.ArmorClass < owner.Level * 10;
+        
+        if (needsBetterWeapon)
+        {
+            goals.AddGoal(new Goal("Find Better Weapon", GoalType.Economic, 0.8f));
+            memory.AddMemory("My weapon is getting outdated", "equipment", DateTime.Now);
+        }
+        
+        if (needsBetterArmor)
+        {
+            goals.AddGoal(new Goal("Find Better Armor", GoalType.Economic, 0.7f));
+            memory.AddMemory("My armor could be better", "equipment", DateTime.Now);
+        }
+    }
+    
+    /// <summary>
+    /// Pascal NPCMAINT.PAS shopping behavior
+    /// </summary>
+    private bool ShouldAttemptShopping(WorldState world)
+    {
+        if (owner.Gold < 100) return false; // Pascal minimum gold requirement
+        if (owner.HP < owner.MaxHP * 0.3f) return false; // Too injured
+        
+        var timeSinceLastShopping = DateTime.Now - lastShoppingAttempt;
+        var shoppingFrequency = personality.Greed * 4; // Hours between attempts
+        
+        return timeSinceLastShopping.TotalHours >= shoppingFrequency;
+    }
+    
+    private void ProcessShoppingBehavior(WorldState world)
+    {
+        lastShoppingAttempt = DateTime.Now;
+        
+        var shoppingLocations = new[] { "main_street", "weapon_shop", "armor_shop", "magic_shop" };
+        if (!shoppingLocations.Contains(owner.CurrentLocation))
+        {
+            // Add goal to go shopping
+            goals.AddGoal(new Goal("Go Shopping", GoalType.Economic, 0.6f));
+            return;
+        }
+        
+        // Determine what to buy based on Pascal Ok_To_Buy logic
+        var shoppingGoals = DetermineShoppingGoals();
+        foreach (var goal in shoppingGoals)
+        {
+            goals.AddGoal(goal);
+            memory.AddMemory($"I need to buy {goal.Name}", "shopping", DateTime.Now);
+        }
+    }
+    
+    private List<Goal> DetermineShoppingGoals()
+    {
+        var shoppingGoals = new List<Goal>();
+        
+        // Pascal class-based shopping logic
+        switch (owner.Class)
+        {
+            case CharacterClass.Fighter:
+                if (owner.WeaponPower < owner.Level * 20)
+                    shoppingGoals.Add(new Goal("Buy Better Weapon", GoalType.Economic, personality.Greed));
+                if (owner.ArmorClass < owner.Level * 15)
+                    shoppingGoals.Add(new Goal("Buy Better Armor", GoalType.Economic, personality.Greed * 0.8f));
+                break;
+                
+            case CharacterClass.Magician:
+                if (owner.Mana < owner.MaxMana * 0.7f)
+                    shoppingGoals.Add(new Goal("Buy Mana Potions", GoalType.Economic, 0.8f));
+                shoppingGoals.Add(new Goal("Buy Magic Items", GoalType.Economic, 0.6f));
+                break;
+                
+            case CharacterClass.Paladin:
+                if (owner.HP < owner.MaxHP * 0.8f)
+                    shoppingGoals.Add(new Goal("Buy Healing Potions", GoalType.Economic, 0.7f));
+                break;
+        }
+        
+        return shoppingGoals;
+    }
+    
+    /// <summary>
+    /// Pascal NPCMAINT.PAS gang behavior processing
+    /// </summary>
+    private bool ShouldProcessGangBehavior()
+    {
+        return GetTimeSinceLastActivity("gang_behavior").TotalHours >= 6;
+    }
+    
+    private void ProcessGangBehavior()
+    {
+        lastActivities["gang_behavior"] = DateTime.Now;
+        
+        if (string.IsNullOrEmpty(owner.Team))
+        {
+            // Not in a gang - consider joining one
+            if (personality.IsLikelyToJoinGang() && random.Next(10) == 0)
+            {
+                goals.AddGoal(new Goal("Find Gang to Join", GoalType.Social, 0.7f));
+                memory.AddMemory("I should look for a gang to join", "social", DateTime.Now);
+            }
+        }
+        else
+        {
+            // In a gang - process gang loyalty
+            var loyaltyLevel = personality.Loyalty;
+            
+            if (loyaltyLevel > 0.7f)
+            {
+                goals.AddGoal(new Goal("Support Gang Activities", GoalType.Social, loyaltyLevel));
+                memory.AddMemory($"I'm committed to {owner.Team}", "gang", DateTime.Now);
+            }
+            else if (loyaltyLevel < 0.3f && random.Next(20) == 0)
+            {
+                // Potential gang betrayal or leaving
+                goals.AddGoal(new Goal("Consider Leaving Gang", GoalType.Social, 0.4f));
+                memory.AddMemory($"I'm having doubts about {owner.Team}", "gang", DateTime.Now);
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Pascal NPCMAINT.PAS believer system processing
+    /// </summary>
+    private bool ShouldProcessBelieverBehavior()
+    {
+        return random.Next(3) == 0; // Pascal 33% processing chance
+    }
+    
+    private void ProcessBelieverBehavior()
+    {
+        if (string.IsNullOrEmpty(owner.God))
+        {
+            // Potential conversion based on personality and circumstances
+            var conversionChance = CalculateConversionChance();
+            if (random.NextDouble() < conversionChance)
+            {
+                ConvertToFaith();
+            }
+        }
+        else
+        {
+            // Existing believer - perform faith actions
+            ProcessFaithActions();
+        }
+    }
+    
+    private double CalculateConversionChance()
+    {
+        var baseChance = 0.02; // 2% base chance
+        
+        // Personality modifiers
+        if (personality.Sociability > 0.7f) baseChance *= 1.5;
+        if (emotions.GetCurrentMood() < 0.3f) baseChance *= 2; // Desperate times
+        if (owner.HP < owner.MaxHP * 0.5f) baseChance *= 1.5; // Injured and vulnerable
+        
+        return Math.Min(baseChance, 0.1); // Cap at 10%
+    }
+    
+    private void ConvertToFaith()
+    {
+        var availableGods = new[] { "Nosferatu", "Darkcloak", "Druid", "Seth Able" };
+        owner.God = availableGods[random.Next(availableGods.Length)];
+        
+        memory.AddMemory($"I found faith in {owner.God}", "faith", DateTime.Now);
+        emotions.AddEmotion(EmotionType.Hope, 0.7f, 300); // 5 hours of hope
+        
+        // Add faith-based goals
+        goals.AddGoal(new Goal($"Serve {owner.God}", GoalType.Social, 0.7f));
+        goals.AddGoal(new Goal("Live According to Faith", GoalType.Personal, 0.6f));
+        
+        GD.Print($"[Faith] {owner.Name} converted to {owner.God}");
+    }
+    
+    private void ProcessFaithActions()
+    {
+        var faithActions = new[] { "pray", "make offering", "seek guidance", "help others", "spread faith" };
+        var action = faithActions[random.Next(faithActions.Length)];
+        
+        memory.AddMemory($"I {action} in service of {owner.God}", "faith", DateTime.Now);
+        emotions.AddEmotion(EmotionType.Peace, 0.3f, 120); // 2 hours of peace
+        
+        // Faith actions can generate new goals
+        if (action == "help others" && random.Next(5) == 0)
+        {
+            goals.AddGoal(new Goal("Help Someone in Need", GoalType.Social, 0.6f));
+        }
+    }
+    
+    /// <summary>
+    /// Pascal RELATIO2.PAS relationship processing
+    /// </summary>
+    private bool ShouldProcessRelationships()
+    {
+        return GetTimeSinceLastActivity("relationships").TotalHours >= 12;
+    }
+    
+    private void ProcessRelationshipBehavior()
+    {
+        lastActivities["relationships"] = DateTime.Now;
+        
+        // Marriage considerations
+        if (string.IsNullOrEmpty(owner.Married) && owner.Level >= 5)
+        {
+            if (random.Next(50) == 0) // 2% chance per processing cycle
+            {
+                goals.AddGoal(new Goal("Look for Marriage Partner", GoalType.Social, 0.6f));
+                memory.AddMemory("I'm thinking about finding someone special", "romance", DateTime.Now);
+            }
+        }
+        
+        // Friendship development
+        if (personality.Sociability > 0.6f && random.Next(10) == 0)
+        {
+            goals.AddGoal(new Goal("Strengthen Friendships", GoalType.Social, personality.Sociability));
+            memory.AddMemory("I should spend time with friends", "social", DateTime.Now);
+        }
+        
+        // Enemy relationship processing
+        var enemies = memory.GetMemoriesOfType(MemoryType.Attacked)
+            .Where(m => m.IsRecent(168)) // Within a week
+            .ToList();
+            
+        if (enemies.Any() && personality.Vengefulness > 0.6f)
+        {
+            var recentEnemy = enemies.OrderByDescending(m => m.Importance).First();
+            goals.AddGoal(new Goal($"Settle Score with {recentEnemy.InvolvedCharacter}", 
+                GoalType.Social, personality.Vengefulness));
+        }
+    }
+    
+    private TimeSpan GetTimeSinceLastActivity(string activityType)
+    {
+        if (lastActivities.ContainsKey(activityType))
+        {
+            return DateTime.Now - lastActivities[activityType];
+        }
+        return TimeSpan.FromDays(1); // Force first-time processing
     }
     
     private void InitializeGoals()
@@ -91,51 +533,6 @@ public class NPCBrain
         {
             goals.AddGoal(new Goal("Seek Revenge", GoalType.Social, personality.Vengefulness));
         }
-    }
-    
-    public NPCAction DecideNextAction(WorldState world)
-    {
-        // Only make decisions periodically
-        var timeSinceLastDecision = DateTime.Now - lastDecisionTime;
-        if (timeSinceLastDecision.TotalMinutes < DECISION_COOLDOWN_MINUTES)
-        {
-            return new NPCAction { Type = ActionType.Continue };
-        }
-        
-        lastDecisionTime = DateTime.Now;
-        
-        // Update emotional state based on recent events
-        emotions.Update(memory.GetRecentEvents());
-        
-        // Decay old memories
-        memory.DecayMemories();
-        
-        // Re-evaluate goals based on current situation
-        goals.UpdateGoals(owner, world, memory, emotions);
-        
-        // Get current priority goal
-        var currentGoal = goals.GetPriorityGoal();
-        if (currentGoal == null)
-        {
-            return new NPCAction { Type = ActionType.Idle };
-        }
-        
-        // Generate possible actions based on current goal
-        var possibleActions = GenerateActions(currentGoal, world);
-        
-        // Score each action based on personality and current state
-        var bestAction = SelectBestAction(possibleActions);
-        
-        // Record the decision
-        memory.RecordEvent(new MemoryEvent
-        {
-            Type = MemoryType.PersonalAchievement,
-            Description = $"Decided to {bestAction.Type} for goal: {currentGoal.Name}",
-            Importance = 0.3f,
-            Location = owner.CurrentLocation
-        });
-        
-        return bestAction;
     }
     
     private List<NPCAction> GenerateActions(Goal goal, WorldState world)
@@ -373,49 +770,41 @@ public class NPCBrain
     
     public void RecordInteraction(Character other, InteractionType type, Dictionary<string, object> details = null)
     {
-        var memoryType = ConvertInteractionToMemoryType(type);
+        // Record the interaction in memory
         var importance = CalculateInteractionImportance(type);
+        var memoryType = MapInteractionToMemoryType(type);
         
-        var memoryEvent = new MemoryEvent
+        memory.RecordEvent(new MemoryEvent
         {
             Type = memoryType,
-            InvolvedCharacter = other.Id,
-            Location = owner.CurrentLocation,
-            Details = details ?? new Dictionary<string, object>(),
+            Description = $"I {type.ToString().ToLower()} {other.Name}",
+            InvolvedCharacter = other.Name,
             Importance = importance,
-            Description = $"{type} with {other.Name}"
-        };
+            Location = owner.CurrentLocation,
+            Details = details ?? new Dictionary<string, object>()
+        });
         
-        memory.RecordEvent(memoryEvent);
-        relationships.UpdateRelationship(other.Id, memoryEvent);
+        // Update relationship
+        relationships.UpdateRelationship(other.Name, type);
         
-        // Update emotional state for significant events
-        if (type == InteractionType.Attacked || type == InteractionType.Betrayed)
-        {
-            emotions.AddEmotion(EmotionType.Anger, 0.8f, 120); // 2 hours of anger
-        }
-        else if (type == InteractionType.Helped || type == InteractionType.Defended)
-        {
-            emotions.AddEmotion(EmotionType.Gratitude, 0.6f, 180); // 3 hours of gratitude
-        }
+        // Trigger emotional response
+        emotions.ProcessInteraction(type, other, importance);
+        
+        // Update goals based on interaction
+        goals.ProcessInteractionFeedback(type, other, importance);
+        
+        GD.Print($"[AI] {owner.Name} recorded {type} interaction with {other.Name}");
     }
     
-    private MemoryType ConvertInteractionToMemoryType(InteractionType interaction)
+    private MemoryType MapInteractionToMemoryType(InteractionType type)
     {
-        return interaction switch
+        return type switch
         {
             InteractionType.Attacked => MemoryType.Attacked,
-            InteractionType.Betrayed => MemoryType.Betrayed,
-            InteractionType.Helped => MemoryType.Helped,
-            InteractionType.Defended => MemoryType.Defended,
-            InteractionType.Traded => MemoryType.Traded,
-            InteractionType.SharedDrink => MemoryType.SharedDrink,
-            InteractionType.SharedItem => MemoryType.SharedItem,
-            InteractionType.Defeated => MemoryType.Defeated,
-            InteractionType.Threatened => MemoryType.Threatened,
-            InteractionType.Insulted => MemoryType.Insulted,
-            InteractionType.Complimented => MemoryType.Complimented,
-            _ => MemoryType.Miscellaneous
+            InteractionType.Helped => MemoryType.PersonalAchievement,
+            InteractionType.Traded => MemoryType.PersonalAchievement,
+            InteractionType.Betrayed => MemoryType.Attacked,
+            _ => MemoryType.SocialInteraction
         };
     }
     
@@ -457,10 +846,13 @@ public class NPCBrain
     
     public string GetBrainSummary()
     {
-        var summary = $"=== {owner.Name} AI Brain ===\n";
+        var summary = $"=== {owner.Name} Enhanced AI Brain ===\n";
         summary += $"Personality: {personality}\n";
         summary += $"Current Goal: {goals.GetPriorityGoal()?.Name ?? "None"}\n";
         summary += $"Active Emotions: {emotions.GetActiveEmotions().Count}\n";
+        summary += $"Faith: {owner.God ?? "None"}\n";
+        summary += $"Gang: {owner.Team ?? "None"}\n";
+        summary += $"Married: {owner.Married ?? "No"}\n";
         summary += memory.GetMemorySummary();
         
         return summary;

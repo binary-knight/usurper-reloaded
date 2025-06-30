@@ -248,6 +248,7 @@ public class NPC : Character
     
     /// <summary>
     /// Main NPC update method - called by world simulator
+    /// Enhanced with Pascal-compatible behaviors
     /// </summary>
     public void UpdateNPC(float deltaTime)
     {
@@ -265,6 +266,168 @@ public class NPC : Character
         
         // Update relationships
         Relationships.UpdateRelationships();
+        
+        // Enhanced NPC behaviors (Phase 21)
+        ProcessEnhancedBehaviors(deltaTime);
+    }
+    
+    /// <summary>
+    /// Enhanced NPC behaviors - Pascal NPC_CHEC.PAS and NPCMAINT.PAS integration
+    /// </summary>
+    private void ProcessEnhancedBehaviors(float deltaTime)
+    {
+        var random = new Random();
+        
+        // Inventory management (Pascal NPC_CHEC.PAS logic)
+        if (random.Next(100) < 5) // 5% chance per update
+        {
+            ProcessInventoryCheck();
+        }
+        
+        // Shopping behavior (Pascal NPCMAINT.PAS shopping)
+        if (random.Next(200) < 3 && Gold > 100) // 1.5% chance if has gold
+        {
+            ProcessShoppingBehavior();
+        }
+        
+        // Gang/team management
+        if (random.Next(300) < 2) // 0.67% chance
+        {
+            ProcessGangBehavior();
+        }
+        
+        // Faith/believer system
+        if (random.Next(400) < 2) // 0.5% chance
+        {
+            ProcessBelieverBehavior();
+        }
+    }
+    
+    /// <summary>
+    /// Pascal NPC_CHEC.PAS inventory management
+    /// </summary>
+    private void ProcessInventoryCheck()
+    {
+        // Re-evaluate all equipped items
+        Memory.AddMemory("I checked my equipment", "inventory", DateTime.Now);
+        
+        // Simple equipment optimization
+        if (WeaponPower < Level * 15)
+        {
+            Goals.AddGoal(new Goal("Find Better Weapon", GoalType.Economic, 0.7f));
+        }
+        
+        if (ArmorClass < Level * 10)
+        {
+            Goals.AddGoal(new Goal("Find Better Armor", GoalType.Economic, 0.6f));
+        }
+    }
+    
+    /// <summary>
+    /// Pascal NPCMAINT.PAS shopping behavior
+    /// </summary>
+    private void ProcessShoppingBehavior()
+    {
+        var shoppingLocations = new[] { "main_street", "weapon_shop", "armor_shop", "magic_shop" };
+        
+        if (shoppingLocations.Contains(CurrentLocation))
+        {
+            // Determine what to buy based on class and needs
+            var shoppingGoal = DetermineShoppingGoal();
+            if (shoppingGoal != null)
+            {
+                Goals.AddGoal(shoppingGoal);
+                Memory.AddMemory($"I need to buy {shoppingGoal.Name}", "shopping", DateTime.Now);
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Gang behavior from Pascal NPCMAINT.PAS
+    /// </summary>
+    private void ProcessGangBehavior()
+    {
+        var random = new Random();
+        
+        if (string.IsNullOrEmpty(Team))
+        {
+            // Not in a gang - consider joining one
+            if (Personality.IsLikelyToJoinGang() && random.Next(10) == 0)
+            {
+                Goals.AddGoal(new Goal("Join Gang", GoalType.Social, 0.8f));
+                Memory.AddMemory("I should look for a gang to join", "social", DateTime.Now);
+            }
+        }
+        else
+        {
+            // In a gang - gang loyalty actions
+            if (random.Next(5) == 0)
+            {
+                Memory.AddMemory($"I'm loyal to {Team}", "gang", DateTime.Now);
+                Goals.AddGoal(new Goal("Support Gang", GoalType.Social, 0.7f));
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Pascal NPCMAINT.PAS believer system
+    /// </summary>
+    private void ProcessBelieverBehavior()
+    {
+        var random = new Random();
+        
+        if (string.IsNullOrEmpty(God))
+        {
+            // Potential conversion
+            if (random.Next(20) == 0)
+            {
+                var availableGods = new[] { "Nosferatu", "Darkcloak", "Druid" };
+                God = availableGods[random.Next(availableGods.Length)];
+                Memory.AddMemory($"I found faith in {God}", "faith", DateTime.Now);
+                EmotionalState.AdjustMood("spiritual", 0.3f);
+            }
+        }
+        else
+        {
+            // Existing believer - perform faith actions
+            if (random.Next(10) == 0)
+            {
+                var actions = new[] { "pray", "make offering", "seek guidance" };
+                var action = actions[random.Next(actions.Length)];
+                Memory.AddMemory($"I {action} to {God}", "faith", DateTime.Now);
+                
+                // Faith actions affect mood
+                EmotionalState.AdjustMood("spiritual", 0.1f);
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Determine shopping goal based on class and personality
+    /// </summary>
+    private Goal DetermineShoppingGoal()
+    {
+        switch (Class)
+        {
+            case CharacterClass.Fighter:
+                if (WeaponPower < Level * 20)
+                    return new Goal("Buy Better Weapon", GoalType.Economic, Personality.Greed);
+                if (ArmorClass < Level * 15)
+                    return new Goal("Buy Better Armor", GoalType.Economic, Personality.Greed * 0.8f);
+                break;
+                
+            case CharacterClass.Magician:
+                if (Mana < MaxMana * 0.7f)
+                    return new Goal("Buy Mana Potions", GoalType.Economic, 0.6f);
+                break;
+                
+            case CharacterClass.Paladin:
+                if (HP < MaxHP * 0.8f)
+                    return new Goal("Buy Healing Potions", GoalType.Economic, 0.7f);
+                break;
+        }
+        
+        return null;
     }
     
     /// <summary>
