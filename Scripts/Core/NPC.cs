@@ -475,7 +475,7 @@ public partial class NPC : Character
     /// </summary>
     private void ExecuteAction(NPCAction action)
     {
-        switch (action.Type)
+        switch ((NPCActionType)action.Type)
         {
             case NPCActionType.Move:
                 Move(action.Target);

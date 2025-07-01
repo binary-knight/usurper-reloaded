@@ -65,8 +65,7 @@ public partial class PrisonLocation : BaseLocation
     
     private async Task ShowPrisonInterface(Character player)
     {
-        var input = await terminal.GetLineAsync();
-        char choice = string.IsNullOrEmpty(input) ? ' ' : input[0];
+        char choice = '?';
         
         while (choice != 'Q')
         {

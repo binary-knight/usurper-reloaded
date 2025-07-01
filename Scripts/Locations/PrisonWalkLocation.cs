@@ -78,8 +78,7 @@ public partial class PrisonWalkLocation : BaseLocation
             await DisplayPrisonWalkMenu(player, true, true);
             
             // Get user input
-            var input = await terminal.GetLineAsync();
-            choice = string.IsNullOrEmpty(input) ? ' ' : input[0];
+            choice = await terminal.GetCharAsync();
             choice = char.ToUpper(choice);
             
             // Process user choice
