@@ -3,6 +3,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Linq;
 
 /// <summary>
 /// Location Manager - handles all location-related functionality
@@ -19,6 +20,31 @@ public class LocationManager
     // Pascal-compatible navigation table (from ONLINE.PAS)
     private Dictionary<GameLocation, List<GameLocation>> navigationTable;
     
+    private static LocationManager? _instance;
+    public static LocationManager Instance
+    {
+        get
+        {
+            if (_instance == null)
+            {
+                // Create a default terminal for head-less scenarios
+                _instance = new LocationManager(new TerminalEmulator());
+            }
+            return _instance;
+        }
+    }
+
+    // Ensure that any manually created manager becomes the global instance
+    private void RegisterAsSingleton()
+    {
+        if (_instance == null)
+            _instance = this;
+    }
+
+    public LocationManager() : this(new TerminalEmulator())
+    {
+    }
+
     public LocationManager(TerminalEmulator term)
     {
         terminal = term;
@@ -26,6 +52,7 @@ public class LocationManager
         InitializeLocations();
         InitializeNavigationTable();
         currentLocationId = GameLocation.MainStreet;
+        RegisterAsSingleton();
     }
     
     /// <summary>
@@ -290,6 +317,44 @@ public class LocationManager
     public GameLocation GetCurrentLocation()
     {
         return currentLocationId;
+    }
+
+    // Utility accessor used heavily by legacy code
+    public BaseLocation? GetLocation(GameLocation id)
+    {
+        return locations.TryGetValue(id, out var loc) ? loc : null;
+    }
+
+    /// <summary>
+    /// Legacy ChangeLocation overloads. Many older classes call these synchronous helpers.
+    /// They simply enqueue a navigation request that will be executed on the calling thread.
+    /// In this stub we just switch currentLocationId and return completed tasks so that the game can compile.
+    /// </summary>
+    public async Task ChangeLocation(Character player, string locationClassName)
+    {
+        // Very naive implementation – look for first location whose class name matches.
+        var match = locations.Values.FirstOrDefault(l => l.GetType().Name.Equals(locationClassName, StringComparison.OrdinalIgnoreCase));
+        if (match != null)
+        {
+            await EnterLocation(match.LocationId, player);
+        }
+        else
+        {
+            terminal.WriteLine($"Unknown location '{locationClassName}'. Returning to Main Street.", "red");
+            await EnterLocation(GameLocation.MainStreet, player);
+        }
+    }
+
+    public async Task ChangeLocation(Character player, GameLocation locationId)
+    {
+        await EnterLocation(locationId, player);
+    }
+
+    // Non-player overload kept for backwards compatibility
+    public void ChangeLocation(string locationClassName)
+    {
+        var dummy = new Player(); // Placeholder – caller didn't provide player reference in legacy code
+        ChangeLocation(dummy, locationClassName).Wait();
     }
 }
 

@@ -18,7 +18,7 @@ namespace Godot
     {
         public string Name { get; set; } = "";
         public virtual void AddChild(Node child) { }
-        public virtual T GetNode<T>(string path) where T : Node => default(T)!;
+        public virtual T GetNode<T>(string path) where T : class, new() => SystemHelper.GetSystem<T>();
         public virtual Node GetNode(string path) => default(Node)!;
         public virtual void RemoveChild(Node child) { }
         public virtual Node GetParent() => default(Node)!;
@@ -229,7 +229,7 @@ namespace Godot
             if (typeof(T) == typeof(WorldSimulator))
                 return new WorldSimulator() as T;
             if (typeof(T) == typeof(LocationManager))
-                return new LocationManager(null) as T;
+                return new LocationManager() as T;
             if (typeof(T) == typeof(RelationshipSystem))
                 return RelationshipSystem.Instance as T;
             if (typeof(T) == typeof(CombatEngine))

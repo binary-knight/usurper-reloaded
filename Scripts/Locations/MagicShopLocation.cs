@@ -620,8 +620,11 @@ public partial class MagicShopLocation : BaseLocation
         return new List<Item>(_magicInventory);
     }
     
-    private void DisplayMessage(string message, string color = "white")
+    private void DisplayMessage(string message, string color = "white", bool newLine = true)
     {
-        terminal.WriteLine(message, color);
+        if (newLine)
+            terminal.WriteLine(message, color);
+        else
+            terminal.Write(message, color);
     }
 } 

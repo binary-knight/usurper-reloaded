@@ -11,6 +11,8 @@ using System.Linq;
 /// </summary>
 public class RelationshipSystem
 {
+    // Simple singleton instance for global access
+    public static RelationshipSystem Instance { get; } = new RelationshipSystem();
     private static Dictionary<string, Dictionary<string, RelationshipRecord>> _relationships = new();
     private static Random _random = new Random();
     

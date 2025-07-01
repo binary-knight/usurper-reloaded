@@ -397,4 +397,66 @@ public abstract class BaseLocation
             _ => Name
         };
     }
+
+    // Convenience constructor for legacy classes that only provide name and skip description
+    protected BaseLocation(GameLocation locationId, string name) : this(locationId, name, "")
+    {
+    }
+
+    // Legacy alias properties/methods for compatibility with older location implementations
+
+    // Some pre-refactor code refers to LocationName instead of Name
+    public string LocationName
+    {
+        get => Name;
+        set => Name = value;
+    }
+
+    // Allow derived locations to add menu options without maintaining their own list
+    protected List<(string Key, string Text)> LegacyMenuOptions { get; } = new();
+
+    public void AddMenuOption(string key, string text)
+    {
+        LegacyMenuOptions.Add((key, text));
+    }
+
+    // Stub for ShowLocationMenu used by some locations
+    protected virtual void ShowLocationMenu()
+    {
+        // Basic menu display if terminal available
+        if (terminal == null || LegacyMenuOptions.Count == 0) return;
+        terminal.Clear();
+        terminal.WriteLine($"{LocationName} Menu:");
+        foreach (var (Key, Text) in LegacyMenuOptions)
+        {
+            terminal.WriteLine($"({Key}) {Text}");
+        }
+    }
+
+    // Placeholder Ready method for Godot-style initialization
+    public virtual void _Ready()
+    {
+        // No-op for standalone build
+    }
+
+    // Expose CurrentPlayer as Player for legacy code while still maintaining Character
+    public Player? CurrentPlayer { get; protected set; }
+
+    // Convenience GetNode wrapper (delegates to global helper)
+    protected T GetNode<T>(string path) where T : class, new() => UsurperRemake.Utils.GodotHelpers.GetNode<T>(path);
+
+    // Legacy exit helper used by some derived locations
+    protected virtual async Task Exit(Player player)
+    {
+        // Simply break out by returning
+        await Task.CompletedTask;
+    }
+
+    // Parameterless constructor retained for serialization or manual instantiation
+    protected BaseLocation()
+    {
+        LocationId = GameLocation.NoWhere;
+        Name = string.Empty;
+        Description = string.Empty;
+    }
 } 

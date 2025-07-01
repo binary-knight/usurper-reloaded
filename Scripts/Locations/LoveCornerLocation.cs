@@ -11,7 +11,7 @@ using System.Text;
 /// </summary>
 public class LoveCornerLocation : BaseLocation
 {
-    public LoveCornerLocation() : base(GameConfig.LoveCorner, GameConfig.DefaultLoveCornerName) { }
+    public LoveCornerLocation() : base((GameLocation)GameConfig.LoveCorner, GameConfig.DefaultLoveCornerName, "A cozy corner for romance and gossip.") { }
 
     public new void OnEnter(Character player)
     {
