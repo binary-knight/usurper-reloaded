@@ -12,6 +12,12 @@ public static partial class GameConfig
     public const string ClassColor = "`5";
     public const string RaceColor  = "`3";
     public const string RoyalColor = "`E";
+    public const string HotkeyColor = "`A";
+    public const string BrightColor = "`B";
+    public const string MagicColor = "`C";
+    public const string TypeColor = "`D";
+    public const string PowerColor = "`E";
+    public const string QuestColor = "`F";
 
     public static class GameLocation
     {
@@ -22,6 +28,26 @@ public static partial class GameConfig
         public const int Temple = (int)global::GameLocation.Temple;
         // Add more mappings as needed by legacy code
     }
+
+    // Pascal style inner Location (singular) constants
+    public static class Location
+    {
+        public const int Prisoner = (int)global::GameLocation.Prisoner;
+        public const int PrisonerOpen = (int)global::GameLocation.PrisonerOpen;
+        public const int PrisonerExecution = (int)global::GameLocation.PrisonerExecution;
+    }
+
+    // Simple config string fetcher used by shop locations
+    public static string GetConfigString(string key) => key switch
+    {
+        nameof(HotkeyColor) => HotkeyColor,
+        nameof(BrightColor) => BrightColor,
+        nameof(MagicColor) => MagicColor,
+        nameof(TypeColor) => TypeColor,
+        nameof(PowerColor) => PowerColor,
+        nameof(QuestColor) => QuestColor,
+        _ => ""
+    };
 }
 #endregion
 

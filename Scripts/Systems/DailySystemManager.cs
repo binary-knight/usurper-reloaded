@@ -279,7 +279,7 @@ public class DailySystemManager
 }
 
 // Simple config manager placeholder
-public static class ConfigManager
+public static partial class ConfigManager
 {
     public static void LoadConfig()
     {

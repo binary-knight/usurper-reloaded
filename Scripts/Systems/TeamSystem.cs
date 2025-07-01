@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 /// Handles team creation, management, combat, territory control, and all team-related functionality
 /// Direct Pascal compatibility with exact function preservation
 /// </summary>
-public class TeamSystem : Node
+public partial class TeamSystem : Node
 {
     private NewsSystem newsSystem;
     // MailSystem is static - no need to instantiate

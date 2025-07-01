@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 
-public class MemorySystem
+public partial class MemorySystem
 {
     private const int MAX_MEMORIES = 100;
     private const int MEMORY_DECAY_DAYS = 7;

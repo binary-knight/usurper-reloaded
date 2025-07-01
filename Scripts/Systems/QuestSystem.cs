@@ -10,7 +10,7 @@ using Godot;
 /// Based on Pascal PLYQUEST.PAS and RQUESTS.PAS with all quest functionality
 /// Handles quest creation, claiming, completion, rewards, and database management
 /// </summary>
-public class QuestSystem
+public partial class QuestSystem : Node
 {
     private static List<Quest> questDatabase = new List<Quest>();
     private static Random random = new Random();

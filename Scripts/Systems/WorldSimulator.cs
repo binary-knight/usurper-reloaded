@@ -20,7 +20,7 @@ public class WorldSimulator
         // Create timer for periodic simulation
         simulationTimer = new Godot.Timer();
         simulationTimer.WaitTime = SIMULATION_INTERVAL;
-        simulationTimer.Timeout += OnSimulationStep;
+        simulationTimer.TimeoutEvent += OnSimulationStep;
         simulationTimer.Autostart = true;
         
         GD.Print($"[WorldSim] Started simulation with {npcs.Count} NPCs");

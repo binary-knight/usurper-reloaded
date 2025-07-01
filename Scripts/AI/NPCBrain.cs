@@ -917,7 +917,7 @@ public enum InteractionType
     Intimidated
 }
 
-public class WorldState
+public partial class WorldState
 {
     private List<NPC> npcs;
     

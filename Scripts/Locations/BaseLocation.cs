@@ -403,13 +403,37 @@ public abstract class BaseLocation
     {
     }
 
-    // Legacy alias properties/methods for compatibility with older location implementations
+    // Legacy constructor where parameters were (string name, GameLocation id)
+    protected BaseLocation(string name, GameLocation locationId) : this(locationId, name, "")
+    {
+    }
+
+    // Legacy constructor that passed only a name (defaults to NoWhere)
+    protected BaseLocation(string name) : this(GameLocation.NoWhere, name, "")
+    {
+    }
 
     // Some pre-refactor code refers to LocationName instead of Name
     public string LocationName
     {
         get => Name;
         set => Name = value;
+    }
+
+    // ShortDescription used by some legacy locations
+    public string ShortDescription { get; set; } = string.Empty;
+
+    // Legacy single-parameter Enter wrapper
+    public virtual async Task Enter(Character player)
+    {
+        await EnterLocation(player, TerminalEmulator.Instance ?? new TerminalEmulator());
+    }
+
+    // Legacy OnEnter hook – alias of DisplayLocation for now
+    public virtual void OnEnter(Character player)
+    {
+        // For now simply display location header
+        DisplayLocation();
     }
 
     // Allow derived locations to add menu options without maintaining their own list

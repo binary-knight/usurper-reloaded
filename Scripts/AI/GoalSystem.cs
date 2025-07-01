@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 
-public class GoalSystem
+public partial class GoalSystem
 {
     private List<Goal> goals = new List<Goal>();
     private PersonalityProfile personality;

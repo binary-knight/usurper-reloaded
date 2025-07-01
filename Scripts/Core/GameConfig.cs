@@ -1072,6 +1072,8 @@ public enum GameLocation
     Gigolos = 38,        // onloc_gigolos
     OutsideInn = 39,     // onloc_outsideinn
     TeamCorner = 41,     // onloc_teamcorner
+    Gym = 42,           // training gym placeholder (was Steroids in original)
+    LoveCorner = 77,    // love corner location same as constant above
     Temple = 47,         // onloc_temple (altar of the gods)
     BountyRoom = 44,     // onloc_bountyroom
     QuestHall = 75,      // onloc_questhall

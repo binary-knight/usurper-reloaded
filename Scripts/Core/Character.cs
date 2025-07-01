@@ -352,6 +352,28 @@ public class Character
     public string KingName => King ? DisplayName : "";
     
     public DateTime Created { get; set; } = DateTime.Now;
+
+    // Alias American spelling used by some systems
+    public long Defense
+    {
+        get => Defence;
+        set => Defence = value;
+    }
+
+    // Simplified thievery skill placeholder
+    public long Thievery { get; set; }
+
+    // Simple level-up event hook for UI/system code expecting it
+    public event Action<Character>? OnLevelUp;
+
+    public void RaiseLevel(int newLevel)
+    {
+        if (newLevel > Level)
+        {
+            Level = newLevel;
+            OnLevelUp?.Invoke(this);
+        }
+    }
 }
 
 /// <summary>
@@ -360,7 +382,8 @@ public class Character
 public enum CharacterAI
 {
     Computer = 'C',
-    Human = 'H'
+    Human = 'H',
+    Civilian = 'N'
 }
 
 /// <summary>
@@ -426,7 +449,9 @@ public enum ObjType
     Food = 12,
     Drink = 13,
     Weapon = 14,
-    Abody = 15  // around body
+    Abody = 15,  // around body
+    Magic = 16,
+    Potion = 17
 }
 
 /// <summary>

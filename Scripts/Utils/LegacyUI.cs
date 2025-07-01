@@ -10,7 +10,7 @@ namespace UsurperRemake.Utils
     /// </summary>
     public static class LegacyUI
     {
-        private static TerminalEmulator Terminal => TerminalEmulator.Instance ?? new TerminalEmulator();
+        public static TerminalEmulator Terminal => TerminalEmulator.Instance ?? new TerminalEmulator();
 
         public static void DisplayMessage(string message) => Terminal.DisplayMessage(message);
         public static void DisplayMessage(string message, bool newLine) => Terminal.DisplayMessage(message, TerminalEmulator.ColorWhite, newLine);

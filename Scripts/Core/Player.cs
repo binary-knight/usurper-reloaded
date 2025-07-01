@@ -49,6 +49,12 @@ public class Player : Character
     // Additional missing properties for API compatibility 
     public string CurrentLocation { get; set; } = "main_street";
     
+    public bool IsRuler
+    {
+        get => King;
+        set => King = value;
+    }
+    
     public Player() : base()
     {
         AI = CharacterAI.Human;

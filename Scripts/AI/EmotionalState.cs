@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 
-public class EmotionalState
+public partial class EmotionalState
 {
     private Dictionary<EmotionType, Emotion> activeEmotions = new Dictionary<EmotionType, Emotion>();
     private const int MAX_EMOTIONS = 5;

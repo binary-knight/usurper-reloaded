@@ -670,7 +670,7 @@ public partial class NPC : Character
     // Missing methods for API compatibility
     public void UpdateLocation(string newLocation)
     {
-        Location = newLocation;
+        CurrentLocation = newLocation;
     }
     
     public bool CanAfford(long cost)
@@ -726,5 +726,11 @@ public partial class NPC : Character
     public void ChangeActivity(object activity)
     {
         // Implementation for activity changes
+    }
+    
+    // Overload expected by WorldSimulator (Activity type, urgency/intensity)
+    public void ChangeActivity(UsurperRemake.Activity activity, int intensity)
+    {
+        // Stub: no behaviour yet
     }
 } 

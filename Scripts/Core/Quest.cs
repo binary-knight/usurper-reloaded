@@ -6,7 +6,7 @@ using Godot;
 /// <summary>
 /// Quest Record - Pascal-compatible quest structure based on QuestRec
 /// </summary>
-public class Quest
+public partial class Quest
 {
     // Primary Quest Data (Pascal QuestRec fields)
     public string Id { get; set; } = "";
