@@ -914,7 +914,29 @@ Barbarian - Savage fighters, incredible strength
     public const string NewsColorDeath = "`4";         // Red for death
     public const string NewsColorBirth = "`6";         // Cyan for birth
     
-    // Integration Points
+    // Additional missing color constants for game systems
+    public const string DeathColor = "`4";             // Red for death messages
+    public const string TextColor = "`2";              // Default green text
+    public const string WarningColor = "`E";           // Bright yellow for warnings
+    public const string SuccessColor = "`A";           // Bright green for success
+    public const string ExperienceColor = "`B";        // Bright cyan for experience
+    public const string CombatColor = "`C";            // Bright red for combat
+    public const string HealColor = "`A";              // Bright green for healing
+    public const string TauntColor = "`D";             // Bright magenta for taunts
+    public const string GoldColor = "`E";              // Bright yellow for gold
+    public const string LocationColor = "`9";          // Bright blue for locations
+    public const string ErrorColor = "`4";             // Red for errors
+    public const string EmptyColor = "`8";             // Gray for empty slots
+    public const string EnemyColor = "`4";             // Red for enemies
+    public const string WinnerColor = "`A";            // Bright green for winners
+    public const string DamageColor = "`C";            // Bright red for damage
+    public const string StatusColor = "`3";            // Yellow for status
+    public const string SessionColor = "`B";           // Bright cyan for sessions
+    public const string ControllerColor = "`5";        // Magenta for controllers
+    public const string CardColor = "`6";              // Cyan for cards
+    public const string FightColor = "`C";             // Bright red for fights
+
+    // Location constants
     public const int NewsLocationId = 50;              // Location ID for news reading
     public const string NewsLocationName = "News Stand"; // Display name for location
 }

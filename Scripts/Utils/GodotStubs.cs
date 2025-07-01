@@ -29,9 +29,11 @@ namespace Godot
         public Vector2 Size { get; set; }
         public virtual void Show() { }
         public virtual void Hide() { }
+        public void SetAnchorsAndOffsetsPreset(int preset) { }
         
         public static class Preset
         {
+            public const int FullRect = 15;
             public const int FULL_RECT = 15;
         }
     }
@@ -43,7 +45,6 @@ namespace Godot
         
         public void AppendText(string text) => Text += text;
         public void Clear() => Text = "";
-        public void SetAnchorsAndOffsetsPreset(int preset) { }
         public bool ScrollFollowing { get; set; } = true;
         public bool FitContent { get; set; } = true;
         public void AddThemeFontOverride(string name, Font font) { }
@@ -60,15 +61,18 @@ namespace Godot
         
         public void AddThemeFontOverride(string name, Font font) { }
         public void AddThemeFontSizeOverride(string name, int size) { }
+        public void Clear() => Text = "";
+        public void GrabFocus() { }
     }
 
     public class Timer : Node
     {
         public double WaitTime { get; set; } = 1.0;
         public bool Autostart { get; set; } = false;
-        public event Action? Timeout;
+        public double Timeout { get; set; } = 1.0;
+        public event Action? TimeoutEvent;
         
-        public void Start() => Task.Delay(TimeSpan.FromSeconds(WaitTime)).ContinueWith(_ => Timeout?.Invoke());
+        public void Start() => Task.Delay(TimeSpan.FromSeconds(WaitTime)).ContinueWith(_ => TimeoutEvent?.Invoke());
         public void Stop() { }
     }
 
@@ -116,6 +120,11 @@ namespace Godot
             Console.WriteLine(string.Join(" ", args));
         }
         
+        public static void PrintErr(params object[] args)
+        {
+            Console.Error.WriteLine(string.Join(" ", args));
+        }
+        
         public static int RandRange(int min, int max)
         {
             return random.Next(min, max + 1);
@@ -138,7 +147,10 @@ namespace Godot
     // Resource classes
     public abstract class Resource : GodotObject { }
     public abstract class StyleBox : Resource { }
-    public class StyleBoxFlat : StyleBox { }
+    public class StyleBoxFlat : StyleBox 
+    { 
+        public Color BgColor { get; set; } = Color.Black;
+    }
 
     // File system
     public class FileAccess
@@ -148,7 +160,9 @@ namespace Godot
         
         public static class ModeFlags
         {
+            public const int Read = 1;
             public const int READ = 1;
+            public const int Write = 2;
             public const int WRITE = 2;
         }
         
@@ -177,9 +191,15 @@ namespace UsurperRemake.Utils
     public class TerminalUI : ITerminal
     {
         public void WriteLine(string text) => Console.WriteLine(text);
+        public void WriteLine(string text, string color) => Console.WriteLine(text);
         public void Write(string text) => Console.Write(text);
         public string ReadLine() => Console.ReadLine() ?? "";
         public void Clear() => Console.Clear();
+        public async Task<string> GetInputAsync(string prompt = "")
+        {
+            Console.Write(prompt);
+            return Console.ReadLine() ?? "";
+        }
     }
 
     public class SaveManager

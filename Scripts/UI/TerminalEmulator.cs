@@ -262,4 +262,29 @@ public partial class TerminalEmulator : Control
     {
         await GetInput(message);
     }
+    
+    // Missing API methods for compatibility
+    public void SetColor(string color)
+    {
+        // For console output, we don't need to set a persistent color
+        // Individual WriteLine/Write calls already handle color
+    }
+    
+    public async Task<string> GetKeyInput()
+    {
+        return await GetInput("");
+    }
+    
+    public async Task<string> GetStringInput(string prompt = "")
+    {
+        return await GetInput(prompt);
+    }
+    
+    public async Task WaitForKeyPress(string message = "Press any key to continue...")
+    {
+        await GetInput(message);
+    }
+    
+    // Additional compatibility methods
+    public void Clear() => ClearScreen();
 } 
