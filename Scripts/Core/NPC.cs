@@ -57,6 +57,11 @@ public class NPC : Character
     public string Location => CurrentLocation;  // Pascal compatibility
     public bool IsNPC => true;                  // For compatibility checks
     
+    /// <summary>
+    /// Alias for King property for compatibility with GoalSystem
+    /// </summary>
+    public bool IsRuler => King;
+    
     // Additional properties for world simulation
     public List<string> KnownCharacters { get; set; } = new();
     public List<string> Enemies { get; set; } = new();

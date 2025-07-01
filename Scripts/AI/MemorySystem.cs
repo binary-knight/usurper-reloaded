@@ -166,6 +166,7 @@ public class MemorySystem
     
     /// <summary>
     /// Convenience method for adding simple memories with description and type
+    /// Used throughout the codebase for backward compatibility
     /// </summary>
     public void AddMemory(string description, string typeString, DateTime timestamp)
     {

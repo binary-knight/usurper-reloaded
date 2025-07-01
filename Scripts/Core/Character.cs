@@ -294,7 +294,33 @@ public class Character
     public bool IsTeamLeader => CTurf;
     public int Children => Kids;
     
-    // Helper method to get equipped item name (placeholder)
+    /// <summary>
+    /// Compatibility property that maps to CTurf for API consistency
+    /// </summary>
+    public bool ControlsTurf 
+    { 
+        get => CTurf; 
+        set => CTurf = value; 
+    }
+    
+    /// <summary>
+    /// Compatibility property that maps to TeamPW for API consistency
+    /// </summary>
+    public string TeamPassword 
+    { 
+        get => TeamPW; 
+        set => TeamPW = value; 
+    }
+    
+    /// <summary>
+    /// Compatibility property that maps to TeamRec for API consistency
+    /// </summary>
+    public int TeamRecord 
+    { 
+        get => TeamRec; 
+        set => TeamRec = value; 
+    }
+    
     private string GetEquippedItemName(int itemId)
     {
         if (itemId == 0) return "None";

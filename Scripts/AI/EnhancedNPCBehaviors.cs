@@ -272,7 +272,7 @@ public static class EnhancedNPCBehaviors
         }
         
         // Generate news
-        var newsSystem = GetNode<NewsSystem>("/root/NewsSystem");
+        var newsSystem = NewsSystem.Instance;
         newsSystem?.Newsy($"{GameConfig.TeamColor}{gangName}{GameConfig.NewsColorDefault} ceased to exist!", false, GameConfig.NewsCategory.General);
     }
     
@@ -298,7 +298,7 @@ public static class EnhancedNPCBehaviors
                 }
                 
                 // Generate news
-                var newsSystem = GetNode<NewsSystem>("/root/NewsSystem");
+                var newsSystem = NewsSystem.Instance;
                 newsSystem?.Newsy($"{GameConfig.NewsColorPlayer}{candidate.Name2}{GameConfig.NewsColorDefault} has been recruited to {GameConfig.TeamColor}{gangName}{GameConfig.NewsColorDefault}", true, GameConfig.NewsCategory.General);
             }
         }
@@ -359,7 +359,7 @@ public static class EnhancedNPCBehaviors
     
     private static void GenerateGangWarNews(string header, string gang1, string gang2)
     {
-        var newsSystem = GetNode<NewsSystem>("/root/NewsSystem");
+        var newsSystem = NewsSystem.Instance;
         newsSystem?.Newsy(false, header,
             $"{GameConfig.TeamColor}{gang1}{GameConfig.NewsColorDefault} challenged {GameConfig.TeamColor}{gang2}{GameConfig.NewsColorDefault}");
     }
@@ -414,11 +414,6 @@ public static class EnhancedNPCBehaviors
     private static void AttemptNPCMarriage(NPC npc, List<NPC> candidates) { /* Marriage logic */ }
     private static void ProcessFriendshipDevelopment(NPC npc, List<NPC> others) { /* Friendship logic */ }
     private static void ProcessEnemyRelationships(NPC npc) { /* Enemy tracking */ }
-    
-    private static T GetNode<T>(string path) where T : Node
-    {
-        return Engine.GetMainLoop().GetNode<T>(path);
-    }
     
     #endregion
     

@@ -253,6 +253,40 @@ namespace UsurperRemake.Utils
         public static void SaveGame(object data, string filename) { }
         public static T LoadGame<T>(string filename) where T : new() => new T();
         public static bool SaveExists(string filename) => false;
+        
+        /// <summary>
+        /// Load player character from save file
+        /// </summary>
+        public static Character? LoadPlayer(string playerName)
+        {
+            // Stub implementation - would load from file in real game
+            return new Character
+            {
+                Name1 = playerName,
+                Name2 = playerName,
+                AI = CharacterAI.Human,
+                Level = 1,
+                HP = 100,
+                MaxHP = 100
+            };
+        }
+        
+        /// <summary>
+        /// Save player character to save file
+        /// </summary>
+        public static void SavePlayer(Character player)
+        {
+            // Stub implementation - would save to file in real game
+            Console.WriteLine($"Saving player: {player.DisplayName}");
+        }
+        
+        /// <summary>
+        /// Save player character to save file (overload)
+        /// </summary>
+        public static void SavePlayer(Character player, string filename)
+        {
+            SavePlayer(player);
+        }
     }
 
     public class GodWorldLocation

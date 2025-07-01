@@ -63,6 +63,14 @@ public class DailySystemManager
         }
     }
     
+    /// <summary>
+    /// Run daily maintenance - alias for ForceDailyMaintenance for API compatibility
+    /// </summary>
+    public async Task RunDailyMaintenance()
+    {
+        await ForceDailyMaintenance();
+    }
+    
     private bool IsPastMidnight()
     {
         var now = DateTime.Now;

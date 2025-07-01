@@ -163,7 +163,7 @@ public class EnhancedNPCBehaviorSystem : Node
         var locationDesc = GetLocationDescription(location);
         var situationText = GetSituationText(situation, newItem, oldItem);
         
-        await MailSystem.SendMail(npc.Name2, 
+        MailSystem.SendSystemMail(npc.Name2, 
             $"{GameConfig.NewsColorPlayer}{header}{GameConfig.NewsColorDefault}",
             $"You found {GameConfig.ItemColor}{newItem.Name}{GameConfig.NewsColorDefault} {locationDesc}.",
             situationText,
@@ -187,7 +187,7 @@ public class EnhancedNPCBehaviorSystem : Node
         // Process each NPC
         foreach (var npc in npcs.Where(n => n.AI == CharacterAI.Computer && n.IsAlive))
         {
-            await ProcessNPCMaintenance(npc, ref kingFound);
+            await ProcessNPCMaintenance(npc, kingFound);
         }
         
         // Gang management (Pascal gang logic)
@@ -242,8 +242,8 @@ public class EnhancedNPCBehaviorSystem : Node
         GD.Print($"Removing NPC team: {gangName}");
         
         // Generate news
-        newsSystem.Newsy(false, "Gang Dissolved", 
-            $"{GameConfig.TeamColor}{gangName}{GameConfig.NewsColorDefault} ceased to exist!");
+        newsSystem.Newsy($"{GameConfig.TeamColor}{gangName}{GameConfig.NewsColorDefault} ceased to exist!", 
+            false, GameConfig.NewsCategory.General);
         
         // Remove all members from gang
         var gangMembers = npcs.Where(n => n.Team == gangName).ToList();
@@ -252,12 +252,11 @@ public class EnhancedNPCBehaviorSystem : Node
         {
             if (member.AI == CharacterAI.Computer)
             {
-                newsSystem.Newsy(false, "", 
-                    $"{GameConfig.NewsColorPlayer}{member.Name2}{GameConfig.NewsColorDefault} left the team.");
+                newsSystem.Newsy($"{GameConfig.NewsColorPlayer}{member.Name2}{GameConfig.NewsColorDefault} left the team.", 
+                    false, GameConfig.NewsCategory.General);
                 
                 // Clear team data
                 member.Team = "";
-                member.ControlsTurf = false;
                 member.TeamPassword = "";
                 member.GymOwner = 0;
                 
@@ -267,7 +266,7 @@ public class EnhancedNPCBehaviorSystem : Node
         }
         
         // Add final newline to news
-        newsSystem.Newsy(true, "", "");
+        newsSystem.Newsy("", true, GameConfig.NewsCategory.General);
     }
     
     /// <summary>
@@ -301,8 +300,8 @@ public class EnhancedNPCBehaviorSystem : Node
                 recruited++;
                 
                 // Generate news
-                newsSystem.Newsy(true, "Gang Recruit",
-                    $"{GameConfig.NewsColorPlayer}{npc.Name2}{GameConfig.NewsColorDefault} has been recruited to {GameConfig.TeamColor}{gangName}{GameConfig.NewsColorDefault}");
+                newsSystem.Newsy($"{GameConfig.NewsColorPlayer}{npc.Name2}{GameConfig.NewsColorDefault} has been recruited to {GameConfig.TeamColor}{gangName}{GameConfig.NewsColorDefault}",
+                    true, GameConfig.NewsCategory.General);
             }
         }
     }

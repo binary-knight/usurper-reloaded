@@ -278,11 +278,18 @@ public partial class TerminalEmulator : Control
     
     public void ShowStatusBar(string playerName, int level, int hp, int maxHp, int gold, int turns)
     {
-        WriteLine("".PadRight(80, '═'), "blue");
-        var statusText = $" {playerName} | Level {level} | HP: {hp}/{maxHp} | Gold: {gold} | Turns: {turns} ";
-        var padding = (80 - statusText.Length) / 2;
-        WriteLine(statusText.PadLeft(statusText.Length + padding).PadRight(80), "bright_white");
-        WriteLine("".PadRight(80, '═'), "blue");
+        var statusText = $"Player: {playerName} | Level: {level} | HP: {hp}/{maxHp} | Gold: {gold} | Turns: {turns}";
+        SetStatusLine(statusText);
+    }
+    
+    /// <summary>
+    /// Set status line for compatibility with GameEngine
+    /// </summary>
+    public void SetStatusLine(string statusText)
+    {
+        // For now, just display it as a regular line
+        // In a full implementation, this would set a persistent status bar
+        WriteLine($"[Status] {statusText}", "bright_cyan");
     }
     
     public async Task PressAnyKey(string message = "Press any key to continue...")

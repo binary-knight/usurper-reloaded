@@ -191,7 +191,7 @@ public partial class GameEngine : Node
         }
         
         // Try to load existing player
-        currentPlayer = saveManager.LoadPlayer(playerName);
+        currentPlayer = SaveManager.LoadPlayer(playerName);
         
         if (currentPlayer == null)
         {
@@ -275,7 +275,7 @@ public partial class GameEngine : Node
             }
             
             // Character creation successful - save the new player
-            saveManager.SavePlayer(newCharacter);
+            SaveManager.SavePlayer(newCharacter);
             
             terminal.WriteLine("");
             terminal.WriteLine("Character successfully saved to the realm!", "bright_green");
@@ -408,7 +408,7 @@ public partial class GameEngine : Node
         
         // Delete character or mark as dead
         currentPlayer.Deleted = true;
-        saveManager.SavePlayer(currentPlayer);
+        SaveManager.SavePlayer(currentPlayer);
     }
     
     /// <summary>
@@ -493,7 +493,7 @@ public partial class GameEngine : Node
         
         if (currentPlayer != null)
         {
-            saveManager.SavePlayer(currentPlayer);
+            SaveManager.SavePlayer(currentPlayer);
         }
         
         terminal.WriteLine("Goodbye!", "green");

@@ -174,6 +174,14 @@ public class PersonalityProfile
         return profile;
     }
     
+    /// <summary>
+    /// Generate personality profile for specific archetype - alias for GenerateRandom for API compatibility
+    /// </summary>
+    public static PersonalityProfile GenerateForArchetype(string archetype)
+    {
+        return GenerateRandom(archetype);
+    }
+    
     public float GetCompatibility(PersonalityProfile other)
     {
         // Calculate compatibility based on trait differences
