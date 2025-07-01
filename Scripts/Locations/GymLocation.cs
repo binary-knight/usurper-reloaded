@@ -12,6 +12,10 @@ using System.Threading.Tasks;
 /// </summary>
 public class GymLocation : BaseLocation
 {
+    public GymLocation() : base(GameLocation.Gym, "The Gym", "A place for physical training and tournaments")
+    {
+    }
+    
     private TournamentSystem tournamentSystem;
     private RelationshipSystem relationshipSystem;
     // MailSystem is static - no need to instantiate

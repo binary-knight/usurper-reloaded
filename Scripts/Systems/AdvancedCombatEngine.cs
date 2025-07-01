@@ -13,8 +13,9 @@ using System.Threading.Tasks;
 public class AdvancedCombatEngine : Node
 {
     private NewsSystem newsSystem;
-    // MailSystem is static - no need to instantiate
-    // SpellSystem is static - no need to instantiate
+    
+    // Note: MailSystem and SpellSystem are static - use static access directly
+    
     private RelationshipSystem relationshipSystem;
     
     // Pascal global variables from PLVSMON.PAS
@@ -35,10 +36,9 @@ public class AdvancedCombatEngine : Node
     
     public override void _Ready()
     {
-        newsSystem = GetNode<NewsSystem>("/root/NewsSystem");
-        mailSystem = GetNode<MailSystem>("/root/MailSystem");
-        spellSystem = GetNode<SpellSystem>("/root/SpellSystem");
-        relationshipSystem = GetNode<RelationshipSystem>("/root/RelationshipSystem");
+        newsSystem = NewsSystem.Instance;
+        // mailSystem and spellSystem are static - no instance needed
+        relationshipSystem = new RelationshipSystem();
     }
     
     #region Pascal Player vs Monster Combat - PLVSMON.PAS
@@ -162,7 +162,7 @@ public class AdvancedCombatEngine : Node
                     
                     // Generate news (Pascal newsy call)
                     string deathMessage = GetRandomDeathMessage(player.Name2);
-                    newsSystem.Newsy(true, "Coward!", deathMessage);
+                    NewsSystem.Instance.Newsy(true, $"Coward! {deathMessage}");
                     
                     // Handle resurrection system
                     await HandlePlayerDeath(player, "cowardly retreat", terminal);
@@ -217,7 +217,8 @@ public class AdvancedCombatEngine : Node
                     
                 case 3: // Supreme Being
                     {
-                        monster.Punch = random.Next((int)GlobalGameState.CurrentPlayer?.MaxHP ?? 100) + 3;
+                        // Use a reasonable max HP value instead of GlobalGameState
+                        monster.Punch = random.Next(100) + 3;
                         
                         // Special item interactions (Pascal supreme being logic)
                         if (globalSwordFound)
@@ -274,8 +275,8 @@ public class AdvancedCombatEngine : Node
         // Gold drop
         if (monster.Gold > 0)
         {
-            player.Gold += monster.Gold;
-            result.GoldGained += monster.Gold;
+            player.Gold += (long)monster.Gold;
+            result.GoldGained += (long)monster.Gold;
             terminal.WriteLine($"You find {GameConfig.GoldColor}{monster.Gold:N0}{GameConfig.TextColor} gold pieces!");
         }
         
@@ -798,7 +799,7 @@ public class AdvancedCombatEngine : Node
             
         string message4 = $"You received {GameConfig.NewsColorPlayer}{expGain:N0}{GameConfig.NewsColorDefault} experience points from this victory.";
         
-        mailSystem.SendMail(winner.Name2, $"{GameConfig.NewsColorRoyal}{subject}{GameConfig.NewsColorDefault}", 
+        MailSystem.SendMail(winner.Name2, $"{GameConfig.NewsColorRoyal}{subject}{GameConfig.NewsColorDefault}", 
             message1, message2, message3, message4);
     }
     
@@ -811,7 +812,7 @@ public class AdvancedCombatEngine : Node
             $"{GameConfig.NewsColorPlayer}{winner.Name2}{GameConfig.NewsColorDefault} emptied your purse. You lost {GameConfig.GoldColor}{goldLost:N0}{GameConfig.NewsColorDefault} gold!" :
             "";
             
-        mailSystem.SendMail(loser.Name2, $"{GameConfig.NewsColorDeath}Your Death{GameConfig.NewsColorDefault}",
+        MailSystem.SendMail(loser.Name2, $"{GameConfig.NewsColorDeath}Your Death{GameConfig.NewsColorDefault}",
             $"You were slain by {GameConfig.NewsColorPlayer}{winner.Name2}{GameConfig.NewsColorDefault}!",
             "You begged for mercy, but the ignorant bastard killed you!",
             goldMessage);

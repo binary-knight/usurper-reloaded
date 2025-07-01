@@ -247,6 +247,18 @@ public class Character
         set => Mana = value; 
     }
     
+    // Additional properties for API compatibility
+    public int TurnsRemaining => TurnsLeft; // Alias for TurnsLeft
+    public int PrisonsLeft { get; set; } = 0; // Prison sentences remaining
+    public int ExecuteLeft { get; set; } = 0; // Execution attempts remaining  
+    public int MarryActions { get; set; } = 0; // Marriage actions remaining
+    public int WolfFeed { get; set; } = 0; // Wolf feeding actions
+    public int RoyalAdoptions { get; set; } = 0; // Royal adoption actions
+    public int DaysInPower { get; set; } = 0; // Days as king/ruler
+    public int Fame { get; set; } = 0; // Fame/reputation level
+    
+    public DateTime LastLogin { get; set; }
+    
     // Constructor to initialize lists
     public Character()
     {
@@ -333,7 +345,6 @@ public class Character
     public string RealName => Name1; // BBS name
     public string KingName => King ? DisplayName : "";
     
-    public DateTime LastLogin { get; set; }
     public DateTime Created { get; set; } = DateTime.Now;
 }
 

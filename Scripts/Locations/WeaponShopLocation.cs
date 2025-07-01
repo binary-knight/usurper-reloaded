@@ -11,8 +11,10 @@ using System.Threading.Tasks;
 /// </summary>
 public class WeaponShopLocation : BaseLocation
 {
+    private TerminalEmulator terminal;
     private string shopkeeperName = "Tully";
     private bool isKicked = false;
+    private Character? currentPlayer => GameEngine.Instance?.CurrentPlayer;
     
     public WeaponShopLocation() : base(
         GameLocation.WeaponShop,
@@ -27,8 +29,9 @@ public class WeaponShopLocation : BaseLocation
         // Load shopkeeper name from config (Pascal cfg_string(15))
         shopkeeperName = "Tully"; // TODO: Load from game config
         
-        var currentPlayer = GetCurrentPlayer();
-        isKicked = currentPlayer?.WeapHag == 0; // Kicked if no haggling attempts left
+        if (currentPlayer == null) return;
+        
+        isKicked = currentPlayer.WeapHag == 0; // Kicked if no haggling attempts left
     }
     
     protected override void DisplayLocation()
@@ -64,7 +67,8 @@ public class WeaponShopLocation : BaseLocation
         terminal.WriteLine("");
         
         // Display player gold
-        var currentPlayer = GetCurrentPlayer();
+        if (currentPlayer == null) return;
+        
         terminal.Write("(You have ");
         terminal.SetColor("yellow");
         terminal.Write($"{currentPlayer.Gold:N0}");
@@ -72,7 +76,7 @@ public class WeaponShopLocation : BaseLocation
         terminal.WriteLine(" gold pieces)");
         terminal.WriteLine("");
         
-        ShowWeaponShopMenu();
+        await ShowLocationMenu(currentPlayer);
     }
     
     /// <summary>
@@ -95,7 +99,7 @@ public class WeaponShopLocation : BaseLocation
             return false;
             
         var upperChoice = choice.ToUpper().Trim();
-        var currentPlayer = GetCurrentPlayer();
+        if (currentPlayer == null) return false;
         
         // Check if player was kicked out
         if (isKicked && upperChoice != "R")
@@ -146,9 +150,6 @@ public class WeaponShopLocation : BaseLocation
     /// </summary>
     private async Task BuyWeapon()
     {
-        var currentPlayer = GetCurrentPlayer();
-        
-        // Check if player already has a weapon (classic mode restriction)
         if (currentPlayer.RHand != 0)
         {
             terminal.SetColor("red");
@@ -257,8 +258,6 @@ public class WeaponShopLocation : BaseLocation
     /// </summary>
     private async Task BuyBestWeapon()
     {
-        var currentPlayer = GetCurrentPlayer();
-        
         if (currentPlayer.RHand != 0)
         {
             terminal.SetColor("red");
@@ -322,8 +321,6 @@ public class WeaponShopLocation : BaseLocation
     /// </summary>
     private async Task SellWeapon()
     {
-        var currentPlayer = GetCurrentPlayer();
-        
         if (currentPlayer.RHand == 0)
         {
             terminal.SetColor("red");

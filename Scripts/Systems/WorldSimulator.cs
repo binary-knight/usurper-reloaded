@@ -7,7 +7,7 @@ using Godot;
 public class WorldSimulator
 {
     private List<NPC> npcs;
-    private System.Threading.Timer simulationTimer;
+    private System.Threading.Timer? simulationTimer;
     private bool isRunning = false;
     
     private const float SIMULATION_INTERVAL = 60.0f; // seconds between simulation steps

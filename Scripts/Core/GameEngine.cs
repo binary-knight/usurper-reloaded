@@ -13,7 +13,7 @@ public partial class GameEngine : Node
 {
     private static GameEngine? instance;
     private TerminalEmulator terminal;
-    private Player? currentPlayer;
+    private Character? currentPlayer;
     
     // Game state
     private UsurperConfig config;
@@ -26,7 +26,7 @@ public partial class GameEngine : Node
     public static GameEngine Instance => instance ??= new GameEngine();
     
     // Missing properties for compilation
-    public Player? CurrentPlayer 
+    public Character? CurrentPlayer 
     { 
         get => currentPlayer; 
         set => currentPlayer = value; 
@@ -191,16 +191,17 @@ public partial class GameEngine : Node
         }
         
         // Try to load existing player
-        currentPlayer = SaveManager.LoadPlayer(playerName);
+        currentPlayer = (Character?)SaveManager.LoadPlayer(playerName);
         
         if (currentPlayer == null)
         {
             // New player - create character
-            currentPlayer = await CreateNewPlayer(playerName);
-            if (currentPlayer == null)
+            var newCharacter = await CreateNewPlayer(playerName);
+            if (newCharacter == null)
             {
                 return; // Player cancelled creation
             }
+            currentPlayer = (Character)newCharacter;
         }
         
         // Check if player is allowed to play
@@ -274,14 +275,19 @@ public partial class GameEngine : Node
                 return null; // User chose not to retry
             }
             
+            // Convert Character to Player
+            var player = new Character();
+            // Copy all Character properties to Player
+            CopyCharacterToPlayer(newCharacter, player);
+            
             // Character creation successful - save the new player
-            SaveManager.SavePlayer(newCharacter);
+            SaveManager.SavePlayer(player);
             
             terminal.WriteLine("");
             terminal.WriteLine("Character successfully saved to the realm!", "bright_green");
             await Task.Delay(1500);
             
-            return newCharacter;
+            return player;
         }
         catch (OperationCanceledException)
         {
@@ -302,6 +308,32 @@ public partial class GameEngine : Node
             
             return null;
         }
+    }
+    
+    /// <summary>
+    /// Copy Character properties to Player
+    /// </summary>
+    private void CopyCharacterToPlayer(Character source, Character target)
+    {
+        // Copy all basic properties
+        target.Name1 = source.Name1;
+        target.Name2 = source.Name2;
+        target.Level = source.Level;
+        target.HP = source.HP;
+        target.MaxHP = source.MaxHP;
+        target.Gold = source.Gold;
+        target.Strength = source.Strength;
+        target.Defense = source.Defense;
+        target.Charisma = source.Charisma;
+        target.Thievery = source.Thievery;
+        target.Dexterity = source.Dexterity;
+        target.Agility = source.Agility;
+        target.Class = source.Class;
+        target.Race = source.Race;
+        target.Sex = source.Sex;
+        target.AI = CharacterAI.Human; // Always human for players
+        target.Allowed = true; // Players are allowed by default
+        // Add more property copying as needed
     }
     
     /// <summary>
@@ -358,7 +390,7 @@ public partial class GameEngine : Node
         // Check if it's a new day
         if (dailyManager.IsNewDay())
         {
-            dailyManager.RunDailyMaintenance(currentPlayer);
+            dailyManager.RunDailyMaintenance();
         }
         
         return currentPlayer.TurnsLeft > 0;

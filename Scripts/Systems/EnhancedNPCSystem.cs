@@ -15,7 +15,8 @@ public class EnhancedNPCSystem : Node
     
     public override void _Ready()
     {
-        newsSystem = GetNode<NewsSystem>("/root/NewsSystem");
+        newsSystem = NewsSystem.Instance;
+        // MailSystem is static - no instance needed
     }
     
     /// <summary>
@@ -122,8 +123,8 @@ public class EnhancedNPCSystem : Node
         if (team1.Count == 0 || team2.Count == 0) return;
         
         var header = GetGangWarHeader();
-        newsSystem.Newsy(false, header,
-            $"{GameConfig.TeamColor}{gang1}{GameConfig.NewsColorDefault} challenged {GameConfig.TeamColor}{gang2}{GameConfig.NewsColorDefault}");
+        newsSystem.Newsy(false, 
+            $"{header}: {GameConfig.TeamColor}{gang1}{GameConfig.NewsColorDefault} challenged {GameConfig.TeamColor}{gang2}{GameConfig.NewsColorDefault}");
         
         ConductGangBattles(team1, team2);
     }
@@ -199,7 +200,7 @@ public class EnhancedNPCSystem : Node
     
     private void DissolveNPCGang(string gangName, List<NPC> npcs)
     {
-        newsSystem.Newsy(false, "Gang Dissolved",
+        newsSystem.Newsy(false, 
             $"{GameConfig.TeamColor}{gangName}{GameConfig.NewsColorDefault} ceased to exist!");
         
         foreach (var member in npcs.Where(n => n.Team == gangName))
@@ -222,8 +223,7 @@ public class EnhancedNPCSystem : Node
             if (random.Next(3) == 0)
             {
                 candidate.Team = gangName;
-                newsSystem.Newsy(true, "Gang Recruit",
-                    $"{GameConfig.NewsColorPlayer}{candidate.Name2}{GameConfig.NewsColorDefault} has been recruited to {GameConfig.TeamColor}{gangName}{GameConfig.NewsColorDefault}");
+                newsSystem.Newsy($"Gang Recruit: {GameConfig.NewsColorPlayer}{candidate.Name2}{GameConfig.NewsColorDefault} has been recruited to {GameConfig.TeamColor}{gangName}{GameConfig.NewsColorDefault}", true, GameConfig.NewsCategory.General);
             }
         }
     }
@@ -265,8 +265,7 @@ public class EnhancedNPCSystem : Node
                 ? fighter1 : fighter2;
             var loser = winner == fighter1 ? fighter2 : fighter1;
             
-            newsSystem.Newsy(false, "",
-                $"{winner.Name2} defeated {loser.Name2}");
+            newsSystem.Newsy(false, $"{winner.Name2} defeated {loser.Name2}");
             
             loser.HP = 1; // Near death
         }
@@ -277,13 +276,10 @@ public class EnhancedNPCSystem : Node
         var headers = new[] { "Gold and Glory!", "Loot!", "Looting Party!", "New Stuff!" };
         var header = headers[random.Next(headers.Length)];
         
-        MailSystem.PostMail(
-            to: npc.Name2,
-            ai: npc.AI,
-            anonymous: false,
-            mailType: MailType.Normal,
-            subject: header,
-            message: $"You found {itemName} in {location}. You started to use it immediately."
+        MailSystem.SendMail(
+            npc.Name2,
+            header,
+            $"You found {itemName} in {location}. You started to use it immediately."
         );
     }
     

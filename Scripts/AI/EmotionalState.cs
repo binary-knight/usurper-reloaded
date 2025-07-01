@@ -201,6 +201,54 @@ public class EmotionalState
         return strongest?.Type;
     }
     
+    /// <summary>
+    /// Adjust mood based on an emotion type and intensity
+    /// Used by NPCBrain for mood management
+    /// </summary>
+    public void AdjustMood(EmotionType emotionType, float intensity)
+    {
+        AddEmotion(emotionType, intensity);
+    }
+    
+    /// <summary>
+    /// Adjust mood based on emotion name and intensity
+    /// Overload for string-based emotion types
+    /// </summary>
+    public void AdjustMood(string emotionName, float intensity)
+    {
+        if (Enum.TryParse<EmotionType>(emotionName, true, out var emotionType))
+        {
+            AddEmotion(emotionType, intensity);
+        }
+    }
+    
+    /// <summary>
+    /// Get current mood as a string for NPCBrain compatibility
+    /// </summary>
+    public string GetCurrentMood()
+    {
+        var dominantEmotion = GetDominantEmotion();
+        if (!dominantEmotion.HasValue)
+            return "neutral";
+            
+        return dominantEmotion.Value switch
+        {
+            EmotionType.Anger => "angry",  
+            EmotionType.Fear => "fearful",
+            EmotionType.Joy => "happy",
+            EmotionType.Sadness => "sad",
+            EmotionType.Confidence => "confident",
+            EmotionType.Greed => "greedy",
+            EmotionType.Gratitude => "grateful",
+            EmotionType.Loneliness => "lonely",
+            EmotionType.Envy => "envious",
+            EmotionType.Pride => "proud",
+            EmotionType.Hope => "hopeful",
+            EmotionType.Peace => "peaceful",
+            _ => "neutral"
+        };
+    }
+    
     public string GetEmotionalSummary()
     {
         var activeEmotionsList = activeEmotions.Values
@@ -284,5 +332,7 @@ public enum EmotionType
     Gratitude,   // Increases helping behavior toward specific character
     Loneliness,  // Increases social seeking behavior
     Envy,        // Increases competitive behavior
-    Pride        // Increases ambitious behavior, reduces cooperation
+    Pride,       // Increases ambitious behavior, reduces cooperation
+    Hope,        // Increases perseverance, reduces despair
+    Peace        // Reduces aggression, increases cooperation
 } 

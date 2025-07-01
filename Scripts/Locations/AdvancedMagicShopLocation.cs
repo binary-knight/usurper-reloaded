@@ -29,6 +29,10 @@ public class AdvancedMagicShopLocation : BaseLocation
     private const long HealingPotionBaseCost = 50;
     private const long HealingPotionMaxCost = 500;
     
+    public AdvancedMagicShopLocation() : base(GameLocation.MagicShop, "Advanced Magic Shop", "A mystical shop filled with magical items and potions.")
+    {
+    }
+    
     public new void _Ready()
     {
         base._Ready();

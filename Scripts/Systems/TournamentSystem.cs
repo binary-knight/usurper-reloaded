@@ -50,11 +50,11 @@ public class TournamentSystem : Node
     
     public override void _Ready()
     {
-        newsSystem = GetNode<NewsSystem>("/root/NewsSystem");
-        mailSystem = GetNode<MailSystem>("/root/MailSystem");
-        combatEngine = GetNode<CombatEngine>("/root/CombatEngine");
-        teamSystem = GetNode<TeamSystem>("/root/TeamSystem");
-        relationshipSystem = GetNode<RelationshipSystem>("/root/RelationshipSystem");
+        newsSystem = NewsSystem.Instance;
+        // mailSystem is static - use MailSystem.MethodName directly
+        combatEngine = new CombatEngine();
+        teamSystem = new TeamSystem();
+        relationshipSystem = RelationshipSystem.Instance;
     }
     
     #region Pascal Tug-of-War Implementation - GYM.PAS
@@ -303,7 +303,7 @@ public class TournamentSystem : Node
                 break;
         }
         
-        newsSystem.Newsy(false, newsHeader, newsMessage);
+        newsSystem.Newsy(false, $"{newsHeader}: {newsMessage}");
     }
     
     /// <summary>

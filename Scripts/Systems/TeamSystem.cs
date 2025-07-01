@@ -35,10 +35,10 @@ public class TeamSystem : Node
     
     public override void _Ready()
     {
-        newsSystem = GetNode<NewsSystem>("/root/NewsSystem");
-        mailSystem = GetNode<MailSystem>("/root/MailSystem");
-        combatEngine = GetNode<CombatEngine>("/root/CombatEngine");
-        relationshipSystem = GetNode<RelationshipSystem>("/root/RelationshipSystem");
+        newsSystem = NewsSystem.Instance;
+        // mailSystem is static - use MailSystem.MethodName directly
+        combatEngine = new CombatEngine();
+        relationshipSystem = RelationshipSystem.Instance;
     }
     
     #region Pascal Function Implementation - TCORNER.PAS
@@ -177,7 +177,7 @@ public class TeamSystem : Node
         member.GymOwner = 0;
         
         // Mail the sacked member
-        mailSystem.SendMail(member.Name2, "Team", 
+        MailSystem.SendMail(member.Name2, "Team", 
             $"You were {GameConfig.NewsColorDeath}sacked{GameConfig.NewsColorDefault} from the team by {GameConfig.NewsColorPlayer}{leader.Name2}{GameConfig.NewsColorDefault}!");
         
         // Notify team members
@@ -203,7 +203,7 @@ public class TeamSystem : Node
         {
             if (member.Name2 != player.Name2)
             {
-                mailSystem.SendMail(member.Name2, "Team Message", 
+                MailSystem.SendMail(member.Name2, "Team Message", 
                     $"From {GameConfig.NewsColorPlayer}{player.Name2}{GameConfig.NewsColorDefault}: {message}");
             }
         }
@@ -315,7 +315,7 @@ public class TeamSystem : Node
                     ? $"{winner.Name2} led your team to a glorious victory! The opponents were not able to defend the Town. You are in charge now!"
                     : $"{winner.Name2} led your team to a glorious victory! {loserTeam} put up a fight, but was not able to defend their turf. You are in charge now!";
                     
-                mailSystem.SendMail(member.Name2, mailSubject, mailMessage);
+                MailSystem.SendMail(member.Name2, mailSubject, mailMessage);
             }
         }
         
@@ -331,7 +331,7 @@ public class TeamSystem : Node
                 ? $"{winner.Name2} led their team to a victory against your gang! Your team was not ready to meet them! The Town is no longer yours..."
                 : $"{winner.Name2} led their team to a victory against your bunch! Your team was not able to fend off the attack! The Town is no longer yours...";
                 
-            mailSystem.SendMail(member.Name2, lossSubject, lossMessage);
+            MailSystem.SendMail(member.Name2, lossSubject, lossMessage);
         }
     }
     
@@ -358,7 +358,7 @@ public class TeamSystem : Node
         string announcement = $"{GameConfig.NewsColorHighlight}{gang1}{GameConfig.NewsColorDefault} challenged {GameConfig.NewsColorHighlight}{gang2}{GameConfig.NewsColorDefault}";
         string turfMessage = turfWar ? "A challenge for Town Control!" : "";
         
-        newsSystem.Newsy(false, header, announcement, turfMessage);
+        newsSystem.Newsy($"{header}: {announcement} {turfMessage}", false, GameConfig.NewsCategory.General);
         
         // Conduct automated battle
         var team1Prepared = PrepareTeamForBattle(team1Members, gang1);
@@ -581,7 +581,7 @@ public class TeamSystem : Node
             if (member.Name2 != excludePlayer)
             {
                 // Send online message if possible, otherwise mail
-                mailSystem.SendMail(member.Name2, "Team Update", message);
+                MailSystem.SendMail(member.Name2, "Team Update", message);
             }
         }
     }

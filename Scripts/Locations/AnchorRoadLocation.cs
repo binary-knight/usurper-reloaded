@@ -26,6 +26,10 @@ public class AnchorRoadLocation : BaseLocation
     private const string LocationDescription = "Conjunction of Destinies";
     private const int MenuOffset = 20; // Pascal offset constant
     
+    public AnchorRoadLocation() : base(GameLocation.AnchorRoad, "Anchor Road", "Conjunction of Destinies")
+    {
+    }
+    
     public new void _Ready()
     {
         base._Ready();

@@ -215,6 +215,29 @@ namespace Godot
     {
         public static Font? FallbackFont => new Font();
     }
+
+    /// <summary>
+    /// Get system instance - replacement for GetNode calls for system classes
+    /// </summary>
+    public static class SystemHelper
+    {
+        public static T GetSystem<T>() where T : class, new()
+        {
+            // Return singleton instances or create new ones for system classes
+            if (typeof(T) == typeof(NewsSystem))
+                return NewsSystem.Instance as T;
+            if (typeof(T) == typeof(WorldSimulator))
+                return new WorldSimulator() as T;
+            if (typeof(T) == typeof(LocationManager))
+                return new LocationManager(null) as T;
+            if (typeof(T) == typeof(RelationshipSystem))
+                return RelationshipSystem.Instance as T;
+            if (typeof(T) == typeof(CombatEngine))
+                return new CombatEngine() as T;
+            
+            return new T(); // Fallback for other types
+        }
+    }
 }
 
 // Additional stub classes for specific project needs
@@ -257,10 +280,10 @@ namespace UsurperRemake.Utils
         /// <summary>
         /// Load player character from save file
         /// </summary>
-        public static Character? LoadPlayer(string playerName)
+        public static Player? LoadPlayer(string playerName)
         {
             // Stub implementation - would load from file in real game
-            return new Character
+            return new Player
             {
                 Name1 = playerName,
                 Name2 = playerName,
