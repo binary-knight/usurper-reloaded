@@ -10,28 +10,33 @@ Usurper Reloaded brings the brutal medieval world of the original BBS classic to
 **Source Preservation**: Rick Parrish  
 **Modern Recreation**: Built with Godot 4.2+ and C#
 
-## ✨ Features
+## ✨ Current Status & Implemented Features (Alpha)
 
-### **Authentic Classic Experience**
-- 100% accurate recreation of all original game mechanics
-- Complete 50-level dungeon with Pascal-exact combat formulas
-- All 23 original locations faithfully recreated
-- 325 daily turns with brutal permadeath difficulty
-- Authentic 80x25 terminal display with ANSI art support
+Development is still in the **early porting phase**.  The goal is a feature-complete remake, but at the moment only the foundations are in place.  What you *can* find in the repository today:
 
-### **Revolutionary NPC AI System**
-- **Personality-Driven Behavior**: NPCs with traits like aggression, greed, loyalty, and vengefulness
-- **Dynamic Memory**: NPCs remember interactions and hold grudges
-- **Emergent Stories**: Gang wars, betrayals, and alliances form naturally
-- **Living World**: NPCs continue their lives even when you're not watching
+### ✔ Core Engine Skeleton
+* Godot 4.2 C# project that boots into an 80×25 terminal style window.
+* Foundational data structures – `Character`, `Player`, `NPC`, `Item`, `Monster`, `Quest`, etc.
+* A large, const-heavy `GameConfig` mirroring the original Pascal global variables.
 
-### **Complete Game Systems**
-- **Combat**: 6 different combat modes including magic and ranged
-- **Economy**: Banking, shops, haggling, and dynamic pricing
-- **Social**: Marriage, children, gangs, and relationship tracking
-- **Religion**: 6 deities with unique powers and divine politics
-- **Quests**: Dynamic quest generation with royal missions
-- **Tournaments**: Multiple competition types with championships
+### ✔ Prototype Gameplay Modules
+* Location framework (`BaseLocation`) with early implementations of: **Main Street, Inn, Bank, Magic Shop, Healer, Temple, Dungeon**, and several placeholder locations.
+* A **TerminalEmulator** control that renders coloured text, reads keyboard input, and displays ANSI art.
+* Initial **CombatEngine** / **AdvancedCombatEngine** capable of very simple PvP / PvE resolution (logic still incomplete).
+* Early drafts of **NPC AI** (personality profiles, memory & goal system) and an off-thread **WorldSimulator** – the wiring compiles but behaviour is still stubbed.
+
+### ✔ Tooling & Compatibility Shims
+* JSON data loaders for characters, NPCs, and config.
+* A growing "compat-layer" that lets the Pascal-style source compile in modern .NET without a full Godot runtime.
+* Hundreds of unit / validation tests recreating original Pascal edge cases (many still marked *TODO*).
+
+### ⚠️  What Is *Not* Implemented Yet
+* Full dungeon crawling, team warfare, marriage/children, royal politics, etc.
+* Completed AI loops – NPCs do not yet roam, form gangs, or remember grudges.
+* Save / load, persistence, multiplayer, Steam integration.
+* Proper balancing, audio, or finished ANSI/ASCII art sets.
+
+If you try to build **main** today you will still encounter compile-time stubs or missing features.  Contributions and bug-reports are very welcome – see the Roadmap below for high-level milestones.
 
 ## 🚀 Getting Started
 
