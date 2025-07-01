@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 /// Combat Engine - Pascal-compatible combat system
 /// Based on PLVSMON.PAS, MURDER.PAS, VARIOUS.PAS, and PLCOMP.PAS
 /// </summary>
-public class CombatEngine
+public partial class CombatEngine
 {
     private TerminalEmulator terminal;
     private Random random = new Random();

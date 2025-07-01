@@ -306,7 +306,7 @@ public class AdvancedCombatEngine : Node
         terminal.Write("Take it? (Y/N): ");
         var input = await terminal.GetKeyInput();
         
-        if (char.ToUpper(input) == 'Y')
+        if (!string.IsNullOrEmpty(input) && char.ToUpperInvariant(input[0]) == 'Y')
         {
             // Try to add to player inventory
             if (await TryAddItemToInventory(player, monster.WeaponId, ObjType.Weapon, monster.WeaponName, terminal))
@@ -340,7 +340,7 @@ public class AdvancedCombatEngine : Node
         terminal.Write("Take it? (Y/N): ");
         var input = await terminal.GetKeyInput();
         
-        if (char.ToUpper(input) == 'Y')
+        if (!string.IsNullOrEmpty(input) && char.ToUpperInvariant(input[0]) == 'Y')
         {
             // Try to add to player inventory
             if (await TryAddItemToInventory(player, monster.ArmorId, ObjType.Abody, monster.ArmorName, terminal))
@@ -614,7 +614,7 @@ public class AdvancedCombatEngine : Node
         terminal.Write("\nChoice: ");
         
         var input = await terminal.GetKeyInput();
-        char choice = char.ToUpper(input);
+        char choice = !string.IsNullOrEmpty(input) ? char.ToUpperInvariant(input[0]) : '\0';
         
         return ParseMonsterCombatAction(choice, player);
     }
@@ -659,13 +659,14 @@ public class AdvancedCombatEngine : Node
             terminal.Write(",?) :");
         }
         
-        char input;
+        char inputChar;
         do
         {
-            input = char.ToUpper(await terminal.GetKeyInput());
-        } while (!"ABHQFSU1C?".Contains(input));
+            var keyStr = await terminal.GetKeyInput();
+            inputChar = !string.IsNullOrEmpty(keyStr) ? char.ToUpperInvariant(keyStr[0]) : '\0';
+        } while (!"ABHQFSU1C?".Contains(inputChar));
         
-        return ParsePvPCombatAction(input, attacker);
+        return ParsePvPCombatAction(inputChar, attacker);
     }
     
     #endregion

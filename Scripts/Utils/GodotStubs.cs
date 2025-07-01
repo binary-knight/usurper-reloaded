@@ -251,7 +251,7 @@ namespace UsurperRemake.Utils
         void Clear();
     }
 
-    public class TerminalUI : ITerminal
+    public partial class TerminalUI : ITerminal
     {
         public void WriteLine(string text) => Console.WriteLine(text);
         public void WriteLine(string text, string color) => Console.WriteLine(text);

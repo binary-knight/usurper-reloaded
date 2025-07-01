@@ -29,6 +29,11 @@ public partial class TempleLocation : BaseLocation
         Description = "The Temple area is crowded with monks, preachers and processions of priests on their way to the altars. The doomsday prophets are trying to get your attention.";
     }
     
+    // Parameterless constructor for legacy compatibility
+    public TempleLocation() : this(TerminalEmulator.Instance ?? new TerminalEmulator(), LocationManager.Instance, UsurperRemake.GodSystemSingleton.Instance)
+    {
+    }
+    
     /// <summary>
     /// Main temple processing loop based on Pascal TEMPLE.PAS
     /// </summary>

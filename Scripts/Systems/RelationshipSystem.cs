@@ -9,7 +9,7 @@ using System.Linq;
 /// Manages social relationships, marriages, divorces, and family dynamics
 /// Maintains perfect Pascal compatibility with original game mechanics
 /// </summary>
-public class RelationshipSystem
+public partial class RelationshipSystem
 {
     // Simple singleton instance for global access
     public static RelationshipSystem Instance { get; } = new RelationshipSystem();
@@ -92,6 +92,12 @@ public class RelationshipSystem
         // Send relationship change notification
         SendRelationshipChangeNotification(character1, character2, relation.Relation1);
     }
+    
+    /// <summary>
+    /// Convenience overload accepting the compatibility enum
+    /// </summary>
+    public static void UpdateRelationship(Character character1, Character character2, UsurperRemake.RelationshipType relationChange, int steps = 1, bool overrideAutoHate = false, bool overrideMaxFeeling = false)
+        => UpdateRelationship(character1, character2, (int)relationChange, steps, overrideAutoHate, overrideMaxFeeling);
     
     /// <summary>
     /// Check if two characters are married

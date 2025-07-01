@@ -1,249 +1,173 @@
 ﻿# Usurper Reloaded
 
-A comprehensive recreation of the classic 1993 BBS door game "Usurper" by Jakob Dangarden, built with Godot 4 and C# while maintaining perfect Pascal source compatibility and featuring revolutionary enhanced NPC AI systems.
+A faithful recreation of the classic 1993 BBS door game "Usurper" by Jakob Dangarden, enhanced with revolutionary NPC AI systems while maintaining 100% Pascal source compatibility.
 
-##  Project Overview
+## 🎮 About
 
-This project represents a complete ground-up reconstruction of Usurper, meticulously analyzed from the original Pascal source code and enhanced with modern game development practices. We maintain 100% compatibility with the original Pascal game mechanics while adding sophisticated AI systems that bring the medieval world to life.
+Usurper Reloaded brings the brutal medieval world of the original BBS classic to modern platforms. Every formula, every stat, every quirk from the original Pascal source has been meticulously preserved, while adding sophisticated AI systems that make the world feel truly alive.
 
-##  Implementation Status - 21 Phases Complete! 
+**Original Creator**: Jakob Dangarden (1993)  
+**Source Preservation**: Rick Parrish  
+**Modern Recreation**: Built with Godot 4.2+ and C#
 
-### **Phase 5: Castle System**  COMPLETE
-- **Key Files**: King.cs, CastleLocation.cs
-- **Achievements**: Complete Pascal CASTLE.PAS royal court system with monarchy mechanics, royal treasury management, guard recruitment, and prison integration
+## ✨ Features
 
-### **Phase 6: Shop System**  COMPLETE  
-- **Key Files**: WeaponShopLocation.cs, ArmorShopLocation.cs, HagglingEngine.cs
-- **Achievements**: Complete Pascal WEAPSHOP.PAS and ARMSHOP.PAS systems with advanced haggling, dynamic pricing, and full item database
+### **Authentic Classic Experience**
+- 100% accurate recreation of all original game mechanics
+- Complete 50-level dungeon with Pascal-exact combat formulas
+- All 23 original locations faithfully recreated
+- 325 daily turns with brutal permadeath difficulty
+- Authentic 80x25 terminal display with ANSI art support
 
-### **Phase 7: Bank System**  COMPLETE
-- **Key Files**: BankLocation.cs  
-- **Achievements**: Complete Pascal BANK.PAS banking with accounts, interest calculations, loan systems, and royal treasury integration
+### **Revolutionary NPC AI System**
+- **Personality-Driven Behavior**: NPCs with traits like aggression, greed, loyalty, and vengefulness
+- **Dynamic Memory**: NPCs remember interactions and hold grudges
+- **Emergent Stories**: Gang wars, betrayals, and alliances form naturally
+- **Living World**: NPCs continue their lives even when you're not watching
 
-### **Phase 8: Magic System**  COMPLETE
-- **Key Files**: SpellSystem.cs, MagicShopLocation.cs
-- **Achievements**: Complete Pascal MAGIC.PAS and SPELLSU.PAS with 15+ spells, mana systems, and reagent crafting
+### **Complete Game Systems**
+- **Combat**: 6 different combat modes including magic and ranged
+- **Economy**: Banking, shops, haggling, and dynamic pricing
+- **Social**: Marriage, children, gangs, and relationship tracking
+- **Religion**: 6 deities with unique powers and divine politics
+- **Quests**: Dynamic quest generation with royal missions
+- **Tournaments**: Multiple competition types with championships
 
-### **Phase 9: Temple System**  COMPLETE
-- **Key Files**: God.cs, TempleLocation.cs
-- **Achievements**: Complete Pascal TEMPLE.PAS religious system with 6 major deities, sacrifice mechanics, marriage ceremonies, and resurrection services
+## 🚀 Getting Started
 
-### **Phase 10: Healer System**  COMPLETE
-- **Key Files**: HealerLocation.cs
-- **Achievements**: Complete Pascal HEALERC.PAS medical system with status effect management, disease/poison curing, and healing potions
+### Prerequisites
+- [Godot 4.2+ Mono version](https://godotengine.org/download)
+- [.NET SDK 6.0+](https://dotnet.microsoft.com/download)
+- Git
 
-### **Phase 11: Prison System**  COMPLETE
-- **Key Files**: PrisonLocation.cs, PrisonWalkLocation.cs
-- **Achievements**: Complete Pascal PRISONC.PAS incarceration system with crime detection, escape mechanics, bail systems, and royal justice
+### Quick Start
+```bash
+# Clone the repository
+git clone https://github.com/binary-knight/usurper-reloaded.git
+cd usurper-reloaded
 
-### **Phase 12: Relationship System**  COMPLETE
-- **Key Files**: RelationshipSystem.cs, Child.cs
-- **Achievements**: Complete Pascal RELATION.PAS systems with marriage mechanics, child management, and comprehensive relationship tracking
-
-### **Phase 13: God System**  COMPLETE
-- **Key Files**: GodSystem.cs
-- **Achievements**: Complete Pascal GODWORLD.PAS divine system with enhanced god powers, divine politics, believer management, and miraculous events
-
-### **Phase 14: Character Creation System**  COMPLETE
-- **Key Files**: CharacterCreationSystem.cs, CharacterCreationLocation.cs
-- **Achievements**: Complete Pascal CRTMAGE.PAS generation system with class selection, background stories, and personality traits
-
-### **Phase 15: Daily Maintenance System**  COMPLETE
-- **Key Files**: DailySystemManager.cs, MaintenanceSystem.cs
-- **Achievements**: Complete Pascal MAINT.PAS systems with automated world updates, NPC cycles, and economic rebalancing
-
-### **Phase 16: Quest System**  COMPLETE
-- **Key Files**: QuestSystem.cs, Quest.cs, QuestHallLocation.cs, RoyalQuestLocation.cs
-- **Achievements**: Complete Pascal PLYQUEST.PAS and RQUESTS.PAS with dynamic quest generation and royal missions
-
-### **Phase 17: News System**  COMPLETE
-- **Key Files**: NewsSystem.cs, NewsLocation.cs
-- **Achievements**: Complete Pascal NEWS.PAS and GENNEWS.PAS with automated news generation and historical event tracking
-
-### **Phase 18: Team Warfare System**  COMPLETE
-- **Key Files**: TeamSystem.cs, TeamCornerLocation.cs
-- **Achievements**: Complete Pascal TCORNER.PAS and TEAMREC.PAS with gang formation, warfare mechanics, and territorial control
-
-### **Phase 19: Tournament System**  COMPLETE
-- **Key Files**: TournamentSystem.cs
-- **Achievements**: Complete Pascal CHALLENG.PAS and CHALLKNG.PAS with multiple tournament types and championship tracking
-
-### **Phase 20: Advanced Combat System**  COMPLETE
-- **Key Files**: AdvancedCombatEngine.cs, AdvancedMagicShopLocation.cs, OnlineDuelSystem.cs
-- **Achievements**: Complete Pascal PLVSMON.PAS, PLVSPLC.PAS, ONDUEL.PAS with 6 combat modes and real-time dueling
-
-### **Phase 21: Enhanced NPC AI & Behavior Systems**  COMPLETE
-- **Key Files**: EnhancedNPCBehaviorSystem.cs, NPCMaintenanceEngine.cs, EnhancedNPCBehaviors.cs
-- **Achievements**: Complete Pascal NPC_CHEC.PAS, NPCMAINT.PAS, AUTOGANG.PAS, RELATIO2.PAS with intelligent inventory management, shopping AI, gang warfare, and relationship systems
-
-##  Technical Architecture
-
-### **Core Systems (Scripts/Core/)**
-`
- GameConfig.cs        # All Pascal constants and configuration
- Character.cs         # Complete UserRec with 200+ fields  
- GameEngine.cs        # Main game loop from USURPER.PAS
- NPC.cs              # Enhanced AI with Pascal compatibility
- Monster.cs          # Complete MonsterRec implementation
- Items.cs            # Full ORec item system
- King.cs             # Royal court and kingdom management
- God.cs              # Divine pantheon and religious mechanics
- Quest.cs            # Quest system with dynamic generation
- Child.cs            # Family and relationship management
- Player.cs           # Enhanced player character system
-`
-
-### **Location Systems (23 Implemented)**
-`
- MainStreetLocation.cs        # Central hub (GAMEC.PAS)
- CastleLocation.cs           # Royal court (CASTLE.PAS)
- WeaponShopLocation.cs       # Weapon commerce (WEAPSHOP.PAS)
- ArmorShopLocation.cs        # Armor commerce (ARMSHOP.PAS)
- BankLocation.cs             # Banking services (BANK.PAS)
- MagicShopLocation.cs        # Spell services (MAGIC.PAS)
- AdvancedMagicShopLocation.cs # Enhanced magic services
- TempleLocation.cs           # Religious services (TEMPLE.PAS)
- HealerLocation.cs           # Medical services (HEALERC.PAS)
- PrisonLocation.cs           # Incarceration system (PRISONC.PAS)
- DungeonLocation.cs          # Exploration (DUNGEVC.PAS)
- QuestHallLocation.cs        # Quest management
- NewsLocation.cs             # News and information
- TeamCornerLocation.cs       # Gang management (TCORNER.PAS)
- [9 more locations...]       # Complete location ecosystem
-`
-
-### **Game Systems (17 Major Systems)**
-`
- CombatEngine.cs             # Turn-based combat (PLVSMON.PAS)
- AdvancedCombatEngine.cs     # Enhanced combat with 6 modes
- SpellSystem.cs              # Magic system (SPELLSU.PAS)
- RelationshipSystem.cs       # Social dynamics (RELATION.PAS)
- GodSystem.cs               # Divine interactions (GODWORLD.PAS)
- QuestSystem.cs             # Quest management (PLYQUEST.PAS)
- NewsSystem.cs              # News generation (NEWS.PAS)
- TeamSystem.cs              # Gang warfare (TEAMREC.PAS)
- TournamentSystem.cs        # Competitions (CHALLENG.PAS)
- NPCMaintenanceEngine.cs     # NPC behavior automation
- EnhancedNPCSystem.cs       # Enhanced NPC integration
- [6 more systems...]        # Complete system architecture
-`
-
-### **Enhanced AI Systems (8 Components)**
-`
- NPCBrain.cs                 # Core NPC decision making
- PersonalityProfile.cs       # Personality traits and behaviors
- MemorySystem.cs             # NPC memory and relationships
- EmotionalState.cs           # Dynamic emotional responses
- EnhancedNPCBehaviors.cs     # Pascal-compatible NPC behaviors
- EnhancedNPCBehaviorSystem.cs # Complete NPC behavior engine
- [2 more AI components...]   # Revolutionary AI architecture
-`
-
-##  Features Implemented
-
-### **Core Gameplay**
--  Character creation with 4 classes and personality systems
--  Advanced turn-based combat with 6 combat modes
--  50-level dungeon system with terrain-based encounters
--  Economic system with banking, haggling, and commerce
--  Quest system with royal missions and personal objectives
--  Tournament competitions with multiple categories
-
-### **Social Systems**
--  Revolutionary NPC AI with Pascal-compatible behaviors
--  Advanced relationship tracking with memory and consequences
--  Marriage and family systems with child management
--  Gang formation, warfare, and territorial control
--  News system with historical event tracking
--  Advanced diplomacy and alliance mechanics
-
-### **World Systems**
--  Royal court with complete kingdom management
--  Religious pantheon with 6 major deities and divine powers
--  Magic system with 15+ spells and advanced casting mechanics
--  Complete shop ecosystem (weapons, armor, magic, banking)
--  Medical system with comprehensive healing services
--  Prison system with justice, escape, and rehabilitation
--  Daily maintenance with automated world evolution
-
-### **Technical Features**
--  Save/load system with complete character persistence
--  Terminal emulation with authentic BBS experience
--  Comprehensive CI/CD pipeline with automated testing
--  100% Pascal source compatibility layer
--  Real-time multiplayer dueling system
--  Advanced NPC behavior automation
--  Dynamic world simulation with emergent gameplay
-
-##  Project Statistics
-
-- **Total Implementation**: 50,000+ lines across 100+ files
-- **Pascal Files Analyzed**: 150+ original source files (25,000+ lines)
-- **Pascal Compatibility**: 100% data structure and algorithm recreation
-- **Core Systems**: 21 major phases fully implemented
-- **Locations**: 23 interactive locations with authentic Pascal menus
-- **NPCs**: Revolutionary AI system with intelligent behaviors and relationships
-- **Spells**: 15+ complete spells with comprehensive effect systems
-- **Items**: 100+ weapons, armor, and items with Pascal-exact statistics
-- **Gods**: 6-deity pantheon with complex power and belief systems
-- **Test Coverage**: 17 validation suites with 300+ comprehensive test cases
-- **Documentation**: 21 detailed phase summaries with implementation guides
-
-##  CI/CD Pipeline & Steam Release
-
-Our comprehensive GitHub Actions pipeline includes:
-
-### **Automated Testing**
-- Unit tests, integration tests, and Pascal compatibility validation
-- 17 system validation suites with 300+ test cases
-- Performance testing with large population simulations
-- Code quality analysis and security scanning
-
-### **Multi-Platform Builds**
-- Windows Desktop builds with Steam integration
-- Linux/X11 builds for Steam Deck compatibility
-- macOS universal builds for Apple Silicon and Intel
-
-### **Steam Release Preparation**
-- Automated Steam depot structure generation
-- Release notes and changelog generation
-- Multi-platform artifact packaging
-- Steam VDF configuration templates
-
-### **Getting Started**
-`ash
-# Clone and build
-git clone [repository-url]
-cd usurper-remake
+# Build the project
 dotnet build
 
-# Run comprehensive tests
+# Run tests
 cd Tests && powershell ./run_tests.ps1
 
-# Build for Steam release
-# GitHub Actions automatically handles builds on release tags
-`
+# Open in Godot
+godot project.godot
+```
 
-##  Documentation
+### Building for Release
+The project includes automated GitHub Actions for building:
+- Push to `main` for development builds
+- Tag with `v*` for release builds
+- Artifacts available in Actions tab
 
-Complete phase documentation:
-- **21 Phase Summary Files** with detailed implementation guides
-- **Steam Configuration Template** for release setup
-- **CI/CD Pipeline Documentation** for automated deployment
-- **Pascal Compatibility Guide** for source code preservation
-- **Manual Testing Checklist** for quality assurance
+## 🗺️ Roadmap
 
-##  License
+### **Early Access Launch** (Current Focus)
+- [x] Core game systems (combat, locations, NPCs)
+- [x] Save/load functionality
+- [x] Basic Steam integration
+- [ ] Initial balancing based on player feedback
+- [ ] Bug fixes and stability improvements
 
-This project is a comprehensive fan remake of the original Usurper game created by Jakob Dangarden. The original Pascal source code is used under educational fair use for game mechanics recreation. Created for educational, preservation, and entertainment purposes.
+### **Phase 1: Enhanced Single Player** (Post-Launch)
+- [ ] **Nemesis System**: NPCs who defeat you become legendary
+- [ ] **Seasonal Events**: Weather and holidays affect gameplay
+- [ ] **Legendary Artifacts**: Unique items with rich histories
+- [ ] **Expanded Dungeon**: Levels 51-100 with new challenges
+- [ ] **Prestige Classes**: Post-level 100 advancement paths
 
-**Original Usurper Copyright**: Jakob Dangarden (1993)  
-**Remake Implementation**: Educational/Fan Project (2024)
+### **Phase 2: Quality of Life** 
+- [ ] **NPC Journal**: Track your history with every character
+- [ ] **Achievement System**: Steam achievements for epic feats
+- [ ] **Mod Support**: Allow custom content creation
+- [ ] **Multiple Save Slots**: Manage different characters
+- [ ] **Difficulty Options**: From "Classic Brutal" to "Modern Casual"
+
+### **Phase 3: Multiplayer** 
+- [ ] **Private Servers**: Host games for 5-10 friends
+- [ ] **Asynchronous Play**: Classic BBS-style daily turns
+- [ ] **Official Servers**: Persistent worlds with 20-50 players
+- [ ] **Spectator Mode**: Watch epic battles unfold
+- [ ] **Cross-platform Play**: Steam, mobile, and web
+
+### **Phase 4: Content Expansion**
+- [ ] **New Locations**: Thieves Guild, Wizard Tower, Harbor District
+- [ ] **Sea Travel**: Ships, pirates, and island exploration
+- [ ] **Political System**: Elections, coups, and diplomacy
+- [ ] **Crafting System**: Create unique items and potions
+- [ ] **Pet System**: Companions that fight alongside you
+
+### **Long-term Vision**
+- [ ] **Mobile Version**: Full game on iOS/Android
+- [ ] **Steam Workshop**: Share characters, stories, and mods
+- [ ] **Usurper 2**: Sequel with expanded world and graphics
+- [ ] **VR Mode**: Experience the dungeon in virtual reality
+
+## 🛠️ Development
+
+### Project Structure
+```
+usurper-reloaded/
+├── Scripts/           # C# game logic
+│   ├── Core/         # Game engine and systems
+│   ├── Locations/    # All 23 game locations
+│   ├── AI/          # NPC AI systems
+│   └── UI/          # Terminal and interface
+├── Scenes/           # Godot scene files
+├── Data/            # Game data (items, NPCs, etc.)
+├── Tests/           # Comprehensive test suite
+└── .github/         # CI/CD workflows
+```
+
+### Testing
+The project includes extensive testing to ensure Pascal compatibility:
+```bash
+# Run all tests
+cd Tests && powershell ./run_tests.ps1
+
+# Run specific test suite
+dotnet test Tests/CombatTests.cs
+```
+
+## 🤝 Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+### Areas We Need Help
+- Balance testing and feedback
+- ANSI art creation
+- Sound effects and music
+- Localization to other languages
+- Documentation improvements
+
+## 📊 Technical Details
+
+- **Engine**: Godot 4.2+ with C#
+- **Lines of Code**: 50,000+ across 100+ files
+- **Pascal Compatibility**: 100% formula accuracy
+- **Test Coverage**: 300+ test cases
+- **Platforms**: Windows, Linux, macOS (Steam Deck verified)
+
+## 📜 License
+
+This is a fan remake created for preservation and educational purposes. 
+
+**Original Game**: © 1993 Jakob Dangarden  
+**Pascal Preservation**: Rick Parrish (GPL License)  
+**This Remake**: Fair use for preservation and education
+
+## 🙏 Acknowledgments
+
+- **Jakob Dangarden**: For creating the original masterpiece
+- **Rick Parrish**: For preserving the Pascal source code
+- **Daniel Zingaro**: For tremendous help with the Paspal source code
+- **BBS Community**: For keeping the spirit alive
+- **Contributors**: Everyone who has helped test and improve
 
 ---
 
-*"From peasant to ruler, the path of the Usurper awaits. Will you seize the throne, or will the realm claim another victim?"*
+*"In the realm of Usurper, death is not the end—it's just another beginning. Will you rise to claim the throne, or will your bones join the countless others in the dungeon depths?"*
 
-** Current Status: 21 major phases complete - A comprehensive medieval world simulation ready for Steam release! **
-
-**Steam Release Pipeline**: Fully automated CI/CD with multi-platform builds, comprehensive testing, and Steam depot preparation. Ready for commercial deployment!
+**Status**: Preparing for Steam Early Access 

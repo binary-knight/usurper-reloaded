@@ -25,7 +25,7 @@ public enum NPCActionType
 /// NPC class that extends Character with AI behavior
 /// Based on Pascal NPC system with enhanced AI features
 /// </summary>
-public class NPC : Character
+public partial class NPC : Character
 {
     // NPC-specific properties
     public NPCBrain Brain { get; set; }

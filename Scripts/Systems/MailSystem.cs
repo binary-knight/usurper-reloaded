@@ -10,7 +10,7 @@ using Godot;
 /// Based on Pascal MAIL.PAS with all mail functions and procedures
 /// Handles system mail, birthday events, notifications, and player communication
 /// </summary>
-public static class MailSystem
+public static partial class MailSystem
 {
     private static List<MailRecord> mailDatabase = new List<MailRecord>();
     private static Random random = new Random();

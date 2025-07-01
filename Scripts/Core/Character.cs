@@ -248,7 +248,13 @@ public class Character
     }
     
     // Additional properties for API compatibility
-    public int TurnsRemaining => TurnsLeft; // Alias for TurnsLeft
+    // TurnsRemaining is an alias for the calculated TurnsLeft value but can be overridden manually
+    private int? _manualTurnsRemaining;
+    public int TurnsRemaining
+    {
+        get => _manualTurnsRemaining ?? TurnsLeft;
+        set => _manualTurnsRemaining = value;
+    }
     public int PrisonsLeft { get; set; } = 0; // Prison sentences remaining
     public int ExecuteLeft { get; set; } = 0; // Execution attempts remaining  
     public int MarryActions { get; set; } = 0; // Marriage actions remaining

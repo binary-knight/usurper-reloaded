@@ -12,7 +12,7 @@ using System.Globalization;
 /// Handles all news writing, categorization, and file management for Usurper
 /// 100% compatible with original Pascal newsy() and generic_news() functions
 /// </summary>
-public class NewsSystem
+public partial class NewsSystem
 {
     private static NewsSystem _instance;
     private readonly Dictionary<GameConfig.NewsCategory, List<string>> _dailyNews;

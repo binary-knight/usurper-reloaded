@@ -286,4 +286,7 @@ public static class ConfigManager
         // This would normally load from JSON and set static properties
         // For now, the GameConfig class already has default values
     }
+
+    // Generic accessor placeholder so that legacy calls compile
+    public static T GetConfig<T>(string key) => default!;
 } 

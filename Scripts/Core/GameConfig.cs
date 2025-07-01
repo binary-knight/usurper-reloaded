@@ -6,7 +6,7 @@ using System.Collections.Generic;
 /// Game configuration constants extracted directly from Pascal INIT.PAS
 /// These values must match exactly with the original Usurper game
 /// </summary>
-public static class GameConfig
+public static partial class GameConfig
 {
     // From Pascal global_maxXX constants
     public const int MaxPlayers = 400;           // global_maxplayers
