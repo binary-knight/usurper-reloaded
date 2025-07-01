@@ -3,6 +3,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using FileAccess = Godot.FileAccess;
 using System.Text;
 using System.Globalization;
 
@@ -96,6 +97,29 @@ public class NewsSystem
                 // Pascal equivalent: unable_to_access() procedure
                 LogUnableToAccess(newsToAnsi ? GameConfig.NewsAnsiFile : GameConfig.NewsAsciiFile, ex.Message);
             }
+        }
+    }
+    
+    /// <summary>
+    /// Overload for Newsy with just message (defaults to current ANSI setting)
+    /// </summary>
+    public void Newsy(string message)
+    {
+        Newsy(GameConfig.Ansi, message);
+    }
+    
+    /// <summary>
+    /// Overload for Newsy with 3 parameters (message, ansi flag, category)
+    /// </summary>
+    public void Newsy(string message, bool newsToAnsi, GameConfig.NewsCategory category)
+    {
+        if (category == GameConfig.NewsCategory.General)
+        {
+            Newsy(newsToAnsi, message);
+        }
+        else
+        {
+            GenericNews(category, newsToAnsi, message);
         }
     }
 
@@ -368,7 +392,7 @@ public class NewsSystem
         {
             try
             {
-                using (var writer = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.Read))
+                using (var writer = new FileStream(filePath, FileMode.Create, System.IO.FileAccess.Write, FileShare.Read))
                 using (var textWriter = new StreamWriter(writer, Encoding.UTF8))
                 {
                     textWriter.WriteLine(header);
@@ -423,7 +447,7 @@ public class NewsSystem
             }
             
             // Pascal-style file appending with locking
-            using (var fileStream = new FileStream(filePath, FileMode.Append, FileAccess.Write, FileShare.Read))
+            using (var fileStream = new FileStream(filePath, FileMode.Append, System.IO.FileAccess.Write, FileShare.Read))
             using (var writer = new StreamWriter(fileStream, Encoding.UTF8))
             {
                 writer.WriteLine(message);

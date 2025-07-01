@@ -70,7 +70,7 @@ public class GoalSystem
         return goal.Type switch
         {
             GoalType.Economic when goal.Name.Contains("Wealthy") => owner.Gold >= 10000,
-            GoalType.Social when goal.Name.Contains("Power") => owner.IsRuler,
+            GoalType.Social when goal.Name.Contains("Power") => owner.King,
             GoalType.Personal when goal.Name.Contains("Strength") => owner.Level >= 20,
             GoalType.Social when goal.Name.Contains("Gang") => !string.IsNullOrEmpty(owner.GangId),
             _ => false

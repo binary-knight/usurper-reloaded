@@ -11,32 +11,58 @@ using System.Linq;
 /// </summary>
 public partial class GameEngine : Node
 {
-    private static GameEngine instance;
-    public static GameEngine Instance => instance;
+    private static GameEngine? instance;
+    private TerminalEmulator terminal;
+    private Player? currentPlayer;
+    
+    // Game state
+    private UsurperConfig config;
+    private KingRecord kingRecord;
+    private ScoreManager scoreManager;
+    
+    // System flags
+    private bool multiNodeMode = false;
+    
+    public static GameEngine Instance => instance ??= new GameEngine();
+    
+    // Missing properties for compilation
+    public Player? CurrentPlayer 
+    { 
+        get => currentPlayer; 
+        set => currentPlayer = value; 
+    }
+    
+    public static string DataPath => GameConfig.DataPath;
+    
+    // Terminal access for systems
+    public TerminalEmulator Terminal => terminal;
     
     // Core game components
     private GameState gameState;
-    private Character currentPlayer;
     private List<NPC> worldNPCs;
     private List<Monster> worldMonsters;
-    private TerminalEmulator terminal;
     private LocationManager locationManager;
     private SaveManager saveManager;
     private DailySystemManager dailyManager;
     private CombatEngine combatEngine;
     private WorldSimulator worldSimulator;
     
-    // Game configuration
-    private ConfigRecord config;
-    private KingRecord kingRecord;
-    
     // Online system
     private List<OnlinePlayer> onlinePlayers;
-    private bool multiNodeMode;
+    
+    // Stub classes for compilation
+    private class UsurperConfig
+    {
+        // Pascal compatible config structure
+    }
+    
+    private class ScoreManager
+    {
+        // Score and ranking management
+    }
     
     public override void _Ready()
     {
-        instance = this;
         GD.Print("Usurper Reborn - Initializing Game Engine...");
         
         // Initialize core systems
@@ -44,7 +70,9 @@ public partial class GameEngine : Node
         
         // Show title screen and start main menu
         ShowTitleScreen();
-        MainMenu();
+        
+        // Handle async MainMenu properly since _Ready() can't be async
+        Task.Run(async () => await MainMenu());
     }
     
     /// <summary>
@@ -109,7 +137,7 @@ public partial class GameEngine : Node
     /// <summary>
     /// Main menu - based on Town_Menu procedure from Pascal
     /// </summary>
-    private void MainMenu()
+    private async Task MainMenu()
     {
         bool done = false;
         

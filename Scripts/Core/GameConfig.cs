@@ -41,10 +41,33 @@ public static class GameConfig
     public const int MaxKingEdicts = 5;          // max_kingedicts
     public const int MaxHeals = 15;              // max healing potions
     
+    // Combat constants
+    public const float CriticalHitMultiplier = 2.0f;  // Critical hit damage multiplier
+    
+    // Color constants for compatibility
+    public const string HPColor = "`C";              // Bright red for HP display
+    
+    // Path constants
+    public const string DataPath = "DATA/";          // Data directory path
+    
+    // Lock and timing constants
+    public const int LockDelay = 50;                 // Lock delay in milliseconds
+    
+    // Daily reset constants
+    public const int DefaultGymSessions = 3;         // Daily gym sessions
+    public const int DefaultDrinksAtOrbs = 5;        // Daily drinks at orbs
+    public const int DefaultIntimacyActs = 3;        // Daily intimacy acts
+    public const int DefaultMaxWrestlings = 3;       // Daily wrestling matches
+    public const int DefaultPickPocketAttempts = 3;  // Daily pickpocket attempts
+    
+    // Missing monster talks constant
+    public static bool MonsterTalk = true;           // Whether monsters can speak
+    
     // Item limits
     public const int MaxItems = 325;             // maxitems
     public const int MaxArmor = 17;              // maxarmor
     public const int MaxWeapons = 35;            // maxweapons
+    public const int MaxInventoryItems = 50;     // Maximum items in player inventory
     
     // Location constants
     public const int MaxMonsters = 65;           // maxmonsters
@@ -917,15 +940,12 @@ Barbarian - Savage fighters, incredible strength
     // Additional missing color constants for game systems
     public const string DeathColor = "`4";             // Red for death messages
     public const string TextColor = "`2";              // Default green text
-    public const string WarningColor = "`E";           // Bright yellow for warnings
-    public const string SuccessColor = "`A";           // Bright green for success
     public const string ExperienceColor = "`B";        // Bright cyan for experience
     public const string CombatColor = "`C";            // Bright red for combat
     public const string HealColor = "`A";              // Bright green for healing
     public const string TauntColor = "`D";             // Bright magenta for taunts
     public const string GoldColor = "`E";              // Bright yellow for gold
     public const string LocationColor = "`9";          // Bright blue for locations
-    public const string ErrorColor = "`4";             // Red for errors
     public const string EmptyColor = "`8";             // Gray for empty slots
     public const string EnemyColor = "`4";             // Red for enemies
     public const string WinnerColor = "`A";            // Bright green for winners
@@ -939,6 +959,23 @@ Barbarian - Savage fighters, incredible strength
     // Location constants
     public const int NewsLocationId = 50;              // Location ID for news reading
     public const string NewsLocationName = "News Stand"; // Display name for location
+
+    // Additional missing constants for system compatibility
+    public const bool ClassicMode = false;       // Classic mode toggle
+    public const int NPCBelievers = 50;          // NPC believers system
+
+    // Terminal display constants
+    public static readonly string DefaultColor = "white";
+    public static readonly string HighlightColor = "yellow"; 
+    public static readonly string ErrorColor = "red";
+    public static readonly string SuccessColor = "green";
+    public static readonly string WarningColor = "orange";
+    public static readonly string InfoColor = "cyan";
+    public static readonly string DescColor = "gray";  // Description text color
+    
+    // Player interaction constants
+    public static readonly int MaxChatLength = 255;
+    public static readonly int MaxNameLength = 30;
 }
 
 /// <summary>

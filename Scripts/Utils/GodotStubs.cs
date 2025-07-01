@@ -93,21 +93,61 @@ namespace Godot
 
     public struct Color
     {
-        public float R, G, B, A;
-        public Color(float r, float g, float b, float a = 1f) { R = r; G = g; B = b; A = a; }
-        
-        public static Color White => new(1, 1, 1);
-        public static Color Black => new(0, 0, 0);
-        public static Color Red => new(1, 0, 0);
-        public static Color Green => new(0, 1, 0);
-        public static Color Blue => new(0, 0, 1);
-        public static Color Yellow => new(1, 1, 0);
-        public static Color Cyan => new(0, 1, 1);
-        public static Color Magenta => new(1, 0, 1);
-        
-        public string ToHtml(bool withAlpha = true) => 
-            withAlpha ? $"#{(int)(R*255):X2}{(int)(G*255):X2}{(int)(B*255):X2}{(int)(A*255):X2}"
-                      : $"#{(int)(R*255):X2}{(int)(G*255):X2}{(int)(B*255):X2}";
+        public static readonly Color Black = new Color(0, 0, 0, 1);
+        public static readonly Color White = new Color(1, 1, 1, 1);
+        public static readonly Color Red = new Color(1, 0, 0, 1);
+        public static readonly Color Green = new Color(0, 1, 0, 1);
+        public static readonly Color Blue = new Color(0, 0, 1, 1);
+        public static readonly Color Yellow = new Color(1, 1, 0, 1);
+        public static readonly Color Cyan = new Color(0, 1, 1, 1);
+        public static readonly Color Magenta = new Color(1, 0, 1, 1);
+        public static readonly Color Transparent = new Color(0, 0, 0, 0);
+
+        public float R { get; set; }
+        public float G { get; set; }
+        public float B { get; set; }
+        public float A { get; set; }
+
+        public Color(float r, float g, float b, float a = 1.0f)
+        {
+            R = r;
+            G = g;
+            B = b;
+            A = a;
+        }
+
+        public string ToHtml()
+        {
+            return $"{(int)(R * 255):X2}{(int)(G * 255):X2}{(int)(B * 255):X2}";
+        }
+
+        // Add missing FromHtml method
+        public static Color FromHtml(string htmlColor)
+        {
+            if (string.IsNullOrEmpty(htmlColor))
+                return White;
+
+            // Remove # if present
+            if (htmlColor.StartsWith("#"))
+                htmlColor = htmlColor.Substring(1);
+
+            if (htmlColor.Length == 6)
+            {
+                try
+                {
+                    int r = Convert.ToInt32(htmlColor.Substring(0, 2), 16);
+                    int g = Convert.ToInt32(htmlColor.Substring(2, 2), 16);
+                    int b = Convert.ToInt32(htmlColor.Substring(4, 2), 16);
+                    return new Color(r / 255.0f, g / 255.0f, b / 255.0f, 1.0f);
+                }
+                catch
+                {
+                    return White;
+                }
+            }
+
+            return White;
+        }
     }
 
     // Godot utility functions
@@ -195,6 +235,12 @@ namespace UsurperRemake.Utils
         public void Write(string text) => Console.Write(text);
         public string ReadLine() => Console.ReadLine() ?? "";
         public void Clear() => Console.Clear();
+        public void ClearScreen() => Console.Clear();
+        public async Task PressAnyKey(string message = "Press any key to continue...")
+        {
+            Console.Write(message);
+            Console.ReadKey();
+        }
         public async Task<string> GetInputAsync(string prompt = "")
         {
             Console.Write(prompt);

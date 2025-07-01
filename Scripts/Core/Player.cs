@@ -2,6 +2,7 @@ using UsurperRemake.Utils;
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 public class Player : Character
 {
@@ -10,6 +11,9 @@ public class Player : Character
     public DateTime AccountCreated { get; set; }
     public int TotalLogins { get; set; }
     public TimeSpan TotalPlayTime { get; set; }
+    
+    // Character reference for compatibility with existing code
+    public Character Character => this;  // Player IS a Character, so return self
     
     // Player-specific stats
     public int PvPWins { get; set; }
@@ -28,8 +32,29 @@ public class Player : Character
     public List<string> UnlockedAbilities { get; set; } = new List<string>();
     public Dictionary<string, bool> Achievements { get; set; } = new Dictionary<string, bool>();
     
+    // Status tracking
+    public bool IsOnline { get; set; } = false;
+    public DateTime SessionStart { get; set; } = DateTime.Now;
+    public int TurnsThisSession { get; set; } = 0;
+    
+    // Missing properties for API compatibility
+    public int TurnsRemaining { get; set; } = GameConfig.TurnsPerDay;
+    public int PrisonsLeft { get; set; } = 0;
+    public int ExecuteLeft { get; set; } = 0;
+    public int MarryActions { get; set; } = 5;
+    public int WolfFeed { get; set; } = 0;
+    public int RoyalAdoptions { get; set; } = 0;
+    public int DaysInPower { get; set; } = 0;
+    
+    // Additional missing properties for API compatibility 
+    public string CurrentLocation { get; set; } = "main_street";
+    
     public Player() : base()
     {
+        AI = CharacterAI.Human;
+        Terminal = null; // Will be set when player connects
+        SaveData = new PlayerSaveData();
+        LevelUpTracker = new PlayerLevelUpTracker();
         AccountCreated = DateTime.Now;
         LastLogin = DateTime.Now;
         TotalLogins = 1;
@@ -271,5 +296,20 @@ public class Player : Character
         terminal.WriteLine($"║ Monster Kills: {MonsterKills,-8} Deaths: {Deaths,-12}             ║", "white");
         terminal.WriteLine($"║ Times Ruler: {TimesRuler,-10} Deepest Level: {DungeonLevel,-8}       ║", "white");
         terminal.WriteLine("╚═════════════════════════════════════════════════════════╝", "bright_blue");
+    }
+    
+    // Additional missing methods for API compatibility
+    public void SendMessage(string message)
+    {
+        Terminal?.WriteLine(message);
+    }
+    
+    public async Task<string> GetInput()
+    {
+        if (Terminal != null)
+        {
+            return await Terminal.GetInput();
+        }
+        return "";
     }
 } 

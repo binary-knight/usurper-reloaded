@@ -93,7 +93,7 @@ public static class EnhancedNPCBehaviors
     /// </summary>
     public static void ProcessBelieverSystem(NPC npc)
     {
-        if (!GameConfig.NPCBelievers) return;
+        if (GameConfig.NPCBelievers == 0) return;
         if (random.Next(3) != 0) return; // Only 33% processed per cycle
         
         if (string.IsNullOrEmpty(npc.God))
@@ -207,7 +207,7 @@ public static class EnhancedNPCBehaviors
         // Pascal Ok_To_Buy logic based on class
         switch (npc.Class)
         {
-            case CharacterClass.Fighter:
+            case CharacterClass.Warrior:
                 if (npc.WeaponPower < npc.Level * 20)
                     goals.Add(new ShoppingGoal { Type = "weapon", Priority = 0.8f });
                 if (npc.ArmorClass < npc.Level * 15)
@@ -273,8 +273,7 @@ public static class EnhancedNPCBehaviors
         
         // Generate news
         var newsSystem = GetNode<NewsSystem>("/root/NewsSystem");
-        newsSystem?.Newsy(false, "Gang Dissolved",
-            $"{GameConfig.TeamColor}{gangName}{GameConfig.NewsColorDefault} ceased to exist!");
+        newsSystem?.Newsy($"{GameConfig.TeamColor}{gangName}{GameConfig.NewsColorDefault} ceased to exist!", false, GameConfig.NewsCategory.General);
     }
     
     private static void RecruitGangMembers(string gangName, List<NPC> npcs)
@@ -300,8 +299,7 @@ public static class EnhancedNPCBehaviors
                 
                 // Generate news
                 var newsSystem = GetNode<NewsSystem>("/root/NewsSystem");
-                newsSystem?.Newsy(true, "Gang Recruit",
-                    $"{GameConfig.NewsColorPlayer}{candidate.Name2}{GameConfig.NewsColorDefault} has been recruited to {GameConfig.TeamColor}{gangName}{GameConfig.NewsColorDefault}");
+                newsSystem?.Newsy($"{GameConfig.NewsColorPlayer}{candidate.Name2}{GameConfig.NewsColorDefault} has been recruited to {GameConfig.TeamColor}{gangName}{GameConfig.NewsColorDefault}", true, GameConfig.NewsCategory.General);
             }
         }
     }

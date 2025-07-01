@@ -92,7 +92,7 @@ public class EnhancedNPCSystem : Node
     /// </summary>
     public void ProcessNPCBelieverSystem(NPC npc)
     {
-        if (!GameConfig.NPCBelievers) return;
+        if (GameConfig.NPCBelievers == 0) return;
         
         if (random.Next(3) != 0) return; // Only 33% processed per cycle
         

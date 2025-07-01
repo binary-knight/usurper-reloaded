@@ -164,6 +164,37 @@ public class MemorySystem
         }
     }
     
+    /// <summary>
+    /// Convenience method for adding simple memories with description and type
+    /// </summary>
+    public void AddMemory(string description, string typeString, DateTime timestamp)
+    {
+        // Convert string type to MemoryType enum
+        var memoryType = typeString.ToLower() switch
+        {
+            "combat" => MemoryType.SawCombat,
+            "movement" => MemoryType.LocationChange,
+            "inventory" => MemoryType.GainedItem,
+            "equipment" => MemoryType.GainedItem,
+            "purchase" => MemoryType.BoughtItem,
+            "social" => MemoryType.ActivityChange,
+            "gang" => MemoryType.JoinedGang,
+            "faith" => MemoryType.PersonalAchievement,
+            "romance" => MemoryType.ActivityChange,
+            _ => MemoryType.Miscellaneous
+        };
+        
+        var memoryEvent = new MemoryEvent
+        {
+            Type = memoryType,
+            Description = description,
+            Timestamp = timestamp,
+            Importance = 0.5f
+        };
+        
+        RecordEvent(memoryEvent);
+    }
+    
     public int GetMemoryCount()
     {
         return memories.Count;

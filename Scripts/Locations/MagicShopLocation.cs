@@ -1,3 +1,4 @@
+using UsurperRemake;
 using UsurperRemake.Utils;
 using System;
 using System.Collections.Generic;
@@ -17,6 +18,11 @@ public partial class MagicShopLocation : BaseLocation
     
     // Available magic items for sale
     private static List<Item> _magicInventory = new List<Item>();
+    
+    private TerminalEmulator terminal;
+    private Player currentPlayer;
+    private List<Item> shopInventory;
+    private Random random = new Random();
     
     public MagicShopLocation()
     {
@@ -128,31 +134,31 @@ public partial class MagicShopLocation : BaseLocation
         
         // Shop header
         string title = $"{ShopTitle}, run by {_ownerName} the gnome";
-        DisplayMessage($"┌─ {title} ─┐", ConsoleColor.Magenta);
-        DisplayMessage("├─────────────────────────────────────────────────────────┤", ConsoleColor.Magenta);
+        DisplayMessage($"┌─ {title} ─┐", "magenta");
+        DisplayMessage("├─────────────────────────────────────────────────────────┤", "magenta");
         DisplayMessage("");
         
         // Shop description
-        DisplayMessage("You enter the dark and dusty boutique, filled with all sorts", ConsoleColor.Gray);
-        DisplayMessage("of strange objects. As you examine the place you notice a", ConsoleColor.Gray);
-        DisplayMessage("few druids and wizards searching for orbs and other mysterious items.", ConsoleColor.Gray);
-        DisplayMessage("When you reach the counter you try to remember what you were looking for.", ConsoleColor.Gray);
+        DisplayMessage("You enter the dark and dusty boutique, filled with all sorts", "gray");
+        DisplayMessage("of strange objects. As you examine the place you notice a", "gray");
+        DisplayMessage("few druids and wizards searching for orbs and other mysterious items.", "gray");
+        DisplayMessage("When you reach the counter you try to remember what you were looking for.", "gray");
         DisplayMessage("");
         
         // Greeting
         string raceGreeting = GetRaceGreeting(player.Race);
-        DisplayMessage($"What shall it be {raceGreeting}?", ConsoleColor.Cyan);
+        DisplayMessage($"What shall it be {raceGreeting}?", "cyan");
         DisplayMessage("");
         
         // Player gold display
-        DisplayMessage($"(You have {player.Gold:N0} gold coins)", ConsoleColor.Gray);
+        DisplayMessage($"(You have {player.Gold:N0} gold coins)", "gray");
         DisplayMessage("");
         
         // Menu options
-        DisplayMessage("(R)eturn to street          (L)ist Items", ConsoleColor.Gray);
-        DisplayMessage("(I)dentify item             (B)uy Item", ConsoleColor.Gray);
-        DisplayMessage("(H)ealing Potions           (S)ell Item", ConsoleColor.Gray);
-        DisplayMessage($"                            (T)alk to {_ownerName}", ConsoleColor.Gray);
+        DisplayMessage("(R)eturn to street          (L)ist Items", "gray");
+        DisplayMessage("(I)dentify item             (B)uy Item", "gray");
+        DisplayMessage("(H)ealing Potions           (S)ell Item", "gray");
+        DisplayMessage($"                            (T)alk to {_ownerName}", "gray");
         DisplayMessage("");
         
         ProcessMagicShopMenu(player);
@@ -175,7 +181,7 @@ public partial class MagicShopLocation : BaseLocation
     {
         while (true)
         {
-            DisplayMessage("Magic Shop (? for menu): ", ConsoleColor.Yellow, false);
+            DisplayMessage("Magic Shop (? for menu): ", "yellow", false);
             var choice = Console.ReadKey().KeyChar.ToString().ToUpper();
             DisplayMessage(""); // New line
             
@@ -206,12 +212,12 @@ public partial class MagicShopLocation : BaseLocation
                     DisplayMagicShopMenu(player);
                     return;
                 default:
-                    DisplayMessage("Invalid choice. Press '?' for menu.", ConsoleColor.Red);
+                    DisplayMessage("Invalid choice. Press '?' for menu.", "red");
                     break;
             }
             
             DisplayMessage("");
-            DisplayMessage("Press any key to continue...", ConsoleColor.Yellow);
+            DisplayMessage("Press any key to continue...", "yellow");
             Console.ReadKey();
             DisplayMagicShopMenu(player);
             return;
@@ -221,13 +227,13 @@ public partial class MagicShopLocation : BaseLocation
     private void ListMagicItems(Character player)
     {
         DisplayMessage("");
-        DisplayMessage("═══ Magic Items for Sale ═══", ConsoleColor.Cyan);
+        DisplayMessage("═══ Magic Items for Sale ═══", "cyan");
         DisplayMessage("");
         
         int itemNumber = 1;
         foreach (var item in _magicInventory)
         {
-            DisplayMessage($"{itemNumber}. {item.Name} - {item.Value:N0} gold", ConsoleColor.White);
+            DisplayMessage($"{itemNumber}. {item.Name} - {item.Value:N0} gold", "white");
             
             // Show item properties
             var properties = new List<string>();
@@ -240,16 +246,16 @@ public partial class MagicShopLocation : BaseLocation
             
             if (properties.Count > 0)
             {
-                DisplayMessage($"   ({string.Join(", ", properties)})", ConsoleColor.Green);
+                DisplayMessage($"   ({string.Join(", ", properties)})", "green");
             }
             
             // Show restrictions
-            if (item.OnlyForGood) DisplayMessage("   (Good characters only)", ConsoleColor.Blue);
-            if (item.OnlyForEvil) DisplayMessage("   (Evil characters only)", ConsoleColor.Red);
-            if (item.IsCursed) DisplayMessage("   (CURSED!)", ConsoleColor.DarkRed);
+            if (item.OnlyForGood) DisplayMessage("   (Good characters only)", "blue");
+            if (item.OnlyForEvil) DisplayMessage("   (Evil characters only)", "red");
+            if (item.IsCursed) DisplayMessage("   (CURSED!)", "darkred");
             if (item.MagicProperties.DiseaseImmunity != CureType.None)
             {
-                DisplayMessage($"   (Cures {item.MagicProperties.DiseaseImmunity})", ConsoleColor.Green);
+                DisplayMessage($"   (Cures {item.MagicProperties.DiseaseImmunity})", "green");
             }
             
             DisplayMessage("");
@@ -260,7 +266,7 @@ public partial class MagicShopLocation : BaseLocation
     private void BuyMagicItem(Character player)
     {
         DisplayMessage("");
-        DisplayMessage("Enter Item # to buy: ", ConsoleColor.Yellow, false);
+        DisplayMessage("Enter Item # to buy: ", "yellow", false);
         string input = Console.ReadLine();
         
         if (int.TryParse(input, out int itemNumber) && itemNumber > 0 && itemNumber <= _magicInventory.Count)
@@ -270,24 +276,24 @@ public partial class MagicShopLocation : BaseLocation
             // Check restrictions
             if (item.OnlyForGood && player.Chivalry < 1 && player.Darkness > 0)
             {
-                DisplayMessage("This item is charmed for good characters.", ConsoleColor.Red);
-                DisplayMessage("You can buy it, but you cannot use it!", ConsoleColor.Red);
+                DisplayMessage("This item is charmed for good characters.", "red");
+                DisplayMessage("You can buy it, but you cannot use it!", "red");
             }
             else if (item.OnlyForEvil && player.Chivalry > 0 && player.Darkness < 1)
             {
-                DisplayMessage("This item is enchanted and can be used by evil characters only.", ConsoleColor.Red);
-                DisplayMessage("You can buy it, but not use it!", ConsoleColor.Red);
+                DisplayMessage("This item is enchanted and can be used by evil characters only.", "red");
+                DisplayMessage("You can buy it, but not use it!", "red");
             }
             
             if (item.StrengthRequired > player.Strength)
             {
-                DisplayMessage("This item is too heavy for you to use!", ConsoleColor.Red);
+                DisplayMessage("This item is too heavy for you to use!", "red");
             }
             
             // Check class restrictions (if any)
             // TODO: Implement class restrictions when needed
             
-            DisplayMessage($"Buy the {item.Name} for {item.Value:N0} gold? (Y/N): ", ConsoleColor.Yellow, false);
+            DisplayMessage($"Buy the {item.Name} for {item.Value:N0} gold? (Y/N): ", "yellow", false);
             var confirm = Console.ReadKey().KeyChar.ToString().ToUpper();
             DisplayMessage("");
             
@@ -295,40 +301,40 @@ public partial class MagicShopLocation : BaseLocation
             {
                 if (player.Gold < item.Value)
                 {
-                    DisplayMessage("You don't have enough gold!", ConsoleColor.Red);
+                    DisplayMessage("You don't have enough gold!", "red");
                 }
                 else if (player.Inventory.Count >= GameConfig.MaxInventoryItems)
                 {
-                    DisplayMessage("Your inventory is full!", ConsoleColor.Red);
+                    DisplayMessage("Your inventory is full!", "red");
                 }
                 else
                 {
                     player.Gold -= item.Value;
                     player.Inventory.Add(item.Clone());
                     
-                    DisplayMessage("Done!", ConsoleColor.Green);
-                    DisplayMessage($"You purchased the {item.Name}.", ConsoleColor.Gray);
+                    DisplayMessage("Done!", "green");
+                    DisplayMessage($"You purchased the {item.Name}.", "gray");
                     
                     // Ask if they want to equip it immediately
-                    DisplayMessage($"Start to use the {item.Name} immediately? (Y/N): ", ConsoleColor.Yellow, false);
+                    DisplayMessage($"Start to use the {item.Name} immediately? (Y/N): ", "yellow", false);
                     var useNow = Console.ReadKey().KeyChar.ToString().ToUpper();
                     DisplayMessage("");
                     
                     if (useNow == "Y")
                     {
                         // TODO: Implement item equipping system
-                        DisplayMessage($"You equip the {item.Name}.", ConsoleColor.Green);
+                        DisplayMessage($"You equip the {item.Name}.", "green");
                     }
                     else
                     {
-                        DisplayMessage($"You put the {item.Name} in your backpack.", ConsoleColor.Gray);
+                        DisplayMessage($"You put the {item.Name} in your backpack.", "gray");
                     }
                 }
             }
         }
         else
         {
-            DisplayMessage("Invalid item number.", ConsoleColor.Red);
+            DisplayMessage("Invalid item number.", "red");
         }
     }
     
@@ -338,19 +344,19 @@ public partial class MagicShopLocation : BaseLocation
         
         if (player.Inventory.Count == 0)
         {
-            DisplayMessage("You have nothing to sell.", ConsoleColor.Gray);
+            DisplayMessage("You have nothing to sell.", "gray");
             return;
         }
         
-        DisplayMessage("Your inventory:", ConsoleColor.Cyan);
+        DisplayMessage("Your inventory:", "cyan");
         for (int i = 0; i < player.Inventory.Count; i++)
         {
             var item = player.Inventory[i];
-            DisplayMessage($"{i + 1}. {item.Name} (worth {item.Value / 2:N0} gold)", ConsoleColor.White);
+            DisplayMessage($"{i + 1}. {item.Name} (worth {item.Value / 2:N0} gold)", "white");
         }
         
         DisplayMessage("");
-        DisplayMessage("Enter item # to sell (0 to cancel): ", ConsoleColor.Yellow, false);
+        DisplayMessage("Enter item # to sell (0 to cancel): ", "yellow", false);
         string input = Console.ReadLine();
         
         if (int.TryParse(input, out int itemIndex) && itemIndex > 0 && itemIndex <= player.Inventory.Count)
@@ -361,7 +367,7 @@ public partial class MagicShopLocation : BaseLocation
             // Check if shop wants this item type
             if (item.Type == ObjType.Magic || item.MagicType != MagicItemType.None)
             {
-                DisplayMessage($"Sell {item.Name} for {sellPrice:N0} gold? (Y/N): ", ConsoleColor.Yellow, false);
+                DisplayMessage($"Sell {item.Name} for {sellPrice:N0} gold? (Y/N): ", "yellow", false);
                 var confirm = Console.ReadKey().KeyChar.ToString().ToUpper();
                 DisplayMessage("");
                 
@@ -369,8 +375,8 @@ public partial class MagicShopLocation : BaseLocation
                 {
                     player.Inventory.RemoveAt(itemIndex - 1);
                     player.Gold += sellPrice;
-                    DisplayMessage("Deal!", ConsoleColor.Green);
-                    DisplayMessage($"You sold the {item.Name} for {sellPrice:N0} gold.", ConsoleColor.Gray);
+                    DisplayMessage("Deal!", "green");
+                    DisplayMessage($"You sold the {item.Name} for {sellPrice:N0} gold.", "gray");
                 }
             }
             else
@@ -384,8 +390,8 @@ public partial class MagicShopLocation : BaseLocation
                     "Pay or get lost!"
                 };
                 var response = responses[new Random().Next(responses.Length)];
-                DisplayMessage($"I don't buy that kind of items, {_ownerName} says.", ConsoleColor.Red);
-                DisplayMessage($"{response}, {_ownerName} adds.", ConsoleColor.Red);
+                DisplayMessage($"I don't buy that kind of items, {_ownerName} says.", "red");
+                DisplayMessage($"{response}, {_ownerName} adds.", "red");
             }
         }
     }
@@ -397,31 +403,31 @@ public partial class MagicShopLocation : BaseLocation
         var unidentifiedItems = player.Inventory.Where(item => !item.IsIdentified).ToList();
         if (unidentifiedItems.Count == 0)
         {
-            DisplayMessage("You have no unidentified items.", ConsoleColor.Gray);
+            DisplayMessage("You have no unidentified items.", "gray");
             return;
         }
         
-        DisplayMessage("Unidentified items:", ConsoleColor.Cyan);
+        DisplayMessage("Unidentified items:", "cyan");
         for (int i = 0; i < unidentifiedItems.Count; i++)
         {
-            DisplayMessage($"{i + 1}. {unidentifiedItems[i].Name}", ConsoleColor.White);
+            DisplayMessage($"{i + 1}. {unidentifiedItems[i].Name}", "white");
         }
         
         DisplayMessage("");
-        DisplayMessage($"Identification costs {_identificationCost:N0} gold per item.", ConsoleColor.Gray);
-        DisplayMessage("Enter item # to identify (0 to cancel): ", ConsoleColor.Yellow, false);
+        DisplayMessage($"Identification costs {_identificationCost:N0} gold per item.", "gray");
+        DisplayMessage("Enter item # to identify (0 to cancel): ", "yellow", false);
         string input = Console.ReadLine();
         
         if (int.TryParse(input, out int itemIndex) && itemIndex > 0 && itemIndex <= unidentifiedItems.Count)
         {
             if (player.Gold < _identificationCost)
             {
-                DisplayMessage("You don't have enough gold for identification!", ConsoleColor.Red);
+                DisplayMessage("You don't have enough gold for identification!", "red");
                 return;
             }
             
             var item = unidentifiedItems[itemIndex - 1];
-            DisplayMessage($"Identify {item.Name} for {_identificationCost:N0} gold? (Y/N): ", ConsoleColor.Yellow, false);
+            DisplayMessage($"Identify {item.Name} for {_identificationCost:N0} gold? (Y/N): ", "yellow", false);
             var confirm = Console.ReadKey().KeyChar.ToString().ToUpper();
             DisplayMessage("");
             
@@ -430,9 +436,9 @@ public partial class MagicShopLocation : BaseLocation
                 player.Gold -= _identificationCost;
                 item.IsIdentified = true;
                 
-                DisplayMessage($"{_ownerName} examines the {item.Name} carefully...", ConsoleColor.Gray);
+                DisplayMessage($"{_ownerName} examines the {item.Name} carefully...", "gray");
                 DisplayMessage("");
-                DisplayMessage($"The {item.Name} is now identified!", ConsoleColor.Green);
+                DisplayMessage($"The {item.Name} is now identified!", "green");
                 
                 // Show full item details
                 DisplayItemDetails(item);
@@ -442,18 +448,18 @@ public partial class MagicShopLocation : BaseLocation
     
     private void DisplayItemDetails(Item item)
     {
-        DisplayMessage("═══ Item Properties ═══", ConsoleColor.Cyan);
-        DisplayMessage($"Name: {item.Name}", ConsoleColor.White);
-        DisplayMessage($"Value: {item.Value:N0} gold", ConsoleColor.Yellow);
+        DisplayMessage("═══ Item Properties ═══", "cyan");
+        DisplayMessage($"Name: {item.Name}", "white");
+        DisplayMessage($"Value: {item.Value:N0} gold", "yellow");
         
-        if (item.Strength != 0) DisplayMessage($"Strength: {(item.Strength > 0 ? "+" : "")}{item.Strength}", ConsoleColor.Green);
-        if (item.Defence != 0) DisplayMessage($"Defence: {(item.Defence > 0 ? "+" : "")}{item.Defence}", ConsoleColor.Green);
-        if (item.Attack != 0) DisplayMessage($"Attack: {(item.Attack > 0 ? "+" : "")}{item.Attack}", ConsoleColor.Green);
-        if (item.Dexterity != 0) DisplayMessage($"Dexterity: {(item.Dexterity > 0 ? "+" : "")}{item.Dexterity}", ConsoleColor.Green);
-        if (item.Wisdom != 0) DisplayMessage($"Wisdom: {(item.Wisdom > 0 ? "+" : "")}{item.Wisdom}", ConsoleColor.Green);
-        if (item.MagicProperties.Mana != 0) DisplayMessage($"Mana: {(item.MagicProperties.Mana > 0 ? "+" : "")}{item.MagicProperties.Mana}", ConsoleColor.Blue);
+        if (item.Strength != 0) DisplayMessage($"Strength: {(item.Strength > 0 ? "+" : "")}{item.Strength}", "green");
+        if (item.Defence != 0) DisplayMessage($"Defence: {(item.Defence > 0 ? "+" : "")}{item.Defence}", "green");
+        if (item.Attack != 0) DisplayMessage($"Attack: {(item.Attack > 0 ? "+" : "")}{item.Attack}", "green");
+        if (item.Dexterity != 0) DisplayMessage($"Dexterity: {(item.Dexterity > 0 ? "+" : "")}{item.Dexterity}", "green");
+        if (item.Wisdom != 0) DisplayMessage($"Wisdom: {(item.Wisdom > 0 ? "+" : "")}{item.Wisdom}", "green");
+        if (item.MagicProperties.Mana != 0) DisplayMessage($"Mana: {(item.MagicProperties.Mana > 0 ? "+" : "")}{item.MagicProperties.Mana}", "blue");
         
-        if (item.StrengthRequired > 0) DisplayMessage($"Strength Required: {item.StrengthRequired}", ConsoleColor.Red);
+        if (item.StrengthRequired > 0) DisplayMessage($"Strength Required: {item.StrengthRequired}", "red");
         
         // Disease curing
         if (item.MagicProperties.DiseaseImmunity != CureType.None)
@@ -468,13 +474,13 @@ public partial class MagicShopLocation : BaseLocation
                 CureType.Leprosy => "It cures Leprosy!",
                 _ => ""
             };
-            DisplayMessage(cureText, ConsoleColor.Green);
+            DisplayMessage(cureText, "green");
         }
         
         // Restrictions
-        if (item.OnlyForGood) DisplayMessage("This item can only be used by good characters.", ConsoleColor.Blue);
-        if (item.OnlyForEvil) DisplayMessage("This item can only be used by evil characters.", ConsoleColor.Red);
-        if (item.IsCursed) DisplayMessage($"The {item.Name} is CURSED!", ConsoleColor.DarkRed);
+        if (item.OnlyForGood) DisplayMessage("This item can only be used by good characters.", "blue");
+        if (item.OnlyForEvil) DisplayMessage("This item can only be used by evil characters.", "red");
+        if (item.IsCursed) DisplayMessage($"The {item.Name} is CURSED!", "darkred");
     }
     
     private void BuyHealingPotions(Character player)
@@ -489,28 +495,30 @@ public partial class MagicShopLocation : BaseLocation
         
         if (player.Gold < potionPrice)
         {
-            DisplayMessage("You don't have enough gold!", ConsoleColor.Red);
+            DisplayMessage("You don't have enough gold!", "red");
             return;
         }
         
         if (player.Healing >= GameConfig.MaxHealingPotions)
         {
-            DisplayMessage("You already have the maximum number of healing potions!", ConsoleColor.Red);
+            DisplayMessage("You already have the maximum number of healing potions!", "red");
             return;
         }
         
         if (maxPotions <= 0)
         {
-            DisplayMessage("You can't afford any potions!", ConsoleColor.Red);
+            DisplayMessage("You can't afford any potions!", "red");
             return;
         }
         
-        DisplayMessage($"Current price is {potionPrice:N0} gold per potion.", ConsoleColor.Gray);
-        DisplayMessage($"You have {player.Gold:N0} gold.", ConsoleColor.Gray);
-        DisplayMessage($"You have {player.Healing} potions.", ConsoleColor.Gray);
+        DisplayMessage($"Current price is {potionPrice:N0} gold per potion.", "gray");
+        DisplayMessage($"You have {player.Gold:N0} gold.", "gray");
+        DisplayMessage($"Current price is {potionPrice:N0} gold per potion.", "gray");
+        DisplayMessage($"You have {player.Gold:N0} gold.", "gray");
+        DisplayMessage($"You have {player.Healing} potions.", "gray");
         DisplayMessage("");
         
-        DisplayMessage($"How many? (max {maxPotions} potions): ", ConsoleColor.Yellow, false);
+        DisplayMessage($"How many? (max {maxPotions} potions): ", "yellow", false);
         string input = Console.ReadLine();
         
         if (int.TryParse(input, out int quantity) && quantity > 0 && quantity <= maxPotions)
@@ -522,17 +530,17 @@ public partial class MagicShopLocation : BaseLocation
                 player.Gold -= totalCost;
                 player.Healing += quantity;
                 
-                DisplayMessage($"Ok, it's a deal. You buy {quantity} potions.", ConsoleColor.Green);
-                DisplayMessage($"Total cost: {totalCost:N0} gold.", ConsoleColor.Gray);
+                DisplayMessage($"Ok, it's a deal. You buy {quantity} potions.", "green");
+                DisplayMessage($"Total cost: {totalCost:N0} gold.", "gray");
             }
             else
             {
-                DisplayMessage($"{_ownerName} looks at you and laughs...Who are you trying to fool?", ConsoleColor.Red);
+                DisplayMessage($"{_ownerName} looks at you and laughs...Who are you trying to fool?", "red");
             }
         }
         else
         {
-            DisplayMessage("Aborted.", ConsoleColor.Red);
+            DisplayMessage("Aborted.", "red");
         }
     }
     
@@ -553,24 +561,24 @@ public partial class MagicShopLocation : BaseLocation
         };
         
         var response = responses[new Random().Next(responses.Length)];
-        DisplayMessage($"{_ownerName} says:", ConsoleColor.Cyan);
-        DisplayMessage($"'{response}'", ConsoleColor.White);
+        DisplayMessage($"{_ownerName} says:", "cyan");
+        DisplayMessage($"'{response}'", "white");
         
         // Special responses based on player status
         if (player.Class == CharacterClass.Magician || player.Class == CharacterClass.Sage)
         {
-            DisplayMessage("", ConsoleColor.Gray);
-            DisplayMessage("I sense magical potential in you. Choose your items carefully.", ConsoleColor.Magenta);
+            DisplayMessage("", "gray");
+            DisplayMessage("I sense magical potential in you. Choose your items carefully.", "magenta");
         }
         else if (player.Darkness > 50)
         {
-            DisplayMessage("", ConsoleColor.Gray);
-            DisplayMessage("Your aura is... interesting. Perhaps you'd be interested in some darker artifacts?", ConsoleColor.DarkRed);
+            DisplayMessage("", "gray");
+            DisplayMessage("Your aura is... interesting. Perhaps you'd be interested in some darker artifacts?", "darkred");
         }
         else if (player.Chivalry > 50)
         {
-            DisplayMessage("", ConsoleColor.Gray);
-            DisplayMessage("A noble spirit! I have some blessed items that might serve you well.", ConsoleColor.Blue);
+            DisplayMessage("", "gray");
+            DisplayMessage("A noble spirit! I have some blessed items that might serve you well.", "blue");
         }
     }
     
@@ -610,5 +618,10 @@ public partial class MagicShopLocation : BaseLocation
     public static List<Item> GetMagicInventory()
     {
         return new List<Item>(_magicInventory);
+    }
+    
+    private void DisplayMessage(string message, string color = "white")
+    {
+        terminal.WriteLine(message, color);
     }
 } 

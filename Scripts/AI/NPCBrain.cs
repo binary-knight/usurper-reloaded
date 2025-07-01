@@ -68,7 +68,7 @@ public class NPCBrain
     {
         switch (owner.Class)
         {
-            case CharacterClass.Fighter:
+            case CharacterClass.Warrior:
                 goals.AddGoal(new Goal("Maintain Good Equipment", GoalType.Economic, 0.7f));
                 goals.AddGoal(new Goal("Find Better Weapons", GoalType.Economic, 0.8f));
                 break;
@@ -297,7 +297,7 @@ public class NPCBrain
         // Pascal class-based shopping logic
         switch (owner.Class)
         {
-            case CharacterClass.Fighter:
+            case CharacterClass.Warrior:
                 if (owner.WeaponPower < owner.Level * 20)
                     shoppingGoals.Add(new Goal("Buy Better Weapon", GoalType.Economic, personality.Greed));
                 if (owner.ArmorClass < owner.Level * 15)

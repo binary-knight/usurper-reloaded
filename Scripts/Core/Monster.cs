@@ -57,6 +57,29 @@ public class Monster
     public bool IsUnique { get; set; } = false;
     public bool CanSpeak { get; set; } = false;         // From Pascal mon_talk setting
     
+    // Additional properties for API compatibility
+    public int Armour { get; set; }
+    public int Special { get; set; }
+    public int Undead { get; set; }
+    
+    // Additional properties for API compatibility
+    public string WeaponName { get; set; } = "";
+    public int WeaponId { get; set; }
+    public string ArmorName { get; set; } = "";
+    public int ArmorId { get; set; }
+    public int Level { get; set; } = 1;
+    
+    // Combat properties for AdvancedCombatEngine
+    public long WeaponPower { get; set; }       // Weapon power (settable)
+    public long Gold { get; set; }              // Gold carried by monster
+    public bool CanGrabWeapon { get; set; } = false;  // Can steal weapons
+    public bool CanGrabArmor { get; set; } = false;   // Can steal armor
+    
+    // Additional missing properties for API compatibility
+    public long Experience { get; set; }        // Experience points given when defeated
+    public long ArmorPower { get; set; }        // Armor power (settable)
+    public long MaxHP { get; set; }             // Maximum hit points
+    
     /// <summary>
     /// Constructor for creating a monster
     /// </summary>

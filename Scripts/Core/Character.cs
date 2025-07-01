@@ -18,7 +18,7 @@ public class Character
     public long Gold { get; set; }                  // gold in hand
     public long HP { get; set; }                    // hitpoints
     public long Experience { get; set; }            // experience
-    public long Level { get; set; }                 // level
+    public int Level { get; set; } = 1;
     public long BankGold { get; set; }              // gold in bank
     public long Chivalry { get; set; }              // chivalry
     public long Darkness { get; set; }              // darkness
@@ -57,6 +57,8 @@ public class Character
     public long Charisma { get; set; }              // charisma
     public long Dexterity { get; set; }             // dexterity
     public long Wisdom { get; set; }                // wisdom
+    public long Intelligence { get; set; }          // intelligence
+    public long Constitution { get; set; }          // constitution  
     public long WeapPow { get; set; }               // weapon power
     public long ArmPow { get; set; }                // armor power
     
@@ -221,6 +223,30 @@ public class Character
     public DateTime LastConfession { get; set; } = DateTime.MinValue; // Last confession
     public int SacrificesMade { get; set; } = 0;       // Total sacrifices to gods
     
+    // Additional compatibility properties
+    public int QuestsLeft { get; set; } = 5;
+    public List<Quest> ActiveQuests { get; set; } = new();
+    public int DrinkslLeft { get; set; } = 5;
+    public long WeaponPower { get; set; }
+    public long ArmorClass { get; set; }
+    public int WantedLvl { get; set; } = 0;  // Wanted level for crime tracking
+    
+    // Missing inventory system
+    public List<Item> Inventory { get; set; } = new();
+    
+    // Current values (convenience properties)
+    public long CurrentHP 
+    { 
+        get => HP; 
+        set => HP = value; 
+    }
+    
+    public long CurrentMana 
+    { 
+        get => Mana; 
+        set => Mana = value; 
+    }
+    
     // Constructor to initialize lists
     public Character()
     {
@@ -280,6 +306,9 @@ public class Character
     public string Name => Name2; // Main game name
     public string RealName => Name1; // BBS name
     public string KingName => King ? DisplayName : "";
+    
+    public DateTime LastLogin { get; set; }
+    public DateTime Created { get; set; } = DateTime.Now;
 }
 
 /// <summary>

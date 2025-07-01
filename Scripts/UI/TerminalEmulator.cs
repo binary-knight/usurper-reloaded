@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Text;
+using System.Linq;
 
 public partial class TerminalEmulator : Control
 {
@@ -18,29 +19,40 @@ public partial class TerminalEmulator : Control
     private TaskCompletionSource<string> inputAwaiter;
     private int cursorX = 0, cursorY = 0;
     
+    // Static instance property for compatibility
+    public static TerminalEmulator Instance { get; private set; }
+    
     // ANSI color mappings
     private readonly Dictionary<string, Color> ansiColors = new Dictionary<string, Color>
     {
-        ["black"] = new Color(0, 0, 0),
-        ["red"] = new Color(0.67f, 0, 0),
-        ["green"] = new Color(0, 0.67f, 0),
-        ["yellow"] = new Color(0.67f, 0.67f, 0),
-        ["blue"] = new Color(0, 0, 0.67f),
-        ["magenta"] = new Color(0.67f, 0, 0.67f),
-        ["cyan"] = new Color(0, 0.67f, 0.67f),
-        ["white"] = new Color(0.67f, 0.67f, 0.67f),
-        ["gray"] = new Color(0.33f, 0.33f, 0.33f),
-        ["bright_red"] = new Color(1, 0, 0),
-        ["bright_green"] = new Color(0, 1, 0),
-        ["bright_yellow"] = new Color(1, 1, 0),
-        ["bright_blue"] = new Color(0, 0, 1),
-        ["bright_magenta"] = new Color(1, 0, 1),
-        ["bright_cyan"] = new Color(0, 1, 1),
-        ["bright_white"] = new Color(1, 1, 1)
+        { "black", Color.Black },
+        { "darkred", Color.FromHtml("#800000") },
+        { "darkgreen", Color.FromHtml("#008000") },
+        { "darkyellow", Color.FromHtml("#808000") },
+        { "darkblue", Color.FromHtml("#000080") },
+        { "darkmagenta", Color.FromHtml("#800080") },
+        { "darkcyan", Color.FromHtml("#008080") },
+        { "gray", Color.FromHtml("#C0C0C0") },
+        { "darkgray", Color.FromHtml("#808080") },
+        { "red", Color.Red },
+        { "green", Color.Green },
+        { "yellow", Color.Yellow },
+        { "blue", Color.Blue },
+        { "magenta", Color.Magenta },
+        { "cyan", Color.Cyan },
+        { "white", Color.White },
+        { "bright_white", Color.White },
+        { "bright_red", Color.FromHtml("#FF6060") },
+        { "bright_green", Color.FromHtml("#60FF60") },
+        { "bright_yellow", Color.FromHtml("#FFFF60") },
+        { "bright_blue", Color.FromHtml("#6060FF") },
+        { "bright_magenta", Color.FromHtml("#FF60FF") },
+        { "bright_cyan", Color.FromHtml("#60FFFF") }
     };
     
     public override void _Ready()
     {
+        Instance = this; // Set static instance for compatibility
         SetupDisplay();
         SetupInput();
     }
@@ -54,7 +66,7 @@ public partial class TerminalEmulator : Control
         display.FitContent = true;
         
         // Try to load DOS font, fall back to monospace
-        if (FileAccess.FileExists("res://Assets/Fonts/perfect_dos_vga_437.ttf"))
+        if (Godot.FileAccess.FileExists("res://Assets/Fonts/perfect_dos_vga_437.ttf"))
         {
             dosFont = GD.Load<Font>("res://Assets/Fonts/perfect_dos_vga_437.ttf");
         }
@@ -90,12 +102,27 @@ public partial class TerminalEmulator : Control
     
     public void WriteLine(string text, string color = "white")
     {
-        var colorCode = ansiColors.ContainsKey(color) ? 
-            ansiColors[color].ToHtml() : ansiColors["white"].ToHtml();
-            
-        display.AppendText($"[color=#{colorCode}]{text}[/color]\n");
-        cursorY++;
-        cursorX = 0;
+        if (display != null)
+        {
+            string formattedText = $"[color={color}]{text}[/color]";
+            display.Text += formattedText + "\n";
+        }
+        else
+        {
+            Console.WriteLine(text);
+        }
+    }
+    
+    // Overload for cases with no text parameter
+    public void WriteLine()
+    {
+        WriteLine("", "white");
+    }
+    
+    // Overload for single string parameter  
+    public void WriteLine(string text)
+    {
+        WriteLine(text, "white");
     }
     
     public void Write(string text, string color = "white")
@@ -171,9 +198,9 @@ public partial class TerminalEmulator : Control
     public void ShowASCIIArt(string artName)
     {
         var artPath = $"res://Assets/ASCII/{artName}.ans";
-        if (FileAccess.FileExists(artPath))
+        if (Godot.FileAccess.FileExists(artPath))
         {
-            var file = FileAccess.Open(artPath, FileAccess.ModeFlags.Read);
+            var file = Godot.FileAccess.Open(artPath, Godot.FileAccess.ModeFlags.Read);
             var content = file.GetAsText();
             file.Close();
             
@@ -287,4 +314,207 @@ public partial class TerminalEmulator : Control
     
     // Additional compatibility methods
     public void Clear() => ClearScreen();
+    
+    // Additional missing async methods
+    public async Task<string> GetInputAsync(string prompt = "")
+    {
+        return await GetInput(prompt);
+    }
+    
+    public async Task<string> ReadLineAsync()
+    {
+        return await GetInput("");
+    }
+    
+    public async Task<string> ReadKeyAsync()
+    {
+        return await GetInput("");
+    }
+    
+    // Additional missing async methods for API compatibility
+    public async Task WriteLineAsync(string text = "")
+    {
+        WriteLine(text);
+        await Task.CompletedTask;
+    }
+    
+    public async Task WriteColorLineAsync(string text, string color)
+    {
+        WriteLine(text, color);
+        await Task.CompletedTask;
+    }
+    
+    public async Task WriteAsync(string text)
+    {
+        Write(text);
+        await Task.CompletedTask;
+    }
+    
+    public async Task WriteColorAsync(string text, string color)
+    {
+        Write(text, color);
+        await Task.CompletedTask;
+    }
+    
+    public async Task<string> GetCharAsync()
+    {
+        return await GetKeyInput();
+    }
+    
+    // Missing methods that are being called throughout the codebase
+    public async Task<bool> ConfirmAsync(string message = "Are you sure? (Y/N): ")
+    {
+        while (true)
+        {
+            WriteLine(message, "yellow");
+            var input = await GetInput();
+            var response = input.ToUpper().Trim();
+            
+            if (response == "Y" || response == "YES")
+                return true;
+            if (response == "N" || response == "NO")
+                return false;
+                
+            WriteLine("Please answer Y or N.", "red");
+        }
+    }
+    
+    // Overload for ConfirmAsync that takes a boolean parameter
+    public async Task<bool> ConfirmAsync(string message, bool defaultValue)
+    {
+        while (true)
+        {
+            string prompt = defaultValue ? $"{message} (Y/n): " : $"{message} (y/N): ";
+            WriteLine(prompt, "yellow");
+            var input = await GetInput();
+            var response = input.ToUpper().Trim();
+            
+            if (string.IsNullOrEmpty(response))
+                return defaultValue;
+            
+            if (response == "Y" || response == "YES")
+                return true;
+            if (response == "N" || response == "NO")
+                return false;
+                
+            WriteLine("Please answer Y or N.", "red");
+        }
+    }
+    
+    public async Task<string> GetStringAsync(string prompt = "")
+    {
+        return await GetInput(prompt);
+    }
+    
+    public async Task<int> GetNumberInput(string prompt = "", int min = 0, int max = int.MaxValue)
+    {
+        while (true)
+        {
+            var input = await GetInput(prompt);
+            if (int.TryParse(input, out int result))
+            {
+                if (result >= min && result <= max)
+                    return result;
+                WriteLine($"Please enter a number between {min} and {max}.", "red");
+            }
+            else
+            {
+                WriteLine("Please enter a valid number.", "red");
+            }
+        }
+    }
+    
+    // Add DisplayMessage method to handle ConsoleColor parameters
+    public void DisplayMessage(string message, ConsoleColor color, bool newLine = true)
+    {
+        string colorName = color switch
+        {
+            ConsoleColor.Red => "red",
+            ConsoleColor.Green => "green",
+            ConsoleColor.Blue => "blue",
+            ConsoleColor.Yellow => "yellow",
+            ConsoleColor.Cyan => "cyan",
+            ConsoleColor.Magenta => "magenta",
+            ConsoleColor.White => "white",
+            ConsoleColor.Gray => "gray",
+            ConsoleColor.DarkGray => "darkgray",
+            ConsoleColor.DarkRed => "darkred",
+            ConsoleColor.DarkGreen => "darkgreen",
+            ConsoleColor.DarkBlue => "darkblue",
+            ConsoleColor.DarkYellow => "darkyellow",
+            ConsoleColor.DarkCyan => "darkcyan",
+            ConsoleColor.DarkMagenta => "darkmagenta",
+            ConsoleColor.Black => "black",
+            _ => "white"
+        };
+        
+        if (newLine)
+            WriteLine(message, colorName);
+        else
+            Write(message, colorName);
+    }
+    
+    public void DisplayMessage(string message, string color, bool newLine = true)
+    {
+        if (newLine)
+            WriteLine(message, color);
+        else
+            Write(message, color);
+    }
+    
+    // Overload for DisplayMessage that takes 3 arguments with ConsoleColor
+    public void DisplayMessage(string message, string color, ConsoleColor backgroundColor)
+    {
+        // For now, ignore the background color and just display the message
+        WriteLine(message, color);
+    }
+    
+    public void DisplayMessage(string message)
+    {
+        WriteLine(message, "white");
+    }
+
+    // Additional missing API methods for compatibility
+    public string ReadLine()
+    {
+        // Synchronous version - not ideal but needed for compatibility
+        return GetInput().Result;
+    }
+
+    public string ReadKey()
+    {
+        // Synchronous version - not ideal but needed for compatibility
+        return GetKeyInput().Result;
+    }
+
+    public async Task ClearScreenAsync()
+    {
+        ClearScreen();
+        await Task.CompletedTask;
+    }
+
+    public static string ColorWhite = "white";
+    public static string ColorCyan = "cyan";
+    public static string ColorGreen = "green";
+    public static string ColorRed = "red";
+    public static string ColorYellow = "yellow";
+    public static string ColorBlue = "blue";
+    public static string ColorMagenta = "magenta";
+    public static string ColorDarkGray = "darkgray";
+    
+    // Missing methods causing CS1061 errors
+    public void ShowANSIArt(string artName)
+    {
+        ShowASCIIArt(artName); // Delegate to existing method
+    }
+    
+    public async Task WaitForKey()
+    {
+        await GetKeyInput();
+    }
+    
+    public async Task WaitForKey(string message)
+    {
+        await PressAnyKey(message);
+    }
 } 

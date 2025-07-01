@@ -2,6 +2,24 @@ using UsurperRemake.Utils;
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using UsurperRemake;
+
+/// <summary>
+/// NPC Action types for behavior system
+/// </summary>
+public enum NPCActionType
+{
+    Idle,
+    MoveTo,
+    Combat,
+    Shop,
+    Socialize,
+    Rest,
+    Patrol,
+    Quest
+}
 
 /// <summary>
 /// NPC class that extends Character with AI behavior
@@ -38,6 +56,17 @@ public class NPC : Character
     public bool CanInteract => IsAwake && IsAvailable && !IsInConversation;
     public string Location => CurrentLocation;  // Pascal compatibility
     public bool IsNPC => true;                  // For compatibility checks
+    
+    // Additional properties for world simulation
+    public List<string> KnownCharacters { get; set; } = new();
+    public List<string> Enemies { get; set; } = new();
+    public List<string> GangMembers { get; set; } = new();
+    public string GangId { get; set; } = "";
+    public bool ControlsTurf { get; set; }
+    
+    // Missing properties for API compatibility
+    public string Id { get; set; } = Guid.NewGuid().ToString();  // Unique identifier
+    public string TeamPassword { get; set; } = "";               // Team password for joining
     
     /// <summary>
     /// Constructor for creating a new NPC
@@ -410,7 +439,7 @@ public class NPC : Character
     {
         switch (Class)
         {
-            case CharacterClass.Fighter:
+            case CharacterClass.Warrior:
                 if (WeaponPower < Level * 20)
                     return new Goal("Buy Better Weapon", GoalType.Economic, Personality.Greed);
                 if (ArmorClass < Level * 15)
@@ -631,5 +660,66 @@ public class NPC : Character
             "castle" => 0.2f,
             _ => 0.1f
         };
+    }
+    
+    // Missing methods for API compatibility
+    public void UpdateLocation(string newLocation)
+    {
+        Location = newLocation;
+    }
+    
+    public bool CanAfford(long cost)
+    {
+        return Gold >= cost;
+    }
+    
+    public void SpendGold(long amount)
+    {
+        Gold = Math.Max(0, Gold - amount);
+    }
+    
+    public void GainGold(long amount)
+    {
+        Gold += amount;
+    }
+    
+    public void AddRelationship(string characterId, int relationValue)
+    {
+        // Implementation for relationship tracking
+    }
+    
+    public long GetAttackPower()
+    {
+        return WeaponPower + (Strength / 2);
+    }
+    
+    public long GetArmorClass()
+    {
+        return ArmorClass + (Defence / 3);
+    }
+    
+    public void TakeDamage(long damage)
+    {
+        HP = Math.Max(0, HP - damage);
+    }
+    
+    public void SetState(object state)
+    {
+        // Implementation for NPC state management
+    }
+    
+    public void Heal(long amount)
+    {
+        HP = Math.Min(MaxHP, HP + amount);
+    }
+    
+    public void GainExperience(long exp)
+    {
+        Experience += exp;
+    }
+    
+    public void ChangeActivity(object activity)
+    {
+        // Implementation for activity changes
     }
 } 

@@ -1,3 +1,4 @@
+using UsurperRemake;
 using UsurperRemake.Utils;
 using Godot;
 using System;
@@ -140,7 +141,7 @@ public class NPCMaintenanceEngine : Node
         
         switch (npc.Class)
         {
-            case CharacterClass.Fighter:
+            case CharacterClass.Warrior:
                 if (npc.WeaponPower < npc.Level * 20)
                     goals.Add("weapon");
                 if (npc.ArmorClass < npc.Level * 15)
@@ -499,7 +500,7 @@ public class NPCMaintenanceEngine : Node
     /// </summary>
     private void InitializeShopPreferences()
     {
-        classShopPreferences[CharacterClass.Fighter] = new ShopPreferences
+        classShopPreferences[CharacterClass.Warrior] = new ShopPreferences
         {
             WeaponPriority = 0.9f,
             ArmorPriority = 0.8f,
