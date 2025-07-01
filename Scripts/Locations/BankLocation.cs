@@ -130,7 +130,7 @@ public partial class BankLocation : BaseLocation
                     AttemptBankRobbery(player);
                     break;
                 case "R":
-                    ExitLocation = (GameLocation)0;
+                    // Return to previous menu/location
                     return;
                 case "?":
                     DisplayBankMenu(player);

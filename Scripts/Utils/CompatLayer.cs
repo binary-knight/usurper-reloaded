@@ -52,27 +52,10 @@ public partial class MailSystem
 
 public partial class NewsSystem
 {
-    // Simple three-parameter overload used by TournamentSystem and others
-    public void Newsy(bool newsToAnsi, string header, string message)
-        => Newsy(newsToAnsi, $"{header} – {message}");
-
     // Team-specific wrapper expected by TeamSystem when category is supplied
     public void WriteTeamNews(string headline, string message, GameConfig.NewsCategory category)
         => GenericNews(category, GameConfig.Ansi, $"{headline}: {message}");
-
-    /// <summary>
-    /// Compatibility shim – some modernized modules pass four parameters
-    /// (ansi flag, header, message, extra). Concatenate header/message/extra and
-    /// forward to the existing three-parameter overload.
-    /// </summary>
-    public void Newsy(bool newsToAnsi, string header, string message, string extra = "")
-    {
-        var combined = string.IsNullOrEmpty(extra)
-            ? $"{header}: {message}"
-            : $"{header}: {message} {extra}";
-        // Re-use original two-parameter routine so all file logic stays centralised.
-        Newsy(newsToAnsi, combined);
-    }
+    // NOTE: The 3- and 4-argument Newsy overloads now live in the primary NewsSystem class.
 }
 
 public partial class CombatEngine

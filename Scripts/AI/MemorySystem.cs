@@ -220,6 +220,14 @@ public partial class MemorySystem
         
         return summary;
     }
+
+    // Stub for legacy compatibility: previously processed queued memories elsewhere
+    public void ProcessNewMemories()
+    {
+        // In this simplified port we process memories immediately in RecordEvent,
+        // so there is nothing to do here. Method left intentionally blank for
+        // compatibility with older NPC update loops.
+    }
 }
 
 public class MemoryEvent

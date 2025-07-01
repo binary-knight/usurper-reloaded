@@ -223,30 +223,64 @@ public partial class EmotionalState
     }
     
     /// <summary>
-    /// Get current mood as a string for NPCBrain compatibility
+    /// Get a numeric mood score where 0.0 is very negative and 1.0 is very positive.
+    /// This provides a simple aggregate suitable for quick comparisons (e.g. <c>&lt; 0.3f</c>)
+    /// used by higher-level AI code. The calculation is intentionally lightweight – we
+    /// average intensities of emotions, counting traditionally "positive" emotions as
+    /// positive contributions and "negative" emotions as negative contributions.
     /// </summary>
-    public string GetCurrentMood()
+    public float GetCurrentMood()
     {
-        var dominantEmotion = GetDominantEmotion();
-        if (!dominantEmotion.HasValue)
-            return "neutral";
-            
-        return dominantEmotion.Value switch
+        if (activeEmotions.Count == 0) return 0.5f; // Neutral baseline
+
+        float total = 0f;
+        foreach (var kvp in activeEmotions)
         {
-            EmotionType.Anger => "angry",  
-            EmotionType.Fear => "fearful",
-            EmotionType.Joy => "happy",
-            EmotionType.Sadness => "sad",
-            EmotionType.Confidence => "confident",
-            EmotionType.Greed => "greedy",
-            EmotionType.Gratitude => "grateful",
-            EmotionType.Loneliness => "lonely",
-            EmotionType.Envy => "envious",
-            EmotionType.Pride => "proud",
-            EmotionType.Hope => "hopeful",
-            EmotionType.Peace => "peaceful",
-            _ => "neutral"
-        };
+            var sign = kvp.Key switch
+            {
+                EmotionType.Joy or EmotionType.Confidence or EmotionType.Gratitude or EmotionType.Hope or EmotionType.Peace => 1f,
+                EmotionType.Anger or EmotionType.Fear or EmotionType.Sadness or EmotionType.Greed or EmotionType.Loneliness or EmotionType.Envy => -1f,
+                _ => 0f
+            };
+
+            total += kvp.Value.Intensity * sign;
+        }
+
+        // Map from [-1,1] range to [0,1]
+        var normalized = (total / activeEmotions.Count + 1f) / 2f;
+        return Math.Clamp(normalized, 0f, 1f);
+    }
+    
+    /// <summary>
+    /// Handle interaction feedback from the NPC brain to optionally modify emotions.
+    /// For now this is a lightweight stub that boosts or reduces certain emotions
+    /// based on the interaction type – primarily to satisfy compiler references.
+    /// </summary>
+    public void ProcessInteraction(InteractionType type, Character other, float importance)
+    {
+        // Very rough heuristic – expand later if needed
+        switch (type)
+        {
+            case InteractionType.Attacked:
+            case InteractionType.Betrayed:
+            case InteractionType.Insulted:
+            case InteractionType.Threatened:
+                AddEmotion(EmotionType.Anger, Math.Min(1f, importance), 120);
+                break;
+            case InteractionType.Helped:
+            case InteractionType.Defended:
+            case InteractionType.Complimented:
+                AddEmotion(EmotionType.Gratitude, Math.Min(1f, importance), 120);
+                break;
+            case InteractionType.SharedDrink:
+            case InteractionType.SharedItem:
+            case InteractionType.Traded:
+                AddEmotion(EmotionType.Joy, Math.Min(0.5f, importance), 60);
+                break;
+            default:
+                // No specific emotional reaction handled
+                break;
+        }
     }
     
     public string GetEmotionalSummary()

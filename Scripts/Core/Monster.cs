@@ -103,7 +103,7 @@ public class Monster
             Name = name,
             HP = hps,
             Strength = strength,
-            Defence = defence,
+            Defence = (int)defence,
             Phrase = phrase,
             GrabWeap = grabweap,
             GrabArm = grabarm,
@@ -161,7 +161,7 @@ public class Monster
             Mana = MaxMana;
             
             // Give some spells to magical monsters
-            for (int i = 0; i < Math.Min(MagicLevel, GameConfig.MaxMSpells); i++)
+            for (int i = 0; i < Math.Min((int)MagicLevel, GameConfig.MaxMSpells); i++)
             {
                 if (GD.Randf() < 0.6f) // 60% chance per spell
                 {

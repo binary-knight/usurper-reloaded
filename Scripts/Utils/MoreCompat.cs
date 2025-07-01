@@ -43,10 +43,7 @@ public static class EmotionalStateCompat
         => state.AddEmotion(type, intensity, 120); // Default 2 hours
 }
 
-public partial class EmotionalState
-{
-    public void ProcessInteraction(InteractionType type, Character other, float importance) { }
-}
+// Removed duplicate EmotionalState.ProcessInteraction stub – real implementation now lives in EmotionalState.cs
 
 public partial class GoalSystem
 {
@@ -123,10 +120,10 @@ public partial class QuestSystem
 #region WorldState extra info
 public partial class WorldState
 {
-    public string TimeOfDay { get; set; } = "day";
-    public int PlayersInArea { get; set; } = 0;
-    public int NPCsInArea { get; set; } = 0;
-    public int DangerLevel { get; set; } = 0;
+    public int TimeOfDay { get; set; } = 12;
+    public List<string> PlayersInArea { get; set; } = new();
+    public List<string> NPCsInArea { get; set; } = new();
+    public float DangerLevel { get; set; } = 0.1f;
 }
 #endregion
 

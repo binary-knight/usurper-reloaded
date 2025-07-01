@@ -6,6 +6,7 @@ using System.IO;
 using FileAccess = Godot.FileAccess;
 using System.Text;
 using System.Globalization;
+using System.Linq;
 
 /// <summary>
 /// News System - Pascal NEWS.PAS and GENNEWS.PAS implementation
@@ -360,6 +361,21 @@ public partial class NewsSystem
         }
         
         return stats;
+    }
+
+    // Overload to support legacy calls: newsSystem.Newsy(false, header, message)
+    public void Newsy(bool newsToAnsi, string header, string message)
+    {
+        // Combine header and message with a space
+        var combined = string.IsNullOrEmpty(header) ? message : $"{header} {message}";
+        Newsy(newsToAnsi, combined);
+    }
+
+    // Overload to support 4-argument legacy calls: newsSystem.Newsy(false, header, message, extra)
+    public void Newsy(bool newsToAnsi, string header, string message, string extra)
+    {
+        var combined = string.Join(" ", new[] { header, message, extra }.Where(s => !string.IsNullOrEmpty(s)));
+        Newsy(newsToAnsi, combined);
     }
 
     #region Private Helper Methods

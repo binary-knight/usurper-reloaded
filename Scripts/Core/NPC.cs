@@ -110,19 +110,19 @@ public partial class NPC : Character
         Personality = PersonalityProfile.GenerateForArchetype(Archetype);
         
         // Initialize memory system
-        Memory = new MemorySystem(this);
+        Memory = new MemorySystem();
         
         // Initialize relationship manager
-        Relationships = new RelationshipManager(this);
+        Relationships = new RelationshipManager();
         
         // Initialize emotional state
         EmotionalState = new EmotionalState();
         
-        // Initialize goal system
-        Goals = new GoalSystem(this, Personality);
+        // Initialize goal system (stubbed dependency injection for now)
+        Goals = new GoalSystem(Personality);
         
-        // Create brain with all systems
-        Brain = new NPCBrain();
+        // Create brain with minimal required parameters
+        Brain = new NPCBrain(this, Personality);
         
         // Check if this is a special Pascal NPC
         CheckForSpecialNPC();

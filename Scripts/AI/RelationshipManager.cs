@@ -181,6 +181,13 @@ public partial class RelationshipManager
             .Take(count)
             .ToList();
     }
+
+    // Legacy compatibility helper – no-op for now.
+    public void UpdateRelationships()
+    {
+        // In the original Pascal code this performed periodic decay/maintenance.
+        // For the port we call DecayRelationships() elsewhere, so keep this as a stub.
+    }
 }
 
 public class Relationship

@@ -406,8 +406,8 @@ public static class EnhancedNPCBehaviors
     }
     
     // Additional helper methods
-    private static int GetCurrentEquipmentValue(NPC npc) => npc.WeaponPower + npc.ArmorClass;
-    private static int EstimateItemValue(int itemId) => itemId * 10; // Placeholder
+    private static int GetCurrentEquipmentValue(NPC npc) => (int)(npc.WeaponPower + npc.ArmorClass);
+    private static int EstimateItemValue(int itemId) => (int)(itemId * 10L); // Placeholder
     private static void SendItemNotificationMail(NPC npc, int itemId) { /* Mail implementation */ }
     private static void OptimizeNPCEquipment(NPC npc) { /* Equipment optimization */ }
     private static int CalculateItemCost(string itemType, int level) => level * 50 + random.Next(25, 100);
