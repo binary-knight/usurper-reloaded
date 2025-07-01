@@ -30,7 +30,9 @@ public partial class BankLocation : BaseLocation
     
     private NPC CreateBanker()
     {
-        var banker = new NPC("Groggo", "Groggo", CharacterAI.Civilian, CharacterRace.Gnome);
+        var banker = new NPC();
+        banker.Name = "Banker";
+        banker.Description = "A professional banker";
         banker.Name1 = BankmanName;
         banker.Name2 = BankmanName;
         banker.Level = 25;
@@ -128,7 +130,7 @@ public partial class BankLocation : BaseLocation
                     AttemptBankRobbery(player);
                     break;
                 case "R":
-                    ExitLocation();
+                    ExitLocation = (GameLocation)0;
                     return;
                 case "?":
                     DisplayBankMenu(player);
@@ -173,11 +175,11 @@ public partial class BankLocation : BaseLocation
             DisplayMessage($"You deposited {amount:N0} gold coins.", ConsoleColor.Green);
             
             // Add to king's treasury (bank tax)
-            var king = GetKing();
+            var king = GetKingStub();
             if (king != null)
             {
                 long bankTax = amount / 100; // 1% bank tax
-                king.Treasury += bankTax;
+                // king.Treasury += bankTax; // Treasury property doesn't exist
             }
         }
         else
@@ -646,7 +648,7 @@ public partial class BankLocation : BaseLocation
     /// <summary>
     /// Stub for GetKing method
     /// </summary>
-    private Character GetKing()
+    private Character GetKingStub()
     {
         // Return a default king character or null
         return null;

@@ -80,7 +80,7 @@ public class LocationManager
         locations[GameLocation.Dormitory] = new PlaceholderLocation(GameLocation.Dormitory, "Dormitory", "A place to rest and recover from your adventures.");
         locations[GameLocation.Temple] = new TempleLocation();
         locations[GameLocation.Home] = new PlaceholderLocation(GameLocation.Home, "Your Home", "Your personal dwelling and sanctuary.");
-        locations[GameLocation.Prison] = new PrisonLocation(null, null);
+        locations[GameLocation.Prison] = new PrisonLocation();
         locations[GameLocation.PrisonWalk] = new PlaceholderLocation(GameLocation.PrisonWalk, "Outside Prison", "Walk around the prison grounds.");
         
         // Phase 11: Prison System

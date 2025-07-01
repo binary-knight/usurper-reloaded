@@ -325,7 +325,7 @@ public class Monster
         {
             case 0: // Heal
                 var healAmount = MagicLevel * 10 + GD.RandRange(5, 15);
-                HP = Math.Min(HP + healAmount, GetMaxHP());
+                HP = Math.Min((int)HP + (int)healAmount, (int)GetMaxHP());
                 result.Message = $"{Name} heals for {healAmount} points!";
                 break;
                 

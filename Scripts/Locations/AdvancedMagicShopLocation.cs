@@ -37,7 +37,7 @@ public class AdvancedMagicShopLocation : BaseLocation
     {
         base._Ready();
         locationManager = GetNode<LocationManager>("/root/LocationManager");
-        newsSystem = GetNode<NewsSystem>("/root/NewsSystem");
+        newsSystem = NewsSystem.Instance;
         
         // Load configuration values (Pascal cfg_string calls)
         LoadMagicShopConfig();
@@ -169,7 +169,7 @@ public class AdvancedMagicShopLocation : BaseLocation
         await DisplayMenu(player, false, true, terminal);
         
         var input = await terminal.GetKeyInput();
-        return Convert.ToChar(input);
+        return string.IsNullOrEmpty(input) ? ' ' : input[0];
     }
     
     /// <summary>
@@ -483,9 +483,9 @@ public class AdvancedMagicShopLocation : BaseLocation
         for (int i = 0; i < sellableItems.Count; i++)
         {
             var item = GetItemDetails(player.Item[sellableItems[i]], player.ItemType[sellableItems[i]]);
-            int finalSellPrice = CalculateSellPrice(item);
+            int calculatedSellPrice = CalculateSellPrice(item);
             
-            terminal.WriteLine($"{i + 1}. {GameConfig.ItemColor}{item.Name}{GameConfig.TextColor} - {GameConfig.GoldColor}{finalSellPrice:N0}{GameConfig.TextColor} gold");
+            terminal.WriteLine($"{i + 1}. {GameConfig.ItemColor}{item.Name}{GameConfig.TextColor} - {GameConfig.GoldColor}{calculatedSellPrice:N0}{GameConfig.TextColor} gold");
         }
         
         terminal.Write($"\nWhich item to sell (1-{sellableItems.Count}, 0 to cancel): ");
@@ -498,19 +498,19 @@ public class AdvancedMagicShopLocation : BaseLocation
         
         int itemIndex = sellableItems[choice - 1];
         var itemDetails = GetItemDetails(player.Item[itemIndex], player.ItemType[itemIndex]);
-        int finalSellPrice = CalculateSellPrice(itemDetails);
+        int calculatedSellPrice = CalculateSellPrice(itemDetails);
         
         terminal.WriteLine($"\n{GameConfig.TalkColor}\"{ownerName} examines your {itemDetails.Name}...\"");
         await Task.Delay(1000);
         
-        terminal.WriteLine($"{GameConfig.TalkColor}\"I can offer you {GameConfig.GoldColor}{finalSellPrice:N0}{GameConfig.TextColor} gold for this.\"");
+        terminal.WriteLine($"{GameConfig.TalkColor}\"I can offer you {GameConfig.GoldColor}{calculatedSellPrice:N0}{GameConfig.TextColor} gold for this.\"");
         terminal.Write("Accept offer? (Y/N): ");
         
         var confirm = await terminal.GetKeyInput();
         if (char.ToUpper(confirm) == 'Y')
         {
             // Complete sale
-            player.Gold += finalSellPrice;
+            player.Gold += calculatedSellPrice;
             player.Item[itemIndex] = 0;
             player.ItemType[itemIndex] = ObjType.Head; // Reset to default
             

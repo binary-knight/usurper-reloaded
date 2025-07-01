@@ -18,15 +18,22 @@ public partial class PrisonLocation : BaseLocation
     
     public PrisonLocation(GameEngine engine, TerminalEmulator term) : base("prison")
     {
-        gameEngine = engine ?? throw new System.ArgumentNullException(nameof(engine));
-        terminal = term ?? throw new System.ArgumentNullException(nameof(term));
-        
+        gameEngine = engine;
+        terminal = term;
+        SetLocationProperties();
+    }
+    
+    // Add parameterless constructor for compatibility
+    public PrisonLocation() : base("prison")
+    {
+        gameEngine = GameEngine.Instance;
+        terminal = GameEngine.Instance.Terminal;
         SetLocationProperties();
     }
     
     private void SetLocationProperties()
     {
-        LocationId = (int)GameConfig.Location.Prisoner;
+        LocationId = (int)GameLocation.Prison;
         LocationName = GameConfig.DefaultPrisonName;
         LocationDescription = "You are locked in a cold, damp prison cell";
         AllowedClasses = new HashSet<CharacterClass>(); // All classes allowed
@@ -58,7 +65,8 @@ public partial class PrisonLocation : BaseLocation
     
     private async Task ShowPrisonInterface(Character player)
     {
-        char choice = '?';
+        var input = await terminal.GetLineAsync();
+        char choice = string.IsNullOrEmpty(input) ? ' ' : input[0];
         
         while (choice != 'Q')
         {

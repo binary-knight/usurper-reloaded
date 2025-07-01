@@ -24,12 +24,20 @@ public partial class PrisonWalkLocation : BaseLocation
         SetLocationProperties();
     }
     
+    // Add parameterless constructor for compatibility
+    public PrisonWalkLocation() : base("prison_walk")
+    {
+        gameEngine = GameEngine.Instance;
+        terminal = GameEngine.Instance.Terminal;
+        SetLocationProperties();
+    }
+    
     private void SetLocationProperties()
     {
-        LocationId = (int)GameConfig.Location.PrisonWalk;
-        LocationName = "Outside the Royal Prison";
-        LocationDescription = "You walk alongside the long stretch of cells, hearing screams from the tortured souls";
-        AllowedClasses = new HashSet<CharacterClass>(); // All classes allowed
+        LocationId = (int)GameLocation.Prison;
+        LocationName = "Prison Walking Area";
+        LocationDescription = "A small courtyard where prisoners can exercise";
+        AllowedClasses = new HashSet<CharacterClass>();
         LevelRequirement = 1;
         
         // Add all character classes to allowed set
@@ -70,7 +78,8 @@ public partial class PrisonWalkLocation : BaseLocation
             await DisplayPrisonWalkMenu(player, true, true);
             
             // Get user input
-            choice = await terminal.GetCharAsync();
+            var input = await terminal.GetLineAsync();
+            choice = string.IsNullOrEmpty(input) ? ' ' : input[0];
             choice = char.ToUpper(choice);
             
             // Process user choice

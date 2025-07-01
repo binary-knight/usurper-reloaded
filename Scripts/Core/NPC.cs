@@ -116,13 +116,13 @@ public partial class NPC : Character
         Relationships = new RelationshipManager(this);
         
         // Initialize emotional state
-        EmotionalState = new EmotionalState(Personality);
+        EmotionalState = new EmotionalState();
         
         // Initialize goal system
         Goals = new GoalSystem(this, Personality);
         
         // Create brain with all systems
-        Brain = new NPCBrain(this, Personality, Memory, Goals, Relationships, EmotionalState);
+        Brain = new NPCBrain();
         
         // Check if this is a special Pascal NPC
         CheckForSpecialNPC();

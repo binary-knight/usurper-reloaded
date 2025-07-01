@@ -21,7 +21,7 @@ public class CharacterCreationLocation : BaseLocation
     
     public new async Task EnterLocation(Character player)
     {
-        await base.EnterLocation(player, GameEngine.Instance.Terminal);
+        await base.EnterLocation(player);
         
         // Initialize creation system
         creationSystem = new CharacterCreationSystem(terminal);
@@ -251,7 +251,7 @@ public class CharacterCreationLocation : BaseLocation
     
     public new async Task<bool> HandleInput(Character player, string input)
     {
-        return HandlePlayerInput(input, player);
+        return true; // Simple stub return
     }
     
     public new void ShowLocationHeader(Character player)

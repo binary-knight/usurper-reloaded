@@ -37,7 +37,7 @@ public class AnchorRoadLocation : BaseLocation
         tournamentSystem = GetNode<TournamentSystem>("/root/TournamentSystem");
         questSystem = GetNode<QuestSystem>("/root/QuestSystem");
         teamSystem = GetNode<TeamSystem>("/root/TeamSystem");
-        newsSystem = GetNode<NewsSystem>("/root/NewsSystem");
+        newsSystem = NewsSystem.Instance;
         bankLocation = GetNode<BankLocation>("/root/BankLocation");
         castleLocation = GetNode<CastleLocation>("/root/CastleLocation");
         templeLocation = GetNode<TempleLocation>("/root/TempleLocation");
@@ -134,7 +134,7 @@ public class AnchorRoadLocation : BaseLocation
         while (!done)
         {
             var input = await terminal.GetKeyInput();
-            char choice = char.ToUpper(Convert.ToChar(input));
+            char choice = string.IsNullOrEmpty(input) ? ' ' : input[0];
             
             switch (choice)
             {

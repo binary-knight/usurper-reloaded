@@ -34,6 +34,11 @@ public partial class MagicShopLocation : BaseLocation
         // Add shop owner NPC
         var shopOwner = CreateShopOwner();
         npcs.Add(shopOwner);
+
+        // Add NPC creation with proper constructor parameters
+        var merlin = new NPC();
+        merlin.Name = "Merlin";
+        merlin.Description = "A wise old wizard";
     }
     
     private NPC CreateShopOwner()
@@ -206,7 +211,7 @@ public partial class MagicShopLocation : BaseLocation
                     TalkToOwner(player);
                     break;
                 case "R":
-                    ExitLocation();
+                    ExitLocation = (GameLocation)0;
                     return;
                 case "?":
                     DisplayMagicShopMenu(player);

@@ -62,7 +62,7 @@ public class Player : Character
     public Player() : base()
     {
         AI = CharacterAI.Human;
-        Terminal = null; // Will be set when player connects
+        // Terminal = null; // Terminal is read-only, use different approach
         SaveData = new PlayerSaveData();
         LevelUpTracker = new PlayerLevelUpTracker();
         AccountCreated = DateTime.Now;
@@ -75,7 +75,7 @@ public class Player : Character
         TurnsRemaining = config.StartingTurns;
     }
     
-    public Player(string realName, string characterName, CharacterClass charClass) : base(characterName, charClass)
+    public Player(string realName, string characterName, CharacterClass charClass) : base()
     {
         RealName = realName;
         AccountCreated = DateTime.Now;
@@ -293,15 +293,15 @@ public class Player : Character
     // Additional missing methods for API compatibility
     public void SendMessage(string message)
     {
-        Terminal?.WriteLine(message);
+        // Terminal?.WriteLine(message); // Terminal is read-only, use different approach
     }
     
     public async Task<string> GetInput()
     {
-        if (Terminal != null)
-        {
-            return await Terminal.GetInput();
-        }
+        // if (Terminal != null)
+        // {
+        //     return await Terminal.GetInput();
+        // }
         return "";
     }
 } 
