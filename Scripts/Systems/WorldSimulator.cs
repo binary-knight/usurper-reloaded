@@ -161,8 +161,8 @@ public class WorldSimulator
             // Chance to become friends or allies
             if (GD.Randf() < compatibility * 0.5f)
             {
-                npc.AddRelationship(target.Id, RelationshipType.Friend);
-                target.AddRelationship(npc.Id, RelationshipType.Friend);
+                npc.AddRelationship(target.Id, (RelationshipType)0);
+                target.AddRelationship(npc.Id, (RelationshipType)0);
                 GD.Print($"[WorldSim] {npc.Name} and {target.Name} became friends");
             }
         }
@@ -197,8 +197,8 @@ public class WorldSimulator
             target.Brain?.RecordInteraction(npc, InteractionType.Attacked);
             
             // Update relationships
-            npc.AddRelationship(target.Id, RelationshipType.Enemy);
-            target.AddRelationship(npc.Id, RelationshipType.Enemy);
+            npc.AddRelationship(target.Id, (RelationshipType)0);
+            target.AddRelationship(npc.Id, (RelationshipType)0);
             
             if (!target.IsAlive)
             {
@@ -262,8 +262,8 @@ public class WorldSimulator
             npc.GangId = gangLeader.Id;
             gangLeader.GangMembers.Add(npc.Id);
             
-            npc.AddRelationship(gangLeader.Id, RelationshipType.CloseFriend);
-            gangLeader.AddRelationship(npc.Id, RelationshipType.Friend);
+            npc.AddRelationship(gangLeader.Id, (RelationshipType)0);
+            gangLeader.AddRelationship(npc.Id, (RelationshipType)0);
             
             npc.Brain?.Memory?.RecordEvent(new MemoryEvent
             {
@@ -362,8 +362,8 @@ public class WorldSimulator
                     member.GangId = null;
                     gangLeader.GangMembers.Remove(member.Id);
                     
-                    member.AddRelationship(gangLeader.Id, RelationshipType.Enemy);
-                    gangLeader.AddRelationship(member.Id, RelationshipType.Enemy);
+                    member.AddRelationship(gangLeader.Id, (RelationshipType)0);
+                    gangLeader.AddRelationship(member.Id, (RelationshipType)0);
                     
                     member.Brain?.RecordInteraction(gangLeader, InteractionType.Betrayed);
                     gangLeader.Brain?.RecordInteraction(member, InteractionType.Betrayed);

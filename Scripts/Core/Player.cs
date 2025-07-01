@@ -55,6 +55,10 @@ public class Player : Character
         set => King = value;
     }
     
+    // Add SaveData and LevelUpTracker stubs for compatibility
+    public object SaveData { get; set; } = null;
+    public object LevelUpTracker { get; set; } = null;
+    
     public Player() : base()
     {
         AI = CharacterAI.Human;
@@ -82,24 +86,6 @@ public class Player : Character
         var config = ConfigManager.GetConfig();
         Gold = config.StartingGold;
         TurnsRemaining = config.StartingTurns;
-    }
-    
-    protected new void OnLevelUp()
-    {
-        base.OnLevelUp();
-        
-        // Player-specific level up benefits
-        CheckForNewAbilities();
-        UpdateAchievements();
-        
-        // Announce level up
-        GameEngine.Instance?.Terminal?.WriteLine($"Congratulations! You have reached level {Level}!", "bright_green");
-        
-        // Special level milestones
-        if (Level % 10 == 0)
-        {
-            GameEngine.Instance?.Terminal?.WriteLine($"You have reached a milestone! Level {Level} grants special bonuses.", "bright_yellow");
-        }
     }
     
     private void CheckForNewAbilities()

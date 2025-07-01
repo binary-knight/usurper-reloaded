@@ -38,7 +38,7 @@ public partial class MagicShopLocation : BaseLocation
     
     private NPC CreateShopOwner()
     {
-        var owner = new NPC(_ownerName, _ownerName, CharacterAI.Civilian, CharacterRace.Gnome);
+        var owner = new NPC(_ownerName, _ownerName, (CharacterAI)(int)CharacterAI.Civilian, (CharacterRace)(int)CharacterRace.Gnome);
         owner.Name1 = _ownerName;
         owner.Name2 = _ownerName;
         owner.Level = 30;
