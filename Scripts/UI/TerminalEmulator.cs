@@ -363,10 +363,26 @@ public partial class TerminalEmulator : Control
         await Task.CompletedTask;
     }
     
-    public async Task<string> GetCharAsync()
+    /// <summary>
+    /// Get a single character of input from the user (first character typed).
+    /// </summary>
+    /// <remarks>
+    /// Older Pascal code frequently worked with single-character commands.  Returning the first
+    /// character of the line that the user enters gives the same behaviour while still allowing
+    /// users to press <Enter> as usual.  If the user simply presses <Enter> we return a null-char
+    /// (\0) so the caller can treat it as a cancel/no-input event.
+    /// </remarks>
+    public async Task<char> GetCharAsync()
     {
-        return await GetKeyInput();
+        var input = await GetKeyInput();
+        return string.IsNullOrEmpty(input) ? '\0' : input[0];
     }
+    
+    /// <summary>
+    /// Convenience alias – behaves exactly the same as <see cref="GetCharAsync"/> but has a more
+    /// descriptive name when reading yes/no style keystrokes.
+    /// </summary>
+    public async Task<char> GetKeyCharAsync() => await GetCharAsync();
     
     // Missing methods that are being called throughout the codebase
     public async Task<bool> ConfirmAsync(string message = "Are you sure? (Y/N): ")

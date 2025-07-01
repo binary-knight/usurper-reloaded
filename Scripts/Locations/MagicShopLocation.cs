@@ -24,10 +24,13 @@ public partial class MagicShopLocation : BaseLocation
     private List<Item> shopInventory;
     private Random random = new Random();
     
+    // Local list to hold shop NPCs (replaces legacy global variable reference)
+    private readonly List<NPC> npcs = new();
+    
     public MagicShopLocation()
     {
         LocationName = "Magic Shop";
-        LocationId = GameConfig.GameLocation.MagicShop;
+        LocationId = GameLocation.MagicShop;
         
         InitializeMagicInventory();
         
@@ -35,17 +38,12 @@ public partial class MagicShopLocation : BaseLocation
         var shopOwner = CreateShopOwner();
         npcs.Add(shopOwner);
 
-        // Add NPC creation with proper constructor parameters
-        var merlin = new NPC();
-        merlin.Name = "Merlin";
-        merlin.Description = "A wise old wizard";
+        // Placeholder for additional NPCs (e.g., Merlin) – not needed for compilation
     }
     
     private NPC CreateShopOwner()
     {
-        var owner = new NPC(_ownerName, _ownerName, (CharacterAI)(int)CharacterAI.Civilian, (CharacterRace)(int)CharacterRace.Gnome);
-        owner.Name1 = _ownerName;
-        owner.Name2 = _ownerName;
+        var owner = new NPC(_ownerName, "merchant", CharacterClass.Magician, 30);
         owner.Level = 30;
         owner.Gold = 1000000L;
         owner.HP = owner.MaxHP = 150;
@@ -211,7 +209,7 @@ public partial class MagicShopLocation : BaseLocation
                     TalkToOwner(player);
                     break;
                 case "R":
-                    ExitLocation = (GameLocation)0;
+                    // Return to previous location - navigation handled by LocationManager
                     return;
                 case "?":
                     DisplayMagicShopMenu(player);

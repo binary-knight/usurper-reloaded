@@ -105,8 +105,8 @@ public class GymLocation : BaseLocation
             terminal.WriteLine("(R)eturn to Anchor Road");
             terminal.Write("\nChoice: ");
             
-            var input = await terminal.GetKeyInput();
-            char choice = char.ToUpperInvariant(Convert.ToChar(input));
+            var inputChar = await terminal.GetKeyCharAsync();
+            char choice = char.ToUpperInvariant(inputChar);
             
             switch (choice)
             {
@@ -183,8 +183,8 @@ public class GymLocation : BaseLocation
             terminal.WriteLine("(R)eturn to gym");
             terminal.Write("\nChoice: ");
             
-            var input = await terminal.GetKeyInput();
-            char choice = char.ToUpperInvariant(Convert.ToChar(input));
+            var inputChar = await terminal.GetKeyCharAsync();
+            char choice = char.ToUpperInvariant(inputChar);
             
             switch (choice)
             {
@@ -267,8 +267,8 @@ public class GymLocation : BaseLocation
         terminal.WriteLine("(R)eturn");
         terminal.Write("\nChoice: ");
         
-        var input = await terminal.GetKeyInput();
-        char choice = char.ToUpperInvariant(Convert.ToChar(input));
+        var inputChar = await terminal.GetKeyCharAsync();
+        char choice = char.ToUpperInvariant(inputChar);
         
         switch (choice)
         {
@@ -390,8 +390,8 @@ public class GymLocation : BaseLocation
         terminal.WriteLine("(R)eturn");
         terminal.Write("\nChoice: ");
         
-        var input = await terminal.GetKeyInput();
-        char choice = char.ToUpperInvariant(Convert.ToChar(input));
+        var inputChar = await terminal.GetKeyCharAsync();
+        char choice = char.ToUpperInvariant(inputChar);
         
         switch (choice)
         {
@@ -440,9 +440,9 @@ public class GymLocation : BaseLocation
             string playerName = team[arrayIndex].Name;
             
             terminal.WriteLine($"\nConfirm dropping {GameConfig.PlayerColor}{playerName}{GameConfig.TextColor}? (Y/N)");
-            var confirm = await terminal.GetKeyInput();
+            var confirm = await terminal.GetKeyCharAsync();
             
-            if (char.ToUpperInvariant(Convert.ToChar(confirm)) == 'Y')
+            if (char.ToUpperInvariant(confirm) == 'Y')
             {
                 terminal.WriteLine($"{GameConfig.SuccessColor}{playerName} was sent home!{GameConfig.TextColor}");
                 team[arrayIndex].Name = "";
@@ -548,8 +548,8 @@ public class GymLocation : BaseLocation
         terminal.WriteLine("(C)ancel");
         terminal.Write("\nChoice: ");
         
-        var input = await terminal.GetKeyInput();
-        char choice = char.ToUpperInvariant(Convert.ToChar(input));
+        var inputChar = await terminal.GetKeyCharAsync();
+        char choice = char.ToUpperInvariant(inputChar);
         
         switch (choice)
         {

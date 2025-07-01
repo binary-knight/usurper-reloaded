@@ -365,7 +365,7 @@ public class AnchorRoadLocation : BaseLocation
         
         terminal.WriteLine($"\n{GameConfig.WarningColor}Are you sure you want to abandon town control? (Y/N){GameConfig.TextColor}");
         
-        var confirm = await terminal.GetKeyInput();
+        var confirm = await terminal.GetKeyCharAsync();
         if (char.ToUpper(confirm) == 'Y')
         {
             var result = await teamSystem.AbandonTownControl(player);

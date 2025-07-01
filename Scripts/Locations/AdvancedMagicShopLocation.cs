@@ -355,7 +355,7 @@ public class AdvancedMagicShopLocation : BaseLocation
         terminal.WriteLine($"\nTotal cost: {GameConfig.GoldColor}{totalCost:N0}{GameConfig.TextColor} gold");
         terminal.Write("Confirm purchase? (Y/N): ");
         
-        var confirm = await terminal.GetKeyInput();
+        var confirm = await terminal.GetKeyCharAsync();
         if (char.ToUpper(confirm) != 'Y')
         {
             terminal.WriteLine("Purchase cancelled.");
@@ -506,7 +506,7 @@ public class AdvancedMagicShopLocation : BaseLocation
         terminal.WriteLine($"{GameConfig.TalkColor}\"I can offer you {GameConfig.GoldColor}{calculatedSellPrice:N0}{GameConfig.TextColor} gold for this.\"");
         terminal.Write("Accept offer? (Y/N): ");
         
-        var confirm = await terminal.GetKeyInput();
+        var confirm = await terminal.GetKeyCharAsync();
         if (char.ToUpper(confirm) == 'Y')
         {
             // Complete sale

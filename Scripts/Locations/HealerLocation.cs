@@ -18,7 +18,7 @@ public partial class HealerLocation : BaseLocation
     {
         base._Ready();
         Name = "HealerLocation";
-        LocationId = (int)GameLocation.Healer;
+        LocationId = GameLocation.Healer;
     }
     
     protected new void ProcessPlayerInput(string input)

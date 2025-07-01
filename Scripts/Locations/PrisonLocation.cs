@@ -33,7 +33,7 @@ public partial class PrisonLocation : BaseLocation
     
     private void SetLocationProperties()
     {
-        LocationId = (int)GameLocation.Prison;
+        LocationId = GameLocation.Prison;
         LocationName = GameConfig.DefaultPrisonName;
         LocationDescription = "You are locked in a cold, damp prison cell";
         AllowedClasses = new HashSet<CharacterClass>(); // All classes allowed

@@ -18,10 +18,13 @@ public partial class BankLocation : BaseLocation
     private static long _safeContents = 100000L; // Starting safe contents
     private static List<Character> _activeGuards = new List<Character>();
     
+    // Local collection for bank-related NPCs
+    private readonly List<NPC> npcs = new();
+    
     public BankLocation()
     {
         LocationName = "Bank";
-        LocationId = GameConfig.GameLocation.Bank;
+        LocationId = GameLocation.Bank;
         
         // Add banker NPC
         var banker = CreateBanker();
@@ -58,7 +61,7 @@ public partial class BankLocation : BaseLocation
         base.Enter(player);
         
         // Check if player is fleeing from a robbery
-        if (player.Location == GameConfig.GameLocation.Bank && player.HP <= 0)
+        if (player.Location == (int)GameLocation.Bank && player.HP <= 0)
         {
             DisplayMessage("You stumble into the bank, barely alive from your failed robbery attempt!");
             return;
