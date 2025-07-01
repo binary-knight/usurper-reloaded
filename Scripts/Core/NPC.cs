@@ -693,6 +693,11 @@ public partial class NPC : Character
         // Implementation for relationship tracking
     }
     
+    public void AddRelationship(string characterId, UsurperRemake.RelationshipType relationType)
+    {
+        AddRelationship(characterId, (int)relationType);
+    }
+    
     public long GetAttackPower()
     {
         return WeaponPower + (Strength / 2);
@@ -732,5 +737,10 @@ public partial class NPC : Character
     public void ChangeActivity(UsurperRemake.Activity activity, int intensity)
     {
         // Stub: no behaviour yet
+    }
+    
+    public void ChangeActivity(UsurperRemake.Activity activity, string description)
+    {
+        // Stub for compatibility, no actual behaviour now
     }
 } 

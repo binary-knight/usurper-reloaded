@@ -38,37 +38,11 @@ namespace UsurperRemake
         public string Phrase { get; set; } = "";    // special phrase for the item
         public bool Cursed { get; set; }             // cursed item?
         
-        // Missing properties for compilation
-        public int StrengthRequired { get; set; }    // Strength requirement
+        // Compatibility member – some shop code expects this
+        public long StrengthRequired { get; set; } = 0;
         
-        // Missing methods for compilation
-        public Item Clone()
-        {
-            return new Item
-            {
-                Nr = this.Nr,
-                Name = this.Name,
-                Cost = this.Cost,
-                Value = this.Value,
-                Type = this.Type,
-                MagicType = this.MagicType,
-                IsShopItem = this.IsShopItem,
-                IsIdentified = this.IsIdentified,
-                Strength = this.Strength,
-                Defence = this.Defence,
-                Attack = this.Attack,
-                Dexterity = this.Dexterity,
-                Wisdom = this.Wisdom,
-                OnlyForGood = this.OnlyForGood,
-                OnlyForEvil = this.OnlyForEvil,
-                IsCursed = this.IsCursed,
-                ArmPow = this.ArmPow,
-                WeapPow = this.WeapPow,
-                Phrase = this.Phrase,
-                Cursed = this.Cursed,
-                StrengthRequired = this.StrengthRequired
-            };
-        }
+        // Simple shallow clone required by shop/location code
+        public Item Clone() => (Item) MemberwiseClone();
     }
     
     /// <summary>

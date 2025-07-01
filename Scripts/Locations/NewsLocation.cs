@@ -52,32 +52,26 @@ public class NewsLocation : BaseLocation
             switch (choice)
             {
                 case GameConfig.NewsMenuDaily:
-                case "D":
                     DisplayDailyNews(player);
                     break;
                 
                 case GameConfig.NewsMenuRoyal:
-                case "R":
                     DisplayRoyalNews(player);
                     break;
                 
                 case GameConfig.NewsMenuMarriage:
-                case "M":
                     DisplayMarriageNews(player);
                     break;
                 
                 case GameConfig.NewsMenuBirth:
-                case "B":
                     DisplayBirthNews(player);
                     break;
                 
                 case GameConfig.NewsMenuHoly:
-                case "H":
                     DisplayHolyNews(player);
                     break;
                 
                 case GameConfig.NewsMenuYesterday:
-                case "Y":
                     DisplayYesterdayNews(player);
                     break;
                 

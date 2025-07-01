@@ -21,7 +21,7 @@ namespace UsurperRemake
         Lover = 3
     }
 
-    public enum NPCState { Idle, Patrol, Engage, Flee, Dead }
+    public enum NPCState { Idle, Patrol, Engage, Flee, Unconscious, Dead }
     #endregion
 }
 

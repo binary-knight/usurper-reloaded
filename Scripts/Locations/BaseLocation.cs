@@ -423,6 +423,11 @@ public abstract class BaseLocation
     // ShortDescription used by some legacy locations
     public string ShortDescription { get; set; } = string.Empty;
 
+    // Pascal fields expected by Prison/Temple legacy code
+    public string LocationDescription { get; set; } = string.Empty;
+    public HashSet<CharacterClass> AllowedClasses { get; set; } = new();
+    public int LevelRequirement { get; set; } = 1;
+
     // Legacy single-parameter Enter wrapper
     public virtual async Task Enter(Character player)
     {
@@ -482,5 +487,11 @@ public abstract class BaseLocation
         LocationId = GameLocation.NoWhere;
         Name = string.Empty;
         Description = string.Empty;
+    }
+
+    // Legacy helper referenced by some shop locations
+    protected void ExitLocation()
+    {
+        // simply break – actual navigation handled by LocationManager
     }
 } 

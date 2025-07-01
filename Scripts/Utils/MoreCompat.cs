@@ -123,10 +123,10 @@ public partial class QuestSystem
 #region WorldState extra info
 public partial class WorldState
 {
-    public static string TimeOfDay => "day";
-    public static int PlayersInArea => 0;
-    public static int NPCsInArea => 0;
-    public static int DangerLevel => 0;
+    public string TimeOfDay { get; set; } = "day";
+    public int PlayersInArea { get; set; } = 0;
+    public int NPCsInArea { get; set; } = 0;
+    public int DangerLevel { get; set; } = 0;
 }
 #endregion
 
@@ -134,6 +134,7 @@ public partial class WorldState
 public class LocationChangeException : Exception
 {
     public string Destination { get; }
+    public string NewLocation => Destination;
     public LocationChangeException(string destination) : base($"Change to {destination}") => Destination = destination;
 }
 #endregion

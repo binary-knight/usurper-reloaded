@@ -75,6 +75,7 @@ public partial class MemorySystem
             MemoryType.Complimented => 0.2f,
             MemoryType.Saved => 0.8f,
             MemoryType.Abandoned => -0.5f,
+            MemoryType.SocialInteraction => 0.3f,
             _ => 0.0f
         };
     }
@@ -291,6 +292,7 @@ public enum MemoryType
     LeftGang,
     MadeEnemy,
     MadeFriend,
+    SocialInteraction,
     
     // Economic events
     BoughtItem,
