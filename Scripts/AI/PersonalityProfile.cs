@@ -14,6 +14,13 @@ public class PersonalityProfile
     public float Sociability { get; set; }     // Seeks interaction
     public float Ambition { get; set; }        // Desires power/status
     
+    // Additional traits required by ported modules
+    public float Trustworthiness { get; set; } // Reliability / honesty
+    public float Caution { get; set; }         // Risk-avoidance / carefulness
+    public float Intelligence { get; set; }    // Problem-solving aptitude (for magic shops)
+    public float Mysticism { get; set; }       // Affinity for the arcane
+    public float Patience { get; set; }        // Willingness to wait / endure delays
+    
     // Behavioral modifiers
     public CombatStyle PreferredCombatStyle { get; set; }
     public List<string> Fears { get; set; } = new List<string>();

@@ -134,7 +134,7 @@ public class AnchorRoadLocation : BaseLocation
         while (!done)
         {
             var input = await terminal.GetKeyInput();
-            char choice = char.ToUpper(input);
+            char choice = char.ToUpper(Convert.ToChar(input));
             
             switch (choice)
             {

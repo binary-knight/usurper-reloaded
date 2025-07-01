@@ -270,7 +270,7 @@ public class OnlineDuelSystem : Node
         
         terminal.Write("\nChoose action: ");
         
-        char input = char.ToUpper(await terminal.GetKeyInput());
+        char input = char.ToUpperInvariant(Convert.ToChar(await terminal.GetKeyInput()));
         
         var action = new DuelAction { Type = ParseDuelActionType(input, player) };
         

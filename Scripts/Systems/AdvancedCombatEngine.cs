@@ -306,7 +306,7 @@ public class AdvancedCombatEngine : Node
         terminal.Write("Take it? (Y/N): ");
         var input = await terminal.GetKeyInput();
         
-        if (!string.IsNullOrEmpty(input) && char.ToUpperInvariant(input[0]) == 'Y')
+        if (!string.IsNullOrEmpty(input) && char.ToUpperInvariant(Convert.ToChar(input)) == 'Y')
         {
             // Try to add to player inventory
             if (await TryAddItemToInventory(player, monster.WeaponId, ObjType.Weapon, monster.WeaponName, terminal))
@@ -340,7 +340,7 @@ public class AdvancedCombatEngine : Node
         terminal.Write("Take it? (Y/N): ");
         var input = await terminal.GetKeyInput();
         
-        if (!string.IsNullOrEmpty(input) && char.ToUpperInvariant(input[0]) == 'Y')
+        if (!string.IsNullOrEmpty(input) && char.ToUpperInvariant(Convert.ToChar(input)) == 'Y')
         {
             // Try to add to player inventory
             if (await TryAddItemToInventory(player, monster.ArmorId, ObjType.Abody, monster.ArmorName, terminal))
@@ -697,7 +697,7 @@ public class AdvancedCombatEngine : Node
             terminal.Write("Drop something? (Y/N): ");
             var input = await terminal.GetKeyInput();
             
-            if (char.ToUpper(input) == 'Y')
+            if (char.ToUpperInvariant(Convert.ToChar(input)) == 'Y')
             {
                 // TODO: Implement drop item interface
                 // For now, just say inventory is full

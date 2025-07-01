@@ -18,7 +18,12 @@ public enum NPCActionType
     Socialize,
     Rest,
     Patrol,
-    Quest
+    Quest,
+    Move,
+    Talk,
+    Fight,
+    Trade,
+    Work
 }
 
 /// <summary>

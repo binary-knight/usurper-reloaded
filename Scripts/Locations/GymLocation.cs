@@ -107,7 +107,7 @@ public class GymLocation : BaseLocation
             terminal.Write("\nChoice: ");
             
             var input = await terminal.GetKeyInput();
-            char choice = char.ToUpper(input);
+            char choice = char.ToUpperInvariant(Convert.ToChar(input));
             
             switch (choice)
             {
@@ -185,7 +185,7 @@ public class GymLocation : BaseLocation
             terminal.Write("\nChoice: ");
             
             var input = await terminal.GetKeyInput();
-            char choice = char.ToUpper(input);
+            char choice = char.ToUpperInvariant(Convert.ToChar(input));
             
             switch (choice)
             {
@@ -269,7 +269,7 @@ public class GymLocation : BaseLocation
         terminal.Write("\nChoice: ");
         
         var input = await terminal.GetKeyInput();
-        char choice = char.ToUpper(input);
+        char choice = char.ToUpperInvariant(Convert.ToChar(input));
         
         switch (choice)
         {
@@ -392,7 +392,7 @@ public class GymLocation : BaseLocation
         terminal.Write("\nChoice: ");
         
         var input = await terminal.GetKeyInput();
-        char choice = char.ToUpper(input);
+        char choice = char.ToUpperInvariant(Convert.ToChar(input));
         
         switch (choice)
         {
@@ -443,7 +443,7 @@ public class GymLocation : BaseLocation
             terminal.WriteLine($"\nConfirm dropping {GameConfig.PlayerColor}{playerName}{GameConfig.TextColor}? (Y/N)");
             var confirm = await terminal.GetKeyInput();
             
-            if (char.ToUpper(confirm) == 'Y')
+            if (char.ToUpperInvariant(Convert.ToChar(confirm)) == 'Y')
             {
                 terminal.WriteLine($"{GameConfig.SuccessColor}{playerName} was sent home!{GameConfig.TextColor}");
                 team[arrayIndex].Name = "";
@@ -550,7 +550,7 @@ public class GymLocation : BaseLocation
         terminal.Write("\nChoice: ");
         
         var input = await terminal.GetKeyInput();
-        char choice = char.ToUpper(input);
+        char choice = char.ToUpperInvariant(Convert.ToChar(input));
         
         switch (choice)
         {

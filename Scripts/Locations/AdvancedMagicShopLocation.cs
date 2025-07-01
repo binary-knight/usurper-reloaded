@@ -169,7 +169,7 @@ public class AdvancedMagicShopLocation : BaseLocation
         await DisplayMenu(player, false, true, terminal);
         
         var input = await terminal.GetKeyInput();
-        return char.ToUpper(input);
+        return char.ToUpperInvariant(Convert.ToChar(input));
     }
     
     /// <summary>
