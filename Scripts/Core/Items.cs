@@ -239,6 +239,32 @@ public class Item
     /// Check if item is broken
     /// </summary>
     public bool IsBroken => Durability <= 0;
+
+    // Compatibility aliases expected by newer location/shop code
+    /// <summary>
+    /// Newer modules use <c>IsShopItem</c>; map it to the legacy <c>Shop</c> flag.
+    /// </summary>
+    public bool IsShopItem
+    {
+        get => Shop;
+        set => Shop = value;
+    }
+
+    /// <summary>
+    /// Some shop calculations refer to <c>StrengthRequired</c> – this is equivalent to the
+    /// original <c>StrengthNeeded</c> field (kept for Pascal compatibility).
+    /// Using <see langword="long"/> keeps the same signature as the simplified <c>Item</c> shim.
+    /// </summary>
+    public long StrengthRequired
+    {
+        get => StrengthNeeded;
+        set => StrengthNeeded = (int)value;
+    }
+
+    /// <summary>
+    /// Quick shallow-copy helper used by shop/quest code to duplicate items.
+    /// </summary>
+    public Item Clone() => (Item) MemberwiseClone();
 }
 
 /// <summary>

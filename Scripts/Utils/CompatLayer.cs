@@ -74,11 +74,6 @@ public partial class CombatEngine
         => Task.FromResult(new PvPCombatResult { Winner = attacker, Rounds = 1 });
 }
 
-public partial class NPC
-{
-    // Overload that converts enum to the original int-based relationship scale
-    public void AddRelationship(string characterId, UsurperRemake.RelationshipType relation)
-        => AddRelationship(characterId, (int)relation);
-}
+// Removed duplicate NPC.AddRelationship overload – now defined in NPC.cs
 
 #endregion 
