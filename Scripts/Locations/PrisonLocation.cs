@@ -3,6 +3,7 @@ using Godot;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Linq;
+using System;
 
 /// <summary>
 /// Prison Location - The prisoner's perspective inside the Royal Prison

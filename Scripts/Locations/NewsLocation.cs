@@ -76,7 +76,6 @@ public class NewsLocation : BaseLocation
                     break;
                 
                 case GameConfig.NewsMenuReturn:
-                case "Q":
                 case "QUIT":
                 case "EXIT":
                 case "RETURN":

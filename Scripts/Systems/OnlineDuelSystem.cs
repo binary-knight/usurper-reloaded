@@ -49,8 +49,9 @@ public class OnlineDuelSystem : Node
     public override void _Ready()
     {
         combatEngine = GetNode<AdvancedCombatEngine>("/root/AdvancedCombatEngine");
-        mailSystem = GetNode<MailSystem>("/root/MailSystem");
-        newsSystem = GetNode<NewsSystem>("/root/NewsSystem");
+        // Use static instances instead
+        // mailSystem = MailSystem.Instance;
+        // newsSystem = NewsSystem.Instance;
     }
     
     /// <summary>

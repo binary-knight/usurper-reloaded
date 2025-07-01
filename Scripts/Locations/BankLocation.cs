@@ -128,7 +128,7 @@ public partial class BankLocation : BaseLocation
                     AttemptBankRobbery(player);
                     break;
                 case "R":
-                    ExitLocation(player, GameConfig.GameLocation.MainStreet);
+                    ExitLocation();
                     return;
                 case "?":
                     DisplayBankMenu(player);
@@ -173,7 +173,7 @@ public partial class BankLocation : BaseLocation
             DisplayMessage($"You deposited {amount:N0} gold coins.", ConsoleColor.Green);
             
             // Add to king's treasury (bank tax)
-            var king = GameEngine.Instance.GetKing();
+            var king = GetKing();
             if (king != null)
             {
                 long bankTax = amount / 100; // 1% bank tax
@@ -641,5 +641,14 @@ public partial class BankLocation : BaseLocation
     public static int GetActiveGuardCount()
     {
         return _activeGuards.Count(g => g.BankGuard && g.HP > 0);
+    }
+
+    /// <summary>
+    /// Stub for GetKing method
+    /// </summary>
+    private Character GetKing()
+    {
+        // Return a default king character or null
+        return null;
     }
 } 

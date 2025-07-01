@@ -11,6 +11,7 @@ using Godot;
 public class CharacterCreationLocation : BaseLocation
 {
     private CharacterCreationSystem creationSystem;
+    private LocationManager locationManager = LocationManager.Instance;
     
     public CharacterCreationLocation() : base("Character Creation", GameLocation.NoWhere)
     {
@@ -20,7 +21,7 @@ public class CharacterCreationLocation : BaseLocation
     
     public new async Task EnterLocation(Character player)
     {
-        await base.EnterLocation(player);
+        await base.EnterLocation(player, GameEngine.Instance.Terminal);
         
         // Initialize creation system
         creationSystem = new CharacterCreationSystem(terminal);
@@ -250,8 +251,7 @@ public class CharacterCreationLocation : BaseLocation
     
     public new async Task<bool> HandleInput(Character player, string input)
     {
-        // This location doesn't handle direct input - it's all automated
-        return await base.HandleInput(player, input);
+        return HandlePlayerInput(input, player);
     }
     
     public new void ShowLocationHeader(Character player)

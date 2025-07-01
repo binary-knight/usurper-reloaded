@@ -107,7 +107,7 @@ public partial class TempleLocation : BaseLocation
             }
         }
         
-        return "main_street";
+        return GameLocation.MainStreet;
     }
     
     /// <summary>

@@ -858,6 +858,26 @@ public class NPCBrain
         
         return summary;
     }
+
+    /// <summary>
+    /// Generate a greeting for a player based on personality and relationship
+    /// </summary>
+    public string GenerateGreeting(Character player, object relationship)
+    {
+        // Simple greeting based on relationship level
+        if (relationship is int relValue)
+        {
+            return relValue switch
+            {
+                > 50 => "Hello, my friend!",
+                > 0 => "Greetings.",
+                > -50 => "What do you want?",
+                _ => "Stay away from me!"
+            };
+        }
+        
+        return "Hello there.";
+    }
 }
 
 // Supporting classes and enums

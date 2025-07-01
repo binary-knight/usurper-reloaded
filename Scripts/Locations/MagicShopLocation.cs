@@ -206,7 +206,7 @@ public partial class MagicShopLocation : BaseLocation
                     TalkToOwner(player);
                     break;
                 case "R":
-                    ExitLocation(player, GameConfig.GameLocation.MainStreet);
+                    ExitLocation();
                     return;
                 case "?":
                     DisplayMagicShopMenu(player);

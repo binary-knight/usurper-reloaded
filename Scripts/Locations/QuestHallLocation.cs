@@ -11,7 +11,7 @@ using Godot;
 /// </summary>
 public class QuestHallLocation : BaseLocation
 {
-    public QuestHallLocation(TerminalEmulator terminal) : base(terminal)
+    public QuestHallLocation(TerminalEmulator terminal) : base()
     {
     }
     

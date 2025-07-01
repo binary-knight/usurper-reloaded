@@ -50,8 +50,8 @@ public class TeamCornerLocation : BaseLocation
     {
         base._Ready();
         teamSystem = GetNode<TeamSystem>("/root/TeamSystem");
-        newsSystem = GetNode<NewsSystem>("/root/NewsSystem");
-        mailSystem = GetNode<MailSystem>("/root/MailSystem");
+        newsSystem = NewsSystem.Instance;
+        // MailSystem is static - no instantiation needed
         relationshipSystem = GetNode<RelationshipSystem>("/root/RelationshipSystem");
     }
     

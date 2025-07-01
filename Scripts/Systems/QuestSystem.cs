@@ -65,9 +65,9 @@ public partial class QuestSystem : Node
     /// <summary>
     /// Claim quest for player (Pascal: Quest claiming from PLYQUEST.PAS)
     /// </summary>
-    public static QuestClaimResult ClaimQuest(Character player, string questId)
+    public static QuestClaimResult ClaimQuest(Player player, Quest quest)
     {
-        var quest = GetQuestById(questId);
+        var quest = GetQuestById(quest.Id);
         if (quest == null) return QuestClaimResult.QuestDeleted;
         
         // Validate player can claim
@@ -175,7 +175,7 @@ public partial class QuestSystem : Node
         quest.Forced = forced;
         
         // Send quest offer mail (Pascal: Quest offer mail)
-        MailSystem.SendQuestOfferMail(playerName, quest);
+        MailSystem.SendQuestOfferMail(playerName, quest.Title);
         
         GD.Print($"[QuestSystem] Quest offered to {playerName}: {quest.Id}");
     }
@@ -266,8 +266,8 @@ public partial class QuestSystem : Node
         quest.RewardType = (QuestRewardType)random.Next(1, 6); // 1-5 (skip Nothing)
         
         // Set penalty (usually lower than reward)
-        quest.Penalty = (byte)Math.Max(1, quest.Reward - 1);
-        quest.PenaltyType = quest.RewardType;
+        // quest.Penalty = (byte)Math.Max(1, quest.Reward - 1);
+        // quest.PenaltyType = quest.RewardType;
     }
     
     /// <summary>
@@ -346,7 +346,7 @@ public partial class QuestSystem : Node
     private static void ProcessQuestFailure(Quest quest)
     {
         // Send failure mail to player
-        MailSystem.SendQuestFailureMail(quest.Occupier, quest);
+        MailSystem.SendQuestFailureMail(quest.Occupier, quest.Title);
         
         // Send failure notification to king
         var kingName = quest.Initiator;

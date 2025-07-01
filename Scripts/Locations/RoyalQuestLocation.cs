@@ -11,7 +11,7 @@ using Godot;
 /// </summary>
 public class RoyalQuestLocation : BaseLocation
 {
-    public RoyalQuestLocation(TerminalEmulator terminal) : base(terminal)
+    public RoyalQuestLocation()
     {
     }
     

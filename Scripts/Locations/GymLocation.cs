@@ -37,8 +37,7 @@ public class GymLocation : BaseLocation
         base._Ready();
         tournamentSystem = GetNode<TournamentSystem>("/root/TournamentSystem");
         relationshipSystem = GetNode<RelationshipSystem>("/root/RelationshipSystem");
-        mailSystem = GetNode<MailSystem>("/root/MailSystem");
-        newsSystem = GetNode<NewsSystem>("/root/NewsSystem");
+        newsSystem = NewsSystem.Instance;
         locationManager = GetNode<LocationManager>("/root/LocationManager");
         
         // Initialize team arrays

@@ -34,7 +34,7 @@ public class LoveCornerLocation : BaseLocation
             "S" => HandleStatus(player),
             "L" => HandleLoveHistory(player),
             "R" => HandleReturn(player),
-            "?" => ShowMenu(player),
+            "?" => ShowMenuAndReturnTrue(player),
             _ => false
         };
     }
@@ -821,5 +821,11 @@ public class LoveCornerLocation : BaseLocation
             GameConfig.RelationHate => "Hate",
             _ => "Unknown"
         };
+    }
+
+    private bool ShowMenuAndReturnTrue(Character player)
+    {
+        ShowMenu(player);
+        return true;
     }
 } 
