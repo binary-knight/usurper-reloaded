@@ -368,7 +368,7 @@ public class EnhancedNPCBehaviorSystem : Node
         var announcement = $"{GameConfig.TeamColor}{gang1}{GameConfig.NewsColorDefault} challenged {GameConfig.TeamColor}{gang2}{GameConfig.NewsColorDefault}";
         var turfText = turfWar ? "A challenge for Town Control!" : "";
         
-        newsSystem.Newsy(false, header, announcement, turfText);
+        newsSystem.Newsy($"{header} {announcement} {turfText}", false, GameConfig.NewsCategory.General);
         
         // Reset HP for all participants
         foreach (var member in team1.Concat(team2))
@@ -384,7 +384,7 @@ public class EnhancedNPCBehaviorSystem : Node
         {
             round++;
             
-            newsSystem.Newsy(false, $"Round {round} results:");
+            newsSystem.Newsy($"Round {round} results:", false, GameConfig.NewsCategory.General);
             
             // Pair up fighters and conduct battles
             await ConductRoundBattles(team1, team2, result);

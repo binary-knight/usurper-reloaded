@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Linq;
 
 // THIS FILE BUNDLES LIGHT-WEIGHT COMPATIBILITY SHIMS ONLY – they do **not** implement
 // full gameplay behaviour.  They merely unblock the build so that more meaningful
@@ -138,7 +139,11 @@ public partial class TeamSystem
 #region QuestSystem helpers
 public partial class QuestSystem
 {
-    public void ShowAvailableQuests(Character player) { }
+    public async Task ShowAvailableQuests(Character player)
+    {
+        // Placeholder – simply list count of available quests.
+        await Task.CompletedTask;
+    }
 }
 #endregion
 
@@ -175,10 +180,38 @@ public static class CharacterDataManager
 #region Quest stub helpers
 public partial class Quest
 {
-    public bool CanPlayerClaim(Player p) => true;
-    public bool OfferedTo(Player p) => false;
-    public bool Forced(Player p) => false;
+    // Basic compatibility helpers – full logic lives elsewhere.
+    public QuestClaimResult CanPlayerClaim(Character p) => QuestClaimResult.CanClaim;
+
+    // These fields are referenced by QuestSystem but were not part of the core Quest model yet.
+    public string OfferedTo { get; set; } = string.Empty;
+    public bool Forced { get; set; } = false;
     public long Penalty => 0;
     public int PenaltyType => 0;
+}
+#endregion
+
+#region CombatEngine helper
+public partial class CombatEngine
+{
+    /// <summary>
+    /// Legacy wrapper used by BankLocation – launches a simplified multi-monster fight and always
+    /// returns a success result so that gameplay can proceed while the full engine is under
+    /// construction.
+    /// </summary>
+    public CombatResult StartCombat(Character player, List<Monster> enemies, string context, bool allowRetreat = true)
+    {
+        // Very light-weight simulation: player always wins for now.
+        return new CombatResult
+        {
+            Player = player,
+            Monster = enemies.FirstOrDefault(),
+            Teammates = new List<Character>(),
+            Outcome = CombatOutcome.Victory,
+            CombatLog = new List<string> { $"(stub) {context}: automatic victory over {enemies.Count} foes" },
+            ExperienceGained = 0,
+            GoldGained = 0
+        };
+    }
 }
 #endregion 

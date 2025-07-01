@@ -235,16 +235,15 @@ public class DailySystemManager
         
         var randomEvents = new[]
         {
-            new { Text = "You find a small pouch of gold on the ground!", Action = () => player?.GainGold(GD.RandRange(10, 50)) },
-            new { Text = "A mysterious stranger gives you a health potion!", Action = () => player?.Heal(GD.RandRange(10, 25)) },
-            new { Text = "You feel particularly energetic today!", Action = () => player?.AddEffect("energy", 60) },
-            new { Text = "A sage shares words of wisdom with you.", Action = () => player?.GainExperience(GD.RandRange(25, 75)) },
-            new { Text = "You have a moment of clarity about your goals.", Action = () => { /* Boost to motivation */ } }
+            "You find a small pouch of gold on the ground!",
+            "A mysterious stranger shares a healing potion with you!",
+            "You feel particularly energetic today!",
+            "A sage shares words of wisdom with you.",
+            "You have a moment of clarity about your goals."
         };
         
         var randomEvent = randomEvents[GD.RandRange(0, randomEvents.Length - 1)];
-        terminal?.WriteLine($"Random Event: {randomEvent.Text}", "bright_cyan");
-        randomEvent.Action?.Invoke();
+        terminal?.WriteLine($"Random Event: {randomEvent}", "bright_cyan");
         
         if (terminal != null)
         {

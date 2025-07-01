@@ -3,6 +3,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 /// <summary>
 /// News Location - Player news reading interface
@@ -186,7 +187,7 @@ public class NewsLocation : BaseLocation
         DisplayNewsCategory(player, GameConfig.NewsHeaderYesterday, news, "yesterday's news");
     }
 
-    private void DisplayNewsCategory(Player player, string header, List<string> newsLines, string categoryName)
+    private async Task DisplayNewsCategory(Player player, string header, List<string> newsLines, string categoryName)
     {
         player.SendMessage("");
         player.SendMessage($"{GameConfig.NewsColorHighlight}{header}{GameConfig.NewsColorDefault}");
@@ -196,7 +197,7 @@ public class NewsLocation : BaseLocation
         {
             player.SendMessage($"{GameConfig.NewsColorDefault}No {categoryName} available at this time.{GameConfig.NewsColorDefault}");
             player.SendMessage("");
-            PromptForReturn(player);
+            await PromptForReturn(player);
             return;
         }
 
@@ -211,14 +212,14 @@ public class NewsLocation : BaseLocation
         {
             player.SendMessage($"{GameConfig.NewsColorDefault}No {categoryName} available at this time.{GameConfig.NewsColorDefault}");
             player.SendMessage("");
-            PromptForReturn(player);
+            await PromptForReturn(player);
             return;
         }
 
         // Display news with pagination if needed
         if (displayLines.Count > MaxNewsDisplay)
         {
-            DisplayPaginatedNews(player, displayLines, categoryName);
+            await DisplayPaginatedNews(player, displayLines, categoryName);
         }
         else
         {
@@ -233,10 +234,10 @@ public class NewsLocation : BaseLocation
         player.SendMessage($"{GameConfig.NewsColorTime}Total {categoryName}: {displayLines.Count} entries{GameConfig.NewsColorDefault}");
         player.SendMessage("");
         
-        PromptForReturn(player);
+        await PromptForReturn(player);
     }
 
-    private void DisplayPaginatedNews(Player player, List<string> newsLines, string categoryName)
+    private async Task DisplayPaginatedNews(Player player, List<string> newsLines, string categoryName)
     {
         int totalPages = (int)Math.Ceiling((double)newsLines.Count / PageSize);
         int currentPage = 1;
@@ -261,7 +262,7 @@ public class NewsLocation : BaseLocation
             if (currentPage < totalPages)
             {
                 player.SendMessage($"{GameConfig.NewsColorHighlight}[ENTER] Next page, [Q] Return to menu: {GameConfig.NewsColorDefault}");
-                string input = player.GetInput();
+                string input = await player.GetInput();
                 
                 if (string.IsNullOrWhiteSpace(input))
                 {
@@ -284,10 +285,10 @@ public class NewsLocation : BaseLocation
         }
     }
 
-    private void PromptForReturn(Player player)
+    private async Task PromptForReturn(Player player)
     {
         player.SendMessage($"{GameConfig.NewsColorHighlight}Press [ENTER] to return to news menu: {GameConfig.NewsColorDefault}");
-        player.GetInput(); // Wait for user input
+        await player.GetInput(); // Wait for user input
         DisplayNewsMenu(player);
     }
 

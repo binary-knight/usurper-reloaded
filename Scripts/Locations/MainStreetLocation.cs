@@ -186,7 +186,8 @@ public class MainStreetLocation : BaseLocation
                 return true;
                 
             case "N":
-                await NavigateToNewsLocation();
+                var newsLocation = new NewsLocation();
+                newsLocation.HandlePlayerEntry(currentPlayer as Player ?? new Player());
                 return true;
                 
             case "Z":
@@ -324,16 +325,6 @@ public class MainStreetLocation : BaseLocation
         }
         
         await terminal.PressAnyKey();
-    }
-    
-    private async Task NavigateToNewsLocation()
-    {
-        terminal.WriteLine("You approach the Usurper Daily News stand...", "yellow");
-        await Task.Delay(1000);
-        
-        // Navigate to NewsLocation
-        var newsLocation = new NewsLocation();
-        await NavigateToLocation(newsLocation);
     }
     
     private async Task NavigateToTeamCorner()

@@ -76,7 +76,7 @@ public class WeaponShopLocation : BaseLocation
         terminal.WriteLine(" gold pieces)");
         terminal.WriteLine("");
         
-        await ShowLocationMenu(currentPlayer);
+        ShowWeaponShopMenu();
     }
     
     /// <summary>

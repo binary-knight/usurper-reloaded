@@ -33,6 +33,9 @@ public partial class Quest
     public byte Reward { get; set; } = 0;
     public QuestRewardType RewardType { get; set; }
     
+    // Display title used in mails / UI (not part of original Pascal structure but referenced by systems)
+    public string Title { get; set; } = "(unnamed quest)";
+    
     // Quest Monsters
     public List<QuestMonster> Monsters { get; set; } = new();
     
@@ -130,6 +133,25 @@ public partial class Quest
         var timeInfo = IsActive ? $"{DaysRemaining} days left" : $"{DaysToComplete} days to complete";
         
         return $"{GetTargetDescription()} | {GetDifficultyString()} | {GetRewardDescription()} | {status} | {timeInfo}";
+    }
+
+    /// <summary>
+    /// Human-readable reward description string – e.g. "High Gold", "Medium Experience".
+    /// </summary>
+    public string GetRewardDescription()
+    {
+        if (Reward == 0 || RewardType == QuestRewardType.Nothing)
+            return "No reward";
+
+        string level = Reward switch
+        {
+            1 => "Low",
+            2 => "Medium",
+            3 => "High",
+            _ => "Unknown"
+        };
+
+        return $"{level} {RewardType}";
     }
 }
 

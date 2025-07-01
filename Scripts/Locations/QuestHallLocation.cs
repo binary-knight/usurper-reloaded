@@ -84,7 +84,8 @@ public class QuestHallLocation : BaseLocation
         if (int.TryParse(input, out int selection) && selection > 0 && selection <= quests.Count)
         {
             var quest = quests[selection - 1];
-            if (QuestSystem.ClaimQuest(player, quest.Id))
+            var claimResult = QuestSystem.ClaimQuest(player as Player ?? new Player(), quest);
+            if (claimResult == QuestClaimResult.CanClaim)
             {
                 terminal.WriteLine("Quest claimed successfully!", "green");
             }
@@ -118,7 +119,8 @@ public class QuestHallLocation : BaseLocation
             terminal.WriteLine("You embark on your journey...", "white");
             await Task.Delay(1000);
             
-            if (QuestSystem.CompleteQuest(player, quest.Id, terminal))
+            var completionResult = QuestSystem.CompleteQuest(player, quest.Id, terminal);
+            if (completionResult == QuestCompletionResult.Success)
             {
                 terminal.WriteLine("Quest completed successfully!", "green");
             }

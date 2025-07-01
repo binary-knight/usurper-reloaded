@@ -524,7 +524,7 @@ public partial class BankLocation : BaseLocation
         // Start combat
         var combatResult = combatEngine.StartCombat(player, monsters, "Bank Robbery", allowRetreat: false);
         
-        if (combatResult.PlayerWon)
+        if (combatResult.Outcome == CombatOutcome.Victory)
         {
             // Successful robbery
             long stolenGold = _safeContents / 4; // Can only steal 25% of safe

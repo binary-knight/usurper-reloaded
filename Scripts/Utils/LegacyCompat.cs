@@ -51,27 +51,18 @@ public static partial class GameConfig
 
     // Display name for Anchor Road used by AnchorRoadLocation menu
     public const string AnchorName = "Anchor Road";
+
+    /// <summary>
+    /// Legacy helper – many Pascal ports call GetConfigString with an integer index.  The real
+    /// configuration subsystem is not wired yet, so we simply return an empty string which the
+    /// caller will treat as "no value configured" (and therefore fall back to defaults).
+    /// </summary>
+    public static string GetConfigString(int index) => string.Empty;
 }
 #endregion
 
 #region NewsSystem overloads & helpers
-public partial class NewsSystem
-{
-    // Overload with arbitrary extra message parts (header + any tail parts)
-    public void Newsy(bool newsToAnsi, string header, params string[] messages)
-    {
-        if (messages == null || messages.Length == 0)
-        {
-            Newsy(newsToAnsi, header);
-            return;
-        }
-
-        foreach (var part in messages)
-        {
-            Newsy(newsToAnsi, $"{header} {part}");
-        }
-    }
-}
+// Removed duplicate NewsSystem.Newsy(bool, string, params) overload – core NewsSystem already provides flexible variants.
 #endregion
 
 #region MailSystem quest helpers
@@ -122,4 +113,21 @@ public partial class RelationshipSystem
 
     public List<string> GetAllRelationships() => new List<string>();
 }
+#endregion
+
+#region TerminalEmulator colour helper
+public partial class TerminalEmulator
+{
+    /// <summary>
+    /// Convenience wrapper that lets older code pass a ConsoleColor instead of our string colour name.
+    /// Defaults to writing with a trailing newline.
+    /// </summary>
+    public void WriteLine(string text, ConsoleColor color)
+    {
+        WriteLine(text, color.ToString().ToLower());
+    }
+}
+#endregion
+
+#region QuestSystem legacy wrappers removed – core QuestSystem static methods already available.
 #endregion 

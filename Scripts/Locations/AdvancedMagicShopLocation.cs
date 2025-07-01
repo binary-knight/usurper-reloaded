@@ -483,9 +483,9 @@ public class AdvancedMagicShopLocation : BaseLocation
         for (int i = 0; i < sellableItems.Count; i++)
         {
             var item = GetItemDetails(player.Item[sellableItems[i]], player.ItemType[sellableItems[i]]);
-            int sellPrice = CalculateSellPrice(item);
+            int displayPrice = CalculateSellPrice(item);
             
-            terminal.WriteLine($"{i + 1}. {GameConfig.ItemColor}{item.Name}{GameConfig.TextColor} - {GameConfig.GoldColor}{sellPrice:N0}{GameConfig.TextColor} gold");
+            terminal.WriteLine($"{i + 1}. {GameConfig.ItemColor}{item.Name}{GameConfig.TextColor} - {GameConfig.GoldColor}{displayPrice:N0}{GameConfig.TextColor} gold");
         }
         
         terminal.Write($"\nWhich item to sell (1-{sellableItems.Count}, 0 to cancel): ");
