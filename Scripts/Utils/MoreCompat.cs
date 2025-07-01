@@ -104,9 +104,34 @@ public static partial class ConfigManager
 #region TeamSystem helpers
 public partial class TeamSystem
 {
-    public void InitiateGangWar(string gang1, string gang2) { }
-    public void ClaimTown(Character teamLeader) { }
-    public void AbandonTownControl(Character teamLeader) { }
+    // Removed obsolete void overloads – async Task versions below provide compatibility.
+
+    // Legacy call initiating an auto-selected gang war for the player's team
+    public async Task InitiateGangWar(Character teamLeader)
+    {
+        // Placeholder – real logic will pair the leader's team against a random enemy team
+        await Task.CompletedTask;
+    }
+
+    // Result type used by ClaimTown/AbandonTownControl stubs below
+    public class TownActionResult
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+    }
+
+    public async Task<TownActionResult> ClaimTown(Character teamLeader)
+    {
+        // Placeholder – automatically fail to avoid breaking flow
+        await Task.CompletedTask;
+        return new TownActionResult { Success = false, Message = "(stub) Town claiming not implemented." };
+    }
+
+    public async Task<TownActionResult> AbandonTownControl(Character teamLeader)
+    {
+        await Task.CompletedTask;
+        return new TownActionResult { Success = true, Message = "(stub) Town control abandoned." };
+    }
 }
 #endregion
 

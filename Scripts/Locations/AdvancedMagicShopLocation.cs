@@ -483,9 +483,9 @@ public class AdvancedMagicShopLocation : BaseLocation
         for (int i = 0; i < sellableItems.Count; i++)
         {
             var item = GetItemDetails(player.Item[sellableItems[i]], player.ItemType[sellableItems[i]]);
-            int calculatedSellPrice = CalculateSellPrice(item);
+            int sellPrice = CalculateSellPrice(item);
             
-            terminal.WriteLine($"{i + 1}. {GameConfig.ItemColor}{item.Name}{GameConfig.TextColor} - {GameConfig.GoldColor}{calculatedSellPrice:N0}{GameConfig.TextColor} gold");
+            terminal.WriteLine($"{i + 1}. {GameConfig.ItemColor}{item.Name}{GameConfig.TextColor} - {GameConfig.GoldColor}{sellPrice:N0}{GameConfig.TextColor} gold");
         }
         
         terminal.Write($"\nWhich item to sell (1-{sellableItems.Count}, 0 to cancel): ");
@@ -498,19 +498,19 @@ public class AdvancedMagicShopLocation : BaseLocation
         
         int itemIndex = sellableItems[choice - 1];
         var itemDetails = GetItemDetails(player.Item[itemIndex], player.ItemType[itemIndex]);
-        int calculatedSellPrice = CalculateSellPrice(itemDetails);
+        int sellPrice = CalculateSellPrice(itemDetails);
         
         terminal.WriteLine($"\n{GameConfig.TalkColor}\"{ownerName} examines your {itemDetails.Name}...\"");
         await Task.Delay(1000);
         
-        terminal.WriteLine($"{GameConfig.TalkColor}\"I can offer you {GameConfig.GoldColor}{calculatedSellPrice:N0}{GameConfig.TextColor} gold for this.\"");
+        terminal.WriteLine($"{GameConfig.TalkColor}\"I can offer you {GameConfig.GoldColor}{sellPrice:N0}{GameConfig.TextColor} gold for this.\"");
         terminal.Write("Accept offer? (Y/N): ");
         
         var confirm = await terminal.GetKeyCharAsync();
         if (char.ToUpper(confirm) == 'Y')
         {
             // Complete sale
-            player.Gold += calculatedSellPrice;
+            player.Gold += sellPrice;
             player.Item[itemIndex] = 0;
             player.ItemType[itemIndex] = ObjType.Head; // Reset to default
             
@@ -727,7 +727,7 @@ public class AdvancedMagicShopLocation : BaseLocation
     private int CalculateSellPrice(ItemDetails item)
     {
         // Pascal: sell_price := item.value div 2;
-        return item.Value / 2;
+        return (int)(item.Value / 2);
     }
     
     #endregion

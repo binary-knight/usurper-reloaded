@@ -102,6 +102,11 @@ public partial class NPC : Character
     }
     
     /// <summary>
+    /// Parameter-less constructor for legacy compatibility (creates a level-1 generic citizen).
+    /// </summary>
+    public NPC() : this("Unknown", "citizen", CharacterClass.Warrior, 1) {}
+    
+    /// <summary>
     /// Initialize NPC AI systems
     /// </summary>
     private void InitializeNPCSystems()

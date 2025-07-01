@@ -447,6 +447,15 @@ public partial class TerminalEmulator : Control
         }
     }
     
+    /// <summary>
+    /// Overload that omits the prompt string – maintains backwards-compatibility with legacy code that
+    /// expected the Pascal signature GetNumberInput(min, max).
+    /// </summary>
+    public async Task<int> GetNumberInput(int min, int max)
+    {
+        return await GetNumberInput("", min, max);
+    }
+    
     // Add DisplayMessage method to handle ConsoleColor parameters
     public void DisplayMessage(string message, ConsoleColor color, bool newLine = true)
     {

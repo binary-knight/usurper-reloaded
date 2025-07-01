@@ -33,12 +33,9 @@ public partial class BankLocation : BaseLocation
     
     private NPC CreateBanker()
     {
-        var banker = new NPC();
-        banker.Name = "Banker";
-        banker.Description = "A professional banker";
+        var banker = new NPC(BankmanName, "banker", CharacterClass.Cleric, 25);
         banker.Name1 = BankmanName;
         banker.Name2 = BankmanName;
-        banker.Level = 25;
         banker.Gold = 500000L;
         banker.HP = banker.MaxHP = 120;
         banker.Strength = 15;

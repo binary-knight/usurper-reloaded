@@ -21,7 +21,7 @@ public class CharacterCreationLocation : BaseLocation
     
     public new async Task EnterLocation(Character player)
     {
-        await base.EnterLocation(player);
+        await base.EnterLocation(player, TerminalEmulator.Instance ?? new TerminalEmulator());
         
         // Initialize creation system
         creationSystem = new CharacterCreationSystem(terminal);

@@ -48,6 +48,9 @@ public static partial class GameConfig
         nameof(QuestColor) => QuestColor,
         _ => ""
     };
+
+    // Display name for Anchor Road used by AnchorRoadLocation menu
+    public const string AnchorName = "Anchor Road";
 }
 #endregion
 
@@ -79,6 +82,8 @@ public static partial class MailSystem
     public static void SendQuestFailureMail(string player, string questName){}
     public static void SendQuestFailureNotificationMail(string player, string questName){}
     public static void SendQuestCompletionMail(string player, string questName, long reward){}
+    // Overload used by older code that doesn't pass reward
+    public static void SendQuestOfferMail(string player, string questName){}
 }
 
 // Lower-case alias used by Pascal-style code
@@ -93,6 +98,24 @@ public static class mailSystem
 public partial class RelationshipSystem
 {
     public int GetRelation(Character a, Character b) => GetRelationshipStatus(a, b);
+
+    // Legacy overload used by Gym/Tournament code – returns a minimal RelationshipRecord
+    public RelationshipRecord GetRelation(string name1, string name2)
+    {
+        // Build stub Character objects so we can reuse existing helper
+        var char1 = new Character { Name1 = name1, Name2 = name1 };
+        var char2 = new Character { Name1 = name2, Name2 = name2 };
+
+        int relationValue = GetRelationshipStatus(char1, char2);
+
+        return new RelationshipRecord
+        {
+            Name1 = name1,
+            Name2 = name2,
+            Relation1 = relationValue,
+            Relation2 = relationValue
+        };
+    }
 
     // Placeholder that simply logs kill counts – full logic later
     public void UpdateKillStats(Character killer, Character victim) {}

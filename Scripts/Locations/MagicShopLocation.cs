@@ -365,7 +365,7 @@ public partial class MagicShopLocation : BaseLocation
         if (int.TryParse(input, out int itemIndex) && itemIndex > 0 && itemIndex <= player.Inventory.Count)
         {
             var item = player.Inventory[itemIndex - 1];
-            int sellPrice = item.Value / 2; // Magic shop buys at 50% value
+            long sellPrice = item.Value / 2; // Magic shop buys at 50% value
             
             // Check if shop wants this item type
             if (item.Type == ObjType.Magic || item.MagicType != MagicItemType.None)
@@ -492,7 +492,7 @@ public partial class MagicShopLocation : BaseLocation
         
         // Calculate potion price: level × 5
         int potionPrice = player.Level * GameConfig.HealingPotionLevelMultiplier;
-        int maxPotionsCanBuy = player.Gold / potionPrice;
+        int maxPotionsCanBuy = (int)(player.Gold / potionPrice);
         int maxPotionsCanCarry = GameConfig.MaxHealingPotions - player.Healing;
         int maxPotions = Math.Min(maxPotionsCanBuy, maxPotionsCanCarry);
         

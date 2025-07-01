@@ -25,7 +25,7 @@ public partial class TempleLocation : BaseLocation
         this.godSystem = godSystem;
         
         LocationName = "Temple of the Gods";
-        LocationId = "temple";
+        LocationId = GameLocation.Temple;
         Description = "The Temple area is crowded with monks, preachers and processions of priests on their way to the altars. The doomsday prophets are trying to get your attention.";
     }
     
@@ -107,7 +107,7 @@ public partial class TempleLocation : BaseLocation
             }
         }
         
-        return GameLocation.MainStreet;
+        return GameLocation.MainStreet.ToString();
     }
     
     /// <summary>

@@ -853,7 +853,7 @@ public class NPCBrain
         summary += $"Active Emotions: {emotions.GetActiveEmotions().Count}\n";
         summary += $"Faith: {owner.God ?? "None"}\n";
         summary += $"Gang: {owner.Team ?? "None"}\n";
-        summary += $"Married: {owner.Married ?? "No"}\n";
+        summary += $"Married: {(owner.Married ? "Yes" : "No")}\n";
         summary += memory.GetMemorySummary();
         
         return summary;

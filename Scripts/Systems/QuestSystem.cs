@@ -65,28 +65,28 @@ public partial class QuestSystem : Node
     /// <summary>
     /// Claim quest for player (Pascal: Quest claiming from PLYQUEST.PAS)
     /// </summary>
-    public static QuestClaimResult ClaimQuest(Player player, Quest quest)
+    public static QuestClaimResult ClaimQuest(Player player, Quest questToClaim)
     {
-        var quest = GetQuestById(quest.Id);
-        if (quest == null) return QuestClaimResult.QuestDeleted;
+        var foundQuest = GetQuestById(questToClaim.Id);
+        if (foundQuest == null) return QuestClaimResult.QuestDeleted;
         
         // Validate player can claim
-        var claimResult = quest.CanPlayerClaim(player);
+        var claimResult = foundQuest.CanPlayerClaim(player);
         if (claimResult != QuestClaimResult.CanClaim) return claimResult;
         
         // Claim the quest
-        quest.Occupier = player.Name2;
-        quest.OccupierRace = player.Race;
-        quest.OccupierSex = (byte)player.Sex;
-        quest.OccupiedDays = 0;
+        foundQuest.Occupier = player.Name2;
+        foundQuest.OccupierRace = player.Race;
+        foundQuest.OccupierSex = (byte)player.Sex;
+        foundQuest.OccupiedDays = 0;
         
-        // Update player quest count
-        player.ActiveQuests++;
+        // Track in player list
+        player.ActiveQuests.Add(foundQuest);
         
-        GD.Print($"[QuestSystem] Quest claimed by {player.Name2}: {quest.Id}");
+        GD.Print($"[QuestSystem] Quest claimed by {player.Name2}: {foundQuest.Id}");
         
         // Send confirmation mail (Pascal: Quest claim notification)
-        MailSystem.SendQuestClaimedMail(player.Name2, quest);
+        MailSystem.SendQuestClaimedMail(player.Name2, foundQuest.Title);
         
         return QuestClaimResult.CanClaim;
     }
@@ -119,7 +119,7 @@ public partial class QuestSystem : Node
         // Update player statistics
         player.RoyQuests++;
         player.RoyQuestsToday++;
-        player.ActiveQuests--;
+        player.ActiveQuests.Remove(quest);
         
         // Send completion notification to king (Pascal: King notification)
         SendQuestCompletionMail(player, quest, rewardAmount);
@@ -378,8 +378,7 @@ public partial class QuestSystem : Node
     /// </summary>
     private static void SendQuestCompletionMail(Character player, Quest quest, long rewardAmount)
     {
-        var rewardText = $"{quest.RewardType} {rewardAmount}";
-        MailSystem.SendQuestCompletionMail(quest.Initiator, player.Name2, quest, rewardText);
+        MailSystem.SendQuestCompletionMail(player.Name2, quest.Title, rewardAmount);
     }
     
     /// <summary>
