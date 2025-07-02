@@ -1,4 +1,5 @@
 using UsurperRemake.Utils;
+using UsurperRemake.Systems;
 using Godot;
 using System;
 using System.Collections.Generic;
@@ -90,22 +91,19 @@ public class MainStreetLocation : BaseLocation
         terminal.WriteLine("Main street actions:");
         terminal.WriteLine("");
         
-        terminal.WriteLine("┌─────────────────────────────────────────────────────────────────────────────┐", "cyan");
-        terminal.WriteLine("│                              -= MAIN STREET =-                            │", "cyan");
-        terminal.WriteLine("│                                                                             │", "cyan");
-        terminal.WriteLine("│  (S)tatus          (D)ungeons         (B)ank             (I)nn            │", "white");
-        terminal.WriteLine("│  (C)hallenges      (A)rmor Shop       (W)eapon Shop      (M)agic Shop     │", "white");
-        terminal.WriteLine("│  (T)emple          (N)ews             (F)ame             (R)elations      │", "white");
-        terminal.WriteLine("│                                                                             │", "cyan");
-        terminal.WriteLine("│  (L)ist Characters  (T)he Marketplace  (X)tra Shops  (Q)uit Game  (9) Combat Test │", "white");
-        terminal.WriteLine("│                                                                             │", "cyan");
-        terminal.WriteLine("│  (G)ood Deeds       (E)vil Deeds        (V)isit Master  (*) Suicide  (Z) Team Corner │", "white");
-        terminal.WriteLine("│                                                                             │", "cyan");
-        terminal.WriteLine("│  (K) Castle  (P) Prison  (O) Church  (Y) Dark Alley  (Ctrl+W) Who is Online?  (Ctrl+T) Send message │", "white");
-        terminal.WriteLine("│                                                                             │", "cyan");
-        terminal.WriteLine("│  (1) Healing Hut  (Q)uit Game  (2) Send stuff  (Ctrl+S) Send stuff  (3) List Characters │", "white");
-        terminal.WriteLine("│                                                                             │", "cyan");
-        terminal.WriteLine("└─────────────────────────────────────────────────────────────────────────────┘", "cyan");
+        terminal.WriteLine("┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐", "cyan");
+        terminal.WriteLine("│                              -= MAIN STREET =-                                                      │", "cyan");
+        terminal.WriteLine("│                                                                                                     │", "cyan");
+        terminal.WriteLine("│  (S)tatus           (D)ungeons         (B)ank             (I)nn                                     │", "white");
+        terminal.WriteLine("│  (C)hallenges       (A)rmor Shop       (W)eapon Shop      (M)agic Shop                              │", "white");
+        terminal.WriteLine("│  (T)emple           (N)ews             (F)ame             (R)elations                               │", "white");
+        terminal.WriteLine("│  (L)ist Characters  (T)he Marketplace  (X)tra Shops       (Q)uit Game    (9) Combat Test(Dev)       │", "white");
+        terminal.WriteLine("│  (G)ood Deeds       (E)vil Deeds       (V)isit Master     (*) Suicide    (Z) Team Corner            │", "white");
+        terminal.WriteLine("│  (K) Castle         (P) Prison         (O) Church         (Y) Dark Alley                            │", "white");
+        terminal.WriteLine("│  (1) Healing Hut  (Q)uit Game          (3) List Characters                                          │", "white");
+        terminal.WriteLine("│  Type 'SETTINGS' for game configuration and save management                                         │", "bright_cyan");
+        terminal.WriteLine("│                                                                                                     │", "cyan");
+        terminal.WriteLine("└─────────────────────────────────────────────────────────────────────────────────────────────────────┘", "cyan");
         terminal.WriteLine("");
         
         // Navigation shortcuts
@@ -201,7 +199,7 @@ public class MainStreetLocation : BaseLocation
             case "T":
                 terminal.WriteLine("You enter the Temple of the Gods...", "cyan");
                 await Task.Delay(1500);
-                throw new LocationChangeException("temple");
+                throw new LocationExitException(GameLocation.Temple);
                 
             case "X":
                 await NavigateToLocation(GameLocation.DarkAlley); // Extra shops
@@ -235,7 +233,7 @@ public class MainStreetLocation : BaseLocation
             case "Y":
                 terminal.WriteLine("You head to the Dark Alley...", "gray");
                 await Task.Delay(1500);
-                throw new LocationChangeException("dark_alley");
+                throw new LocationExitException(GameLocation.DarkAlley);
                 
             // Global commands
             case "CTRL+W":
@@ -255,6 +253,19 @@ public class MainStreetLocation : BaseLocation
                 
             case "?":
                 // Menu is always shown
+                return false;
+                
+            case "2":
+                await SendStuff();
+                return false;
+                
+            case "3":
+                await ListCharacters();
+                return false;
+                
+            case "SETTINGS":
+            case "CONFIG":
+                await ShowSettingsMenu();
                 return false;
                 
             default:
@@ -601,5 +612,444 @@ public class MainStreetLocation : BaseLocation
         }
         
         await terminal.PressAnyKey();
+    }
+    
+    /// <summary>
+    /// Show settings and save management menu
+    /// </summary>
+    private async Task ShowSettingsMenu()
+    {
+        bool exitSettings = false;
+        
+        while (!exitSettings)
+        {
+            terminal.ClearScreen();
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+            terminal.WriteLine("║                            SETTINGS & SAVE OPTIONS                          ║");
+            terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+            terminal.WriteLine("");
+            
+            var dailyManager = DailySystemManager.Instance;
+            var currentMode = dailyManager.CurrentMode;
+            
+            terminal.SetColor("white");
+            terminal.WriteLine("Current Settings:");
+            terminal.WriteLine($"  Daily Cycle Mode: {GetDailyCycleModeDescription(currentMode)}", "yellow");
+            terminal.WriteLine($"  Auto-save: {(dailyManager.AutoSaveEnabled ? "Enabled" : "Disabled")}", "yellow");
+            terminal.WriteLine($"  Current Day: {dailyManager.CurrentDay}", "yellow");
+            terminal.WriteLine("");
+            
+            terminal.WriteLine("Options:");
+            terminal.WriteLine("1. Change Daily Cycle Mode");
+            terminal.WriteLine("2. Configure Auto-save Settings");
+            terminal.WriteLine("3. Save Game Now");
+            terminal.WriteLine("4. Load Different Save");
+            terminal.WriteLine("5. Delete Save Files");
+            terminal.WriteLine("6. View Save File Information");
+            terminal.WriteLine("7. Force Daily Reset");
+            terminal.WriteLine("8. Back to Main Street");
+            terminal.WriteLine("");
+            
+            var choice = await terminal.GetInput("Enter your choice (1-8): ");
+            
+            switch (choice)
+            {
+                case "1":
+                    await ChangeDailyCycleMode();
+                    break;
+                    
+                case "2":
+                    await ConfigureAutoSave();
+                    break;
+                    
+                case "3":
+                    await SaveGameNow();
+                    break;
+                    
+                case "4":
+                    await LoadDifferentSave();
+                    break;
+                    
+                case "5":
+                    await DeleteSaveFiles();
+                    break;
+                    
+                case "6":
+                    await ViewSaveFileInfo();
+                    break;
+                    
+                case "7":
+                    await ForceDailyReset();
+                    break;
+                    
+                case "8":
+                    exitSettings = true;
+                    break;
+                    
+                default:
+                    terminal.WriteLine("Invalid choice!", "red");
+                    await Task.Delay(1000);
+                    break;
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Change daily cycle mode
+    /// </summary>
+    private async Task ChangeDailyCycleMode()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine("         DAILY CYCLE MODES");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine("");
+        
+        terminal.SetColor("white");
+        terminal.WriteLine("Available modes:");
+        terminal.WriteLine("");
+        
+        terminal.WriteLine("1. Session-Based (Default)", "yellow");
+        terminal.WriteLine("   • New day starts when you run out of turns or choose to rest");
+        terminal.WriteLine("   • Perfect for casual play sessions");
+        terminal.WriteLine("");
+        
+        terminal.WriteLine("2. Real-Time (24 hours)", "yellow");
+        terminal.WriteLine("   • Classic BBS-style daily reset at midnight");
+        terminal.WriteLine("   • NPCs continue to act while you're away");
+        terminal.WriteLine("");
+        
+        terminal.WriteLine("3. Accelerated (4 hours)", "yellow");
+        terminal.WriteLine("   • New day every 4 real hours");
+        terminal.WriteLine("   • Faster progression for active players");
+        terminal.WriteLine("");
+        
+        terminal.WriteLine("4. Accelerated (8 hours)", "yellow");
+        terminal.WriteLine("   • New day every 8 real hours");
+        terminal.WriteLine("   • Balanced progression");
+        terminal.WriteLine("");
+        
+        terminal.WriteLine("5. Accelerated (12 hours)", "yellow");
+        terminal.WriteLine("   • New day every 12 real hours");
+        terminal.WriteLine("   • Slower but steady progression");
+        terminal.WriteLine("");
+        
+        terminal.WriteLine("6. Endless", "yellow");
+        terminal.WriteLine("   • No turn limits, play as long as you want");
+        terminal.WriteLine("   • Perfect for exploration and experimentation");
+        terminal.WriteLine("");
+        
+        var choice = await terminal.GetInput("Select mode (1-6) or 0 to cancel: ");
+        
+        var newMode = choice switch
+        {
+            "1" => DailyCycleMode.SessionBased,
+            "2" => DailyCycleMode.RealTime24Hour,
+            "3" => DailyCycleMode.Accelerated4Hour,
+            "4" => DailyCycleMode.Accelerated8Hour,
+            "5" => DailyCycleMode.Accelerated12Hour,
+            "6" => DailyCycleMode.Endless,
+            _ => (DailyCycleMode?)null
+        };
+        
+        if (newMode.HasValue)
+        {
+            var dailyManager = DailySystemManager.Instance;
+            dailyManager.SetDailyCycleMode(newMode.Value);
+            
+            terminal.WriteLine($"Daily cycle mode changed to: {GetDailyCycleModeDescription(newMode.Value)}", "green");
+            
+            // Save the change
+            await GameEngine.Instance.SaveCurrentGame();
+        }
+        else if (choice != "0")
+        {
+            terminal.WriteLine("Invalid choice!", "red");
+        }
+        
+        await terminal.PressAnyKey("Press any key to continue...");
+    }
+    
+    /// <summary>
+    /// Configure auto-save settings
+    /// </summary>
+    private async Task ConfigureAutoSave()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine("         AUTO-SAVE SETTINGS");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine("");
+        
+        var dailyManager = DailySystemManager.Instance;
+        
+        terminal.SetColor("white");
+        terminal.WriteLine($"Current auto-save: {(dailyManager.AutoSaveEnabled ? "Enabled" : "Disabled")}");
+        terminal.WriteLine("");
+        
+        terminal.WriteLine("1. Enable auto-save");
+        terminal.WriteLine("2. Disable auto-save");
+        terminal.WriteLine("3. Change auto-save interval");
+        terminal.WriteLine("4. Back");
+        terminal.WriteLine("");
+        
+        var choice = await terminal.GetInput("Enter your choice (1-4): ");
+        
+        switch (choice)
+        {
+            case "1":
+                dailyManager.ConfigureAutoSave(true, TimeSpan.FromMinutes(5));
+                terminal.WriteLine("Auto-save enabled (every 5 minutes)", "green");
+                break;
+                
+            case "2":
+                dailyManager.ConfigureAutoSave(false, TimeSpan.FromMinutes(5));
+                terminal.WriteLine("Auto-save disabled", "yellow");
+                break;
+                
+            case "3":
+                terminal.WriteLine("Enter auto-save interval in minutes (1-60): ");
+                var intervalInput = await terminal.GetInput("");
+                if (int.TryParse(intervalInput, out var minutes) && minutes >= 1 && minutes <= 60)
+                {
+                    dailyManager.ConfigureAutoSave(true, TimeSpan.FromMinutes(minutes));
+                    terminal.WriteLine($"Auto-save interval set to {minutes} minutes", "green");
+                }
+                else
+                {
+                    terminal.WriteLine("Invalid interval!", "red");
+                }
+                break;
+                
+            case "4":
+                return;
+                
+            default:
+                terminal.WriteLine("Invalid choice!", "red");
+                break;
+        }
+        
+        await terminal.PressAnyKey("Press any key to continue...");
+    }
+    
+    /// <summary>
+    /// Save game now
+    /// </summary>
+    private async Task SaveGameNow()
+    {
+        await GameEngine.Instance.SaveCurrentGame();
+        await terminal.PressAnyKey("Press any key to continue...");
+    }
+    
+    /// <summary>
+    /// Load different save file
+    /// </summary>
+    private async Task LoadDifferentSave()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine("         LOAD DIFFERENT SAVE");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine("");
+        
+        var saves = SaveSystem.Instance.GetAllSaves();
+        
+        if (saves.Count == 0)
+        {
+            terminal.WriteLine("No save files found!", "red");
+            await terminal.PressAnyKey("Press any key to continue...");
+            return;
+        }
+        
+        terminal.SetColor("white");
+        terminal.WriteLine("Available save files:");
+        terminal.WriteLine("");
+        
+        for (int i = 0; i < saves.Count; i++)
+        {
+            var save = saves[i];
+            terminal.WriteLine($"{i + 1}. {save.PlayerName} (Level {save.Level}, Day {save.CurrentDay}, {save.TurnsRemaining} turns)");
+            terminal.WriteLine($"   Saved: {save.SaveTime:yyyy-MM-dd HH:mm:ss}");
+            terminal.WriteLine("");
+        }
+        
+        var choice = await terminal.GetInput($"Select save file (1-{saves.Count}) or 0 to cancel: ");
+        
+        if (int.TryParse(choice, out var index) && index >= 1 && index <= saves.Count)
+        {
+            var selectedSave = saves[index - 1];
+            terminal.WriteLine($"Loading {selectedSave.PlayerName}...", "yellow");
+            
+            // This would require restarting the game with the new save
+            terminal.WriteLine("Note: Loading a different save requires restarting the game.", "cyan");
+            terminal.WriteLine("Please exit and restart, then enter the character name to load.", "cyan");
+        }
+        else if (choice != "0")
+        {
+            terminal.WriteLine("Invalid choice!", "red");
+        }
+        
+        await terminal.PressAnyKey("Press any key to continue...");
+    }
+    
+    /// <summary>
+    /// Delete save files
+    /// </summary>
+    private async Task DeleteSaveFiles()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_red");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine("         DELETE SAVE FILES");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine("");
+        
+        terminal.SetColor("red");
+        terminal.WriteLine("WARNING: This action cannot be undone!");
+        terminal.WriteLine("");
+        
+        var saves = SaveSystem.Instance.GetAllSaves();
+        
+        if (saves.Count == 0)
+        {
+            terminal.WriteLine("No save files found!", "yellow");
+            await terminal.PressAnyKey("Press any key to continue...");
+            return;
+        }
+        
+        terminal.SetColor("white");
+        terminal.WriteLine("Available save files:");
+        terminal.WriteLine("");
+        
+        for (int i = 0; i < saves.Count; i++)
+        {
+            var save = saves[i];
+            terminal.WriteLine($"{i + 1}. {save.PlayerName} (Level {save.Level}, Day {save.CurrentDay})");
+        }
+        
+        terminal.WriteLine("");
+        var choice = await terminal.GetInput($"Select save file to delete (1-{saves.Count}) or 0 to cancel: ");
+        
+        if (int.TryParse(choice, out var index) && index >= 1 && index <= saves.Count)
+        {
+            var selectedSave = saves[index - 1];
+            
+            terminal.WriteLine("");
+            var confirm = await terminal.GetInput($"Are you sure you want to delete '{selectedSave.PlayerName}'? Type 'DELETE' to confirm: ");
+            
+            if (confirm == "DELETE")
+            {
+                var success = SaveSystem.Instance.DeleteSave(selectedSave.PlayerName);
+                if (success)
+                {
+                    terminal.WriteLine("Save file deleted successfully!", "green");
+                }
+                else
+                {
+                    terminal.WriteLine("Failed to delete save file!", "red");
+                }
+            }
+            else
+            {
+                terminal.WriteLine("Deletion cancelled.", "yellow");
+            }
+        }
+        else if (choice != "0")
+        {
+            terminal.WriteLine("Invalid choice!", "red");
+        }
+        
+        await terminal.PressAnyKey("Press any key to continue...");
+    }
+    
+    /// <summary>
+    /// View save file information
+    /// </summary>
+    private async Task ViewSaveFileInfo()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine("         SAVE FILE INFORMATION");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine("");
+        
+        var saves = SaveSystem.Instance.GetAllSaves();
+        
+        if (saves.Count == 0)
+        {
+            terminal.WriteLine("No save files found!", "red");
+            await terminal.PressAnyKey("Press any key to continue...");
+            return;
+        }
+        
+        terminal.SetColor("white");
+        foreach (var save in saves)
+        {
+            terminal.WriteLine($"Character: {save.PlayerName}", "yellow");
+            terminal.WriteLine($"Level: {save.Level}");
+            terminal.WriteLine($"Current Day: {save.CurrentDay}");
+            terminal.WriteLine($"Turns Remaining: {save.TurnsRemaining}");
+            terminal.WriteLine($"Last Saved: {save.SaveTime:yyyy-MM-dd HH:mm:ss}");
+            terminal.WriteLine($"File: {save.FileName}");
+            terminal.WriteLine("");
+        }
+        
+        await terminal.PressAnyKey("Press any key to continue...");
+    }
+    
+    /// <summary>
+    /// Force daily reset
+    /// </summary>
+    private async Task ForceDailyReset()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine("         FORCE DAILY RESET");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine("");
+        
+        terminal.SetColor("white");
+        terminal.WriteLine("This will immediately trigger a daily reset, restoring your");
+        terminal.WriteLine("daily limits and advancing the game day.");
+        terminal.WriteLine("");
+        
+        var confirm = await terminal.GetInput("Are you sure? (yes/no): ");
+        
+        if (confirm.ToLower() == "yes")
+        {
+            var dailyManager = DailySystemManager.Instance;
+            await dailyManager.ForceDailyReset();
+            
+            terminal.WriteLine("Daily reset completed!", "green");
+        }
+        else
+        {
+            terminal.WriteLine("Reset cancelled.", "yellow");
+        }
+        
+        await terminal.PressAnyKey("Press any key to continue...");
+    }
+    
+    /// <summary>
+    /// Get description for daily cycle mode
+    /// </summary>
+    private string GetDailyCycleModeDescription(DailyCycleMode mode)
+    {
+        return mode switch
+        {
+            DailyCycleMode.SessionBased => "Session-Based (resets when turns depleted)",
+            DailyCycleMode.RealTime24Hour => "Real-Time 24 Hour (resets at midnight)",
+            DailyCycleMode.Accelerated4Hour => "Accelerated 4 Hour (resets every 4 hours)",
+            DailyCycleMode.Accelerated8Hour => "Accelerated 8 Hour (resets every 8 hours)", 
+            DailyCycleMode.Accelerated12Hour => "Accelerated 12 Hour (resets every 12 hours)",
+            DailyCycleMode.Endless => "Endless (no turn limits)",
+            _ => "Unknown"
+        };
     }
 } 

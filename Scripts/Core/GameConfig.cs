@@ -777,6 +777,30 @@ Barbarian - Savage fighters, incredible strength
     public const int MaxMaintenanceLockTries = 150;       // Maximum lock attempts
 
     // ═══════════════════════════════════════════════════════════════
+    // SAVE SYSTEM CONSTANTS
+    // ═══════════════════════════════════════════════════════════════
+    
+    // Save file versioning
+    public const int SaveVersion = 1;                     // Current save format version
+    public const int MinSaveVersion = 1;                  // Minimum compatible save version
+    
+    // Auto-save settings
+    public const int DefaultAutoSaveIntervalMinutes = 5;  // Default auto-save interval
+    public const bool DefaultAutoSaveEnabled = true;      // Auto-save enabled by default
+    
+    // Save file limits
+    public const int MaxSaveFiles = 100;                  // Maximum save files to keep
+    public const int MaxBackupFiles = 5;                  // Maximum backup files per save
+    public const long MaxSaveFileSize = 50 * 1024 * 1024; // 50MB max save file size
+    
+    // Daily cycle system defaults (enum defined in SaveDataStructures.cs)
+    public const int DefaultDailyCycleModeInt = 0; // SessionBased = 0
+    public const int SessionBasedTurns = TurnsPerDay;      // Full turns for session-based
+    public const int AcceleratedTurnsDivisor = 6;         // Divide turns for accelerated modes
+    public const int EndlessModeMinTurns = 50;             // Minimum turns before boost in endless mode
+    public const int EndlessModeBoostAmount = 25;         // Turn boost amount in endless mode
+
+    // ═══════════════════════════════════════════════════════════════
     // QUEST SYSTEM CONSTANTS (Pascal PLYQUEST.PAS & RQUESTS.PAS)
     // ═══════════════════════════════════════════════════════════════
     

@@ -18,12 +18,8 @@ namespace UsurperConsole
             // this still compiles but returns default.
             GD.Print("Launching Usurper Reborn – Console Mode");
 
-            // Create a terminal that works in pure console.
-            var terminal = new TerminalEmulator();
-
-            // Spin up the full engine.
-            var engine = GameEngine.Instance;
-            await engine.RunConsoleAsync(terminal);
+            // Spin up the full engine in console mode.
+            await GameEngine.RunConsoleAsync();
         }
     }
 } 

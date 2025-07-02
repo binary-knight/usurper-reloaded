@@ -225,6 +225,23 @@ public class LocationManager
                 await Task.Delay(1000);
             }
         }
+        catch (LocationChangeException ex)
+        {
+            // Handle legacy location change exception
+            terminal.WriteLine($"Navigating to {ex.Destination}...", "yellow");
+            await Task.Delay(1000);
+            
+            // Convert string destination to GameLocation enum
+            if (Enum.TryParse<GameLocation>(ex.Destination, true, out var destination))
+            {
+                await EnterLocation(destination, player);
+            }
+            else
+            {
+                terminal.WriteLine($"Unknown destination: {ex.Destination}", "red");
+                await Task.Delay(1500);
+            }
+        }
     }
     
     /// <summary>

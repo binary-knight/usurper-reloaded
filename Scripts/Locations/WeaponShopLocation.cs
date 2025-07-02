@@ -11,7 +11,6 @@ using System.Threading.Tasks;
 /// </summary>
 public class WeaponShopLocation : BaseLocation
 {
-    private TerminalEmulator terminal;
     private string shopkeeperName = "Tully";
     private bool isKicked = false;
     private Character? currentPlayer => GameEngine.Instance?.CurrentPlayer;

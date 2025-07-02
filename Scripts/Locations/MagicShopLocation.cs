@@ -19,7 +19,6 @@ public partial class MagicShopLocation : BaseLocation
     // Available magic items for sale
     private static List<Item> _magicInventory = new List<Item>();
     
-    private TerminalEmulator terminal;
     private Player currentPlayer;
     private List<Item> shopInventory;
     private Random random = new Random();
@@ -133,7 +132,7 @@ public partial class MagicShopLocation : BaseLocation
     
     private void DisplayMagicShopMenu(Character player)
     {
-        ClearScreen();
+        terminal.ClearScreen();
         
         // Shop header
         string title = $"{ShopTitle}, run by {_ownerName} the gnome";
@@ -185,7 +184,7 @@ public partial class MagicShopLocation : BaseLocation
         while (true)
         {
             DisplayMessage("Magic Shop (? for menu): ", "yellow", false);
-            var choice = Console.ReadKey().KeyChar.ToString().ToUpper();
+            var choice = terminal.GetInputSync("").ToUpper();
             DisplayMessage(""); // New line
             
             switch (choice)
@@ -522,7 +521,7 @@ public partial class MagicShopLocation : BaseLocation
         DisplayMessage("");
         
         DisplayMessage($"How many? (max {maxPotions} potions): ", "yellow", false);
-        string input = Console.ReadLine();
+        string input = terminal.GetInputSync("");
         
         if (int.TryParse(input, out int quantity) && quantity > 0 && quantity <= maxPotions)
         {

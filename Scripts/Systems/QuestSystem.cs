@@ -77,7 +77,7 @@ public partial class QuestSystem : Node
         // Claim the quest
         foundQuest.Occupier = player.Name2;
         foundQuest.OccupierRace = player.Race;
-        foundQuest.OccupierSex = (byte)player.Sex;
+                        foundQuest.OccupierSex = (byte)((int)player.Sex);
         foundQuest.OccupiedDays = 0;
         
         // Track in player list

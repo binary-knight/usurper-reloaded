@@ -38,6 +38,25 @@
     "dailyResetHour": 0,
     "maxDaysInHistory": 30
   },
+  "dailyCycleSettings": {
+    "defaultMode": "SessionBased",
+    "allowModeChanges": true,
+    "sessionBasedTurns": 250,
+    "acceleratedTurnsDivisor": 6,
+    "endlessModeMinTurns": 50,
+    "endlessModeBoostAmount": 25,
+    "realTimeNPCSimulation": true
+  },
+  "saveSettings": {
+    "autoSaveEnabled": true,
+    "autoSaveIntervalMinutes": 5,
+    "maxSaveFiles": 100,
+    "maxBackupFiles": 5,
+    "maxSaveFileSizeMB": 50,
+    "compressionEnabled": true,
+    "saveOnLocationChange": true,
+    "saveOnDailyReset": true
+  },
   "aiSettings": {
     "decisionUpdateIntervalMinutes": 15,
     "personalityDriftRate": 0.001,

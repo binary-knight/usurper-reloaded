@@ -72,12 +72,78 @@ The project includes automated GitHub Actions for building:
 
 ## 🗺️ Roadmap
 
-### **Early Access Launch** (Current Focus)
-- [x] Core game systems (combat, locations, NPCs)
-- [x] Save/load functionality
-- [x] Basic Steam integration
-- [ ] Initial balancing based on player feedback
+### **Early Access Launch Requirements** (Current Focus)
+
+**🚧 CRITICAL BLOCKERS - Must Complete Before Early Access:**
+
+#### Core Location Implementations
+- [ ] **Church** - Currently placeholder, needs healing/blessing mechanics
+- [ ] **Marketplace** - Currently placeholder, needs trading system
+- [ ] **Level Master** - Currently placeholder, needs level advancement
+- [ ] **Dark Alley** - Currently placeholder, needs shady dealings/black market
+- [ ] **Anchor Road** - Currently placeholder, needs challenge system
+- [ ] **Hall of Recruitment** - Currently placeholder, needs NPC hiring
+- [ ] **Dormitory** - Currently placeholder, needs rest/recovery mechanics
+- [ ] **Your Home** - Currently placeholder, needs personal dwelling features
+- [ ] **Outside Prison** - Currently placeholder, needs prison break mechanics
+
+#### Major System Gaps
+- [ ] **Mail System** - "not yet implemented" throughout prison, main street
+- [ ] **Message System** - Player-to-player communication missing
+- [ ] **Item Transfer** - Player-to-player item trading missing
+- [ ] **Team Management** - Many "not yet implemented" features in Team Corner
+- [ ] **Combat Spells** - "Spell casting not yet implemented"
+- [ ] **Combat Items** - "Item usage not yet implemented"
+- [ ] **Gossip System** - Love Corner gossip features incomplete
+- [ ] **Child System** - Child examination and interaction incomplete
+- [ ] **News Archive** - News system has placeholder archive functionality
+
+#### Castle/Royal System Gaps
+- [ ] **Throne Challenge** - "not yet implemented" combat system
+- [ ] **Prison Management** - "not yet implemented" for royal functions
+- [ ] **Royal Mail** - "not yet implemented"
+- [ ] **Court Magician** - "not yet implemented"
+- [ ] **Royal Quests** - "not yet implemented"
+- [ ] **Royal Orphanage** - "not yet implemented" management
+- [ ] **Tax Policy** - "not yet implemented"
+- [ ] **Guard Management** - "not yet implemented"
+
+#### Prison System Gaps  
+- [ ] **Rescue Mechanism** - Prison rescue returns false stub
+- [ ] **Prison Break Combat** - "not yet implemented"
+- [ ] **Prisoner Database** - Currently returns empty placeholder lists
+- [ ] **Online Player Tracking** - "not yet implemented"
+
+#### Shop/Economy Issues
+- [ ] **Magic Shop Class Restrictions** - TODO: implement when needed
+- [ ] **Item Equipping System** - TODO: implement in magic shop
+- [ ] **Cursed Item Removal** - TODO: integrate with actual item system
+- [ ] **Item Identification** - Placeholder 33% random chance logic
+
+#### Technical Infrastructure
+- [ ] **NPC AI Loops** - "behaviour is still stubbed" - NPCs don't roam/act
+- [ ] **World Simulation** - WorldSimulator exists but behavior stubbed
+- [ ] **Relationship Persistence** - Many relationship features incomplete
+- [ ] **Quest Completion** - Quest system has many placeholder stubs
+- [ ] **Tournament System** - Multiple "placeholder" combat/navigation tests
+
+**⚠️ ESTIMATED WORK REMAINING: 3-6 months of core development**
+
+#### Already Complete ✅
+- [x] Core game systems (combat, locations, NPCs) - *Basic framework*
+- [x] Save/load functionality - *Comprehensive system implemented*
+- [x] Terminal emulator and UI framework
+- [x] Character creation and basic progression
+- [x] Basic location navigation
+- [x] Fundamental combat engine (needs spell/item integration)
+- [x] Bank, Inn, Healer, Temple, Weapon Shop, Magic Shop basics
+- [x] Prison system framework (needs completion)
+
+#### Post-Early Access
+- [ ] Steam integration and achievements
+- [ ] Initial balancing based on player feedback  
 - [ ] Bug fixes and stability improvements
+- [ ] Audio and enhanced ANSI art
 
 ### **Phase 1: Enhanced Single Player** (Post-Launch)
 - [ ] **Nemesis System**: NPCs who defeat you become legendary
