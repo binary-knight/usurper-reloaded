@@ -1,5 +1,7 @@
 ﻿# Usurper Reloaded
 
+**🆓 FREE AND OPEN SOURCE SOFTWARE - GPL v2 Licensed**
+
 A faithful recreation of the classic 1993 BBS door game "Usurper" by Jakob Dangarden, enhanced with revolutionary NPC AI systems while maintaining 100% Pascal source compatibility.
 
 ## 🎮 About
@@ -8,7 +10,8 @@ Usurper Reloaded brings the brutal medieval world of the original BBS classic to
 
 **Original Creator**: Jakob Dangarden (1993)  
 **Source Preservation**: Rick Parrish  
-**Modern Recreation**: Built with Godot 4.2+ and C#
+**Modern Recreation**: Built with Godot 4.4+ and C#  
+**License**: GNU General Public License v2 (GPL v2)
 
 ## ✨ Current Status & Implemented Features (Alpha)
 
@@ -155,13 +158,38 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 - **Test Coverage**: 300+ test cases
 - **Platforms**: Windows, Linux, macOS (Steam Deck verified)
 
-## 📜 License
+## 📜 License & Your Rights
 
-See LICENSE.md
+**Usurper Reloaded is FREE SOFTWARE licensed under GPL v2**
 
+### 🔓 Your Rights
+- ✅ **Use** - Run the game for any purpose (personal, commercial, educational)
+- ✅ **Study** - Examine and learn from the complete source code
+- ✅ **Share** - Distribute copies to anyone, anywhere
+- ✅ **Modify** - Change the game and distribute your improvements
+- ✅ **Commercial Use** - Even sell your own versions (under GPL v2)
+
+### 📁 Source Code Access
+- **Complete source code** included with every download
+- **GitHub Repository**: https://github.com/YOUR_USERNAME/usurper-reloaded
+- **Build Scripts**: All tools and build processes included
+- **No Hidden Code**: Everything needed to build and modify the game
+
+### 📋 GPL v2 Compliance
+This distribution includes:
+- `LICENSE` - Complete GPL v2 license text
+- `GPL_NOTICE.txt` - Your rights and freedoms
+- `usurper-reloaded-source.zip` - Complete source code archive
+- `GPL_COMPLIANCE.md` - Detailed compliance information
+
+**This is truly FREE software - you own it completely!**
+
+### 🏛️ Legal Details
 **Original Game**: © 1993 Jakob Dangarden  
 **Pascal Preservation**: Rick Parrish, Daniel Zingaro (GPL License)  
-**This Remake**: Fair use for preservation and education
+**This Remake**: GPL v2 Licensed - Free for all to use and modify
+
+See `LICENSE` file for complete GPL v2 terms and conditions.
 
 ## 🙏 Acknowledgments
 

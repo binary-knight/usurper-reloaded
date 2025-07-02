@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../usurper-remake.csproj" />
+    <ProjectReference Include="../usurper-reloaded.csproj" />
   </ItemGroup>
 
 </Project>
