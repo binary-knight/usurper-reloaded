@@ -310,7 +310,7 @@ public class NPCMaintenanceEngine : Node
             goals.Add(new ShoppingGoal
             {
                 ItemType = ObjType.Weapon,
-                MinValue = CalculateMinAcceptableValue(npc.WeaponPower),
+                MinValue = CalculateMinAcceptableValue((int)npc.WeaponPower),
                 MaxCost = CalculateMaxAffordableCost(npc.Gold, 0.3f),
                 Priority = GetWeaponPriority(npc)
             });
@@ -321,7 +321,7 @@ public class NPCMaintenanceEngine : Node
             goals.Add(new ShoppingGoal
             {
                 ItemType = ObjType.Abody,
-                MinValue = CalculateMinAcceptableValue(npc.ArmorClass),
+                MinValue = CalculateMinAcceptableValue((int)npc.ArmorClass),
                 MaxCost = CalculateMaxAffordableCost(npc.Gold, 0.4f),
                 Priority = GetArmorPriority(npc)
             });
@@ -399,6 +399,21 @@ public class NPCMaintenanceEngine : Node
                 await CheckGangRivalry(gangs[i].Key, gangs[j].Key, npcs);
             }
         }
+    }
+    
+    /// <summary>
+    /// Additional advanced gang management stubs – full logic TBD
+    /// </summary>
+    private async Task ProcessGangTerritories(List<NPC> npcs)
+    {
+        // Placeholder: future implementation will evaluate gang turfs and takeover mechanics
+        await Task.CompletedTask;
+    }
+    
+    private async Task ProcessGangLoyalty(List<NPC> npcs)
+    {
+        // Placeholder: compute loyalty shifts, defections, betrayals
+        await Task.CompletedTask;
     }
     
     #endregion

@@ -350,7 +350,7 @@ public partial class QuestSystem : Node
         
         // Send failure notification to king
         var kingName = quest.Initiator;
-        MailSystem.SendQuestFailureNotificationMail(kingName, quest);
+        MailSystem.SendQuestFailureNotificationMail(kingName, quest.Title);
         
         // Apply penalty if configured
         ApplyQuestPenalty(quest);

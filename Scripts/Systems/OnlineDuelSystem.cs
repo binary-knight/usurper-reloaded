@@ -280,7 +280,9 @@ public class OnlineDuelSystem : Node
         {
             case DuelActionType.Say:
                 terminal.Write("Say what: ");
-                action.Message = await terminal.GetStringInput(70); // Pascal s70 limit
+                string sayRaw = await terminal.GetStringInput();
+                // Enforce 70-character limit similar to Pascal s70
+                action.Message = sayRaw.Length > 70 ? sayRaw.Substring(0, 70) : sayRaw;
                 break;
                 
             case DuelActionType.Taunt:
@@ -403,11 +405,11 @@ public class OnlineDuelSystem : Node
     /// </summary>
     private async Task ProcessDuelHeal(Character player, DuelResult result, TerminalEmulator terminal)
     {
-        int healAmount = player.Level * 10; // Basic healing
-        int oldHP = player.HP;
+        long healAmount = player.Level * 10; // Basic healing proportional to level
+        long oldHP = player.HP;
         
         player.HP = Math.Min(player.HP + healAmount, player.MaxHP);
-        int actualHeal = player.HP - oldHP;
+        long actualHeal = player.HP - oldHP;
         
         terminal.WriteLine($"\n{GameConfig.HealColor}{player.Name2} heals for {actualHeal} HP!{GameConfig.TextColor}");
         result.DuelLog.Add($"{player.Name2} healed for {actualHeal} HP");
@@ -622,13 +624,13 @@ public class OnlineDuelSystem : Node
     /// </summary>
     private int CalculateDuelDamage(Character attacker, Character defender)
     {
-        // Basic damage calculation based on Pascal combat logic
-        int baseDamage = attacker.Strength / 3;
-        baseDamage += attacker.WeaponPower / 2;
+        // Basic damage calculation based on Pascal combat logic – values cast to int for RNG maths
+        int baseDamage = (int)(attacker.Strength / 3);
+        baseDamage += (int)(attacker.WeaponPower / 2);
         baseDamage += random.Next(1, 20); // Random variation
         
         // Defense reduction
-        int defense = defender.ArmorClass / 2;
+        int defense = (int)(defender.ArmorClass / 2);
         int finalDamage = Math.Max(1, baseDamage - defense);
         
         return finalDamage;
