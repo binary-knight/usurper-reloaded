@@ -146,35 +146,37 @@ jobs:
             cp LICENSE "$dir/"
             cp GPL_NOTICE.txt "$dir/"
             cp usurper-reloaded-source.zip "$dir/"
-            
-            # Create README for each platform
-            cat > "$dir/README.txt" << EOF
-# Usurper Reloaded - Complete Medieval World Simulation
-
-**🆓 FREE AND OPEN SOURCE SOFTWARE - GPL v2 Licensed**
-
-## About
-A faithful remake of the classic BBS door game Usurper with advanced NPC AI.
-From peasant to ruler, the path of the Usurper awaits!
-
-## GPL v2 COMPLIANCE
-- This software is licensed under GPL v2
-- Complete source code included: usurper-reloaded-source.zip
-- License terms: LICENSE file  
-- Full notice: GPL_NOTICE.txt
-
-## Your Rights
-✅ Use for any purpose (personal, commercial, educational)
-✅ Study and modify the complete source code
-✅ Distribute copies freely
-✅ Distribute your modifications under GPL v2
-
-This is truly FREE software - you own it completely!
-
-## Repository
-https://github.com/YOUR_USERNAME/usurper-reloaded
-EOF
           done
+          
+          # Create README files for each platform
+          echo "# Usurper Reloaded - Complete Medieval World Simulation" > build/windows/README.txt
+          echo "" >> build/windows/README.txt
+          echo "**FREE AND OPEN SOURCE SOFTWARE - GPL v2 Licensed**" >> build/windows/README.txt
+          echo "" >> build/windows/README.txt
+          echo "## About" >> build/windows/README.txt
+          echo "A faithful remake of the classic BBS door game Usurper with advanced NPC AI." >> build/windows/README.txt
+          echo "From peasant to ruler, the path of the Usurper awaits!" >> build/windows/README.txt
+          echo "" >> build/windows/README.txt
+          echo "## GPL v2 COMPLIANCE" >> build/windows/README.txt
+          echo "- This software is licensed under GPL v2" >> build/windows/README.txt
+          echo "- Complete source code included: usurper-reloaded-source.zip" >> build/windows/README.txt
+          echo "- License terms: LICENSE file" >> build/windows/README.txt
+          echo "- Full notice: GPL_NOTICE.txt" >> build/windows/README.txt
+          echo "" >> build/windows/README.txt
+          echo "## Your Rights" >> build/windows/README.txt
+          echo "✅ Use for any purpose (personal, commercial, educational)" >> build/windows/README.txt
+          echo "✅ Study and modify the complete source code" >> build/windows/README.txt
+          echo "✅ Distribute copies freely" >> build/windows/README.txt
+          echo "✅ Distribute your modifications under GPL v2" >> build/windows/README.txt
+          echo "" >> build/windows/README.txt
+          echo "This is truly FREE software - you own it completely!" >> build/windows/README.txt
+          echo "" >> build/windows/README.txt
+          echo "## Repository" >> build/windows/README.txt
+          echo "https://github.com/YOUR_USERNAME/usurper-reloaded" >> build/windows/README.txt
+          
+          # Copy README to other platforms
+          cp build/windows/README.txt build/linux/README.txt
+          cp build/windows/README.txt build/mac/README.txt
           
           echo "GPL compliance files added to all builds"
 
