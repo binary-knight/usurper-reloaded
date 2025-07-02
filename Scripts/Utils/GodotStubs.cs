@@ -290,7 +290,9 @@ namespace UsurperRemake.Utils
                 AI = CharacterAI.Human,
                 Level = 1,
                 HP = 100,
-                MaxHP = 100
+                MaxHP = 100,
+                Allowed = true,
+                TurnsRemaining = GameConfig.TurnsPerDay // give starting turns
             };
         }
         

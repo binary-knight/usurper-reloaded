@@ -80,6 +80,10 @@ public partial class GameEngine : Node
     /// </summary>
     private void InitializeGame()
     {
+        // If we were truly running inside Godot, the Terminal node would
+        // already exist and TerminalEmulator.Instance would have been set.
+        terminal = TerminalEmulator.Instance ?? new TerminalEmulator();
+
         GD.Print("Reading configuration...");
         ReadStartCfgValues();
         
@@ -100,7 +104,6 @@ public partial class GameEngine : Node
         };
         
         // Initialize core systems
-        terminal = GetNode<TerminalEmulator>("Terminal");
         locationManager = new LocationManager(terminal);
         saveManager = new SaveManager();
         dailyManager = new DailySystemManager();
@@ -618,6 +621,21 @@ public partial class GameEngine : Node
         {
             GD.PrintErr($"Magic Shop Test Error: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Console bootstrap – run the full engine without a Godot scene.
+    /// </summary>
+    public async Task RunConsoleAsync(TerminalEmulator term)
+    {
+        terminal = term;
+
+        // Perform the same initialisation that _Ready would normally handle.
+        InitializeGame();
+
+        // Title screen & main menu
+        ShowTitleScreen();
+        await MainMenu();
     }
 }
 

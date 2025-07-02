@@ -127,16 +127,54 @@ public partial class TerminalEmulator : Control
     
     public void Write(string text, string color = "white")
     {
-        var colorCode = ansiColors.ContainsKey(color) ? 
-            ansiColors[color].ToHtml() : ansiColors["white"].ToHtml();
-            
-        display.AppendText($"[color=#{colorCode}]{text}[/color]");
+        // If the Godot RichTextLabel is available use it, otherwise fall back to plain Console output
+        if (display != null)
+        {
+            var colorCode = ansiColors.ContainsKey(color) ?
+                ansiColors[color].ToHtml() : ansiColors["white"].ToHtml();
+
+            display.AppendText($"[color=#{colorCode}]{text}[/color]");
+        }
+        else
+        {
+            // Console fallback – approximate ANSI colour mapping
+            ConsoleColor oldColor = Console.ForegroundColor;
+            Console.ForegroundColor = ColorNameToConsole(color);
+            Console.Write(text);
+            Console.ForegroundColor = oldColor;
+        }
+
         cursorX += text.Length;
+    }
+    
+    private ConsoleColor ColorNameToConsole(string colorName)
+    {
+        // Basic map – expand as needed
+        return colorName.ToLower() switch
+        {
+            "black" => ConsoleColor.Black,
+            "darkred" or "red" or "bright_red" => ConsoleColor.Red,
+            "darkgreen" or "green" or "bright_green" => ConsoleColor.Green,
+            "darkyellow" or "yellow" or "bright_yellow" => ConsoleColor.Yellow,
+            "darkblue" or "blue" or "bright_blue" => ConsoleColor.Blue,
+            "darkmagenta" or "magenta" or "bright_magenta" => ConsoleColor.Magenta,
+            "darkcyan" or "cyan" or "bright_cyan" => ConsoleColor.Cyan,
+            "gray" or "bright_white" or "white" => ConsoleColor.White,
+            "darkgray" => ConsoleColor.DarkGray,
+            _ => ConsoleColor.White
+        };
     }
     
     public void ClearScreen()
     {
-        display.Clear();
+        if (display != null)
+        {
+            display.Clear();
+        }
+        else
+        {
+            Console.Clear();
+        }
         cursorX = 0;
         cursorY = 0;
     }
@@ -152,18 +190,27 @@ public partial class TerminalEmulator : Control
     public async Task<string> GetInput(string prompt = "> ")
     {
         Write(prompt, "bright_white");
-        
-        inputLine.Clear();
-        inputLine.Visible = true;
-        inputLine.GrabFocus();
-        
-        inputAwaiter = new TaskCompletionSource<string>();
-        var result = await inputAwaiter.Task;
-        
-        inputLine.Visible = false;
-        WriteLine(result, "cyan");
-        
-        return result;
+
+        // If running inside Godot (display created) use the LineEdit, otherwise Console.ReadLine
+        if (inputLine != null && display != null)
+        {
+            inputLine.Clear();
+            inputLine.Visible = true;
+            inputLine.GrabFocus();
+
+            inputAwaiter = new TaskCompletionSource<string>();
+            var result = await inputAwaiter.Task;
+
+            inputLine.Visible = false;
+            WriteLine(result, "cyan");
+            return result;
+        }
+        else
+        {
+            var result = Console.ReadLine() ?? string.Empty;
+            WriteLine(result, "cyan");
+            return result;
+        }
     }
     
     private void OnInputSubmitted(string text)

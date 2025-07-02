@@ -78,7 +78,7 @@ public class LocationManager
         locations[GameLocation.TeamCorner] = new PlaceholderLocation(GameLocation.TeamCorner, "Team Corner", "Where groups gather to plan their strategies.");
         locations[GameLocation.Recruit] = new PlaceholderLocation(GameLocation.Recruit, "Hall of Recruitment", "Seek allies for your quests here.");
         locations[GameLocation.Dormitory] = new PlaceholderLocation(GameLocation.Dormitory, "Dormitory", "A place to rest and recover from your adventures.");
-        locations[GameLocation.Temple] = new TempleLocation();
+        locations[GameLocation.Temple] = new TempleLocation(terminal, this, UsurperRemake.GodSystemSingleton.Instance);
         locations[GameLocation.Home] = new PlaceholderLocation(GameLocation.Home, "Your Home", "Your personal dwelling and sanctuary.");
         locations[GameLocation.Prison] = new PrisonLocation();
         locations[GameLocation.PrisonWalk] = new PlaceholderLocation(GameLocation.PrisonWalk, "Outside Prison", "Walk around the prison grounds.");
