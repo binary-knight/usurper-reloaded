@@ -127,28 +127,44 @@ jobs:
       - name: Debug export presets
         run: |
           echo "=== Checking export presets ==="
-          godot --headless --export-debug --list-export-presets || echo "List presets failed"
+          echo "File exists:" && ls -la export_presets.cfg
+          echo "File encoding:" && file export_presets.cfg
+          echo "First few bytes (hex):" && xxd -l 32 export_presets.cfg
           echo "=== Contents of export_presets.cfg ==="
           cat export_presets.cfg
           echo "=== End of export_presets.cfg ==="
+          echo "=== Testing Godot preset detection ==="
+          godot --headless --export-debug "Windows Desktop" /tmp/test.exe 2>&1 || echo "Export test completed"
 
       - name: Export Windows build
         run: |
           echo "Attempting Windows export..."
-          godot --headless --export-release "Windows Desktop" build/windows/${{ env.EXPORT_NAME }}.exe || echo "Windows export failed"
-        continue-on-error: true
+          godot --headless --export-release "Windows Desktop" build/windows/${{ env.EXPORT_NAME }}.exe
+          if [ ! -f "build/windows/${{ env.EXPORT_NAME }}.exe" ]; then
+            echo "ERROR: Windows export failed - executable not created"
+            exit 1
+          fi
+          echo "✅ Windows export successful"
 
       - name: Export Linux build  
         run: |
           echo "Attempting Linux export..."
-          godot --headless --export-release "Linux/X11" build/linux/${{ env.EXPORT_NAME }}.x86_64 || echo "Linux export failed"
-        continue-on-error: true
+          godot --headless --export-release "Linux/X11" build/linux/${{ env.EXPORT_NAME }}.x86_64
+          if [ ! -f "build/linux/${{ env.EXPORT_NAME }}.x86_64" ]; then
+            echo "ERROR: Linux export failed - executable not created"
+            exit 1
+          fi
+          echo "✅ Linux export successful"
 
       - name: Export macOS build
         run: |
           echo "Attempting macOS export..."
-          godot --headless --export-release "macOS" build/mac/${{ env.EXPORT_NAME }}.zip || echo "macOS export failed"
-        continue-on-error: true
+          godot --headless --export-release "macOS" build/mac/${{ env.EXPORT_NAME }}.zip
+          if [ ! -f "build/mac/${{ env.EXPORT_NAME }}.zip" ]; then
+            echo "ERROR: macOS export failed - bundle not created"
+            exit 1
+          fi
+          echo "✅ macOS export successful"
 
       - name: Add GPL compliance files to builds
         run: |
