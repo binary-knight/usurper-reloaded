@@ -129,10 +129,12 @@ public class NPCBrain
     /// </summary>
     private void InitializeRelationshipBehavior()
     {
-        if (string.IsNullOrEmpty(owner.Married) && owner.Level >= 5)
+        if (owner.Married || owner.Level < 5)
         {
-            goals.AddGoal(new Goal("Find Life Partner", GoalType.Social, 0.5f));
+            return;
         }
+        
+        goals.AddGoal(new Goal("Find Life Partner", GoalType.Social, 0.5f));
         
         if (personality.Sociability > 0.6f)
         {
@@ -440,7 +442,7 @@ public class NPCBrain
         lastActivities["relationships"] = DateTime.Now;
         
         // Marriage considerations
-        if (string.IsNullOrEmpty(owner.Married) && owner.Level >= 5)
+        if (!owner.Married && owner.Level >= 5)
         {
             if (random.Next(50) == 0) // 2% chance per processing cycle
             {

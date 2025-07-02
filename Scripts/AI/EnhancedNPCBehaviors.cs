@@ -142,7 +142,7 @@ public static class EnhancedNPCBehaviors
     public static void ProcessNPCRelationships(NPC npc, List<NPC> allNPCs)
     {
         // Marriage system
-        if (string.IsNullOrEmpty(npc.Married) && npc.Level >= 5)
+        if (!npc.Married && npc.Level >= 5)
         {
             if (random.Next(50) == 0) // 2% chance per cycle
             {
@@ -272,8 +272,7 @@ public static class EnhancedNPCBehaviors
         }
         
         // Generate news
-        var newsSystem = NewsSystem.Instance;
-        newsSystem?.Newsy($"{GameConfig.TeamColor}{gangName}{GameConfig.NewsColorDefault} ceased to exist!", false, GameConfig.NewsCategory.General);
+        NewsSystem.Instance.Newsy($"{GameConfig.TeamColor}{gangName}{GameConfig.NewsColorDefault} ceased to exist!", false, GameConfig.NewsCategory.General);
     }
     
     private static void RecruitGangMembers(string gangName, List<NPC> npcs)
@@ -298,8 +297,7 @@ public static class EnhancedNPCBehaviors
                 }
                 
                 // Generate news
-                var newsSystem = NewsSystem.Instance;
-                newsSystem?.Newsy($"{GameConfig.NewsColorPlayer}{candidate.Name2}{GameConfig.NewsColorDefault} has been recruited to {GameConfig.TeamColor}{gangName}{GameConfig.NewsColorDefault}", true, GameConfig.NewsCategory.General);
+                NewsSystem.Instance.Newsy($"{GameConfig.NewsColorPlayer}{candidate.Name2}{GameConfig.NewsColorDefault} has been recruited to {GameConfig.TeamColor}{gangName}{GameConfig.NewsColorDefault}", true, GameConfig.NewsCategory.General);
             }
         }
     }
@@ -359,8 +357,7 @@ public static class EnhancedNPCBehaviors
     
     private static void GenerateGangWarNews(string header, string gang1, string gang2)
     {
-        var newsSystem = NewsSystem.Instance;
-        newsSystem?.Newsy($"{header} {GameConfig.TeamColor}{gang1}{GameConfig.NewsColorDefault} challenged {GameConfig.TeamColor}{gang2}{GameConfig.NewsColorDefault}", false, GameConfig.NewsCategory.General);
+        NewsSystem.Instance.Newsy($"{header} {GameConfig.TeamColor}{gang1}{GameConfig.NewsColorDefault} challenged {GameConfig.TeamColor}{gang2}{GameConfig.NewsColorDefault}", false, GameConfig.NewsCategory.General);
     }
     
     private static void ConductGangBattles(List<NPC> team1, List<NPC> team2, GangWarResult result)

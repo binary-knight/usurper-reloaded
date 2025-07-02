@@ -13,7 +13,6 @@ using System.Threading.Tasks;
 public class EnhancedNPCBehaviorSystem : Node
 {
     // MailSystem is static - no need to instantiate
-    private NewsSystem newsSystem;
     private RelationshipSystem relationshipSystem;
     private Random random = new Random();
     
@@ -242,8 +241,7 @@ public class EnhancedNPCBehaviorSystem : Node
         GD.Print($"Removing NPC team: {gangName}");
         
         // Generate news
-        newsSystem.Newsy($"{GameConfig.TeamColor}{gangName}{GameConfig.NewsColorDefault} ceased to exist!", 
-            false, GameConfig.NewsCategory.General);
+        NewsSystem.Instance.Newsy($"{GameConfig.TeamColor}{gangName}{GameConfig.NewsColorDefault} ceased to exist!", false, GameConfig.NewsCategory.General);
         
         // Remove all members from gang
         var gangMembers = npcs.Where(n => n.Team == gangName).ToList();
@@ -252,8 +250,7 @@ public class EnhancedNPCBehaviorSystem : Node
         {
             if (member.AI == CharacterAI.Computer)
             {
-                newsSystem.Newsy($"{GameConfig.NewsColorPlayer}{member.Name2}{GameConfig.NewsColorDefault} left the team.", 
-                    false, GameConfig.NewsCategory.General);
+                NewsSystem.Instance.Newsy($"{GameConfig.NewsColorPlayer}{member.Name2}{GameConfig.NewsColorDefault} left the team.", false, GameConfig.NewsCategory.General);
                 
                 // Clear team data
                 member.Team = "";
@@ -266,7 +263,7 @@ public class EnhancedNPCBehaviorSystem : Node
         }
         
         // Add final newline to news
-        newsSystem.Newsy("", true, GameConfig.NewsCategory.General);
+        NewsSystem.Instance.Newsy("", true, GameConfig.NewsCategory.General);
     }
     
     /// <summary>
@@ -300,8 +297,7 @@ public class EnhancedNPCBehaviorSystem : Node
                 recruited++;
                 
                 // Generate news
-                newsSystem.Newsy($"{GameConfig.NewsColorPlayer}{npc.Name2}{GameConfig.NewsColorDefault} has been recruited to {GameConfig.TeamColor}{gangName}{GameConfig.NewsColorDefault}",
-                    true, GameConfig.NewsCategory.General);
+                NewsSystem.Instance.Newsy($"{GameConfig.NewsColorPlayer}{npc.Name2}{GameConfig.NewsColorDefault} has been recruited to {GameConfig.TeamColor}{gangName}{GameConfig.NewsColorDefault}", true, GameConfig.NewsCategory.General);
             }
         }
     }
@@ -368,7 +364,7 @@ public class EnhancedNPCBehaviorSystem : Node
         var announcement = $"{GameConfig.TeamColor}{gang1}{GameConfig.NewsColorDefault} challenged {GameConfig.TeamColor}{gang2}{GameConfig.NewsColorDefault}";
         var turfText = turfWar ? "A challenge for Town Control!" : "";
         
-        newsSystem.Newsy($"{header} {announcement} {turfText}", false, GameConfig.NewsCategory.General);
+        NewsSystem.Instance.Newsy($"{header} {announcement} {turfText}", false, GameConfig.NewsCategory.General);
         
         // Reset HP for all participants
         foreach (var member in team1.Concat(team2))
@@ -384,7 +380,7 @@ public class EnhancedNPCBehaviorSystem : Node
         {
             round++;
             
-            newsSystem.Newsy($"Round {round} results:", false, GameConfig.NewsCategory.General);
+            NewsSystem.Instance.Newsy($"Round {round} results:", false, GameConfig.NewsCategory.General);
             
             // Pair up fighters and conduct battles
             await ConductRoundBattles(team1, team2, result);
@@ -468,7 +464,7 @@ public class EnhancedNPCBehaviorSystem : Node
     {
         var unmarriedNPCs = npcs.Where(n => 
             n.AI == CharacterAI.Computer && 
-            string.IsNullOrEmpty(n.Married) && 
+            !n.Married && 
             n.Level >= 5 && // Mature enough to marry
             n.IsAlive).ToList();
         
@@ -488,7 +484,7 @@ public class EnhancedNPCBehaviorSystem : Node
     {
         var marriedNPCs = npcs.Where(n => 
             n.AI == CharacterAI.Computer && 
-            !string.IsNullOrEmpty(n.Married) && 
+            n.Married && 
             n.IsAlive).ToList();
         
         foreach (var npc in marriedNPCs)
