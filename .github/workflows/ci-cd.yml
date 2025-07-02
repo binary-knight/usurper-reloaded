@@ -9,7 +9,7 @@ on:
     types: [ published ]
 
 env:
-  GODOT_VERSION: 4.4
+  GODOT_VERSION: 4.3.0
   EXPORT_NAME: usurper-reloaded
   DOTNET_SYSTEM_GLOBALIZATION_INVARIANT: 1
 
