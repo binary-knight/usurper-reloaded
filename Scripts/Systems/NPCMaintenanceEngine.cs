@@ -47,7 +47,7 @@ public class NPCMaintenanceEngine : Node
         
         foreach (var npc in npcs.Where(n => n.IsAlive))
         {
-            ProcessNPCMaintenance(npc);
+            await ProcessNPCMaintenance(npc);
         }
         
         ProcessGangMaintenance(npcs);
@@ -58,7 +58,7 @@ public class NPCMaintenanceEngine : Node
     /// <summary>
     /// Process individual NPC maintenance
     /// </summary>
-    private void ProcessNPCMaintenance(NPC npc)
+    private async Task ProcessNPCMaintenance(NPC npc)
     {
         // Pascal NPC maintenance logic
         if (random.Next(3) == 0) // 33% chance
@@ -68,7 +68,7 @@ public class NPCMaintenanceEngine : Node
         
         if (random.Next(5) == 0) // 20% chance
         {
-            ProcessNPCBelieverSystem(npc);
+            await ProcessNPCBelieverSystem(npc);
         }
     }
     
@@ -95,14 +95,14 @@ public class NPCMaintenanceEngine : Node
     /// <summary>
     /// Pascal believer system
     /// </summary>
-    private void ProcessNPCBelieverSystem(NPC npc)
+    private async Task ProcessNPCBelieverSystem(NPC npc)
     {
         if (string.IsNullOrEmpty(npc.God))
         {
             // Potential conversion
             if (random.Next(10) == 0)
             {
-                AttemptFaithConversion(npc);
+                await AttemptFaithConversion(npc);
             }
         }
         else
@@ -170,7 +170,7 @@ public class NPCMaintenanceEngine : Node
         return false;
     }
     
-    private void AttemptFaithConversion(NPC npc)
+    private async Task AttemptFaithConversion(NPC npc)
     {
         var availableGods = new[] { "Nosferatu", "Darkcloak", "Druid" };
         if (availableGods.Length > 0)
@@ -178,6 +178,7 @@ public class NPCMaintenanceEngine : Node
             npc.God = availableGods[random.Next(availableGods.Length)];
             GD.Print($"[NPCMaint] {npc.Name} converted to {npc.God}");
         }
+        await Task.CompletedTask;
     }
     
     private void ProcessExistingBeliever(NPC npc)
@@ -588,7 +589,7 @@ public class NPCMaintenanceEngine : Node
     private async Task CheckGangRivalry(string gang1, string gang2, List<NPC> npcs) { }
     private float CalculateFaithInclination(NPC npc) { return npc.Personality.Sociability * 50f; }
     
-    private async Task ProcessBelieverActions(NPC npc) { }
+    private async Task ProcessBelieverActions(NPC npc) { await Task.CompletedTask; }
     private async Task OptimizeNPCEquipment(NPC npc) { }
     private async Task RepairNPCEquipment(NPC npc) { }
     private async Task ProcessNPCFriendships(List<NPC> npcs) { }
