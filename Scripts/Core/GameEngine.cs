@@ -117,10 +117,17 @@ public partial class GameEngine : Node
         GD.Print("Reading configuration...");
         ReadStartCfgValues();
         
+        GD.Print("Initializing core managers...");
+        // Create the LocationManager early so that it becomes the singleton before NPCs are loaded
+        if (locationManager == null)
+        {
+            locationManager = new LocationManager(terminal);
+        }
+
         GD.Print("Initializing game data...");
         InitializeItems();      // From INIT.PAS Init_Items
         InitializeMonsters();   // From INIT.PAS Init_Monsters
-        InitializeNPCs();       // From INIT.PAS Init_NPCs
+        InitializeNPCs();       // From INIT.PAS Init_NPCs (needs LocationManager ready)
         InitializeLevels();     // From INIT.PAS Init_Levels
         InitializeGuards();     // From INIT.PAS Init_Guards
         
@@ -133,15 +140,17 @@ public partial class GameEngine : Node
             MaintenanceRunning = false
         };
         
-        // Initialize core systems
-        locationManager = new LocationManager(terminal);
+        // Initialize remaining core systems (LocationManager already created)
         dailyManager = DailySystemManager.Instance;
         combatEngine = new CombatEngine();
+
+        // World simulator – start background AI processing
         worldSimulator = new WorldSimulator();
-        
-        // Initialize collections
         if (worldNPCs == null)
             worldNPCs = new List<NPC>();
+        worldSimulator.StartSimulation(worldNPCs);
+        
+        // Initialize collections
         worldMonsters = new List<Monster>();
         onlinePlayers = new List<OnlinePlayer>();
         

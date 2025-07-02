@@ -677,12 +677,102 @@ public partial class NPC : Character
         };
     }
     
-    // Missing methods for API compatibility
+    /// <summary>
+    /// Update the NPC's textual and logical location, keeping the LocationManager caches in sync.
+    /// </summary>
     public void UpdateLocation(string newLocation)
     {
-        CurrentLocation = newLocation;
+        if (string.IsNullOrWhiteSpace(newLocation)) return;
+
+        var oldLocationText = CurrentLocation;
+        if (oldLocationText.Equals(newLocation, StringComparison.OrdinalIgnoreCase))
+            return; // nothing to do
+
+        // Convert textual representation to GameLocation enum
+        GameLocation oldLocId = MapStringToLocationSafe(oldLocationText);
+        GameLocation newLocId = MapStringToLocationSafe(newLocation);
+
+        try
+        {
+            // Remove from previous location list
+            if (oldLocId != GameLocation.NoWhere)
+            {
+                LocationManager.Instance.RemoveNPCFromLocation(oldLocId, this);
+            }
+
+            // Update internal field
+            CurrentLocation = newLocation;
+
+            // Add to new location list
+            if (newLocId != GameLocation.NoWhere)
+            {
+                LocationManager.Instance.AddNPCToLocation(newLocId, this);
+            }
+        }
+        catch
+        {
+            // Swallow errors in case LocationManager not ready – will be corrected on next movement
+            CurrentLocation = newLocation;
+        }
+    }
+
+    /// <summary>
+    /// Local helper that maps loose-text location strings used by AI into GameLocation enum.
+    /// Accepts forms like "main_street", "town_square", "inn", etc.
+    /// Falls back to NoWhere if unknown.
+    /// </summary>
+    private static GameLocation MapStringToLocationSafe(string loc)
+    {
+        if (string.IsNullOrWhiteSpace(loc)) return GameLocation.NoWhere;
+
+        switch (loc.Trim().ToLower())
+        {
+            case "town_square":
+            case "main_street":
+            case "mainstreet":
+                return GameLocation.MainStreet;
+
+            case "tavern":
+            case "inn":
+            case "theinn":
+                return GameLocation.TheInn;
+
+            case "market":
+            case "marketplace":
+                return GameLocation.Marketplace;
+
+            case "castle":
+                return GameLocation.Castle;
+
+            case "temple":
+            case "church":
+                return GameLocation.Temple;
+
+            case "dungeon":
+            case "dungeons":
+                return GameLocation.Dungeons;
+
+            case "dark_alley":
+            case "darkalley":
+                return GameLocation.DarkAlley;
+
+            case "bank":
+                return GameLocation.Bank;
+
+            case "dormitory":
+            case "dorm":
+                return GameLocation.Dormitory;
+
+            case "anchor_road":
+            case "anchorroad":
+                return GameLocation.AnchorRoad;
+
+            default:
+                return GameLocation.NoWhere;
+        }
     }
     
+    // Missing methods for API compatibility
     public bool CanAfford(long cost)
     {
         return Gold >= cost;

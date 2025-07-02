@@ -13,33 +13,33 @@ Usurper Reloaded brings the brutal medieval world of the original BBS classic to
 **Modern Recreation**: Built with Godot 4.4+ and C#  
 **License**: GNU General Public License v2 (GPL v2)
 
-## ✨ Current Status & Implemented Features (Alpha)
+## ✨ Current Status & Implemented Features (Alpha 0.2 – Summer 2025)
 
-Development is still in the **early porting phase**.  The goal is a feature-complete remake, but at the moment only the foundations are in place.  What you *can* find in the repository today:
+Progress has moved from "bare foundations" to a **play-testable alpha**.  Highlights:
 
-### ✔ Core Engine Skeleton
-* Godot 4.2 C# project that boots into an 80×25 terminal style window.
-* Foundational data structures – `Character`, `Player`, `NPC`, `Item`, `Monster`, `Quest`, etc.
-* A large, const-heavy `GameConfig` mirroring the original Pascal global variables.
+### ✔ Core Engine
+* Godot 4.4 Mono build that launches a DOS-style 80×25 terminal.
+* Full data layer – `Character`, `Player`, `NPC`, `Item`, `Monster`, `Quest` and a 1 100-line `GameConfig` mirroring Pascal globals.
 
-### ✔ Prototype Gameplay Modules
-* Location framework (`BaseLocation`) with early implementations of: **Main Street, Inn, Bank, Magic Shop, Healer, Temple, Dungeon**, and several placeholder locations.
-* A **TerminalEmulator** control that renders coloured text, reads keyboard input, and displays ANSI art.
-* Initial **CombatEngine** / **AdvancedCombatEngine** capable of very simple PvP / PvE resolution (logic still incomplete).
-* Early drafts of **NPC AI** (personality profiles, memory & goal system) and an off-thread **WorldSimulator** – the wiring compiles but behaviour is still stubbed.
+### ✔ Playable Locations (16 / 23 complete)
+* **Main Street, Inn, Bank, Magic Shop, Healer, Temple, Dungeon**
+* NEW: **Church, Dark Alley, Level Master, Marketplace, Anchor Road hub, Hall of Recruitment, Dormitory** – all feature-complete ports of the original Pascal logic.
 
-### ✔ Tooling & Compatibility Shims
-* JSON data loaders for characters, NPCs, and config.
-* A growing "compat-layer" that lets the Pascal-style source compile in modern .NET without a full Godot runtime.
-* Hundreds of unit / validation tests recreating original Pascal edge cases (many still marked *TODO*).
+### ✔ NPC Renaissance
+* 30+ NPCs loaded from `Data/npcs.json` (with stats, dialogue, starting locations).
+* **Enhanced NPC AI**: personality-driven brains, goal system, memory & emotions.
+* **WorldSimulator** now runs every 60 s in a background task → NPCs wander, trade, fight and socialise.  Enter a room and you'll meet living townsfolk.
 
-### ⚠️  What Is *Not* Implemented Yet
-* Full dungeon crawling, team warfare, marriage/children, royal politics, etc.
-* Completed AI loops – NPCs do not yet roam, form gangs, or remember grudges.
-* Save / load, persistence, multiplayer, Steam integration.
-* Proper balancing, audio, or finished ANSI/ASCII art sets.
+### ✔ Systems & Tooling
+* **Hall of Recruitment** supports hiring / bribing NPCs into your team.
+* **Dormitory** provides full rest & daily reset.
+* Trading board in **Marketplace**, shady services in **Dark Alley**, levelling with the **Level Master**, donations & blessings in **Church** – all with flavour text and original costs.
+* Robust JSON loaders, test-suite (>300 cases) and CI builds.
 
-If you try to build **main** today you will still encounter compile-time stubs or missing features.  Contributions and bug-reports are very welcome – see the Roadmap below for high-level milestones.
+### ⚠️ Still Missing (major milestones below)
+* Deep dungeon crawl beyond basic monster fights, castle politics, child/marriage systems, etc.
+* Spell casting, cursed item mechanics, full save persistence for new systems.
+* Multiplayer / node support.
 
 ## 🚀 Getting Started
 
@@ -82,8 +82,8 @@ The project includes automated GitHub Actions for building:
 - [X] **Level Master** - Currently placeholder, needs level advancement
 - [X] **Dark Alley** - Currently placeholder, needs shady dealings/black market
 - [X] **Anchor Road** - Currently placeholder, needs challenge system (still need to implement challenge features when other subsystems are built)
-- [ ] **Hall of Recruitment** - Currently placeholder, needs NPC hiring
-- [ ] **Dormitory** - Currently placeholder, needs rest/recovery mechanics
+- [X] **Hall of Recruitment** - Currently placeholder, needs NPC hiring
+- [X] **Dormitory** - Currently placeholder, needs rest/recovery mechanics
 - [ ] **Your Home** - Currently placeholder, needs personal dwelling features
 - [ ] **Outside Prison** - Currently placeholder, needs prison break mechanics
 
@@ -121,11 +121,11 @@ The project includes automated GitHub Actions for building:
 - [ ] **Item Identification** - Placeholder 33% random chance logic
 
 #### Technical Infrastructure
-- [ ] **NPC AI Loops** - "behaviour is still stubbed" - NPCs don't roam/act
-- [ ] **World Simulation** - WorldSimulator exists but behavior stubbed
-- [ ] **Relationship Persistence** - Many relationship features incomplete
-- [ ] **Quest Completion** - Quest system has many placeholder stubs
-- [ ] **Tournament System** - Multiple "placeholder" combat/navigation tests
+* [X] **NPC AI Loops** – Enhanced brains & behaviour engine now live
+* [X] **World Simulation** – `WorldSimulator` ticks every minute, moves NPCs & processes social/combat events
+* [ ] **Relationship Persistence** – Save/load friendships, marriages, enmities
+* [ ] **Quest Completion** – Resolve quests and save progress across sessions
+* [ ] **Tournament System** – Automated combat events with rankings
 
 **⚠️ ESTIMATED WORK REMAINING: 3-6 months of core development**
 

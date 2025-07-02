@@ -7,7 +7,6 @@ using Godot;
 public class WorldSimulator
 {
     private List<NPC> npcs;
-    private Godot.Timer? simulationTimer;
     private bool isRunning = false;
     
     private const float SIMULATION_INTERVAL = 60.0f; // seconds between simulation steps
@@ -17,19 +16,29 @@ public class WorldSimulator
         npcs = worldNPCs;
         isRunning = true;
         
-        // Create timer for periodic simulation
-        simulationTimer = new Godot.Timer();
-        simulationTimer.WaitTime = SIMULATION_INTERVAL;
-        simulationTimer.TimeoutEvent += OnSimulationStep;
-        simulationTimer.Autostart = true;
-        
-        GD.Print($"[WorldSim] Started simulation with {npcs.Count} NPCs");
+        // Start a background task to periodically run simulation steps. This works even when
+        // running head-less outside the Godot scene tree.
+        _ = System.Threading.Tasks.Task.Run(async () =>
+        {
+            GD.Print($"[WorldSim] Background world simulation running – {npcs.Count} NPCs");
+            while (isRunning)
+            {
+                try
+                {
+                    SimulateStep();
+                }
+                catch (Exception ex)
+                {
+                    GD.PrintErr($"[WorldSim] Simulation error: {ex.Message}");
+                }
+                await System.Threading.Tasks.Task.Delay(TimeSpan.FromSeconds(SIMULATION_INTERVAL));
+            }
+        });
     }
     
     public void StopSimulation()
     {
         isRunning = false;
-        simulationTimer?.QueueFree();
         GD.Print("[WorldSim] Simulation stopped");
     }
     
@@ -58,11 +67,6 @@ public class WorldSimulator
         
         // Update relationships and social dynamics
         UpdateSocialDynamics();
-    }
-    
-    private void OnSimulationStep()
-    {
-        SimulateStep();
     }
     
     private void ExecuteNPCAction(NPC npc, NPCAction action, WorldState world)
