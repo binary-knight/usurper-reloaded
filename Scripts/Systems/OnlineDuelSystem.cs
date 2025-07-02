@@ -529,9 +529,8 @@ public class OnlineDuelSystem : Node
                 
                 // News coverage
                 string afterBattleMsg = GetAfterBattleMessage(player.Name2, enemy.Name2);
-                newsSystem.Newsy(true, "Online Duel Victory!", 
-                    $"{GameConfig.NewsColorPlayer}{player.Name2}{GameConfig.NewsColorDefault} defeated {GameConfig.NewsColorPlayer}{enemy.Name2}{GameConfig.NewsColorDefault} in an online duel!",
-                    afterBattleMsg);
+                newsSystem.Newsy($"Online Duel Victory! {GameConfig.NewsColorPlayer}{player.Name2}{GameConfig.NewsColorDefault} defeated {GameConfig.NewsColorPlayer}{enemy.Name2}{GameConfig.NewsColorDefault} in an online duel! {afterBattleMsg}", 
+                    true, GameConfig.NewsCategory.General);
                 break;
                 
             case DuelOutcome.Defeat:

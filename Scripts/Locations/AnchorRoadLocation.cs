@@ -338,8 +338,8 @@ public class AnchorRoadLocation : BaseLocation
             terminal.WriteLine($"\n{GameConfig.SuccessColor}{result.Message}{GameConfig.TextColor}");
             
             // News coverage
-            newsSystem.Newsy(false, "Town Claimed!", 
-                $"{GameConfig.NewsColorPlayer}{player.Name2}{GameConfig.NewsColorDefault}'s team has claimed control of the town!");
+            newsSystem.Newsy($"Town Claimed! {GameConfig.NewsColorPlayer}{player.Name2}{GameConfig.NewsColorDefault}'s team has claimed control of the town!",
+                false, GameConfig.NewsCategory.General);
         }
         else
         {
@@ -375,8 +375,8 @@ public class AnchorRoadLocation : BaseLocation
                 terminal.WriteLine($"\n{GameConfig.SuccessColor}{result.Message}{GameConfig.TextColor}");
                 
                 // News coverage
-                newsSystem.Newsy(false, "Town Abandoned!", 
-                    $"{GameConfig.NewsColorPlayer}{player.Name2}{GameConfig.NewsColorDefault}'s team has abandoned control of the town!");
+                newsSystem.Newsy($"Town Abandoned! {GameConfig.NewsColorPlayer}{player.Name2}{GameConfig.NewsColorDefault}'s team has abandoned control of the town!",
+                    false, GameConfig.NewsCategory.General);
             }
             else
             {

@@ -123,8 +123,8 @@ public class EnhancedNPCSystem : Node
         if (team1.Count == 0 || team2.Count == 0) return;
         
         var header = GetGangWarHeader();
-        newsSystem.Newsy(false, 
-            $"{header}: {GameConfig.TeamColor}{gang1}{GameConfig.NewsColorDefault} challenged {GameConfig.TeamColor}{gang2}{GameConfig.NewsColorDefault}");
+        newsSystem.Newsy($"{header}: {GameConfig.TeamColor}{gang1}{GameConfig.NewsColorDefault} challenged {GameConfig.TeamColor}{gang2}{GameConfig.NewsColorDefault}",
+            false, GameConfig.NewsCategory.General);
         
         ConductGangBattles(team1, team2);
     }
@@ -200,8 +200,8 @@ public class EnhancedNPCSystem : Node
     
     private void DissolveNPCGang(string gangName, List<NPC> npcs)
     {
-        newsSystem.Newsy(false, 
-            $"{GameConfig.TeamColor}{gangName}{GameConfig.NewsColorDefault} ceased to exist!");
+        newsSystem.Newsy($"{GameConfig.TeamColor}{gangName}{GameConfig.NewsColorDefault} ceased to exist!",
+            false, GameConfig.NewsCategory.General);
         
         foreach (var member in npcs.Where(n => n.Team == gangName))
         {
@@ -265,7 +265,7 @@ public class EnhancedNPCSystem : Node
                 ? fighter1 : fighter2;
             var loser = winner == fighter1 ? fighter2 : fighter1;
             
-            newsSystem.Newsy(false, $"{winner.Name2} defeated {loser.Name2}");
+            newsSystem.Newsy($"{winner.Name2} defeated {loser.Name2}", false, GameConfig.NewsCategory.General);
             
             loser.HP = 1; // Near death
         }

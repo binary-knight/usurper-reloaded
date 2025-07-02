@@ -162,7 +162,7 @@ public class AdvancedCombatEngine : Node
                     
                     // Generate news (Pascal newsy call)
                     string deathMessage = GetRandomDeathMessage(player.Name2);
-                    NewsSystem.Instance.Newsy(true, $"Coward! {deathMessage}");
+                    NewsSystem.Instance.Newsy($"Coward! {deathMessage}", true, GameConfig.NewsCategory.General);
                     
                     // Handle resurrection system
                     await HandlePlayerDeath(player, "cowardly retreat", terminal);
@@ -508,9 +508,8 @@ public class AdvancedCombatEngine : Node
             await SendPvPVictoryMail(defender, attacker, expGain, "Enemy Surrender!", false);
             
             // News coverage
-            newsSystem.Newsy(true, "Coward in action",
-                $"{GameConfig.NewsColorPlayer}{attacker.Name2}{GameConfig.NewsColorDefault} challenged {GameConfig.NewsColorPlayer}{defender.Name2}{GameConfig.NewsColorDefault} but turned chicken and begged for mercy!",
-                $"{GameConfig.NewsColorPlayer}{defender.Name2}{GameConfig.NewsColorDefault} decided to spare {GameConfig.NewsColorPlayer}{attacker.Name2}{GameConfig.NewsColorDefault}'s miserable life!");
+            newsSystem.Newsy($"Coward in action – {GameConfig.NewsColorPlayer}{attacker.Name2}{GameConfig.NewsColorDefault} challenged {GameConfig.NewsColorPlayer}{defender.Name2}{GameConfig.NewsColorDefault} but turned chicken and begged for mercy! {GameConfig.NewsColorPlayer}{defender.Name2}{GameConfig.NewsColorDefault} decided to spare {GameConfig.NewsColorPlayer}{attacker.Name2}{GameConfig.NewsColorDefault}'s miserable life!",
+                true, GameConfig.NewsCategory.General);
             
             result.Outcome = AdvancedCombatOutcome.PlayerSurrendered;
         }
@@ -566,9 +565,8 @@ public class AdvancedCombatEngine : Node
         await SendPvPDeathMail(attacker, defender, goldTransferred);
         
         // News coverage
-        newsSystem.Newsy(true, "Player Fight!",
-            $"{GameConfig.NewsColorPlayer}{attacker.Name2}{GameConfig.NewsColorDefault} challenged {GameConfig.NewsColorPlayer}{defender.Name2}{GameConfig.NewsColorDefault} but lost and begged for mercy!",
-            $"{GameConfig.NewsColorPlayer}{defender.Name2}{GameConfig.NewsColorDefault} showed no mercy. {GameConfig.NewsColorPlayer}{attacker.Name2}{GameConfig.NewsColorDefault} was slaughtered!");
+        newsSystem.Newsy($"Player Fight! – {GameConfig.NewsColorPlayer}{attacker.Name2}{GameConfig.NewsColorDefault} challenged {GameConfig.NewsColorPlayer}{defender.Name2}{GameConfig.NewsColorDefault} but lost and begged for mercy! {GameConfig.NewsColorPlayer}{defender.Name2}{GameConfig.NewsColorDefault} showed no mercy. {GameConfig.NewsColorPlayer}{attacker.Name2}{GameConfig.NewsColorDefault} was slaughtered!",
+            true, GameConfig.NewsCategory.General);
         
         // Handle player death and resurrection
         await HandlePlayerDeath(attacker, "killed in PvP combat", terminal);

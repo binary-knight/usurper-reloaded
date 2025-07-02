@@ -287,9 +287,8 @@ public partial class TeamSystem : Node
         newsSystem.WriteTeamNews("Gang Takeover!",
             $"{GameConfig.NewsColorHighlight}{attacker.Team}{GameConfig.NewsColorDefault} took over the town without bloodshed.");
             
-        newsSystem.Newsy(false, 
-            $"{GameConfig.NewsColorPlayer}{attacker.Name2}{GameConfig.NewsColorDefault} led their team to this victory.",
-            $"The old rulers, {GameConfig.NewsColorDeath}{opponentTeam}{GameConfig.NewsColorDefault} were unable to put up a fight.");
+        newsSystem.Newsy($"{GameConfig.NewsColorPlayer}{attacker.Name2}{GameConfig.NewsColorDefault} led their team to this victory. The old rulers, {GameConfig.NewsColorDeath}{opponentTeam}{GameConfig.NewsColorDefault} were unable to put up a fight.",
+            false, GameConfig.NewsCategory.General);
     }
     
     /// <summary>

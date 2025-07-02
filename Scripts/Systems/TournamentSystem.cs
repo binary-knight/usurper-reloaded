@@ -303,7 +303,7 @@ public class TournamentSystem : Node
                 break;
         }
         
-        newsSystem.Newsy(false, $"{newsHeader}: {newsMessage}");
+        newsSystem.Newsy($"{newsHeader}: {newsMessage}", false, GameConfig.NewsCategory.General);
     }
     
     /// <summary>
@@ -446,8 +446,8 @@ public class TournamentSystem : Node
             roundNumber++;
             
             // News coverage for each round
-            newsSystem.Newsy(false, $"Tournament Round {roundNumber - 1}",
-                $"Round {roundNumber - 1} of the tournament has concluded with {nextRound.Count} fighters remaining!");
+            newsSystem.Newsy($"Tournament Round {roundNumber - 1}: Round {roundNumber - 1} of the tournament has concluded with {nextRound.Count} fighters remaining!",
+                false, GameConfig.NewsCategory.General);
         }
         
         result.TournamentRounds = rounds;
@@ -456,8 +456,8 @@ public class TournamentSystem : Node
         result.Status = TournamentStatus.Completed;
         
         // Final news coverage
-        newsSystem.Newsy(false, "Tournament Champion!",
-            $"{GameConfig.NewsColorPlayer}{result.Winner}{GameConfig.NewsColorDefault} has won the tournament!");
+        newsSystem.Newsy($"Tournament Champion! {GameConfig.NewsColorPlayer}{result.Winner}{GameConfig.NewsColorDefault} has won the tournament!",
+            false, GameConfig.NewsCategory.General);
         
         return result;
     }
@@ -504,8 +504,8 @@ public class TournamentSystem : Node
         result.Status = TournamentStatus.Completed;
         
         // News coverage
-        newsSystem.Newsy(false, "Round Robin Champion!",
-            $"{GameConfig.NewsColorPlayer}{result.Winner}{GameConfig.NewsColorDefault} won the round robin tournament with {winner.Value} victories!");
+        newsSystem.Newsy($"Round Robin Champion! {GameConfig.NewsColorPlayer}{winner}{GameConfig.NewsColorDefault} has won the round robin tournament!",
+            false, GameConfig.NewsCategory.General);
         
         return result;
     }
@@ -536,8 +536,8 @@ public class TournamentSystem : Node
         result.Status = TournamentStatus.Completed;
         
         // Simple news coverage
-        newsSystem.Newsy(false, "Automated Tournament Complete!",
-            $"{GameConfig.NewsColorPlayer}{result.Winner}{GameConfig.NewsColorDefault} emerged victorious in the automated tournament!");
+        newsSystem.Newsy($"Automated Tournament Complete! The automated tournament has concluded. {GameConfig.NewsColorPlayer}{result.Winner}{GameConfig.NewsColorDefault} is the champion!",
+            false, GameConfig.NewsCategory.General);
         
         return result;
     }

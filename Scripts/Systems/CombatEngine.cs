@@ -410,7 +410,8 @@ public partial class CombatEngine
         backstabPower = (long)(backstabPower * GameConfig.BackstabMultiplier); // 3x damage
         
         // Backstab success chance based on dexterity
-        int successChance = player.Dexterity * 2;
+        // Dexterity is stored as a long – clamp and cast so the RNG upper-bound stays in the valid Int32 range
+        int successChance = (int)Math.Min(int.MaxValue, player.Dexterity * 2L);
         if (random.Next(100) < successChance)
         {
             terminal.SetColor("bright_red");
@@ -521,7 +522,8 @@ public partial class CombatEngine
         terminal.WriteLine("You beg for mercy!");
         
         // Mercy chance based on charisma
-        int mercyChance = player.Charisma * 2;
+        // Charisma is a long – clamp before cast to prevent overflow
+        int mercyChance = (int)Math.Min(int.MaxValue, player.Charisma * 2L);
         if (random.Next(100) < mercyChance && !globalBegged)
         {
             terminal.SetColor("green");
@@ -862,9 +864,9 @@ public partial class CombatEngine
         // Apply healing to caster
         if (spellResult.Healing > 0)
         {
-            int oldHP = caster.HP;
+            long oldHP = caster.HP;
             caster.HP = Math.Min(caster.HP + spellResult.Healing, caster.MaxHP);
-            int actualHealing = caster.HP - oldHP;
+            long actualHealing = caster.HP - oldHP;
             terminal.WriteLine($"{caster.DisplayName} heals {actualHealing} hitpoints!", "green");
         }
         
