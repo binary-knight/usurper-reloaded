@@ -125,52 +125,132 @@ jobs:
           echo "Importing project resources..."
           godot --headless --import --quit
           
-      - name: Generate .NET bindings
+      - name: Create console application builds
         run: |
-          echo "Generating .NET bindings..."
-          godot --headless --build-solutions --quit
+          echo "Creating .NET console application builds..."
+          
+          # Create a temporary console project for building executables
+          mkdir -p temp-console
+          cd temp-console
+          
+          # Create console project file
+          cat > console-app.csproj << 'EOF'
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup>
+              <TargetFramework>net6.0</TargetFramework>
+              <RootNamespace>UsurperRemake</RootNamespace>
+              <AssemblyName>usurper-reloaded</AssemblyName>
+              <OutputType>Exe</OutputType>
+              <Nullable>enable</Nullable>
+              <ImplicitUsings>enable</ImplicitUsings>
+              <InvariantGlobalization>true</InvariantGlobalization>
+              <PublishSingleFile>true</PublishSingleFile>
+              <SelfContained>true</SelfContained>
+            </PropertyGroup>
+            <ItemGroup>
+              <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+              <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="6.0.0" />
+            </ItemGroup>
+            <ItemGroup>
+              <Compile Include="../Console/**/*.cs" />
+              <Compile Include="../Scripts/**/*.cs" />
+              <Compile Include="../*.cs" />
+            </ItemGroup>
+            <ItemGroup>
+              <None Include="../Data/**/*" CopyToOutputDirectory="PreserveNewest" />
+              <None Include="../Assets/**/*" CopyToOutputDirectory="PreserveNewest" />
+            </ItemGroup>
+          </Project>
+          EOF
+          
+          cd ..
+          
+          echo "✅ Console project created"
 
-      - name: Debug export presets
+      - name: Build Windows executable
         run: |
-          echo "=== Checking export presets ==="
-          echo "File exists:" && ls -la export_presets.cfg
-          echo "File encoding:" && file export_presets.cfg
-          echo "First few bytes (hex):" && xxd -l 32 export_presets.cfg
-          echo "=== Contents of export_presets.cfg ==="
-          cat export_presets.cfg
-          echo "=== End of export_presets.cfg ==="
-          echo "=== Testing Godot preset detection ==="
-          godot --headless --export-debug "Windows Desktop" /tmp/test.exe 2>&1 || echo "Export test completed"
-
-      - name: Export Windows build
-        run: |
-          echo "Attempting Windows export..."
-          godot --headless --export-release "Windows Desktop" build/windows/${{ env.EXPORT_NAME }}.exe
-          if [ ! -f "build/windows/${{ env.EXPORT_NAME }}.exe" ]; then
-            echo "ERROR: Windows export failed - executable not created"
+          echo "Building Windows executable..."
+          cd temp-console
+          dotnet publish console-app.csproj -c Release -r win-x64 -o ../build/windows --self-contained true
+          
+          # Rename the executable
+          if [ -f "../build/windows/usurper-reloaded.exe" ]; then
+            echo "✅ Windows build successful"
+          else
+            echo "ERROR: Windows build failed - executable not created"
+            ls -la ../build/windows/
             exit 1
           fi
-          echo "✅ Windows export successful"
+          cd ..
 
-      - name: Export Linux build  
+      - name: Build Linux executable  
         run: |
-          echo "Attempting Linux export..."
-          godot --headless --export-release "Linux/X11" build/linux/${{ env.EXPORT_NAME }}.x86_64
-          if [ ! -f "build/linux/${{ env.EXPORT_NAME }}.x86_64" ]; then
-            echo "ERROR: Linux export failed - executable not created"
+          echo "Building Linux executable..."
+          cd temp-console
+          dotnet publish console-app.csproj -c Release -r linux-x64 -o ../build/linux --self-contained true
+          
+          # Rename the executable
+          if [ -f "../build/linux/usurper-reloaded" ]; then
+            mv "../build/linux/usurper-reloaded" "../build/linux/usurper-reloaded.x86_64"
+            chmod +x "../build/linux/usurper-reloaded.x86_64"
+            echo "✅ Linux build successful"
+          else
+            echo "ERROR: Linux build failed - executable not created"
+            ls -la ../build/linux/
             exit 1
           fi
-          echo "✅ Linux export successful"
+          cd ..
 
-      - name: Export macOS build
+      - name: Build macOS executable
         run: |
-          echo "Attempting macOS export..."
-          godot --headless --export-release "macOS" build/mac/${{ env.EXPORT_NAME }}.zip
-          if [ ! -f "build/mac/${{ env.EXPORT_NAME }}.zip" ]; then
-            echo "ERROR: macOS export failed - bundle not created"
+          echo "Building macOS executable..."
+          cd temp-console
+          dotnet publish console-app.csproj -c Release -r osx-x64 -o ../build/mac-temp --self-contained true
+          
+          # Create macOS app bundle structure
+          mkdir -p "../build/mac/usurper-reloaded.app/Contents/MacOS"
+          mkdir -p "../build/mac/usurper-reloaded.app/Contents/Resources"
+          
+          # Copy executable
+          if [ -f "../build/mac-temp/usurper-reloaded" ]; then
+            cp "../build/mac-temp/usurper-reloaded" "../build/mac/usurper-reloaded.app/Contents/MacOS/"
+            chmod +x "../build/mac/usurper-reloaded.app/Contents/MacOS/usurper-reloaded"
+            
+            # Copy other files
+            cp -r "../build/mac-temp/"* "../build/mac/usurper-reloaded.app/Contents/Resources/" 2>/dev/null || true
+            
+            # Create Info.plist
+            cat > "../build/mac/usurper-reloaded.app/Contents/Info.plist" << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleExecutable</key>
+            <string>usurper-reloaded</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.usurperreloaded.game</string>
+            <key>CFBundleName</key>
+            <string>Usurper Reloaded</string>
+            <key>CFBundleVersion</key>
+            <string>1.0</string>
+            <key>CFBundleShortVersionString</key>
+            <string>1.0</string>
+          </dict>
+          </plist>
+          EOF
+            
+            # Create zip file
+            cd "../build/mac"
+            zip -r "usurper-reloaded.zip" "usurper-reloaded.app"
+            cd "../../temp-console"
+            
+            echo "✅ macOS build successful"
+          else
+            echo "ERROR: macOS build failed - executable not created"
+            ls -la ../build/mac-temp/
             exit 1
           fi
-          echo "✅ macOS export successful"
+          cd ..
 
       - name: Add GPL compliance files to builds
         run: |
