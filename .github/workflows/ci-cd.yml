@@ -120,9 +120,15 @@ jobs:
           mkdir -p build/linux
           mkdir -p build/mac
 
+      - name: Import project resources
+        run: |
+          echo "Importing project resources..."
+          godot --headless --import --quit
+          
       - name: Generate .NET bindings
         run: |
-          godot --headless --build-solutions --quit || exit 0
+          echo "Generating .NET bindings..."
+          godot --headless --build-solutions --quit
 
       - name: Debug export presets
         run: |
