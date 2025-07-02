@@ -1,4 +1,5 @@
 using UsurperRemake.Utils;
+using UsurperRemake.Locations;
 using Godot;
 using System;
 using System.Collections.Generic;
@@ -63,7 +64,7 @@ public class LocationManager
         // Core locations
         locations[GameLocation.MainStreet] = new MainStreetLocation();
         locations[GameLocation.TheInn] = new InnLocation();
-        locations[GameLocation.Church] = new PlaceholderLocation(GameLocation.Church, "Church", "A peaceful place of worship and healing.");
+        locations[GameLocation.Church] = new ChurchLocation();
         locations[GameLocation.Dungeons] = new DungeonLocation();
         locations[GameLocation.Bank] = new BankLocation();
         locations[GameLocation.WeaponShop] = new WeaponShopLocation();

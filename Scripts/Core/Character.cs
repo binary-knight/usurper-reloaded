@@ -223,6 +223,11 @@ public class Character
     public DateTime LastConfession { get; set; } = DateTime.MinValue; // Last confession
     public int SacrificesMade { get; set; } = 0;       // Total sacrifices to gods
     
+    // Church-related statistics
+    public long ChurchDonations { get; set; } = 0;     // Total amount donated to church
+    public int BlessingsReceived { get; set; } = 0;    // Number of blessings received
+    public int HealingsReceived { get; set; } = 0;     // Number of healings received
+    
     // Additional compatibility properties
     public int QuestsLeft { get; set; } = 5;
     public List<Quest> ActiveQuests { get; set; } = new();

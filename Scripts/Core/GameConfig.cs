@@ -274,6 +274,8 @@ public static partial class GameConfig
     // Temple/Church System Constants
     public const string DefaultTempleName = "Temple of the Ancient Ones";
     public const string DefaultTemplePriest = "Kenga The Faithful";
+    public const string DefaultBishopName = "Bishop Aurelius";
+    public const string DefaultPriestName = "Father Benedict";
     public const int MaxGods = 20;                     // Maximum gods in pantheon
     public const long SacrificeGoldBaseReturn = 10;    // Base power points per gold sacrificed
     public const int MaxBelieversPerGod = 1000;        // Maximum believers per deity
