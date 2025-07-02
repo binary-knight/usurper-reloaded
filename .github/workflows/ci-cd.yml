@@ -124,19 +124,30 @@ jobs:
         run: |
           godot --headless --build-solutions --quit || exit 0
 
+      - name: Debug export presets
+        run: |
+          echo "=== Checking export presets ==="
+          godot --headless --export-debug --list-export-presets || echo "List presets failed"
+          echo "=== Contents of export_presets.cfg ==="
+          cat export_presets.cfg
+          echo "=== End of export_presets.cfg ==="
+
       - name: Export Windows build
         run: |
-          godot --headless --export-release "Windows Desktop" build/windows/${{ env.EXPORT_NAME }}.exe
+          echo "Attempting Windows export..."
+          godot --headless --export-release "Windows Desktop" build/windows/${{ env.EXPORT_NAME }}.exe || echo "Windows export failed"
         continue-on-error: true
 
       - name: Export Linux build  
         run: |
-          godot --headless --export-release "Linux/X11" build/linux/${{ env.EXPORT_NAME }}.x86_64
+          echo "Attempting Linux export..."
+          godot --headless --export-release "Linux/X11" build/linux/${{ env.EXPORT_NAME }}.x86_64 || echo "Linux export failed"
         continue-on-error: true
 
       - name: Export macOS build
         run: |
-          godot --headless --export-release "macOS" build/mac/${{ env.EXPORT_NAME }}.zip
+          echo "Attempting macOS export..."
+          godot --headless --export-release "macOS" build/mac/${{ env.EXPORT_NAME }}.zip || echo "macOS export failed"
         continue-on-error: true
 
       - name: Add GPL compliance files to builds
