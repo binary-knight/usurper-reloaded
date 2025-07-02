@@ -55,6 +55,8 @@ public class AnchorRoadLocation : BaseLocation
         terminal.Write($"{PadMenuOption("(S)tatus", MenuOffset)}{PadMenuOption("(K)ings Castle", MenuOffset)}");
         terminal.WriteLine("(T)he Gym");
         
+        terminal.WriteLine("(P)rison grounds (attempt a jailbreak)");
+        
         terminal.WriteLine($"{PadMenuOption("(R)eturn to town", MenuOffset)}");
     }
     
@@ -106,6 +108,9 @@ public class AnchorRoadLocation : BaseLocation
                 return true;
             case 'T':
                 await NavigateToGym(currentPlayer);
+                return true;
+            case 'P':
+                await NavigateToPrisonGrounds(currentPlayer);
                 return true;
             case 'R':
                 await ReturnToTown(currentPlayer);
@@ -363,6 +368,16 @@ public class AnchorRoadLocation : BaseLocation
         
         // Navigate to gym location
         await LocationManager.Instance.ChangeLocation(player, "GymLocation");
+    }
+    
+    /// <summary>
+    /// Navigate to the prison exterior
+    /// </summary>
+    private async Task NavigateToPrisonGrounds(Character player)
+    {
+        var terminal = GetNode<TerminalEmulator>("/root/TerminalEmulator");
+        terminal.WriteLine($"\n{GameConfig.LocationColor}You head south toward the looming prison walls...{GameConfig.TextColor}");
+        await LocationManager.Instance.ChangeLocation(player, "PrisonWalkLocation");
     }
     
     /// <summary>

@@ -35,7 +35,8 @@ public class MainStreetLocation : BaseLocation
             GameLocation.DarkAlley,    // loc11
             GameLocation.ReportRoom,   // loc12
             GameLocation.Healer,       // loc13
-            GameLocation.AnchorRoad    // loc14
+            GameLocation.AnchorRoad,   // loc14
+            GameLocation.Home          // loc15
         };
         
         // Location actions based on Pascal main menu
@@ -101,6 +102,7 @@ public class MainStreetLocation : BaseLocation
         terminal.WriteLine("│  (G)ood Deeds       (E)vil Deeds       (V)isit Master     (*) Suicide    (Z) Team Corner            │", "white");
         terminal.WriteLine("│  (K) Castle         (P) Prison         (O) Church         (Y) Dark Alley                            │", "white");
         terminal.WriteLine("│  (1) Healing Hut  (Q)uit Game          (3) List Characters                                          │", "white");
+        terminal.WriteLine("│  (H)ome             (U)nused           ( )                ( )                                        │", "white");
         terminal.WriteLine("│  Type 'SETTINGS' for game configuration and save management                                         │", "bright_cyan");
         terminal.WriteLine("│                                                                                                     │", "cyan");
         terminal.WriteLine("└─────────────────────────────────────────────────────────────────────────────────────────────────────┘", "cyan");
@@ -109,7 +111,8 @@ public class MainStreetLocation : BaseLocation
         // Navigation shortcuts
         terminal.SetColor("cyan");
         terminal.WriteLine("Quick Navigation:");
-        terminal.WriteLine("(K) Castle  (P) Prison  (O) Church  (Y) Dark Alley");
+        terminal.WriteLine("(H) Home  (K) Castle  (P) Prison  (O) Church  (Y) Dark Alley");
+        terminal.WriteLine("Type MAIL to read your mailbox.");
         terminal.WriteLine("");
     }
     
@@ -270,6 +273,12 @@ public class MainStreetLocation : BaseLocation
             case "SETTINGS":
             case "CONFIG":
                 await ShowSettingsMenu();
+                return false;
+                
+            case "MAIL":
+            case "CTRL+M":
+            case "!M":
+                await ShowMail();
                 return false;
                 
             default:
@@ -1055,5 +1064,16 @@ public class MainStreetLocation : BaseLocation
             DailyCycleMode.Endless => "Endless (no turn limits)",
             _ => "Unknown"
         };
+    }
+
+    /// <summary>
+    /// Show player's mailbox using the MailSystem.
+    /// </summary>
+    private async Task ShowMail()
+    {
+        terminal.WriteLine("Checking your mailbox...", "cyan");
+        await MailSystem.ReadPlayerMail(currentPlayer.Name2, terminal);
+        terminal.WriteLine("Press ENTER to return to Main Street.", "gray");
+        await terminal.GetInput("");
     }
 } 

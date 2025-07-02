@@ -135,6 +135,7 @@ public class Character
     public long Punch { get; set; }                 // player punch, temporary
     public long Absorb { get; set; }                // absorb punch, temporary
     public bool UsedItem { get; set; }              // has used item in battle
+    public bool IsDefending { get; set; } = false;
     
     // Kill statistics
     public long MKills { get; set; }                // monster kills
@@ -378,6 +379,23 @@ public class Character
             Level = newLevel;
             OnLevelUp?.Invoke(this);
         }
+    }
+
+    /// <summary>
+    /// Returns a CombatModifiers object describing bonuses and abilities granted by this character's class.
+    /// The numbers largely mirror classic Usurper balance but are open to tuning.
+    /// </summary>
+    public CombatModifiers GetClassCombatModifiers()
+    {
+        return Class switch
+        {
+            CharacterClass.Warrior => new CombatModifiers { AttackBonus = Level / 5, ExtraAttacks = Level / 10 },
+            CharacterClass.Assassin => new CombatModifiers { BackstabMultiplier = 3.0f, PoisonChance = 25 },
+            CharacterClass.Barbarian => new CombatModifiers { DamageReduction = 2, RageAvailable = true },
+            CharacterClass.Paladin => new CombatModifiers { SmiteCharges = 1 + Level / 10, AuraBonus = 2 },
+            CharacterClass.Ranger => new CombatModifiers { RangedBonus = 4, Tracking = true },
+            _ => new CombatModifiers()
+        };
     }
 }
 

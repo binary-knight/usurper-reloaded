@@ -80,9 +80,9 @@ public class LocationManager
         locations[GameLocation.Recruit] = new UsurperRemake.Locations.HallOfRecruitmentLocation();
         locations[GameLocation.Dormitory] = new UsurperRemake.Locations.DormitoryLocation();
         locations[GameLocation.Temple] = new TempleLocation(terminal, this, UsurperRemake.GodSystemSingleton.Instance);
-        locations[GameLocation.Home] = new PlaceholderLocation(GameLocation.Home, "Your Home", "Your personal dwelling and sanctuary.");
+        locations[GameLocation.Home] = new UsurperRemake.Locations.HomeLocation();
         locations[GameLocation.Prison] = new PrisonLocation();
-        locations[GameLocation.PrisonWalk] = new PlaceholderLocation(GameLocation.PrisonWalk, "Outside Prison", "Walk around the prison grounds.");
+        locations[GameLocation.PrisonWalk] = new PrisonWalkLocation();
         
         // Phase 11: Prison System
         locations[GameLocation.Prisoner] = new PrisonLocation();
@@ -117,7 +117,8 @@ public class LocationManager
             GameLocation.DarkAlley,    // loc11
             GameLocation.ReportRoom,   // loc12
             GameLocation.Healer,       // loc13
-            GameLocation.AnchorRoad    // loc14
+            GameLocation.AnchorRoad,   // loc14
+            GameLocation.Home          // loc15 – your personal dwelling
         };
         
         navigationTable[GameLocation.TheInn] = new List<GameLocation>
@@ -177,12 +178,19 @@ public class LocationManager
             GameLocation.QuestHall,     // loc4
             GameLocation.Temple,        // loc6
             GameLocation.LoveStreet,    // loc7
-            GameLocation.OutsideCastle  // loc8
+            GameLocation.OutsideCastle, // loc8
+            GameLocation.PrisonWalk,    // loc9 – outside prison grounds
+            GameLocation.Home           // loc10 – your home
         };
         
         navigationTable[GameLocation.DarkAlley] = new List<GameLocation>
         {
             GameLocation.MainStreet   // loc1
+        };
+        
+        navigationTable[GameLocation.Home] = new List<GameLocation>
+        {
+            GameLocation.AnchorRoad
         };
         
         // Add more navigation entries as needed

@@ -157,23 +157,23 @@ jobs:
       - name: Build macOS executable
         run: |
           echo "Building macOS executable..."
-          cd temp-console
-          dotnet publish console-app.csproj -c Release -r osx-x64 -o ../build/mac-temp --self-contained true
+          dotnet publish usurper-reloaded.csproj -c Release -r osx-x64 -o build/mac-temp \
+            -p:PublishSingleFile=true -p:SelfContained=true -p:InvariantGlobalization=true
           
           # Create macOS app bundle structure
-          mkdir -p "../build/mac/usurper-reloaded.app/Contents/MacOS"
-          mkdir -p "../build/mac/usurper-reloaded.app/Contents/Resources"
+          mkdir -p "build/mac/usurper-reloaded.app/Contents/MacOS"
+          mkdir -p "build/mac/usurper-reloaded.app/Contents/Resources"
           
           # Copy executable
-          if [ -f "../build/mac-temp/usurper-reloaded" ]; then
-            cp "../build/mac-temp/usurper-reloaded" "../build/mac/usurper-reloaded.app/Contents/MacOS/"
-            chmod +x "../build/mac/usurper-reloaded.app/Contents/MacOS/usurper-reloaded"
+          if [ -f "build/mac-temp/UsurperRemake" ]; then
+            cp "build/mac-temp/UsurperRemake" "build/mac/usurper-reloaded.app/Contents/MacOS/usurper-reloaded"
+            chmod +x "build/mac/usurper-reloaded.app/Contents/MacOS/usurper-reloaded"
             
             # Copy other files
-            cp -r "../build/mac-temp/"* "../build/mac/usurper-reloaded.app/Contents/Resources/" 2>/dev/null || true
+            cp -r build/mac-temp/* build/mac/usurper-reloaded.app/Contents/Resources/ 2>/dev/null || true
             
             # Create Info.plist
-            cat > "../build/mac/usurper-reloaded.app/Contents/Info.plist" << 'EOF'
+            cat > "build/mac/usurper-reloaded.app/Contents/Info.plist" << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -193,17 +193,16 @@ jobs:
           EOF
             
             # Create zip file
-            cd "../build/mac"
+            cd "build/mac"
             zip -r "usurper-reloaded.zip" "usurper-reloaded.app"
-            cd "../../temp-console"
+            cd "../.."
             
             echo "✅ macOS build successful"
           else
             echo "ERROR: macOS build failed - executable not created"
-            ls -la ../build/mac-temp/
+            ls -la build/mac-temp/
             exit 1
           fi
-          cd ..
 
       - name: Add GPL compliance files to builds
         run: |

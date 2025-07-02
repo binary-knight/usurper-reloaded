@@ -51,6 +51,19 @@ public partial class CombatEngine
         // Main combat loop
         while (player.IsAlive && monster.IsAlive && !globalEscape && !globalKilled)
         {
+            // Simple initiative roll: Dexterity + d20 vs monster IQ + d20 (as proxy)
+            int playerInitiative = (int)player.Dexterity + random.Next(1, 21);
+            int monsterInitiative = monster.IQ + random.Next(1, 21);
+
+            bool playerActsFirst = playerInitiative >= monsterInitiative;
+
+            if (!playerActsFirst && monster.IsAlive && !globalEscape)
+            {
+                await ProcessMonsterAction(monster, player, result);
+                if (!player.IsAlive || globalEscape || globalKilled)
+                    continue; // Player died or escaped before his turn
+            }
+
             // Player's turn
             if (player.IsAlive && monster.IsAlive)
             {
@@ -58,7 +71,7 @@ public partial class CombatEngine
                 await ProcessPlayerAction(playerAction, player, monster, result);
             }
             
-            // Teammates' turns
+            // Teammates' turns (remain after player regardless)
             foreach (var teammate in result.Teammates)
             {
                 if (teammate.IsAlive && monster.IsAlive)
@@ -67,8 +80,7 @@ public partial class CombatEngine
                 }
             }
             
-            // Monster's turn
-            if (monster.IsAlive && !globalEscape)
+            if (playerActsFirst && monster.IsAlive && !globalEscape)
             {
                 await ProcessMonsterAction(monster, player, result);
             }
@@ -189,8 +201,9 @@ public partial class CombatEngine
         
         // Combat menu - exact Pascal layout
         terminal.SetColor("white");
-        terminal.WriteLine("(A)ttack  (H)eal  (Q)uick Heal  (F)ight to Death");
-        terminal.WriteLine("(S)tatus  (B)eg for Mercy  (U)se Item");
+        terminal.WriteLine("(A)ttack  (D)efend  (H)eal  (Q)uick Heal  (F)ight to Death");
+        terminal.WriteLine("(S)tatus   (B)eg for Mercy   (U)se Item");
+        terminal.WriteLine("(P)ower Attack   (E) Precise Strike");
         
         if (player.Class == CharacterClass.Cleric || player.Class == CharacterClass.Magician || player.Class == CharacterClass.Sage)
         {
@@ -227,12 +240,15 @@ public partial class CombatEngine
         return choice switch
         {
             "A" => new CombatAction { Type = CombatActionType.Attack },
+            "D" => new CombatAction { Type = CombatActionType.Defend },
             "H" => new CombatAction { Type = CombatActionType.Heal },
             "Q" => new CombatAction { Type = CombatActionType.QuickHeal },
             "F" => new CombatAction { Type = CombatActionType.FightToDeath },
             "S" => new CombatAction { Type = CombatActionType.Status },
             "B" => new CombatAction { Type = CombatActionType.BegForMercy },
             "U" => new CombatAction { Type = CombatActionType.UseItem },
+            "P" => new CombatAction { Type = CombatActionType.PowerAttack },
+            "E" => new CombatAction { Type = CombatActionType.PreciseStrike },
             "C" => new CombatAction { Type = CombatActionType.CastSpell },
             "1" when player.Class == CharacterClass.Paladin => new CombatAction { Type = CombatActionType.SoulStrike },
             "1" when player.Class == CharacterClass.Assassin => new CombatAction { Type = CombatActionType.Backstab },
@@ -253,6 +269,10 @@ public partial class CombatEngine
         {
             case CombatActionType.Attack:
                 await ExecuteAttack(player, monster, result);
+                break;
+                
+            case CombatActionType.Defend:
+                await ExecuteDefend(player, result);
                 break;
                 
             case CombatActionType.Heal:
@@ -289,6 +309,14 @@ public partial class CombatEngine
                 
             case CombatActionType.Backstab:
                 await ExecuteBackstab(player, monster, result);
+                break;
+                
+            case CombatActionType.PowerAttack:
+                await ExecutePowerAttack(player, monster, result);
+                break;
+                
+            case CombatActionType.PreciseStrike:
+                await ExecutePreciseStrike(player, monster, result);
                 break;
                 
             case CombatActionType.Retreat:
@@ -350,10 +378,10 @@ public partial class CombatEngine
             
             // Apply damage
             target.HP = Math.Max(0, target.HP - actualDamage);
-            
+
             terminal.SetColor("red");
             terminal.WriteLine($"{target.Name} takes {actualDamage} damage!");
-            
+
             result.CombatLog.Add($"Player attacks {target.Name} for {actualDamage} damage");
         }
         else
@@ -573,14 +601,25 @@ public partial class CombatEngine
             
             long actualDamage = Math.Max(1, monsterAttack - playerDefense);
             
-            if (playerDefense > 0 && playerDefense < monsterAttack)
+            // Defending halves damage
+            if (player.IsDefending)
             {
-                terminal.WriteLine($"Your armor absorbed {playerDefense} points!");
+                actualDamage = (long)Math.Ceiling(actualDamage / 2.0);
             }
-            
+
+            // Apply damage
             player.HP = Math.Max(0, player.HP - actualDamage);
-            terminal.WriteLine($"You take {actualDamage} damage!");
-            
+
+            terminal.SetColor("red");
+            if (player.IsDefending)
+            {
+                terminal.WriteLine($"You brace for impact and only take {actualDamage} damage!", "bright_cyan");
+            }
+            else
+            {
+                terminal.WriteLine($"{player.DisplayName} takes {actualDamage} damage!");
+            }
+
             result.CombatLog.Add($"{monster.Name} attacks player for {actualDamage} damage");
         }
         else
@@ -589,6 +628,12 @@ public partial class CombatEngine
             result.CombatLog.Add($"{monster.Name} misses player");
         }
         
+        // Defend stance expires after the first enemy attack
+        if (player.IsDefending)
+        {
+            player.IsDefending = false;
+        }
+
         await Task.Delay(2000);
     }
     
@@ -668,17 +713,76 @@ public partial class CombatEngine
         terminal.WriteLine($"You gain {expReward} experience!");
         terminal.WriteLine($"You find {goldReward} gold!");
         
-        // Check for weapon/armor drops
+        // Offer weapon pickup
         if (result.Monster.GrabWeap && !string.IsNullOrEmpty(result.Monster.Weapon))
         {
-            terminal.WriteLine($"You can take the {result.Monster.Weapon}!");
-            // TODO: Implement item pickup
+            terminal.WriteLine($"Do you want to pick up the {result.Monster.Weapon}? (Y/N)", "yellow");
+            var input = await terminal.GetInput("> ");
+            if (input.Trim().ToUpper().StartsWith("Y"))
+            {
+                Item lootItem;
+                var baseWeapon = ItemManager.GetClassicWeapon((int)result.Monster.WeapNr);
+                if (baseWeapon != null)
+                {
+                    lootItem = new Item
+                    {
+                        Name = baseWeapon.Name,
+                        Type = ObjType.Weapon,
+                        Value = baseWeapon.Value,
+                        Attack = (int)baseWeapon.Power
+                    };
+                }
+                else
+                {
+                    lootItem = new Item
+                    {
+                        Name = result.Monster.Weapon,
+                        Type = ObjType.Weapon,
+                        Value = 0,
+                        Attack = (int)result.Monster.WeapPow
+                    };
+                }
+
+                result.Player.Inventory.Add(lootItem);
+                terminal.WriteLine($"You picked up {lootItem.Name}.", "bright_green");
+                result.ItemsFound.Add(lootItem.Name);
+            }
         }
-        
+
+        // Offer armor pickup
         if (result.Monster.GrabArm && !string.IsNullOrEmpty(result.Monster.Armor))
         {
-            terminal.WriteLine($"You can take the {result.Monster.Armor}!");
-            // TODO: Implement item pickup
+            terminal.WriteLine($"Do you want to take the {result.Monster.Armor}? (Y/N)", "yellow");
+            var input = await terminal.GetInput("> ");
+            if (input.Trim().ToUpper().StartsWith("Y"))
+            {
+                Item lootItem;
+                var baseArmor = ItemManager.GetClassicArmor((int)result.Monster.ArmNr);
+                if (baseArmor != null)
+                {
+                    lootItem = new Item
+                    {
+                        Name = baseArmor.Name,
+                        Type = ObjType.Body,
+                        Value = baseArmor.Value,
+                        Armor = (int)baseArmor.Power
+                    };
+                }
+                else
+                {
+                    lootItem = new Item
+                    {
+                        Name = result.Monster.Armor,
+                        Type = ObjType.Body,
+                        Value = 0,
+                        Armor = (int)result.Monster.ArmPow
+                    };
+                }
+
+                result.Player.Inventory.Add(lootItem);
+                terminal.WriteLine($"You picked up {lootItem.Name}.", "bright_green");
+                result.ItemsFound.Add(lootItem.Name);
+            }
         }
         
         result.CombatLog.Add($"Victory! Gained {expReward} exp and {goldReward} gold");
@@ -737,16 +841,109 @@ public partial class CombatEngine
         await Task.Delay(1000);
     }
     
+    /// <summary>
+    /// Allow the player to consume a usable item (potions/scrolls) during combat.
+    /// Heuristic: any inventory item of ObjType.Potion OR Magic with Cure/HP/Mana positive is considered usable.
+    /// </summary>
     private async Task ExecuteUseItem(Character player, CombatResult result)
     {
-        terminal.WriteLine("Item usage not yet implemented.", "gray");
-        await Task.Delay(1000);
+        // Build list of usable items
+        var usable = new List<Item>();
+        foreach (var itm in player.Inventory)
+        {
+            if (itm.Type == ObjType.Potion || itm.Type == ObjType.Magic)
+            {
+                if (itm.HP != 0 || itm.Mana != 0 || itm.Cure != Cures.Nothing || itm.Name.ToLower().Contains("bomb") || itm.Name.ToLower().Contains("scroll"))
+                {
+                    usable.Add(itm);
+                }
+            }
+        }
+
+        if (usable.Count == 0)
+        {
+            terminal.WriteLine("You have no usable combat items!", "yellow");
+            await Task.Delay(1000);
+            return;
+        }
+
+        terminal.WriteLine("Select item to use:");
+        for (int i = 0; i < usable.Count; i++)
+        {
+            terminal.WriteLine($"  {i + 1}. {usable[i].GetDisplayName()}");
+        }
+
+        var input = await terminal.GetInput("Choice (number or Enter to cancel): ");
+        if (!int.TryParse(input.Trim(), out int idx) || idx < 1 || idx > usable.Count)
+        {
+            terminal.WriteLine("Cancelled.", "gray");
+            await Task.Delay(500);
+            return;
+        }
+
+        var item = usable[idx - 1];
+
+        // Apply effects
+        if (item.HP > 0)
+        {
+            long healed = Math.Min(item.HP, player.MaxHP - player.HP);
+            player.HP += healed;
+            terminal.WriteLine($"You drink {item.Name} and recover {healed} HP!", "green");
+            result.CombatLog.Add($"Player uses {item.Name} for {healed} HP");
+        }
+
+        if (item.Mana > 0)
+        {
+            long manaRestored = Math.Min(item.Mana, player.MaxMana - player.Mana);
+            player.Mana += manaRestored;
+            terminal.WriteLine($"Your mana is restored by {manaRestored} points!", "bright_blue");
+            result.CombatLog.Add($"Player restores {manaRestored} mana with {item.Name}");
+        }
+
+        if (item.Cure != Cures.Nothing)
+        {
+            player.Poison = 0;
+            terminal.WriteLine("You feel healthy again!", "bright_green");
+        }
+
+        // Escape items (smoke bomb)
+        if (item.Name.ToLower().Contains("smoke bomb"))
+        {
+            terminal.WriteLine("A cloud of smoke envelops the area… you slip away!", "cyan");
+            globalEscape = true;
+            result.Outcome = CombatOutcome.PlayerEscaped;
+        }
+
+        // Remove item from inventory (consumable)
+        player.Inventory.Remove(item);
     }
     
+    /// <summary>
+    /// Execute spell-casting action. Leverages the rich ProcessSpellCasting helper which already
+    /// contains the Pascal-compatible spell selection UI and effect application logic.
+    /// </summary>
     private async Task ExecuteCastSpell(Character player, Monster monster, CombatResult result)
     {
-        terminal.WriteLine("Spell casting not yet implemented.", "gray");
-        await Task.Delay(1000);
+        // Prevent double-casting in a single round – mirrors original flag from VARIOUS.PAS
+        if (player.Casted)
+        {
+            terminal.WriteLine("You have already cast a spell this round!", "yellow");
+            await Task.Delay(1000);
+            return;
+        }
+
+        // Delegate to the existing spell-handling UI/logic
+        ProcessSpellCasting(player, monster);
+
+        // Mark that the player used their casting action this turn so other systems (AI, etc.)
+        // can react accordingly.
+        player.Casted = true;
+
+        // Add entry to combat log for post-battle analysis and testing.
+        result.CombatLog.Add($"{player.DisplayName} casts a spell.");
+
+        // Small delay to keep pacing consistent with other combat actions.
+        await Task.Delay(500);
     }
     
     private async Task ShowPvPIntroduction(Character attacker, Character defender, CombatResult result)
@@ -793,7 +990,7 @@ public partial class CombatEngine
     /// <summary>
     /// Process spell casting during combat
     /// </summary>
-    private void ProcessSpellCasting(Character player, Character monster)
+    private void ProcessSpellCasting(Character player, Monster monster)
     {
         terminal.ClearScreen();
         terminal.SetColor("white");
@@ -812,11 +1009,12 @@ public partial class CombatEngine
         for (int i = 0; i < availableSpells.Count; i++)
         {
             var spell = availableSpells[i];
-            var canCast = SpellSystem.CanCastSpell(player, spell.Level);
+            var manaCost = SpellSystem.CalculateManaCost(spell, player);
+            var canCast = player.Mana >= manaCost && player.Level >= SpellSystem.GetLevelRequired(player.Class, spell.Level);
             var color = canCast ? ConsoleColor.White : ConsoleColor.DarkGray;
             
             terminal.SetColor(color);
-            terminal.WriteLine($"{i + 1}. {spell.Name} (Level {spell.Level}) - {spell.ManaCost} mana");
+            terminal.WriteLine($"{i + 1}. {spell.Name} (Level {spell.Level}) - {manaCost} mana");
             if (!canCast)
             {
                 terminal.WriteLine("   (Not enough mana)");
@@ -838,8 +1036,9 @@ public partial class CombatEngine
                 return;
             }
             
-            // Cast the spell
-            var spellResult = SpellSystem.CastSpell(player, selectedSpell.Level, monster);
+            // Cast the spell – the SpellSystem API expects a Character target. We pass null and
+            // handle damage application ourselves against the Monster instance further below.
+            var spellResult = SpellSystem.CastSpell(player, selectedSpell.Level, null);
             
             terminal.WriteLine("");
             terminal.WriteLine(spellResult.Message);
@@ -859,7 +1058,7 @@ public partial class CombatEngine
     /// <summary>
     /// Apply spell effects to combat
     /// </summary>
-    private void ApplySpellEffects(Character caster, Character target, SpellSystem.SpellResult spellResult)
+    private void ApplySpellEffects(Character caster, Monster target, SpellSystem.SpellResult spellResult)
     {
         // Apply healing to caster
         if (spellResult.Healing > 0)
@@ -874,11 +1073,11 @@ public partial class CombatEngine
         if (spellResult.Damage > 0 && target != null)
         {
             target.HP = Math.Max(0, target.HP - spellResult.Damage);
-            terminal.WriteLine($"{target.DisplayName} takes {spellResult.Damage} damage!", "red");
+            terminal.WriteLine($"{target.Name} takes {spellResult.Damage} damage!", "red");
             
             if (target.HP <= 0)
             {
-                terminal.WriteLine($"{target.DisplayName} has been slain by magic!", "dark_red");
+                terminal.WriteLine($"{target.Name} has been slain by magic!", "dark_red");
                 globalPlayerInFight = false;
             }
         }
@@ -906,14 +1105,14 @@ public partial class CombatEngine
     /// <summary>
     /// Handle special spell effects
     /// </summary>
-    private void HandleSpecialSpellEffect(Character caster, Character target, string effect)
+    private void HandleSpecialSpellEffect(Character caster, Monster target, string effect)
     {
         switch (effect.ToLower())
         {
             case "poison":
                 if (target != null)
                 {
-                    terminal.WriteLine($"{target.DisplayName} is poisoned!", "dark_green");
+                    terminal.WriteLine($"{target.Name} is poisoned!", "dark_green");
                     // TODO: Implement poison status effect
                 }
                 break;
@@ -921,7 +1120,7 @@ public partial class CombatEngine
             case "sleep":
                 if (target != null)
                 {
-                    terminal.WriteLine($"{target.DisplayName} falls into a magical sleep!", "blue");
+                    terminal.WriteLine($"{target.Name} falls into a magical sleep!", "blue");
                     // TODO: Implement sleep status effect
                 }
                 break;
@@ -929,7 +1128,7 @@ public partial class CombatEngine
             case "freeze":
                 if (target != null)
                 {
-                    terminal.WriteLine($"{target.DisplayName} is frozen solid!", "cyan");
+                    terminal.WriteLine($"{target.Name} is frozen solid!", "cyan");
                     // TODO: Implement freeze status effect
                 }
                 break;
@@ -937,7 +1136,7 @@ public partial class CombatEngine
             case "fear":
                 if (target != null)
                 {
-                    terminal.WriteLine($"{target.DisplayName} is overwhelmed by supernatural fear!", "yellow");
+                    terminal.WriteLine($"{target.Name} is overwhelmed by supernatural fear!", "yellow");
                     // TODO: Implement fear status effect
                 }
                 break;
@@ -964,7 +1163,7 @@ public partial class CombatEngine
                     {
                         target.Gold -= goldStolen;
                         caster.Gold += goldStolen;
-                        terminal.WriteLine($"{caster.DisplayName} steals {goldStolen} gold from {target.DisplayName}!", "yellow");
+                        terminal.WriteLine($"{caster.DisplayName} steals {goldStolen} gold from {target.Name}!", "yellow");
                     }
                     else
                     {
@@ -976,11 +1175,83 @@ public partial class CombatEngine
             case "convert":
                 if (target != null)
                 {
-                    terminal.WriteLine($"{target.DisplayName} is touched by divine light!", "white");
+                    terminal.WriteLine($"{target.Name} is touched by divine light!", "white");
                     // TODO: Implement conversion effect (monster may flee or become friendly)
                 }
                 break;
         }
+    }
+
+    /// <summary>
+    /// Execute defend – player braces and gains 50% damage reduction for the next monster hit.
+    /// </summary>
+    private async Task ExecuteDefend(Character player, CombatResult result)
+    {
+        player.IsDefending = true;
+        terminal.WriteLine("You raise your guard, preparing to deflect incoming blows.", "bright_cyan");
+        result.CombatLog.Add("Player enters defensive stance (50% damage reduction)");
+        await Task.Delay(1000);
+    }
+
+    private async Task ExecutePowerAttack(Character attacker, Monster target, CombatResult result)
+    {
+        // Higher damage, lower accuracy – modelled via larger damage multiplier but higher chance of minimal absorption.
+        long originalStrength = attacker.Strength;
+        long attackPower = (long)(originalStrength * 1.5);
+
+        if (attacker.WeapPow > 0)
+        {
+            attackPower += (long)(attacker.WeapPow * 1.5) + random.Next(0, (int)attacker.WeapPow + 1);
+        }
+
+        attackPower += random.Next(1, 21); // variation
+
+        // Reduce "accuracy": enemy gains extra defense in calculation (25 % boost)
+        long defense = target.Defence + random.Next(0, (int)Math.Max(1, target.Defence / 8));
+        defense = (long)(defense * 1.25);
+        if (target.ArmPow > 0)
+        {
+            defense += random.Next(0, (int)target.ArmPow + 1);
+        }
+
+        long damage = Math.Max(1, attackPower - defense);
+
+        terminal.SetColor("magenta");
+        terminal.WriteLine($"POWER ATTACK! You smash the {target.Name} for {damage} damage!");
+
+        target.HP = Math.Max(0, target.HP - damage);
+        result.CombatLog.Add($"Player power-attacks {target.Name} for {damage} dmg");
+
+        await Task.Delay(1000);
+    }
+
+    private async Task ExecutePreciseStrike(Character attacker, Monster target, CombatResult result)
+    {
+        // Higher accuracy (+25 %) but normal damage.
+        long attackPower = attacker.Strength;
+        if (attacker.WeapPow > 0)
+        {
+            attackPower += attacker.WeapPow + random.Next(0, (int)attacker.WeapPow + 1);
+        }
+        attackPower += random.Next(1, 21);
+
+        // Boost accuracy by 25 % via reducing target defense.
+        long defense = target.Defence + random.Next(0, (int)Math.Max(1, target.Defence / 8));
+        defense = (long)(defense * 0.75);
+        if (target.ArmPow > 0)
+        {
+            defense += random.Next(0, (int)target.ArmPow + 1);
+        }
+
+        long damage = Math.Max(1, attackPower - defense);
+
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine($"Precise strike lands for {damage} damage.");
+
+        target.HP = Math.Max(0, target.HP - damage);
+        result.CombatLog.Add($"Player precise-strikes {target.Name} for {damage} dmg");
+
+        await Task.Delay(1000);
     }
 }
 
@@ -990,6 +1261,7 @@ public partial class CombatEngine
 public enum CombatActionType
 {
     Attack,
+    Defend,
     Heal,
     QuickHeal,
     FightToDeath,
@@ -999,7 +1271,9 @@ public enum CombatActionType
     CastSpell,
     SoulStrike,     // Paladin ability
     Backstab,       // Assassin ability
-    Retreat
+    Retreat,
+    PowerAttack,
+    PreciseStrike
 }
 
 /// <summary>

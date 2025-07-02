@@ -12,15 +12,15 @@ public class DungeonLocation : BaseLocation
 {
     private List<Character> teammates = new();
     private int currentDungeonLevel = 1;
-    private int maxDungeonLevel = 50;
+    private int maxDungeonLevel = 100;
     private DungeonTerrain currentTerrain = DungeonTerrain.Underground;
     private Random dungeonRandom = new Random();
     
     // Pascal-compatible encounter chances
-    private const float MonsterEncounterChance = 0.4f;
-    private const float TreasureEncounterChance = 0.15f;
-    private const float EventEncounterChance = 0.25f;
-    private const float EmptyRoomChance = 0.2f;
+    private const float MonsterEncounterChance = 0.45f;
+    private const float TreasureEncounterChance = 0.20f;
+    private const float EventEncounterChance = 0.15f;
+    private const float EmptyRoomChance = 0.20f;
     
     public DungeonLocation() : base(
         GameLocation.Dungeons,
@@ -32,9 +32,10 @@ public class DungeonLocation : BaseLocation
     {
         base.SetupLocation();
         
-        // Initialize dungeon level based on player level
+        // Initialize dungeon level exactly at the player's level (faithful to original — the
+        // player could then choose to go deeper up to +10 levels).
         var playerLevel = GetCurrentPlayer()?.Level ?? 1;
-        currentDungeonLevel = Math.Max(1, playerLevel / 3);
+        currentDungeonLevel = Math.Max(1, playerLevel);
         
         if (currentDungeonLevel > maxDungeonLevel)
             currentDungeonLevel = maxDungeonLevel;
@@ -79,6 +80,7 @@ public class DungeonLocation : BaseLocation
     {
         terminal.SetColor("white");
         terminal.WriteLine("(E)xplore Level     (D)escend Deeper    (A)scend to Surface");
+        terminal.WriteLine("(I)ncrease Difficulty( +10 )            ");
         terminal.WriteLine("(T)eam Management   (S)tatus            (R)est");
         terminal.WriteLine("(M)ap of Area       (Q)uit to Town      (?) Help");
         terminal.WriteLine("");
@@ -149,6 +151,10 @@ public class DungeonLocation : BaseLocation
                 
             case "?":
                 await ShowDungeonHelp();
+                return false;
+                
+            case "I":
+                await IncreaseDifficulty();
                 return false;
                 
             default:
@@ -688,14 +694,17 @@ public class DungeonLocation : BaseLocation
     // Placeholder methods for features to implement
     private async Task DescendDeeper()
     {
-        if (currentDungeonLevel < maxDungeonLevel)
+        var playerLevel = GetCurrentPlayer()?.Level ?? 1;
+        int deepestAllowed = Math.Min(maxDungeonLevel, playerLevel + 10);
+
+        if (currentDungeonLevel < deepestAllowed)
         {
             currentDungeonLevel++;
             terminal.WriteLine($"You descend to dungeon level {currentDungeonLevel}.", "yellow");
         }
         else
         {
-            terminal.WriteLine("You cannot go any deeper!", "red");
+            terminal.WriteLine("A mysterious force bars your way – it seems too dangerous to venture deeper right now.", "red");
         }
         await Task.Delay(1500);
     }
@@ -762,6 +771,31 @@ public class DungeonLocation : BaseLocation
         terminal.WriteLine("Q - Quit and return to town");
         terminal.WriteLine("");
         await terminal.PressAnyKey();
+    }
+    
+    /// <summary>
+    /// Increase dungeon level directly up to +10 levels above the player (original mechanic).
+    /// </summary>
+    private async Task IncreaseDifficulty()
+    {
+        var playerLevel = GetCurrentPlayer()?.Level ?? 1;
+        int targetLevel = currentDungeonLevel + 10;
+        int maxAllowed = Math.Min(maxDungeonLevel, playerLevel + 10);
+
+        if (targetLevel > maxAllowed)
+            targetLevel = maxAllowed;
+
+        if (targetLevel == currentDungeonLevel)
+        {
+            terminal.WriteLine("You cannot raise the difficulty any higher right now.", "yellow");
+        }
+        else
+        {
+            currentDungeonLevel = targetLevel;
+            terminal.WriteLine($"You steel your nerves. The dungeon now feels like level {currentDungeonLevel}!", "magenta");
+        }
+
+        await Task.Delay(1500);
     }
     
     // Additional encounter methods

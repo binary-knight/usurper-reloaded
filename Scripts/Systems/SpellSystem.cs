@@ -108,6 +108,21 @@ public static class SpellSystem
     };
     
     /// <summary>
+    /// Calculate mana cost for a given spell and caster, using D&D-style wisdom discount.
+    /// Formula: (level * 5) – ((Wisdom – 10) / 2).  Minimum 1.
+    /// Mirrors the design spec for Usurper Reloaded.
+    /// </summary>
+    public static int CalculateManaCost(SpellInfo spell, Character caster)
+    {
+        if (spell == null || caster == null) return 0;
+        long baseCost = spell.Level * 5;
+        long wisdomMod = (caster.Wisdom - 10) / 2;
+        long costLong = baseCost - wisdomMod;
+        int cost = (int)Math.Max(1, costLong);
+        return cost;
+    }
+    
+    /// <summary>
     /// Get spell cost for character class and spell level
     /// </summary>
     public static int GetSpellCost(CharacterClass characterClass, int spellLevel)
@@ -186,20 +201,20 @@ public static class SpellSystem
             return false;
             
         // Must be magic-using class
-        if (character.Class != CharacterClass.Cleric && 
-            character.Class != CharacterClass.Magician && 
+        if (character.Class != CharacterClass.Cleric &&
+            character.Class != CharacterClass.Magician &&
             character.Class != CharacterClass.Sage)
             return false;
             
-        // Must have required level
+        // Level requirement
         if (character.Level < GetLevelRequired(character.Class, spellLevel))
             return false;
             
-        // Must have enough mana
-        if (character.Mana < GetSpellCost(character.Class, spellLevel))
-            return false;
-            
-        return true;
+        var info = GetSpellInfo(character.Class, spellLevel);
+        if (info == null) return false;
+
+        var manaCost = CalculateManaCost(info, character);
+        return character.Mana >= manaCost;
     }
     
     /// <summary>
@@ -224,9 +239,10 @@ public static class SpellSystem
             return result;
         }
         
-        // Deduct mana cost
-        result.ManaCost = spellInfo.ManaCost;
-        caster.Mana -= result.ManaCost;
+        // Deduct mana cost using dynamic calculation
+        var manaCost = CalculateManaCost(spellInfo, caster);
+        result.ManaCost = manaCost;
+        caster.Mana -= manaCost;
         
         result.Success = true;
         result.Message = $"{caster.Name2} utters '{spellInfo.MagicWords}'!";

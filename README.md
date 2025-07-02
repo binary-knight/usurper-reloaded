@@ -84,8 +84,8 @@ The project includes automated GitHub Actions for building:
 - [X] **Anchor Road** - Currently placeholder, needs challenge system (still need to implement challenge features when other subsystems are built)
 - [X] **Hall of Recruitment** - Currently placeholder, needs NPC hiring
 - [X] **Dormitory** - Currently placeholder, needs rest/recovery mechanics
-- [ ] **Your Home** - Currently placeholder, needs personal dwelling features
-- [ ] **Outside Prison** - Currently placeholder, needs prison break mechanics
+- [X] **Your Home** - Currently placeholder, needs personal dwelling features
+- [X] **Outside Prison** - Currently placeholder, needs prison break mechanics
 
 #### Major System Gaps
 - [ ] **Mail System** - "not yet implemented" throughout prison, main street

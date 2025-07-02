@@ -34,8 +34,8 @@ public partial class PrisonWalkLocation : BaseLocation
     
     private void SetLocationProperties()
     {
-        LocationId = GameLocation.Prison;
-        LocationName = "Prison Walking Area";
+        LocationId = GameLocation.PrisonWalk;
+        LocationName = "Outside the Royal Prison";
         LocationDescription = "A small courtyard where prisoners can exercise";
         AllowedClasses = new HashSet<CharacterClass>();
         LevelRequirement = 1;
