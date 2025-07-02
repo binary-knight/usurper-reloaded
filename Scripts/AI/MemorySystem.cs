@@ -39,7 +39,11 @@ public partial class MemorySystem
             UpdateCharacterImpression(memoryEvent);
         }
         
-        GD.Print($"[Memory] Recorded: {memoryEvent.Description}");
+        // Reduce console spam: only log memories of notable importance (>=0.5)
+        if (memoryEvent.Importance >= 0.5f)
+        {
+            GD.Print($"[Memory] Recorded: {memoryEvent.Description}");
+        }
     }
     
     private void UpdateCharacterImpression(MemoryEvent memoryEvent)

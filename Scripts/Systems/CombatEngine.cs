@@ -500,6 +500,8 @@ public partial class CombatEngine
             terminal.SetColor("green");
             terminal.WriteLine($"You hit the {target.Name} for {attackPower} damage!");
             
+            // Stoneskin absorption handled later in this method
+            
             // Calculate defense absorption (Pascal-compatible)
             long defense = target.Defence + random.Next(0, (int)Math.Max(1, target.Defence / 8));
             
@@ -751,15 +753,33 @@ public partial class CombatEngine
         // Monster attack calculation (Pascal-compatible)
         long monsterAttack = monster.GetAttackPower();
         
-        // Add random variation
-        monsterAttack += random.Next(0, 10);
+        // Add random variation – scale with monster level so early foes hit lighter
+        int variationMax = monster.Level <= 3 ? 6 : 10; // up to +5 for lvl1-3
+        monsterAttack += random.Next(0, variationMax);
         
         if (monsterAttack > 0)
         {
             terminal.WriteLine($"The {monster.Name} attacks you for {monsterAttack} damage!");
             
+            // Blur / duplicate miss chance (20%)
+            if (player.HasStatus(StatusEffect.Blur))
+            {
+                if (random.Next(100) < 20)
+                {
+                    terminal.WriteLine($"The {monster.Name} strikes only illusory images!", "gray");
+                    result.CombatLog.Add($"{monster.Name} misses due to blur");
+                    await Task.Delay(800);
+                    return;
+                }
+            }
+            
+            // Stoneskin absorption
+            // Stoneskin absorption handled later in this method
+            
             // Player defense (Pascal-compatible)
             long playerDefense = player.Defence + random.Next(0, (int)Math.Max(1, player.Defence / 8));
+            // Add magical AC bonuses from spells (Shield / Prismatic Cage / Fog etc.)
+            playerDefense += player.MagicACBonus;
             
             if (player.ArmPow > 0)
             {
@@ -1155,9 +1175,48 @@ public partial class CombatEngine
     
     private async Task ProcessComputerPlayerAction(Character computer, Character opponent, CombatResult result)
     {
-        // Simple AI attack
-        terminal.WriteLine($"{computer.DisplayName} attacks!", "red");
-        await Task.Delay(1000);
+        // Basic heuristic AI
+        if (!computer.IsAlive || !opponent.IsAlive) return;
+
+        // 1. Heal if low
+        if (computer.HP < computer.MaxHP / 3 && computer.Healing > 0)
+        {
+            computer.Healing--;
+            long heal = Math.Min(25, computer.MaxHP - computer.HP);
+            computer.HP += heal;
+            terminal.WriteLine($"{computer.DisplayName} quaffs a potion and heals {heal} HP!", "green");
+            result.CombatLog.Add($"{computer.DisplayName} heals {heal}");
+            await Task.Delay(800);
+            return;
+        }
+
+        // 2. Cast spell if mage and enough mana
+        if ((computer.Class == CharacterClass.Magician || computer.Class == CharacterClass.Sage || computer.Class == CharacterClass.Cleric) && computer.Mana > 0)
+        {
+            var spells = SpellSystem.GetAvailableSpells(computer)
+                        .Where(s => SpellSystem.CanCastSpell(computer, s.Level) && s.SpellType == "Attack")
+                        .ToList();
+            if (spells.Count > 0 && new Random().Next(100) < 40)
+            {
+                var chosen = spells[new Random().Next(spells.Count)];
+                var spellResult = SpellSystem.CastSpell(computer, chosen.Level, opponent);
+                terminal.WriteLine(spellResult.Message, "magenta");
+                // For now only self-affecting or damage spells ignored in PvP; skip Monster
+                ApplySpellEffects(computer, null, spellResult);
+                result.CombatLog.Add($"{computer.DisplayName} casts {chosen.Name}");
+                await Task.Delay(1000);
+                return;
+            }
+        }
+
+        // 3. Default attack
+        long attackPower = computer.Strength + computer.WeapPow + random.Next(1, 16);
+        long defense = opponent.Defence + random.Next(0, (int)Math.Max(1, opponent.Defence / 8));
+        long damage = Math.Max(1, attackPower - defense);
+        opponent.HP = Math.Max(0, opponent.HP - damage);
+        terminal.WriteLine($"{computer.DisplayName} strikes for {damage} damage!", "red");
+        result.CombatLog.Add($"{computer.DisplayName} hits {opponent.DisplayName} for {damage}");
+        await Task.Delay(800);
     }
     
     private async Task DeterminePvPOutcome(CombatResult result)
@@ -1274,10 +1333,10 @@ public partial class CombatEngine
         // Convert buffs into status effects (basic mapping for now)
         if (spellResult.ProtectionBonus > 0)
         {
-            // Treat as Blessed: +2 attack/defence rolls (simplification)
-            int dur = spellResult.Duration > 0 ? spellResult.Duration : 5;
+            int dur = spellResult.Duration > 0 ? spellResult.Duration : 999;
+            caster.MagicACBonus = spellResult.ProtectionBonus;
             caster.ApplyStatus(StatusEffect.Blessed, dur);
-            terminal.WriteLine($"{caster.DisplayName} is blessed! (+2 rolls for {dur} rounds)", "blue");
+            terminal.WriteLine($"{caster.DisplayName} is magically protected! (+{spellResult.ProtectionBonus} AC for {dur} rounds)", "blue");
         }
 
         if (spellResult.AttackBonus > 0)
@@ -1331,16 +1390,21 @@ public partial class CombatEngine
                 break;
                 
             case "escape":
-                terminal.WriteLine($"{caster.DisplayName} attempts to escape using magic!", "magenta");
-                if (random.Next(100) < 75) // 75% success rate
-                {
-                    terminal.WriteLine("The escape is successful!", "green");
-                    globalEscape = true;
-                }
-                else
-                {
-                    terminal.WriteLine("The escape attempt fails!", "red");
-                }
+                terminal.WriteLine($"{caster.DisplayName} vanishes in a whirl of arcane energy!", "magenta");
+                globalEscape = true;
+                break;
+                
+            case "blur":
+            case "fog":
+            case "duplicate":
+                caster.ApplyStatus(StatusEffect.Blur, 999);
+                terminal.WriteLine($"{caster.DisplayName}'s outline shimmers and blurs!", "cyan");
+                break;
+                
+            case "stoneskin":
+                caster.DamageAbsorptionPool = 10 * caster.Level;
+                caster.ApplyStatus(StatusEffect.Stoneskin, 999);
+                terminal.WriteLine($"{caster.DisplayName}'s skin hardens to resilient stone!", "dark_gray");
                 break;
                 
             case "steal":
@@ -1377,6 +1441,14 @@ public partial class CombatEngine
                 if (target != null)
                 {
                     target.WeakenRounds = 3;
+                }
+                break;
+
+            case "identify":
+                terminal.WriteLine($"{caster.DisplayName} examines their belongings carefully...", "bright_white");
+                foreach (var itm in caster.Inventory)
+                {
+                    terminal.WriteLine($" • {itm.Name}  (Type: {itm.Type}, Pow: {itm.Attack}/{itm.Armor})", "white");
                 }
                 break;
         }

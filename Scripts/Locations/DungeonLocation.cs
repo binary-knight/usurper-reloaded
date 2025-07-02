@@ -232,6 +232,8 @@ public class DungeonLocation : BaseLocation
         // Combat using our combat engine
         var combatEngine = new CombatEngine(terminal);
         var result = await combatEngine.PlayerVsMonster(GetCurrentPlayer(), monster, teammates);
+        
+        // (Monster level already tagged on creation)
     }
     
     /// <summary>
@@ -572,15 +574,22 @@ public class DungeonLocation : BaseLocation
             name = GetLeaderName(name);
         }
         
-        // Pascal-compatible monster stats
-        long hp = currentDungeonLevel * 5;
-        if (isLeader) hp *= 2;
-        
+        // Smooth scaling factors – tuned for balanced difficulty curve
+        float scaleFactor = 1f + (currentDungeonLevel / 20f); // every 20 levels → +100 %
+
+        long hp = (long)(currentDungeonLevel * 4 * scaleFactor); // survivability
+        if (isLeader) hp = (long)(hp * 1.5f);
+
+        int strength = (int)(currentDungeonLevel * 1.5f * scaleFactor); // base damage
+        int punch    = (int)(currentDungeonLevel * 1.2f * scaleFactor); // natural attacks
+        int weapPow  = (int)(currentDungeonLevel * 0.9f * scaleFactor); // weapon bonus
+        int armPow   = (int)(currentDungeonLevel * 0.9f * scaleFactor); // defense bonus
+
         var monster = Monster.CreateMonster(
             nr: currentDungeonLevel,
             name: name,
             hps: hp,
-            strength: currentDungeonLevel * 2,
+            strength: strength,
             defence: 0,
             phrase: GetMonsterPhrase(currentTerrain),
             grabweap: dungeonRandom.NextDouble() < 0.3,
@@ -589,15 +598,18 @@ public class DungeonLocation : BaseLocation
             armor: armor,
             poisoned: false,
             disease: false,
-            punch: currentDungeonLevel * 3,
-            armpow: currentDungeonLevel * 2,
-            weappow: currentDungeonLevel * 2
+            punch: punch,
+            armpow: armPow,
+            weappow: weapPow
         );
         
         if (isLeader)
         {
             monster.IsBoss = true;
         }
+        
+        // Store level for other systems (initiative scaling etc.)
+        monster.Level = currentDungeonLevel;
         
         return monster;
     }

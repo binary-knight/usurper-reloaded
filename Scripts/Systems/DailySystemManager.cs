@@ -232,6 +232,18 @@ public class DailySystemManager
             player.Brawls = GameConfig.DefaultBrawls;
             player.Assa = GameConfig.DefaultAssassinAttempts;
             
+            // Reset class daily abilities
+            player.IsRaging = false; // Rage refreshed each combat anyway, but ensure off
+            if (player.Class == CharacterClass.Paladin)
+            {
+                var mods = player.GetClassCombatModifiers();
+                player.SmiteChargesRemaining = mods.SmiteCharges;
+            }
+            else
+            {
+                player.SmiteChargesRemaining = 0;
+            }
+            
             // Reset haggling attempts
             HagglingEngine.ResetDailyHaggling(player);
             

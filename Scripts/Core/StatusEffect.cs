@@ -16,5 +16,7 @@ public enum StatusEffect
     Weakened,      // -4 STR
     Hidden,        // From Hide action: grants stealth until next attack
     Haste,         // Double attacks
-    Slow           // Half attacks
+    Slow,          // Half attacks
+    Blur,          // 20% chance to cause incoming attacks to miss (Fog/Duplicate effects)
+    Stoneskin      // Absorption shield that soaks incoming damage until depleted
 } 

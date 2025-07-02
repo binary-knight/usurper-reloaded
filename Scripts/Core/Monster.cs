@@ -138,13 +138,16 @@ public class Monster
     /// </summary>
     private void GenerateMonsterStats(int monsterType)
     {
-        // Set IQ based on monster type
+        // Scale intelligence (used for initiative) so early monsters do not consistently
+        // ambush new players.  We keep high-level IQ the same but drastically lower
+        // values for the first few dungeon tiers.
         IQ = monsterType switch
         {
-            <= 5 => GD.RandRange(20, 40),      // Low-level monsters
-            <= 10 => GD.RandRange(40, 60),     // Mid-level monsters
-            <= 15 => GD.RandRange(60, 80),     // High-level monsters
-            _ => GD.RandRange(80, 100)          // Boss monsters
+            <= 3 => GD.RandRange(4, 8),        // Very low-level monsters (goblins, rats…)
+            <= 5 => GD.RandRange(8, 14),       // Low-level monsters
+            <= 10 => GD.RandRange(20, 40),     // Mid-level monsters
+            <= 15 => GD.RandRange(40, 60),     // High-level monsters
+            _ => GD.RandRange(60, 80)          // Boss monsters
         };
         
         // Set evil rating
@@ -191,6 +194,13 @@ public class Monster
         {
             IsUnique = true;
             IsBoss = true;
+        }
+        
+        // Reduce the raw punch/extra damage for the weakest ranks so they hit lighter
+        if (monsterType <= 3)
+        {
+            Punch = Math.Max(0, Punch / 2);
+            WeapPow = Math.Max(0, WeapPow - 1);
         }
     }
     

@@ -160,6 +160,7 @@ public partial class MagicShopLocation : BaseLocation
         DisplayMessage("(R)eturn to street          (L)ist Items", "gray");
         DisplayMessage("(I)dentify item             (B)uy Item", "gray");
         DisplayMessage("(H)ealing Potions           (S)ell Item", "gray");
+        DisplayMessage("(Y) Study spells", "gray");
         DisplayMessage($"                            (T)alk to {_ownerName}", "gray");
         DisplayMessage("");
         
@@ -203,6 +204,9 @@ public partial class MagicShopLocation : BaseLocation
                     break;
                 case "H":
                     BuyHealingPotions(player);
+                    break;
+                case "Y":
+                    SpellLearningSystem.ShowSpellLearningMenu(player, terminal).Wait();
                     break;
                 case "T":
                     TalkToOwner(player);
@@ -412,7 +416,7 @@ public partial class MagicShopLocation : BaseLocation
         DisplayMessage("Unidentified items:", "cyan");
         for (int i = 0; i < unidentifiedItems.Count; i++)
         {
-            DisplayMessage($"{i + 1}. {unidentifiedItems[i].Name}", "white");
+            DisplayMessage($"{i + 1}. Unknown item", "white");
         }
         
         DisplayMessage("");

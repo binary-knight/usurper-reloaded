@@ -139,6 +139,10 @@ public class Character
     public bool IsRaging { get; set; } = false;        // Barbarian rage state
     public int SmiteChargesRemaining { get; set; } = 0; // Paladin daily smite uses left
     
+    // Magical combat buffs
+    public int MagicACBonus { get; set; } = 0;          // Flat AC bonus from spells like Shield/Prismatic Cage
+    public int DamageAbsorptionPool { get; set; } = 0;  // Remaining damage Stoneskin can absorb
+    
     // Kill statistics
     public long MKills { get; set; }                // monster kills
     public long MDefeats { get; set; }              // monster defeats
@@ -310,7 +314,20 @@ public class Character
                 toRemove.Add(kvp.Key);
         }
 
-        foreach (var s in toRemove) ActiveStatuses.Remove(s);
+        foreach (var s in toRemove)
+        {
+            ActiveStatuses.Remove(s);
+            switch (s)
+            {
+                case StatusEffect.Blessed:
+                case StatusEffect.Defending:
+                    MagicACBonus = 0;
+                    break;
+                case StatusEffect.Stoneskin:
+                    DamageAbsorptionPool = 0;
+                    break;
+            }
+        }
     }
     
     // Constructor to initialize lists
