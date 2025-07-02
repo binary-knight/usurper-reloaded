@@ -125,82 +125,34 @@ jobs:
           echo "Importing project resources..."
           godot --headless --import --quit
           
-      - name: Create console application builds
+      # --- Publish platform executables directly from main project ---
+      - name: Publish Windows executable
         run: |
-          echo "Creating .NET console application builds..."
-          
-          # Create a temporary console project for building executables
-          mkdir -p temp-console
-          cd temp-console
-          
-          # Create console project file
-          cat > console-app.csproj << 'EOF'
-          <Project Sdk="Microsoft.NET.Sdk">
-            <PropertyGroup>
-              <TargetFramework>net6.0</TargetFramework>
-              <RootNamespace>UsurperGame</RootNamespace>
-              <AssemblyName>usurper-reloaded</AssemblyName>
-              <OutputType>Exe</OutputType>
-              <Nullable>enable</Nullable>
-              <ImplicitUsings>enable</ImplicitUsings>
-              <InvariantGlobalization>true</InvariantGlobalization>
-              <PublishSingleFile>true</PublishSingleFile>
-              <SelfContained>true</SelfContained>
-              <StartupObject>UsurperGame.Program</StartupObject>
-            </PropertyGroup>
-            <ItemGroup>
-              <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-              <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="6.0.0" />
-            </ItemGroup>
-            <ItemGroup>
-              <Compile Include="../Scripts/**/*.cs" />
-              <Compile Include="../SimpleGame.cs" />
-              <Compile Include="../GlobalUsings.cs" />
-            </ItemGroup>
-            <ItemGroup>
-              <None Include="../Data/**/*" CopyToOutputDirectory="PreserveNewest" />
-              <None Include="../Assets/**/*" CopyToOutputDirectory="PreserveNewest" />
-            </ItemGroup>
-          </Project>
-          EOF
-          
-          cd ..
-          
-          echo "✅ Console project created"
-
-      - name: Build Windows executable
-        run: |
-          echo "Building Windows executable..."
-          cd temp-console
-          dotnet publish console-app.csproj -c Release -r win-x64 -o ../build/windows --self-contained true
-          
-          # Rename the executable
-          if [ -f "../build/windows/usurper-reloaded.exe" ]; then
-            echo "✅ Windows build successful"
+          echo "Publishing Windows executable..."
+          dotnet publish usurper-reloaded.csproj -c Release -r win-x64 -o build/windows \
+            -p:PublishSingleFile=true -p:SelfContained=true -p:InvariantGlobalization=true
+          if [ -f "build/windows/UsurperRemake.exe" ]; then
+            echo "✅ Windows publish successful"
           else
-            echo "ERROR: Windows build failed - executable not created"
-            ls -la ../build/windows/
+            echo "Windows publish failed"
+            ls -la build/windows/
             exit 1
           fi
-          cd ..
 
-      - name: Build Linux executable  
+      - name: Publish Linux executable
         run: |
-          echo "Building Linux executable..."
-          cd temp-console
-          dotnet publish console-app.csproj -c Release -r linux-x64 -o ../build/linux --self-contained true
-          
-          # Rename the executable
-          if [ -f "../build/linux/usurper-reloaded" ]; then
-            mv "../build/linux/usurper-reloaded" "../build/linux/usurper-reloaded.x86_64"
-            chmod +x "../build/linux/usurper-reloaded.x86_64"
-            echo "✅ Linux build successful"
+          echo "Publishing Linux executable..."
+          dotnet publish usurper-reloaded.csproj -c Release -r linux-x64 -o build/linux \
+            -p:PublishSingleFile=true -p:SelfContained=true -p:InvariantGlobalization=true
+          if [ -f "build/linux/UsurperRemake" ]; then
+            mv "build/linux/UsurperRemake" "build/linux/usurper-reloaded.x86_64"
+            chmod +x "build/linux/usurper-reloaded.x86_64"
+            echo "✅ Linux publish successful"
           else
-            echo "ERROR: Linux build failed - executable not created"
-            ls -la ../build/linux/
+            echo "Linux publish failed"
+            ls -la build/linux/
             exit 1
           fi
-          cd ..
 
       - name: Build macOS executable
         run: |
