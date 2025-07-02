@@ -74,7 +74,7 @@ The project includes automated GitHub Actions for building:
 
 ### **Early Access Launch Requirements** (Current Focus)
 
-**🚧 CRITICAL BLOCKERS - Must Complete Before Early Access:**
+**CRITICAL BLOCKERS - Must Complete Before Early Access:**
 
 #### Core Location Implementations
 - [X] **Church** - Currently placeholder, needs healing/blessing mechanics
