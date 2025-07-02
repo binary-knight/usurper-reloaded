@@ -157,7 +157,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 
 ## 📜 License
 
-This is a fan remake created for preservation and educational purposes. 
+See LICENSE.md
 
 **Original Game**: © 1993 Jakob Dangarden  
 **Pascal Preservation**: Rick Parrish, Daniel Zingaro (GPL License)  

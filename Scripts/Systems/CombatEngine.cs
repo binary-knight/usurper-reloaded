@@ -333,7 +333,7 @@ public partial class CombatEngine
             terminal.WriteLine($"You hit the {target.Name} for {attackPower} damage!");
             
             // Calculate defense absorption (Pascal-compatible)
-            long defense = target.Defence + random.Next(0, Math.Max(1, target.Defence / 8));
+            long defense = target.Defence + random.Next(0, (int)Math.Max(1, target.Defence / 8));
             
             if (target.ArmPow > 0)
             {
@@ -562,7 +562,7 @@ public partial class CombatEngine
             terminal.WriteLine($"The {monster.Name} attacks you for {monsterAttack} damage!");
             
             // Player defense (Pascal-compatible)
-            long playerDefense = player.Defence + random.Next(0, Math.Max(1, player.Defence / 8));
+            long playerDefense = player.Defence + random.Next(0, (int)Math.Max(1, player.Defence / 8));
             
             if (player.ArmPow > 0)
             {
@@ -823,7 +823,7 @@ public partial class CombatEngine
         
         terminal.WriteLine("");
         terminal.WriteLine("Enter spell number (0 to cancel): ", ConsoleColor.Yellow, false);
-        string input = terminal.GetInput();
+        string input = terminal.GetInputSync();
         
         if (int.TryParse(input, out int spellChoice) && spellChoice > 0 && spellChoice <= availableSpells.Count)
         {
@@ -956,7 +956,8 @@ public partial class CombatEngine
             case "steal":
                 if (target != null)
                 {
-                    var goldStolen = random.Next(target.Gold / 10);
+                    int stealCap = (int)Math.Max(1, Math.Min(target.Gold / 10, int.MaxValue));
+                    var goldStolen = random.Next(stealCap);
                     if (goldStolen > 0)
                     {
                         target.Gold -= goldStolen;

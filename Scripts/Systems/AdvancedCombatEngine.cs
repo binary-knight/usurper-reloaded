@@ -175,6 +175,9 @@ public class AdvancedCombatEngine : Node
                 await terminal.WaitForKeyPress();
                 return false;
         }
+
+        // Fallback – should not reach here but satisfies compiler
+        return false;
     }
     
     /// <summary>
@@ -197,7 +200,8 @@ public class AdvancedCombatEngine : Node
                         
                         if (monster.WeaponPower > 32000) monster.WeaponPower = 32000;
                         
-                        monster.Punch = monster.WeaponPower + random.Next(monster.WeaponPower);
+                        int weaponPowerInt = (int)Math.Min(monster.WeaponPower, int.MaxValue);
+                        monster.Punch = monster.WeaponPower + random.Next(weaponPowerInt);
                         monster.Punch += monster.Strength / strengthDivisor;
                         
                         // Lucky freak attack (Pascal logic)
@@ -210,7 +214,7 @@ public class AdvancedCombatEngine : Node
                     
                 case 2: // Door guards
                     {
-                        int attackPower = monster.Strength * 2;
+                        int attackPower = (int)Math.Min(monster.Strength * 2, int.MaxValue);
                         monster.Punch = random.Next(attackPower);
                         break;
                     }
@@ -248,7 +252,8 @@ public class AdvancedCombatEngine : Node
                 case 6: // Prison guards
                     {
                         // Standard attack calculation
-                        monster.Punch = random.Next(monster.Strength) + monster.WeaponPower / 2;
+                        int strengthInt = (int)Math.Min(monster.Strength, int.MaxValue);
+                        monster.Punch = random.Next(strengthInt) + monster.WeaponPower / 2;
                         break;
                     }
             }

@@ -67,12 +67,7 @@ public partial class TerminalEmulator
     // Parameterless menu helper returns first option
     public async Task<int> GetMenuChoice() => 0;
 
-    // WriteLine overload with ConsoleColor and optional newline
-    public void WriteLine(string text, ConsoleColor color, bool newLine)
-    {
-        var colorName = color.ToString().ToLower();
-        if (newLine) WriteLine(text, colorName); else Write(text, colorName);
-    }
+    // Removed duplicate WriteLine(ConsoleColor) overload – implemented in TerminalEmulator.cs
 }
 #endregion
 

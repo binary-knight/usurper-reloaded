@@ -549,4 +549,32 @@ public partial class TerminalEmulator : Control
     {
         await PressAnyKey(message);
     }
+
+    // Added overloads to accept ConsoleColor for legacy compatibility
+    public void WriteLine(string text, ConsoleColor color, bool newLine = true)
+    {
+        var colorName = color.ToString().ToLower();
+        if (newLine)
+            WriteLine(text, colorName);
+        else
+            Write(text, colorName);
+    }
+
+    public void WriteLine(string text, ConsoleColor color)
+    {
+        WriteLine(text, color.ToString().ToLower());
+    }
+
+    public void Write(string text, ConsoleColor color)
+    {
+        Write(text, color.ToString().ToLower());
+    }
+
+    public void SetColor(ConsoleColor color)
+    {
+        SetColor(color.ToString().ToLower());
+    }
+
+    // Synchronous helper for legacy code paths
+    public string GetInputSync(string prompt = "> ") => GetInput(prompt).GetAwaiter().GetResult();
 } 

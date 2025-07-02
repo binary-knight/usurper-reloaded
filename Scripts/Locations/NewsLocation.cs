@@ -301,12 +301,11 @@ public class NewsLocation : BaseLocation
         var mainStreet = LocationManager.Instance.GetLocation(GameLocation.MainStreet);
         if (mainStreet != null)
         {
-            player.CurrentLocation = mainStreet;
-            mainStreet.HandlePlayerEntry(player);
-        }
-        else
-        {
-            player.SendMessage("Error: Could not return to Main Street.");
+            // Update player location string to main street identifier
+            player.CurrentLocation = mainStreet.LocationId.ToString().ToLower();
+
+            // Simply display the main street to the player
+            mainStreet.OnEnter(player);
         }
     }
 

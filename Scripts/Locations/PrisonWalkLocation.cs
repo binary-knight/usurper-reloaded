@@ -309,7 +309,7 @@ public partial class PrisonWalkLocation : BaseLocation
         // Get prisoner name to free
         await terminal.WriteLineAsync("Who do you wanna set free?");
         await terminal.WriteAsync(":");
-        string prisonerName = await terminal.GetStringAsync(30);
+        string prisonerName = await terminal.GetStringAsync();
         
         if (string.IsNullOrWhiteSpace(prisonerName))
         {

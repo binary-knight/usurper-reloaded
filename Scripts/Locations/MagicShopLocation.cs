@@ -493,7 +493,7 @@ public partial class MagicShopLocation : BaseLocation
         // Calculate potion price: level × 5
         int potionPrice = player.Level * GameConfig.HealingPotionLevelMultiplier;
         int maxPotionsCanBuy = (int)(player.Gold / potionPrice);
-        int maxPotionsCanCarry = GameConfig.MaxHealingPotions - player.Healing;
+        int maxPotionsCanCarry = GameConfig.MaxHealingPotions - (int)player.Healing;
         int maxPotions = Math.Min(maxPotionsCanBuy, maxPotionsCanCarry);
         
         if (player.Gold < potionPrice)

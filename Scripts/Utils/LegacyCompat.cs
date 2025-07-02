@@ -115,18 +115,7 @@ public partial class RelationshipSystem
 }
 #endregion
 
-#region TerminalEmulator colour helper
-public partial class TerminalEmulator
-{
-    /// <summary>
-    /// Convenience wrapper that lets older code pass a ConsoleColor instead of our string colour name.
-    /// Defaults to writing with a trailing newline.
-    /// </summary>
-    public void WriteLine(string text, ConsoleColor color)
-    {
-        WriteLine(text, color.ToString().ToLower());
-    }
-}
+#region TerminalEmulator colour helper removed – now implemented in core TerminalEmulator.cs
 #endregion
 
 #region QuestSystem legacy wrappers removed – core QuestSystem static methods already available.

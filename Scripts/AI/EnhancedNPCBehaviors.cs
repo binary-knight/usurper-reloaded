@@ -360,8 +360,7 @@ public static class EnhancedNPCBehaviors
     private static void GenerateGangWarNews(string header, string gang1, string gang2)
     {
         var newsSystem = NewsSystem.Instance;
-        newsSystem?.Newsy(false, header,
-            $"{GameConfig.TeamColor}{gang1}{GameConfig.NewsColorDefault} challenged {GameConfig.TeamColor}{gang2}{GameConfig.NewsColorDefault}");
+        newsSystem?.Newsy($"{header} {GameConfig.TeamColor}{gang1}{GameConfig.NewsColorDefault} challenged {GameConfig.TeamColor}{gang2}{GameConfig.NewsColorDefault}", false, GameConfig.NewsCategory.General);
     }
     
     private static void ConductGangBattles(List<NPC> team1, List<NPC> team2, GangWarResult result)

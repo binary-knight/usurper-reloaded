@@ -297,8 +297,8 @@ public partial class NPC : Character
     /// </summary>
     public void UpdateNPC(float deltaTime)
     {
-        // Update emotional state
-        EmotionalState.Update(deltaTime);
+        // Update emotional state based on recent memories
+        EmotionalState.Update(Memory.GetRecentEvents());
         
         // Process goals and decide actions
         var action = Brain.DecideNextAction(GetWorldState());
