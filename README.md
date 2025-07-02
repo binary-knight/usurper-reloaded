@@ -1,10 +1,10 @@
 ﻿# Usurper Reloaded
 
-**🆓 FREE AND OPEN SOURCE SOFTWARE - GPL v2 Licensed**
+** FREE AND OPEN SOURCE SOFTWARE - GPL v2 Licensed**
 
 A faithful recreation of the classic 1993 BBS door game "Usurper" by Jakob Dangarden, enhanced with revolutionary NPC AI systems while maintaining 100% Pascal source compatibility.
 
-## 🎮 About
+## About
 
 Usurper Reloaded brings the brutal medieval world of the original BBS classic to modern platforms. Every formula, every stat, every quirk from the original Pascal source has been meticulously preserved, while adding sophisticated AI systems that make the world feel truly alive.
 
@@ -13,35 +13,35 @@ Usurper Reloaded brings the brutal medieval world of the original BBS classic to
 **Modern Recreation**: Built with Godot 4.4+ and C#  
 **License**: GNU General Public License v2 (GPL v2)
 
-## ✨ Current Status & Implemented Features (Alpha 0.2 – Summer 2025)
+## Current Status & Implemented Features (Alpha 0.2 – Summer 2025)
 
 Progress has moved from "bare foundations" to a **play-testable alpha**.  Highlights:
 
-### ✔ Core Engine
-* Godot 4.4 Mono build that launches a DOS-style 80×25 terminal.
+### Core Engine
+* Godot 4.2 Mono build that launches a DOS-style 80×25 terminal.
 * Full data layer – `Character`, `Player`, `NPC`, `Item`, `Monster`, `Quest` and a 1 100-line `GameConfig` mirroring Pascal globals.
 
-### ✔ Playable Locations (16 / 23 complete)
+### Playable Locations (16 / 23 complete)
 * **Main Street, Inn, Bank, Magic Shop, Healer, Temple, Dungeon**
 * NEW: **Church, Dark Alley, Level Master, Marketplace, Anchor Road hub, Hall of Recruitment, Dormitory** – all feature-complete ports of the original Pascal logic.
 
-### ✔ NPC Renaissance
+### NPC Renaissance
 * 30+ NPCs loaded from `Data/npcs.json` (with stats, dialogue, starting locations).
 * **Enhanced NPC AI**: personality-driven brains, goal system, memory & emotions.
 * **WorldSimulator** now runs every 60 s in a background task → NPCs wander, trade, fight and socialise.  Enter a room and you'll meet living townsfolk.
 
-### ✔ Systems & Tooling
+### Systems & Tooling
 * **Hall of Recruitment** supports hiring / bribing NPCs into your team.
 * **Dormitory** provides full rest & daily reset.
 * Trading board in **Marketplace**, shady services in **Dark Alley**, levelling with the **Level Master**, donations & blessings in **Church** – all with flavour text and original costs.
 * Robust JSON loaders, test-suite (>300 cases) and CI builds.
 
-### ⚠️ Still Missing (major milestones below)
+### Still Missing (major milestones below)
 * Deep dungeon crawl beyond basic monster fights, castle politics, child/marriage systems, etc.
 * Spell casting, cursed item mechanics, full save persistence for new systems.
 * Multiplayer / node support.
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 - [Godot 4.2+ Mono version](https://godotengine.org/download)
@@ -70,7 +70,7 @@ The project includes automated GitHub Actions for building:
 - Tag with `v*` for release builds
 - Artifacts available in Actions tab
 
-## 🗺️ Roadmap
+## Roadmap
 
 ### **Early Access Launch Requirements** (Current Focus)
 
@@ -127,9 +127,9 @@ The project includes automated GitHub Actions for building:
 * [ ] **Quest Completion** – Resolve quests and save progress across sessions
 * [ ] **Tournament System** – Automated combat events with rankings
 
-**⚠️ ESTIMATED WORK REMAINING: 3-6 months of core development**
+**ESTIMATED WORK REMAINING: 1-2 months of core development**
 
-#### Already Complete ✅
+#### Already Complete
 - [x] Core game systems (combat, locations, NPCs) - *Basic framework*
 - [x] Save/load functionality - *Comprehensive system implemented*
 - [x] Terminal emulator and UI framework
@@ -179,7 +179,7 @@ The project includes automated GitHub Actions for building:
 - [ ] **Usurper 2**: Sequel with expanded world and graphics
 - [ ] **VR Mode**: Experience the dungeon in virtual reality
 
-## 🛠️ Development
+## Development
 
 ### Project Structure
 ```
@@ -205,7 +205,7 @@ cd Tests && powershell ./run_tests.ps1
 dotnet test Tests/CombatTests.cs
 ```
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
@@ -216,7 +216,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 - Localization to other languages
 - Documentation improvements
 
-## 📊 Technical Details
+## Technical Details
 
 - **Engine**: Godot 4.2+ with C#
 - **Lines of Code**: 50,000+ across 100+ files
@@ -224,24 +224,24 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 - **Test Coverage**: 300+ test cases
 - **Platforms**: Windows, Linux, macOS (Steam Deck verified)
 
-## 📜 License & Your Rights
+## License & Your Rights
 
 **Usurper Reloaded is FREE SOFTWARE licensed under GPL v2**
 
-### 🔓 Your Rights
+### Your Rights
 - ✅ **Use** - Run the game for any purpose (personal, commercial, educational)
 - ✅ **Study** - Examine and learn from the complete source code
 - ✅ **Share** - Distribute copies to anyone, anywhere
 - ✅ **Modify** - Change the game and distribute your improvements
 - ✅ **Commercial Use** - Even sell your own versions (under GPL v2)
 
-### 📁 Source Code Access
+### Source Code Access
 - **Complete source code** included with every download
 - **GitHub Repository**: https://github.com/binary-knight/usurper-reloaded
 - **Build Scripts**: All tools and build processes included
 - **No Hidden Code**: Everything needed to build and modify the game
 
-### 📋 GPL v2 Compliance
+### GPL v2 Compliance
 This distribution includes:
 - `LICENSE` - Complete GPL v2 license text
 - `GPL_NOTICE.txt` - Your rights and freedoms
@@ -250,14 +250,14 @@ This distribution includes:
 
 **This is truly FREE software - you own it completely!**
 
-### 🏛️ Legal Details
+### Legal Details
 **Original Game**: © 1993 Jakob Dangarden  
 **Pascal Preservation**: Rick Parrish, Daniel Zingaro (GPL License)  
 **This Remake**: GPL v2 Licensed - Free for all to use and modify
 
 See `LICENSE` file for complete GPL v2 terms and conditions.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - **Jakob Dangarden**: For creating the original masterpiece
 - **Rick Parrish**: For preserving the Pascal source code
