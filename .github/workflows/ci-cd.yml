@@ -138,7 +138,7 @@ jobs:
           <Project Sdk="Microsoft.NET.Sdk">
             <PropertyGroup>
               <TargetFramework>net6.0</TargetFramework>
-              <RootNamespace>UsurperRemake</RootNamespace>
+              <RootNamespace>UsurperGame</RootNamespace>
               <AssemblyName>usurper-reloaded</AssemblyName>
               <OutputType>Exe</OutputType>
               <Nullable>enable</Nullable>
@@ -146,15 +146,16 @@ jobs:
               <InvariantGlobalization>true</InvariantGlobalization>
               <PublishSingleFile>true</PublishSingleFile>
               <SelfContained>true</SelfContained>
+              <StartupObject>UsurperGame.Program</StartupObject>
             </PropertyGroup>
             <ItemGroup>
               <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
               <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="6.0.0" />
             </ItemGroup>
             <ItemGroup>
-              <Compile Include="../Console/**/*.cs" />
               <Compile Include="../Scripts/**/*.cs" />
-              <Compile Include="../*.cs" />
+              <Compile Include="../SimpleGame.cs" />
+              <Compile Include="../GlobalUsings.cs" />
             </ItemGroup>
             <ItemGroup>
               <None Include="../Data/**/*" CopyToOutputDirectory="PreserveNewest" />
