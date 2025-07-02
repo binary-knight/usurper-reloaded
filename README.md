@@ -9,7 +9,7 @@ A faithful recreation of the classic 1993 BBS door game "Usurper" by Jakob Danga
 Usurper Reloaded brings the brutal medieval world of the original BBS classic to modern platforms. Every formula, every stat, every quirk from the original Pascal source has been meticulously preserved, while adding sophisticated AI systems that make the world feel truly alive.
 
 **Original Creator**: Jakob Dangarden (1993)  
-**Source Preservation**: Rick Parrish  
+**Source Preservation**: Rick Parrish, Daniel Zingaro  
 **Modern Recreation**: Built with Godot 4.4+ and C#  
 **License**: GNU General Public License v2 (GPL v2)
 
