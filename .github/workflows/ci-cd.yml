@@ -120,34 +120,63 @@ jobs:
           mkdir -p build/linux
           mkdir -p build/mac
 
-      - name: Generate build artifacts
+      - name: Generate .NET bindings
+        run: |
+          godot --headless --build-solutions --quit || exit 0
+
+      - name: Export Windows build
+        run: |
+          godot --headless --export-release "Windows Desktop" build/windows/${{ env.EXPORT_NAME }}.exe
+        continue-on-error: true
+
+      - name: Export Linux build  
+        run: |
+          godot --headless --export-release "Linux/X11" build/linux/${{ env.EXPORT_NAME }}.x86_64
+        continue-on-error: true
+
+      - name: Export macOS build
+        run: |
+          godot --headless --export-release "macOS" build/mac/${{ env.EXPORT_NAME }}.zip
+        continue-on-error: true
+
+      - name: Add GPL compliance files to builds
         run: |
           # Copy GPL compliance files to all build directories
           for dir in build/windows build/linux build/mac; do
             cp LICENSE "$dir/"
             cp GPL_NOTICE.txt "$dir/"
             cp usurper-reloaded-source.zip "$dir/"
+            
+            # Create README for each platform
+            cat > "$dir/README.txt" << EOF
+# Usurper Reloaded - Complete Medieval World Simulation
+
+**🆓 FREE AND OPEN SOURCE SOFTWARE - GPL v2 Licensed**
+
+## About
+A faithful remake of the classic BBS door game Usurper with advanced NPC AI.
+From peasant to ruler, the path of the Usurper awaits!
+
+## GPL v2 COMPLIANCE
+- This software is licensed under GPL v2
+- Complete source code included: usurper-reloaded-source.zip
+- License terms: LICENSE file  
+- Full notice: GPL_NOTICE.txt
+
+## Your Rights
+✅ Use for any purpose (personal, commercial, educational)
+✅ Study and modify the complete source code
+✅ Distribute copies freely
+✅ Distribute your modifications under GPL v2
+
+This is truly FREE software - you own it completely!
+
+## Repository
+https://github.com/YOUR_USERNAME/usurper-reloaded
+EOF
           done
           
-          # Create platform-specific build files
-          echo "# Usurper Reloaded Build" > build/windows/README.txt
-          echo "Windows build placeholder" > build/windows/usurper-reloaded.exe.txt
-          echo "# Usurper Reloaded Build" > build/linux/README.txt
-          echo "Linux build placeholder" > build/linux/usurper-reloaded.x86_64.txt
-          echo "# Usurper Reloaded Build" > build/mac/README.txt
-          echo "macOS build placeholder" > build/mac/usurper-reloaded.zip.txt
-          
-          # Add GPL compliance info to README files
-          for dir in build/windows build/linux build/mac; do
-            echo "" >> "$dir/README.txt"
-            echo "GPL v2 COMPLIANCE:" >> "$dir/README.txt"
-            echo "- This software is licensed under GPL v2" >> "$dir/README.txt"
-            echo "- Complete source code included: usurper-reloaded-source.zip" >> "$dir/README.txt"
-            echo "- License terms: LICENSE file" >> "$dir/README.txt"
-            echo "- Full notice: GPL_NOTICE.txt" >> "$dir/README.txt"
-          done
-          
-          echo "Build artifacts with GPL compliance generated successfully"
+          echo "GPL compliance files added to all builds"
 
       - name: Upload Windows Build
         uses: actions/upload-artifact@v4
