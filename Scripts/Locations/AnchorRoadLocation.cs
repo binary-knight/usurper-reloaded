@@ -12,14 +12,10 @@ using System.Threading.Tasks;
 /// </summary>
 public class AnchorRoadLocation : BaseLocation
 {
-    private LocationManager locationManager;
-    private TournamentSystem tournamentSystem;
-    private QuestSystem questSystem;
-    private TeamSystem teamSystem;
-    private NewsSystem newsSystem;
-    private BankLocation bankLocation;
-    private CastleLocation castleLocation;
-    private TempleLocation templeLocation;
+    private readonly TournamentSystem? tournamentSystem = UsurperRemake.Utils.GodotHelpers.GetNode<TournamentSystem>("/root/TournamentSystem");
+    private readonly QuestSystem? questSystem = UsurperRemake.Utils.GodotHelpers.GetNode<QuestSystem>("/root/QuestSystem");
+    private readonly TeamSystem? teamSystem = UsurperRemake.Utils.GodotHelpers.GetNode<TeamSystem>("/root/TeamSystem");
+    private readonly NewsSystem newsSystem = NewsSystem.Instance;
     
     // Pascal constants from CHALLENG.PAS
     private const string LocationName = "Anchor Road";
@@ -30,67 +26,14 @@ public class AnchorRoadLocation : BaseLocation
     {
     }
     
-    public new void _Ready()
-    {
-        base._Ready();
-        locationManager = GetNode<LocationManager>("/root/LocationManager");
-        tournamentSystem = GetNode<TournamentSystem>("/root/TournamentSystem");
-        questSystem = GetNode<QuestSystem>("/root/QuestSystem");
-        teamSystem = GetNode<TeamSystem>("/root/TeamSystem");
-        newsSystem = NewsSystem.Instance;
-        bankLocation = GetNode<BankLocation>("/root/BankLocation");
-        castleLocation = GetNode<CastleLocation>("/root/CastleLocation");
-        templeLocation = GetNode<TempleLocation>("/root/TempleLocation");
-    }
-    
-    /// <summary>
-    /// Main menu - Pascal CHALLENG.PAS Meny procedure
-    /// </summary>
-    public new async Task ShowLocationMenu(Character player)
-    {
-        await DisplayMenu(player, false, false);
-    }
-    
-    /// <summary>
-    /// Display menu - Pascal CHALLENG.PAS Display_Menu procedure
-    /// </summary>
-    private async Task DisplayMenu(Character player, bool force, bool shortMenu)
-    {
-        var terminal = GetNode<TerminalEmulator>("/root/TerminalEmulator");
-        
-        if (shortMenu)
-        {
-            if (!player.Expert)
-            {
-                if (player.AutoMenu)
-                {
-                    await ShowFullMenu(player);
-                }
-                
-                terminal.WriteLine($"\n{LocationName} ({GameConfig.HotkeyColor}?{GameConfig.TextColor} for menu) :");
-            }
-            else
-            {
-                terminal.WriteLine($"\n{LocationName} (D,B,Q,G,O,A,C,F,S,K,T,R,?) :");
-            }
-        }
-        else
-        {
-            if (!player.Expert || force)
-            {
-                await ShowFullMenu(player);
-            }
-        }
-        
-        await ProcessUserInput(player);
-    }
+    // No _Ready needed for standalone mode
     
     /// <summary>
     /// Show full menu - Pascal CHALLENG.PAS Meny procedure
     /// </summary>
-    private async Task ShowFullMenu(Character player)
+    private void ShowFullMenu()
     {
-        var terminal = GetNode<TerminalEmulator>("/root/TerminalEmulator");
+        var terminal = this.terminal;
         
         terminal.ClearScreen();
         terminal.WriteLine($"\n{GameConfig.BrightColor}-*- {GameConfig.AnchorName}, {LocationDescription} -*-{GameConfig.TextColor}");
@@ -123,88 +66,63 @@ public class AnchorRoadLocation : BaseLocation
         return option.PadRight(width);
     }
     
-    /// <summary>
-    /// Process user input - Pascal CHALLENG.PAS main menu logic
-    /// </summary>
-    private async Task ProcessUserInput(Character player)
+    // BaseLocation override to process one choice
+    protected override async Task<bool> ProcessChoice(string choice)
     {
-        var terminal = GetNode<TerminalEmulator>("/root/TerminalEmulator");
-        bool done = false;
-        
-        while (!done)
+        if (string.IsNullOrWhiteSpace(choice)) return false;
+        char ch = char.ToUpperInvariant(choice.Trim()[0]);
+
+        switch (ch)
         {
-            var input = await terminal.GetKeyInput();
-            char choice = string.IsNullOrEmpty(input) ? ' ' : input[0];
-            
-            switch (choice)
-            {
-                case 'D': // Dormitory
-                    await NavigateToDormitory(player);
-                    done = true;
-                    break;
-                    
-                case 'B': // Bounty hunting
-                    await StartBountyHunting(player);
-                    break;
-                    
-                case 'Q': // Quests
-                    await StartQuests(player);
-                    break;
-                    
-                case 'G': // Gang war
-                    await StartGangWar(player);
-                    break;
-                    
-                case 'O': // Online war
-                    await StartOnlineWar(player);
-                    break;
-                    
-                case 'A': // Altar of the Gods
-                    await NavigateToAltar(player);
-                    done = true;
-                    break;
-                    
-                case 'C': // Claim town
-                    await ClaimTown(player);
-                    break;
-                    
-                case 'F': // Flee town control
-                    await FleeTownControl(player);
-                    break;
-                    
-                case 'S': // Status
-                    await ShowPlayerStatus(player);
-                    break;
-                    
-                case 'K': // Kings Castle
-                    await NavigateToKingsCastle(player);
-                    done = true;
-                    break;
-                    
-                case 'T': // The Gym
-                    await NavigateToGym(player);
-                    done = true;
-                    break;
-                    
-                case 'R': // Return to town
-                    await ReturnToTown(player);
-                    done = true;
-                    break;
-                    
-                case '?': // Help
-                    await ShowFullMenu(player);
-                    break;
-                    
-                default:
-                    terminal.WriteLine($"{GameConfig.ErrorColor}Invalid choice. Press ? for menu.{GameConfig.TextColor}");
-                    break;
-            }
-            
-            if (!done)
-            {
-                await DisplayMenu(player, false, true);
-            }
+            case 'D':
+                await NavigateToDormitory(currentPlayer);
+                return true;
+            case 'B':
+                await StartBountyHunting(currentPlayer);
+                return false;
+            case 'Q':
+                await StartQuests(currentPlayer);
+                return false;
+            case 'G':
+                await StartGangWar(currentPlayer);
+                return false;
+            case 'O':
+                await StartOnlineWar(currentPlayer);
+                return false;
+            case 'A':
+                await NavigateToAltar(currentPlayer);
+                return true;
+            case 'C':
+                await ClaimTown(currentPlayer);
+                return false;
+            case 'F':
+                await FleeTownControl(currentPlayer);
+                return false;
+            case 'S':
+                await ShowPlayerStatus(currentPlayer);
+                return false;
+            case 'K':
+                await NavigateToKingsCastle(currentPlayer);
+                return true;
+            case 'T':
+                await NavigateToGym(currentPlayer);
+                return true;
+            case 'R':
+                await ReturnToTown(currentPlayer);
+                return true;
+            case '?':
+                return false; // menu redisplayed each loop
+            default:
+                terminal.WriteLine($"{GameConfig.ErrorColor}Invalid choice. Press ? for menu.{GameConfig.TextColor}");
+                await Task.Delay(1000);
+                return false;
         }
+    }
+
+    protected override void DisplayLocation()
+    {
+        ShowFullMenu();
+        ShowStatusLine();
     }
     
     #region Navigation Methods - Pascal CHALLENG.PAS location functions
@@ -218,7 +136,7 @@ public class AnchorRoadLocation : BaseLocation
         terminal.WriteLine($"\n{GameConfig.LocationColor}You walk west to the Dormitory...{GameConfig.TextColor}");
         
         // Navigate to dormitory location
-        await locationManager.ChangeLocation(player, "DormitoryLocation");
+        await LocationManager.Instance.ChangeLocation(player, "DormitoryLocation");
     }
     
     /// <summary>
@@ -238,7 +156,7 @@ public class AnchorRoadLocation : BaseLocation
         terminal.WriteLine($"\n{GameConfig.CombatColor}You decide to hunt for bounties...{GameConfig.TextColor}");
         
         // Navigate to bounty hunting system
-        await locationManager.ChangeLocation(player, "BountyHuntingLocation");
+        await LocationManager.Instance.ChangeLocation(player, "BountyHuntingLocation");
     }
     
     /// <summary>
@@ -292,7 +210,7 @@ public class AnchorRoadLocation : BaseLocation
         terminal.WriteLine($"\n{GameConfig.CombatColor}You seek online opponents...{GameConfig.TextColor}");
         
         // Navigate to online dueling system
-        await locationManager.ChangeLocation(player, "OnlineDuelLocation");
+        await LocationManager.Instance.ChangeLocation(player, "OnlineDuelLocation");
     }
     
     /// <summary>
@@ -304,7 +222,7 @@ public class AnchorRoadLocation : BaseLocation
         terminal.WriteLine($"\n{GameConfig.LocationColor}You approach the Altar of the Gods...{GameConfig.TextColor}");
         
         // Navigate to temple/altar location
-        await locationManager.ChangeLocation(player, "TempleLocation");
+        await LocationManager.Instance.ChangeLocation(player, "AltarLocation");
     }
     
     /// <summary>
@@ -432,7 +350,7 @@ public class AnchorRoadLocation : BaseLocation
         terminal.WriteLine($"\n{GameConfig.LocationColor}You head north to the King's Castle...{GameConfig.TextColor}");
         
         // Navigate to castle location
-        await locationManager.ChangeLocation(player, "CastleLocation");
+        await LocationManager.Instance.ChangeLocation(player, "KingsCastleLocation");
     }
     
     /// <summary>
@@ -444,7 +362,7 @@ public class AnchorRoadLocation : BaseLocation
         terminal.WriteLine($"\n{GameConfig.LocationColor}You walk to the Gym for some competition...{GameConfig.TextColor}");
         
         // Navigate to gym location
-        await locationManager.ChangeLocation(player, "GymLocation");
+        await LocationManager.Instance.ChangeLocation(player, "GymLocation");
     }
     
     /// <summary>
@@ -456,7 +374,7 @@ public class AnchorRoadLocation : BaseLocation
         terminal.WriteLine($"\n{GameConfig.LocationColor}You return to the Main Street...{GameConfig.TextColor}");
         
         // Navigate back to main street
-        await locationManager.ChangeLocation(player, "MainStreetLocation");
+        await LocationManager.Instance.ChangeLocation(player, GameLocation.MainStreet);
     }
     
     #endregion

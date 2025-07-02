@@ -97,7 +97,7 @@ public class MainStreetLocation : BaseLocation
         terminal.WriteLine("│  (S)tatus           (D)ungeons         (B)ank             (I)nn                                     │", "white");
         terminal.WriteLine("│  (C)hallenges       (A)rmor Shop       (W)eapon Shop      (M)agic Shop                              │", "white");
         terminal.WriteLine("│  (T)emple           (N)ews             (F)ame             (R)elations                               │", "white");
-        terminal.WriteLine("│  (L)ist Characters  (T)he Marketplace  (X)tra Shops       (Q)uit Game    (9) Combat Test(Dev)       │", "white");
+        terminal.WriteLine("│  (L)ist Characters  (J) Marketplace    (X)tra Shops       (Q)uit Game    (9) Combat Test(Dev)       │", "white");
         terminal.WriteLine("│  (G)ood Deeds       (E)vil Deeds       (V)isit Master     (*) Suicide    (Z) Team Corner            │", "white");
         terminal.WriteLine("│  (K) Castle         (P) Prison         (O) Church         (Y) Dark Alley                            │", "white");
         terminal.WriteLine("│  (1) Healing Hut  (Q)uit Game          (3) List Characters                                          │", "white");
@@ -203,6 +203,10 @@ public class MainStreetLocation : BaseLocation
                 
             case "X":
                 await NavigateToLocation(GameLocation.DarkAlley); // Extra shops
+                return true;
+                
+            case "J":
+                await NavigateToLocation(GameLocation.Marketplace);
                 return true;
                 
             case "R":

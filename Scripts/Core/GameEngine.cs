@@ -5,6 +5,9 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.IO;
 
 /// <summary>
 /// Main game engine based on Pascal USURPER.PAS
@@ -137,7 +140,8 @@ public partial class GameEngine : Node
         worldSimulator = new WorldSimulator();
         
         // Initialize collections
-        worldNPCs = new List<NPC>();
+        if (worldNPCs == null)
+            worldNPCs = new List<NPC>();
         worldMonsters = new List<Monster>();
         onlinePlayers = new List<OnlinePlayer>();
         
@@ -842,7 +846,95 @@ public partial class GameEngine : Node
     private void ReadStartCfgValues() { /* Load config from file */ }
     private void InitializeItems() { /* Load items from data */ }
     private void InitializeMonsters() { /* Load monsters from data */ }
-    private void InitializeNPCs() { /* Load NPCs from data */ }
+    private void InitializeNPCs()
+    {
+        try
+        {
+            if (worldNPCs == null)
+                worldNPCs = new List<NPC>();
+
+            var dataPath = Path.Combine(DataPath, "npcs.json");
+            if (!File.Exists(dataPath))
+            {
+                GD.PrintErr($"[Init] NPC data file not found at {dataPath}. Using hard-coded specials only.");
+                return;
+            }
+
+            var json = File.ReadAllText(dataPath);
+            using var doc = JsonDocument.Parse(json);
+
+            // Flatten all category arrays (tavern_npcs, guard_npcs, random_npcs, etc.)
+            var root = doc.RootElement;
+            foreach (var prop in root.EnumerateObject())
+            {
+                if (prop.Value.ValueKind != JsonValueKind.Array) continue;
+
+                foreach (var npcElem in prop.Value.EnumerateArray())
+                {
+                    try
+                    {
+                        var name = npcElem.GetProperty("name").GetString() ?? "Unknown";
+                        var archetype = npcElem.GetProperty("archetype").GetString() ?? "citizen";
+                        var classStr = npcElem.GetProperty("class").GetString() ?? "warrior";
+                        var level = npcElem.GetProperty("level").GetInt32();
+
+                        if (!Enum.TryParse<CharacterClass>(classStr, true, out var charClass))
+                        {
+                            charClass = CharacterClass.Warrior;
+                        }
+
+                        var npc = new NPC(name, archetype, charClass, level);
+
+                        // Gold override if provided
+                        if (npcElem.TryGetProperty("gold", out var goldProp) && goldProp.TryGetInt64(out long gold))
+                        {
+                            npc.Gold = gold;
+                        }
+
+                        // Starting location mapping
+                        string startLoc = npcElem.GetProperty("startingLocation").GetString() ?? "main_street";
+                        var locId = MapStringToLocation(startLoc);
+                        npc.UpdateLocation(startLoc); // keep textual for AI compatibility
+
+                        worldNPCs.Add(npc);
+
+                        // Add to LocationManager so they show up to the player
+                        LocationManager.Instance.AddNPCToLocation(locId, npc);
+                    }
+                    catch (Exception exNpc)
+                    {
+                        GD.PrintErr($"[Init] Failed to load NPC: {exNpc.Message}");
+                    }
+                }
+            }
+
+            GD.Print($"[Init] Loaded {worldNPCs.Count} NPC definitions from data file.");
+        }
+        catch (Exception ex)
+        {
+            GD.PrintErr($"[Init] Error loading NPCs: {ex.Message}");
+        }
+    }
+    
+    /// <summary>
+    /// Map simple string location names from JSON to GameLocation enum.
+    /// </summary>
+    private static GameLocation MapStringToLocation(string loc)
+    {
+        return loc.ToLower() switch
+        {
+            "tavern" or "inn" => GameLocation.TheInn,
+            "market" or "marketplace" => GameLocation.Marketplace,
+            "town_square" or "main_street" => GameLocation.MainStreet,
+            "castle" => GameLocation.Castle,
+            "temple" or "church" => GameLocation.Temple,
+            "dungeon" or "dungeons" => GameLocation.Dungeons,
+            "bank" => GameLocation.Bank,
+            "dark_alley" or "alley" => GameLocation.DarkAlley,
+            _ => GameLocation.MainStreet
+        };
+    }
+    
     private void InitializeLevels() { /* Load level data */ }
     private void InitializeGuards() { /* Load guard data */ }
     

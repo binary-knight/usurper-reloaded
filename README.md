@@ -77,11 +77,11 @@ The project includes automated GitHub Actions for building:
 **🚧 CRITICAL BLOCKERS - Must Complete Before Early Access:**
 
 #### Core Location Implementations
-- [ ] **Church** - Currently placeholder, needs healing/blessing mechanics
-- [ ] **Marketplace** - Currently placeholder, needs trading system
-- [ ] **Level Master** - Currently placeholder, needs level advancement
-- [ ] **Dark Alley** - Currently placeholder, needs shady dealings/black market
-- [ ] **Anchor Road** - Currently placeholder, needs challenge system
+- [X] **Church** - Currently placeholder, needs healing/blessing mechanics
+- [X] **Marketplace** - Currently placeholder, needs trading system
+- [X] **Level Master** - Currently placeholder, needs level advancement
+- [X] **Dark Alley** - Currently placeholder, needs shady dealings/black market
+- [X] **Anchor Road** - Currently placeholder, needs challenge system (still need to implement challenge features when other subsystems are built)
 - [ ] **Hall of Recruitment** - Currently placeholder, needs NPC hiring
 - [ ] **Dormitory** - Currently placeholder, needs rest/recovery mechanics
 - [ ] **Your Home** - Currently placeholder, needs personal dwelling features
@@ -237,7 +237,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 
 ### 📁 Source Code Access
 - **Complete source code** included with every download
-- **GitHub Repository**: https://github.com/YOUR_USERNAME/usurper-reloaded
+- **GitHub Repository**: https://github.com/binary-knight/usurper-reloaded
 - **Build Scripts**: All tools and build processes included
 - **No Hidden Code**: Everything needed to build and modify the game
 

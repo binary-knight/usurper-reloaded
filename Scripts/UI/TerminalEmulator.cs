@@ -130,10 +130,10 @@ public partial class TerminalEmulator : Control
         // If the Godot RichTextLabel is available use it, otherwise fall back to plain Console output
         if (display != null)
         {
-            var colorCode = ansiColors.ContainsKey(color) ?
-                ansiColors[color].ToHtml() : ansiColors["white"].ToHtml();
-
-            display.AppendText($"[color=#{colorCode}]{text}[/color]");
+        var colorCode = ansiColors.ContainsKey(color) ? 
+            ansiColors[color].ToHtml() : ansiColors["white"].ToHtml();
+            
+        display.AppendText($"[color=#{colorCode}]{text}[/color]");
         }
         else
         {
@@ -168,8 +168,8 @@ public partial class TerminalEmulator : Control
     public void ClearScreen()
     {
         if (display != null)
-        {
-            display.Clear();
+    {
+        display.Clear();
         }
         else
         {
@@ -190,26 +190,26 @@ public partial class TerminalEmulator : Control
     public async Task<string> GetInput(string prompt = "> ")
     {
         Write(prompt, "bright_white");
-
+        
         // If running inside Godot (display created) use the LineEdit, otherwise Console.ReadLine
         if (inputLine != null && display != null)
         {
-            inputLine.Clear();
-            inputLine.Visible = true;
-            inputLine.GrabFocus();
-
-            inputAwaiter = new TaskCompletionSource<string>();
-            var result = await inputAwaiter.Task;
-
-            inputLine.Visible = false;
-            WriteLine(result, "cyan");
+        inputLine.Clear();
+        inputLine.Visible = true;
+        inputLine.GrabFocus();
+        
+        inputAwaiter = new TaskCompletionSource<string>();
+        var result = await inputAwaiter.Task;
+        
+        inputLine.Visible = false;
+        WriteLine(result, "cyan");
             return result;
         }
         else
         {
             var result = Console.ReadLine() ?? string.Empty;
             WriteLine(result, "cyan");
-            return result;
+        return result;
         }
     }
     

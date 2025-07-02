@@ -69,15 +69,15 @@ public class LocationManager
         locations[GameLocation.Bank] = new BankLocation();
         locations[GameLocation.WeaponShop] = new WeaponShopLocation();
         locations[GameLocation.ArmorShop] = new ArmorShopLocation();
-        locations[GameLocation.Marketplace] = new PlaceholderLocation(GameLocation.Marketplace, "Marketplace", "A bustling center of trade and commerce.");
+        locations[GameLocation.Marketplace] = new UsurperRemake.Locations.MarketplaceLocation();
         locations[GameLocation.Castle] = new CastleLocation();
         locations[GameLocation.Healer] = new HealerLocation();
         locations[GameLocation.MagicShop] = new MagicShopLocation();
-        locations[GameLocation.Master] = new PlaceholderLocation(GameLocation.Master, "Level Master", "An old sage who can help you advance in power.");
-        locations[GameLocation.DarkAlley] = new PlaceholderLocation(GameLocation.DarkAlley, "Dark Alley", "A shadowy place where questionable deals are made.");
-        locations[GameLocation.AnchorRoad] = new PlaceholderLocation(GameLocation.AnchorRoad, "Anchor Road", "The gateway to challenges and adventures.");
+        locations[GameLocation.Master] = new UsurperRemake.Locations.LevelMasterLocation();
+        locations[GameLocation.DarkAlley] = new UsurperRemake.Locations.DarkAlleyLocation();
+        locations[GameLocation.AnchorRoad] = new AnchorRoadLocation();
         locations[GameLocation.TeamCorner] = new PlaceholderLocation(GameLocation.TeamCorner, "Team Corner", "Where groups gather to plan their strategies.");
-        locations[GameLocation.Recruit] = new PlaceholderLocation(GameLocation.Recruit, "Hall of Recruitment", "Seek allies for your quests here.");
+        locations[GameLocation.Recruit] = new UsurperRemake.Locations.HallOfRecruitmentLocation();
         locations[GameLocation.Dormitory] = new PlaceholderLocation(GameLocation.Dormitory, "Dormitory", "A place to rest and recover from your adventures.");
         locations[GameLocation.Temple] = new TempleLocation(terminal, this, UsurperRemake.GodSystemSingleton.Instance);
         locations[GameLocation.Home] = new PlaceholderLocation(GameLocation.Home, "Your Home", "Your personal dwelling and sanctuary.");
@@ -178,6 +178,11 @@ public class LocationManager
             GameLocation.Temple,        // loc6
             GameLocation.LoveStreet,    // loc7
             GameLocation.OutsideCastle  // loc8
+        };
+        
+        navigationTable[GameLocation.DarkAlley] = new List<GameLocation>
+        {
+            GameLocation.MainStreet   // loc1
         };
         
         // Add more navigation entries as needed
