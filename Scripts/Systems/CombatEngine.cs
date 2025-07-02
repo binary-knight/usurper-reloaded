@@ -3,6 +3,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Linq;
 
 /// <summary>
 /// Combat Engine - Pascal-compatible combat system
@@ -31,6 +32,9 @@ public partial class CombatEngine
     /// </summary>
     public async Task<CombatResult> PlayerVsMonster(Character player, Monster monster, List<Character> teammates = null)
     {
+        // Reset temporary flags per battle
+        player.IsRaging = false;
+
         var result = new CombatResult
         {
             Player = player,
@@ -44,6 +48,32 @@ public partial class CombatEngine
         globalKilled = false;
         globalBegged = false;
         globalEscape = false;
+        
+        // Surprise / ambush round before normal combat loop
+        long playerInit = player.Dexterity + random.Next(1, 21);
+        long monsterInit = monster.IQ + random.Next(1, 21);
+        if (playerInit - monsterInit >= 10)
+        {
+            terminal.WriteLine("You catch the enemy off guard! Surprise round!", "yellow");
+            await ExecuteAttack(player, monster, new CombatResult());
+            if (monster.HP <= 0) // early kill
+            {
+                var earlyResult = new CombatResult { Player = player, Monster = monster, Outcome = CombatOutcome.Victory };
+                await HandleVictory(earlyResult);
+                return earlyResult;
+            }
+        }
+        else if (monsterInit - playerInit >= 10)
+        {
+            terminal.WriteLine($"{monster.Name} ambushes you!", "red");
+            await ProcessMonsterAction(monster, player, new CombatResult());
+            if (player.HP <= 0)
+            {
+                var earlyResult = new CombatResult { Player = player, Monster = monster, Outcome = CombatOutcome.PlayerDied };
+                await HandlePlayerDeath(earlyResult);
+                return earlyResult;
+            }
+        }
         
         // Combat introduction
         await ShowCombatIntroduction(player, monster, result);
@@ -103,6 +133,9 @@ public partial class CombatEngine
     /// </summary>
     public async Task<CombatResult> PlayerVsPlayer(Character attacker, Character defender)
     {
+        attacker.IsRaging = false;
+        defender.IsRaging = false;
+
         var result = new CombatResult
         {
             Player = attacker,
@@ -185,6 +218,9 @@ public partial class CombatEngine
     /// </summary>
     private async Task<CombatAction> GetPlayerAction(Character player, Monster monster, CombatResult result, Character pvpOpponent = null)
     {
+        // Apply status ticks before player chooses action
+        player.ProcessStatusEffects();
+
         terminal.SetColor("cyan");
         terminal.WriteLine($"Your HP: {player.HP}/{player.MaxHP}");
         
@@ -197,13 +233,43 @@ public partial class CombatEngine
             terminal.WriteLine($"{pvpOpponent.DisplayName} HP: {pvpOpponent.HP}/{pvpOpponent.MaxHP}");
         }
         
+        // Show currently active status effects on the player
+        if (player.ActiveStatuses.Count > 0 || player.IsRaging)
+        {
+            var list = new List<string>();
+            foreach (var kv in player.ActiveStatuses)
+            {
+                var label = kv.Key.ToString();
+                if (kv.Value > 0)
+                    label += $"({kv.Value})";
+                list.Add(label);
+            }
+
+            // Rage is tracked with a separate flag but is also a status effect for display purposes
+            if (player.IsRaging && !list.Any(s => s.StartsWith("Raging")))
+                list.Add("Raging");
+
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"Status: {string.Join(", ", list)}");
+        }
+        
         terminal.WriteLine("");
+        
+        // If stunned, skip turn
+        if (player.HasStatus(StatusEffect.Stunned))
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("You are stunned and cannot act this round!");
+            await Task.Delay(800);
+            return new CombatAction { Type = CombatActionType.Status };
+        }
         
         // Combat menu - exact Pascal layout
         terminal.SetColor("white");
-        terminal.WriteLine("(A)ttack  (D)efend  (H)eal  (Q)uick Heal  (F)ight to Death");
+        terminal.WriteLine("(A)ttack  (V)olley  (D)efend  (H)eal  (Q)uick Heal  (F)ight to Death");
         terminal.WriteLine("(S)tatus   (B)eg for Mercy   (U)se Item");
         terminal.WriteLine("(P)ower Attack   (E) Precise Strike");
+        terminal.WriteLine("(I) Disarm   (T) Taunt   (L) Hide");
         
         if (player.Class == CharacterClass.Cleric || player.Class == CharacterClass.Magician || player.Class == CharacterClass.Sage)
         {
@@ -225,6 +291,30 @@ public partial class CombatEngine
             terminal.WriteLine("(R)etreat");
         }
         
+        // Class-specific options
+        if (player.Class == CharacterClass.Barbarian)
+        {
+            if (!player.IsRaging)
+                terminal.WriteLine("(G) Rage (2x damage, -4 AC)");
+            else
+                terminal.WriteLine("(G) [Raging]");
+        }
+
+        if (player.Class == CharacterClass.Paladin)
+        {
+            if (player.SmiteChargesRemaining == 0)
+            {
+                // Initialise charges from modifiers on first display
+                var mods = player.GetClassCombatModifiers();
+                player.SmiteChargesRemaining = mods.SmiteCharges;
+            }
+
+            if (player.SmiteChargesRemaining > 0)
+            {
+                terminal.WriteLine($"(2) Smite Evil ({player.SmiteChargesRemaining} left)");
+            }
+        }
+        
         terminal.WriteLine("");
         
         var choice = await terminal.GetInput("Your choice: ");
@@ -240,6 +330,7 @@ public partial class CombatEngine
         return choice switch
         {
             "A" => new CombatAction { Type = CombatActionType.Attack },
+            "V" => new CombatAction { Type = CombatActionType.RangedAttack },
             "D" => new CombatAction { Type = CombatActionType.Defend },
             "H" => new CombatAction { Type = CombatActionType.Heal },
             "Q" => new CombatAction { Type = CombatActionType.QuickHeal },
@@ -253,6 +344,11 @@ public partial class CombatEngine
             "1" when player.Class == CharacterClass.Paladin => new CombatAction { Type = CombatActionType.SoulStrike },
             "1" when player.Class == CharacterClass.Assassin => new CombatAction { Type = CombatActionType.Backstab },
             "R" => new CombatAction { Type = CombatActionType.Retreat },
+            "G" when player.Class == CharacterClass.Barbarian && !player.IsRaging => new CombatAction { Type = CombatActionType.Rage },
+            "2" when player.Class == CharacterClass.Paladin => new CombatAction { Type = CombatActionType.Smite },
+            "I" => new CombatAction { Type = CombatActionType.Disarm },
+            "T" => new CombatAction { Type = CombatActionType.Taunt },
+            "L" => new CombatAction { Type = CombatActionType.Hide },
             _ => new CombatAction { Type = CombatActionType.Attack } // Default to attack
         };
     }
@@ -322,6 +418,30 @@ public partial class CombatEngine
             case CombatActionType.Retreat:
                 await ExecuteRetreat(player, monster, result);
                 break;
+                
+            case CombatActionType.Rage:
+                await ExecuteRage(player, result);
+                break;
+                
+            case CombatActionType.Smite:
+                await ExecuteSmite(player, monster, result);
+                break;
+                
+            case CombatActionType.Disarm:
+                await ExecuteDisarm(player, monster, result);
+                break;
+                
+            case CombatActionType.Taunt:
+                await ExecuteTaunt(player, monster, result);
+                break;
+                
+            case CombatActionType.Hide:
+                await ExecuteHide(player, result);
+                break;
+                
+            case CombatActionType.RangedAttack:
+                await ExecuteRangedAttack(player, monster, result);
+                break;
         }
     }
     
@@ -331,8 +451,28 @@ public partial class CombatEngine
     /// </summary>
     private async Task ExecuteAttack(Character attacker, Monster target, CombatResult result)
     {
-        // Calculate attack power (Pascal-compatible)
+        int swings = GetAttackCount(attacker);
+        for (int s = 0; s < swings && target.HP > 0; s++)
+        {
+            await ExecuteSingleAttack(attacker, target, result, s > 0);
+        }
+    }
+    
+    private async Task ExecuteSingleAttack(Character attacker, Monster target, CombatResult result, bool isExtra)
+    {
         long attackPower = attacker.Strength;
+
+        // Apply class/status modifiers
+        if (attacker.IsRaging)
+            attackPower *= 2; // Rage doubles base strength contribution
+
+        if (attacker.HasStatus(StatusEffect.PowerStance))
+            attackPower = (long)(attackPower * 1.5);
+
+        if (attacker.HasStatus(StatusEffect.Blessed))
+            attackPower += 2;
+        if (attacker.HasStatus(StatusEffect.Weakened))
+            attackPower = Math.Max(1, attackPower - 4);
         
         // Add weapon power
         if (attacker.WeapPow > 0)
@@ -362,6 +502,15 @@ public partial class CombatEngine
             
             // Calculate defense absorption (Pascal-compatible)
             long defense = target.Defence + random.Next(0, (int)Math.Max(1, target.Defence / 8));
+            
+            if (attacker.IsRaging)
+            {
+                // Rage lowers accuracy: simulate by giving target +4 AC (defence)
+                defense += 4;
+            }
+            
+            if (attacker.HasStatus(StatusEffect.PowerStance))
+                defense = (long)(defense * 1.25); // less accurate
             
             if (target.ArmPow > 0)
             {
@@ -581,6 +730,24 @@ public partial class CombatEngine
         
         terminal.SetColor("red");
         
+        // Tick monster statuses
+        if (monster.PoisonRounds > 0)
+        {
+            int dmg = random.Next(1, 5); // 1d4
+            monster.HP = Math.Max(0, monster.HP - dmg);
+            monster.PoisonRounds--;
+            terminal.WriteLine($"Poison burns {monster.Name} for {dmg} damage!", "dark_green");
+            if (monster.PoisonRounds == 0) monster.Poisoned = false;
+        }
+
+        if (monster.StunRounds > 0)
+        {
+            monster.StunRounds--;
+            terminal.WriteLine($"{monster.Name} is stunned and cannot act!", "cyan");
+            await Task.Delay(600);
+            return; // Skip action
+        }
+        
         // Monster attack calculation (Pascal-compatible)
         long monsterAttack = monster.GetAttackPower();
         
@@ -598,6 +765,12 @@ public partial class CombatEngine
             {
                 playerDefense += random.Next(0, (int)player.ArmPow + 1);
             }
+            
+            // Status modifications
+            if (player.HasStatus(StatusEffect.Blessed))
+                playerDefense += 2;
+            if (player.IsRaging)
+                playerDefense = Math.Max(0, playerDefense - 4);
             
             long actualDamage = Math.Max(1, monsterAttack - playerDefense);
             
@@ -632,6 +805,8 @@ public partial class CombatEngine
         if (player.IsDefending)
         {
             player.IsDefending = false;
+            if (player.HasStatus(StatusEffect.Defending))
+                player.ActiveStatuses.Remove(StatusEffect.Defending);
         }
 
         await Task.Delay(2000);
@@ -828,6 +1003,20 @@ public partial class CombatEngine
         terminal.WriteLine($"Defence: {player.Defence}");
         terminal.WriteLine($"Weapon Power: {player.WeapPow}");
         terminal.WriteLine($"Armor Power: {player.ArmPow}");
+        
+        // Surface active status effects here as well
+        if (player.ActiveStatuses.Count > 0 || player.IsRaging)
+        {
+            var effects = new List<string>();
+            foreach (var kv in player.ActiveStatuses)
+            {
+                effects.Add($"{kv.Key} ({kv.Value})");
+            }
+            if (player.IsRaging && !effects.Any(e => e.StartsWith("Raging")))
+                effects.Add("Raging");
+
+            terminal.WriteLine($"Active Effects: {string.Join(", ", effects)}");
+        }
         
         terminal.WriteLine("");
         await terminal.PressAnyKey();
@@ -1082,17 +1271,21 @@ public partial class CombatEngine
             }
         }
         
-        // Apply temporary buffs/debuffs (simplified for now)
+        // Convert buffs into status effects (basic mapping for now)
         if (spellResult.ProtectionBonus > 0)
         {
-            terminal.WriteLine($"{caster.DisplayName} gains +{spellResult.ProtectionBonus} protection!", "blue");
-            // TODO: Implement temporary effect system
+            // Treat as Blessed: +2 attack/defence rolls (simplification)
+            int dur = spellResult.Duration > 0 ? spellResult.Duration : 5;
+            caster.ApplyStatus(StatusEffect.Blessed, dur);
+            terminal.WriteLine($"{caster.DisplayName} is blessed! (+2 rolls for {dur} rounds)", "blue");
         }
-        
+
         if (spellResult.AttackBonus > 0)
         {
-            terminal.WriteLine($"{caster.DisplayName} gains +{spellResult.AttackBonus} attack power!", "red");
-            // TODO: Implement temporary effect system
+            // Use PowerStance to represent offensive boost (simplified)
+            int dur = spellResult.Duration > 0 ? spellResult.Duration : 3;
+            caster.ApplyStatus(StatusEffect.PowerStance, dur);
+            terminal.WriteLine($"{caster.DisplayName}'s power surges! (+50% damage for {dur} rounds)", "red");
         }
         
         // Handle special effects
@@ -1112,32 +1305,28 @@ public partial class CombatEngine
             case "poison":
                 if (target != null)
                 {
+                    target.Poisoned = true;
+                    target.PoisonRounds = 5;
                     terminal.WriteLine($"{target.Name} is poisoned!", "dark_green");
-                    // TODO: Implement poison status effect
                 }
                 break;
                 
             case "sleep":
-                if (target != null)
-                {
-                    terminal.WriteLine($"{target.Name} falls into a magical sleep!", "blue");
-                    // TODO: Implement sleep status effect
-                }
-                break;
-                
             case "freeze":
                 if (target != null)
                 {
-                    terminal.WriteLine($"{target.Name} is frozen solid!", "cyan");
-                    // TODO: Implement freeze status effect
+                    int duration = 2;
+                    target.StunRounds = duration;
+                    terminal.WriteLine($"{target.Name} is stunned for {duration} rounds!", "blue");
                 }
                 break;
                 
             case "fear":
                 if (target != null)
                 {
-                    terminal.WriteLine($"{target.Name} is overwhelmed by supernatural fear!", "yellow");
-                    // TODO: Implement fear status effect
+                    target.WeakenRounds = 3;
+                    target.Strength = Math.Max(1, target.Strength - 4);
+                    terminal.WriteLine($"{target.Name} is weakened by fear!", "yellow");
                 }
                 break;
                 
@@ -1179,6 +1368,17 @@ public partial class CombatEngine
                     // TODO: Implement conversion effect (monster may flee or become friendly)
                 }
                 break;
+                
+            case "haste":
+                caster.ApplyStatus(StatusEffect.Haste, 3);
+                break;
+                
+            case "slow":
+                if (target != null)
+                {
+                    target.WeakenRounds = 3;
+                }
+                break;
         }
     }
 
@@ -1188,6 +1388,7 @@ public partial class CombatEngine
     private async Task ExecuteDefend(Character player, CombatResult result)
     {
         player.IsDefending = true;
+        player.ApplyStatus(StatusEffect.Defending, 1);
         terminal.WriteLine("You raise your guard, preparing to deflect incoming blows.", "bright_cyan");
         result.CombatLog.Add("Player enters defensive stance (50% damage reduction)");
         await Task.Delay(1000);
@@ -1195,6 +1396,9 @@ public partial class CombatEngine
 
     private async Task ExecutePowerAttack(Character attacker, Monster target, CombatResult result)
     {
+        // Apply PowerStance status so any extra attacks this round follow the same rules
+        attacker.ApplyStatus(StatusEffect.PowerStance, 1);
+
         // Higher damage, lower accuracy – modelled via larger damage multiplier but higher chance of minimal absorption.
         long originalStrength = attacker.Strength;
         long attackPower = (long)(originalStrength * 1.5);
@@ -1208,7 +1412,7 @@ public partial class CombatEngine
 
         // Reduce "accuracy": enemy gains extra defense in calculation (25 % boost)
         long defense = target.Defence + random.Next(0, (int)Math.Max(1, target.Defence / 8));
-        defense = (long)(defense * 1.25);
+        defense = (long)(defense * 1.25); // built-in accuracy penalty
         if (target.ArmPow > 0)
         {
             defense += random.Next(0, (int)target.ArmPow + 1);
@@ -1220,7 +1424,7 @@ public partial class CombatEngine
         terminal.WriteLine($"POWER ATTACK! You smash the {target.Name} for {damage} damage!");
 
         target.HP = Math.Max(0, target.HP - damage);
-        result.CombatLog.Add($"Player power-attacks {target.Name} for {damage} dmg");
+        result.CombatLog.Add($"Player power-attacks {target.Name} for {damage} dmg (PowerStance)");
 
         await Task.Delay(1000);
     }
@@ -1253,6 +1457,147 @@ public partial class CombatEngine
 
         await Task.Delay(1000);
     }
+
+    private async Task ExecuteRangedAttack(Character attacker, Monster target, CombatResult result)
+    {
+        if (target == null)
+        {
+            await Task.Delay(500);
+            return;
+        }
+
+        // Accuracy heavily Dex-weighted
+        long attackScore = attacker.Dexterity + (attacker.Level / 2) + random.Next(1, 21);
+        long defenseScore = target.Defence + random.Next(1, 21);
+
+        if (attackScore > defenseScore)
+        {
+            long damage = attacker.Dexterity / 2 + random.Next(1, 7); // d6 based
+            terminal.WriteLine($"You shoot an arrow for {damage} damage!", "bright_green");
+            target.HP = Math.Max(0, target.HP - damage);
+            result.CombatLog.Add($"Player ranged hits {target.Name} for {damage}");
+        }
+        else
+        {
+            terminal.WriteLine("Your missile misses the target.", "gray");
+            result.CombatLog.Add("Player ranged misses");
+        }
+
+        await Task.Delay(800);
+    }
+
+    private async Task ExecuteRage(Character player, CombatResult result)
+    {
+        player.IsRaging = true;
+        terminal.WriteLine("You fly into a bloodthirsty rage!", "bright_red");
+        result.CombatLog.Add("Player enters Rage state");
+        await Task.Delay(800);
+    }
+
+    private async Task ExecuteSmite(Character player, Monster target, CombatResult result)
+    {
+        if (player.SmiteChargesRemaining <= 0)
+        {
+            terminal.WriteLine("You are out of smite charges!", "gray");
+            await Task.Delay(800);
+            return;
+        }
+
+        player.SmiteChargesRemaining--;
+
+        // Smite damage: 150 % of normal attack plus level bonus
+        long damage = (long)(player.Strength * 1.5) + player.Level;
+        if (player.WeapPow > 0)
+            damage += (long)(player.WeapPow * 1.5);
+        damage += random.Next(1, 21);
+
+        long defense = target.Defence + random.Next(0, (int)Math.Max(1, target.Defence / 8));
+        long actual = Math.Max(1, damage - defense);
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine($"You SMITE the evil {target.Name} for {actual} holy damage!");
+
+        target.HP = Math.Max(0, target.HP - actual);
+        result.CombatLog.Add($"Player smites {target.Name} for {actual} dmg");
+        await Task.Delay(1000);
+    }
+
+    private async Task ExecuteDisarm(Character player, Monster monster, CombatResult result)
+    {
+        if (monster == null || string.IsNullOrEmpty(monster.Weapon))
+        {
+            terminal.WriteLine("Nothing to disarm!", "gray");
+            await Task.Delay(600);
+            return;
+        }
+
+        long attackerScore = player.Dexterity + random.Next(1, 21);
+        long defenderScore = (monster.Strength / 2) + random.Next(1, 21);
+
+        if (attackerScore > defenderScore)
+        {
+            monster.WeapPow = 0;
+            monster.Weapon = "";
+            monster.WUser = false;
+            terminal.WriteLine($"You knock the {monster.Name}'s weapon away!", "yellow");
+            result.CombatLog.Add($"{player.DisplayName} disarmed {monster.Name}");
+        }
+        else
+        {
+            terminal.WriteLine("Disarm attempt failed!", "gray");
+        }
+        await Task.Delay(900);
+    }
+
+    private async Task ExecuteTaunt(Character player, Monster monster, CombatResult result)
+    {
+        if (monster == null)
+        {
+            await Task.Delay(500);
+            return;
+        }
+        terminal.WriteLine($"You taunt {monster.Name}, drawing its ire!", "yellow");
+        // Simple effect: lower monster defence for next round
+        monster.Defence = Math.Max(0, monster.Defence - 2);
+        result.CombatLog.Add($"{player.DisplayName} taunted {monster.Name}");
+        await Task.Delay(700);
+    }
+
+    private async Task ExecuteHide(Character player, CombatResult result)
+    {
+        // Dexterity check
+        long roll = player.Dexterity + random.Next(1, 21);
+        if (roll >= 15)
+        {
+            player.ApplyStatus(StatusEffect.Hidden, 1);
+            terminal.WriteLine("You melt into the shadows, ready to strike!", "dark_gray");
+            result.CombatLog.Add("Player hides (next attack gains advantage)");
+        }
+        else
+        {
+            terminal.WriteLine("You fail to find cover and remain exposed.", "gray");
+        }
+        await Task.Delay(800);
+    }
+
+    private int GetAttackCount(Character attacker)
+    {
+        int attacks = 1;
+
+        // Warrior extra swings
+        var mods = attacker.GetClassCombatModifiers();
+        attacks += mods.ExtraAttacks;
+
+        // Haste doubles attacks
+        if (attacker.HasStatus(StatusEffect.Haste))
+            attacks *= 2;
+
+        // Slow halves attacks (rounded down)
+        if (attacker.HasStatus(StatusEffect.Slow))
+            attacks = Math.Max(1, attacks / 2);
+
+        return attacks;
+    }
 }
 
 /// <summary>
@@ -1273,7 +1618,13 @@ public enum CombatActionType
     Backstab,       // Assassin ability
     Retreat,
     PowerAttack,
-    PreciseStrike
+    PreciseStrike,
+    Rage,
+    Smite,
+    Disarm,
+    Taunt,
+    Hide,
+    RangedAttack
 }
 
 /// <summary>

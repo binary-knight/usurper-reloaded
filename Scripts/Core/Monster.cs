@@ -80,6 +80,11 @@ public class Monster
     public long ArmorPower { get; set; }        // Armor power (settable)
     public long MaxHP { get; set; }             // Maximum hit points
     
+    // Simple status counters for combat effects
+    public int PoisonRounds { get; set; } = 0;
+    public int StunRounds { get; set; } = 0;
+    public int WeakenRounds { get; set; } = 0;
+    
     /// <summary>
     /// Constructor for creating a monster
     /// </summary>

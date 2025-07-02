@@ -136,6 +136,8 @@ public class Character
     public long Absorb { get; set; }                // absorb punch, temporary
     public bool UsedItem { get; set; }              // has used item in battle
     public bool IsDefending { get; set; } = false;
+    public bool IsRaging { get; set; } = false;        // Barbarian rage state
+    public int SmiteChargesRemaining { get; set; } = 0; // Paladin daily smite uses left
     
     // Kill statistics
     public long MKills { get; set; }                // monster kills
@@ -270,6 +272,46 @@ public class Character
     public int Fame { get; set; } = 0; // Fame/reputation level
     
     public DateTime LastLogin { get; set; }
+    
+    // Generic status effects (duration in rounds)
+    public Dictionary<StatusEffect, int> ActiveStatuses { get; set; } = new();
+
+    public bool HasStatus(StatusEffect s) => ActiveStatuses.ContainsKey(s);
+
+    public void ApplyStatus(StatusEffect status, int duration)
+    {
+        if (status == StatusEffect.None) return;
+        ActiveStatuses[status] = duration;
+    }
+
+    /// <summary>
+    /// Tick status durations and apply per-round effects (poison damage, etc.).
+    /// Should be called once per combat round.
+    /// </summary>
+    public void ProcessStatusEffects()
+    {
+        if (ActiveStatuses.Count == 0) return;
+
+        var toRemove = new List<StatusEffect>();
+        var rnd = new Random();
+
+        foreach (var kvp in ActiveStatuses.ToList())
+        {
+            switch (kvp.Key)
+            {
+                case StatusEffect.Poisoned:
+                    var dmg = rnd.Next(1, 5); // 1d4
+                    HP = Math.Max(0, HP - dmg);
+                    break;
+            }
+
+            ActiveStatuses[kvp.Key] = kvp.Value - 1;
+            if (ActiveStatuses[kvp.Key] <= 0)
+                toRemove.Add(kvp.Key);
+        }
+
+        foreach (var s in toRemove) ActiveStatuses.Remove(s);
+    }
     
     // Constructor to initialize lists
     public Character()

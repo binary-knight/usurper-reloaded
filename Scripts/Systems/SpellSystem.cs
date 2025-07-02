@@ -80,14 +80,15 @@ public static class SpellSystem
             [2] = new SpellInfo(2, "Shield", "Creates magical shield around caster. Protection: +8. Duration: whole fight.", 20, 2, "Exmasumarie", false, "Buff"),
             [3] = new SpellInfo(3, "Sleep", "Puts target to sleep, preventing action. Duration: varies. Effect: target cannot act.", 30, 3, "Exdamarie", false, "Debuff"),
             [4] = new SpellInfo(4, "Web", "Catches target in magic web. Effect: target cannot move or attack. Duration: varies.", 40, 4, "Exmasesamamarie", false, "Debuff"),
-            [5] = new SpellInfo(5, "Power Hat", "Regenerates hitpoints and provides protection. Effect: regains 60-80 hps + 10-13 protection every turn. Duration: whole fight.", 50, 5, "Excadammarie", false, "Heal"),
-            [6] = new SpellInfo(6, "Fireball", "Target is swallowed by ball of fire. Even if it burns out quickly, impact is great. Damage: 60-70 hps. Duration: 1 turn.", 60, 6, "Exammmarie", false, "Attack"),
-            [7] = new SpellInfo(7, "Fear", "Causes overwhelming fear in target. Target may flee or fight with reduced effectiveness. Duration: varies.", 70, 7, "Examasumarie", false, "Debuff"),
-            [8] = new SpellInfo(8, "Lightning Bolt", "Stolen from Clerics guild. Comes down silently causing respectable damage. Damage: 60-70 hps. Duration: 1 turn.", 80, 8, "Exmasesaexmarie", false, "Attack"),
-            [9] = new SpellInfo(9, "Prismatic Cage", "Lowers magic cage over caster, increasing protection. Protection: +20. Duration: whole fight.", 90, 9, "Exmasummasumarie", false, "Buff"),
-            [10] = new SpellInfo(10, "Pillar of Fire", "Fire that sticks like glue to skin. Penetrates all armor. Damage: 110-112 hps. Duration: 1 turn.", 100, 10, "Exdammasumarie", false, "Attack"),
-            [11] = new SpellInfo(11, "Power word KILL", "Drives spirit from flesh, shuts down body and mind. Works well on animals. Damage: 220-265 hps. Duration: 1 turn.", 110, 11, "Mattravidduzzievh", false, "Attack"),
-            [12] = new SpellInfo(12, "Summon Demon", "Calls demon from hell to serve in battle. The demon will attack enemies until combat ends. Duration: whole fight.", 120, 12, "Excadexsumarie", false, "Summon")
+            [5] = new SpellInfo(5, "Haste", "Doubles the caster's speed, granting extra attacks each round.", 50, 5, "Quicksilvarie", false, "Buff"),
+            [6] = new SpellInfo(6, "Power Hat", "Regenerates hitpoints and provides protection. Effect: regains 60-80 hps + 10-13 protection every turn. Duration: whole fight.", 55, 6, "Excadammarie", false, "Heal"),
+            [7] = new SpellInfo(7, "Fireball", "Target is swallowed by ball of fire. Even if it burns out quickly, impact is great. Damage: 60-70 hps. Duration: 1 turn.", 60, 7, "Exammmarie", false, "Attack"),
+            [8] = new SpellInfo(8, "Fear", "Causes overwhelming fear in target. Target may flee or fight with reduced effectiveness. Duration: varies.", 70, 8, "Examasumarie", false, "Debuff"),
+            [9] = new SpellInfo(9, "Lightning Bolt", "Stolen from Clerics guild. Comes down silently causing respectable damage. Damage: 60-70 hps. Duration: 1 turn.", 80, 9, "Exmasesaexmarie", false, "Attack"),
+            [10] = new SpellInfo(10, "Prismatic Cage", "Lowers magic cage over caster, increasing protection. Protection: +20. Duration: whole fight.", 90, 10, "Exmasummasumarie", false, "Buff"),
+            [11] = new SpellInfo(11, "Pillar of Fire", "Fire that sticks like glue to skin. Penetrates all armor. Damage: 110-112 hps. Duration: 1 turn.", 100, 11, "Exdammasumarie", false, "Attack"),
+            [12] = new SpellInfo(12, "Power word KILL", "Drives spirit from flesh, shuts down body and mind. Works well on animals. Damage: 220-265 hps. Duration: 1 turn.", 110, 12, "Mattravidduzzievh", false, "Attack"),
+            [13] = new SpellInfo(13, "Summon Demon", "Calls demon from hell to serve in battle. The demon will attack enemies until combat ends. Duration: whole fight.", 120, 13, "Excadexsumarie", false, "Summon")
         },
         
         [CharacterClass.Sage] = new Dictionary<int, SpellInfo>
@@ -411,19 +412,26 @@ public static class SpellSystem
                 }
                 break;
                 
-            case 5: // Power Hat
+            case 5: // Haste
+                result.AttackBonus = 20;
+                result.Duration = 999; // Whole fight
+                result.SpecialEffect = "haste";
+                result.Message += $" {caster.Name2} is moving faster!";
+                break;
+                
+            case 6: // Power Hat
                 result.Healing = 60 + random.Next(21); // 60-80 hp
                 result.ProtectionBonus = 10 + random.Next(4); // 10-13 protection per turn
                 result.Duration = 999; // Whole fight
                 result.Message += $" {caster.Name2} regains {result.Healing} hitpoints and feels protected!";
                 break;
                 
-            case 6: // Fireball
+            case 7: // Fireball
                 result.Damage = 60 + random.Next(11); // 60-70 damage
                 result.Message += $" {target?.Name2 ?? "The target"} is engulfed by a Fireball for {result.Damage} damage!";
                 break;
                 
-            case 7: // Fear
+            case 8: // Fear
                 if (target != null)
                 {
                     result.SpecialEffect = "fear";
@@ -432,28 +440,28 @@ public static class SpellSystem
                 }
                 break;
                 
-            case 8: // Lightning Bolt
+            case 9: // Lightning Bolt
                 result.Damage = 60 + random.Next(11); // 60-70 damage
                 result.Message += $" {target?.Name2 ?? "The target"} is struck by Lightning for {result.Damage} damage!";
                 break;
                 
-            case 9: // Prismatic Cage
+            case 10: // Prismatic Cage
                 result.ProtectionBonus = 20;
                 result.Duration = 999; // Whole fight
                 result.Message += $" A prismatic cage lowers over {caster.Name2}!";
                 break;
                 
-            case 10: // Pillar of Fire
+            case 11: // Pillar of Fire
                 result.Damage = 110 + random.Next(3); // 110-112 damage
                 result.Message += $" {target?.Name2 ?? "The target"} is severely burned in a Pillar of Fire for {result.Damage} damage!";
                 break;
                 
-            case 11: // Power word KILL
+            case 12: // Power word KILL
                 result.Damage = 220 + random.Next(46); // 220-265 damage
                 result.Message += $" The POWER WORD KILL strikes {target?.Name2 ?? "the target"} for {result.Damage} damage!";
                 break;
                 
-            case 12: // Summon Demon
+            case 13: // Summon Demon
                 result.AttackBonus = 80;
                 result.Duration = 999; // Whole fight
                 result.SpecialEffect = "demon";
