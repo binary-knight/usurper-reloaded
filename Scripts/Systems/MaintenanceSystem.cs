@@ -16,6 +16,7 @@ public class MaintenanceSystem
     private bool maintenanceRunning;
     private TerminalUI terminal;
     private Random random;
+    private bool silentMode = true;  // Run maintenance silently by default
     
     public bool MaintenanceRunning => maintenanceRunning;
     public DateTime LastMaintenanceDate => lastMaintenanceDate;
@@ -34,79 +35,101 @@ public class MaintenanceSystem
     /// Check if maintenance is needed and run if required
     /// Pascal: Auto maintenance check in USURPER.PAS
     /// </summary>
-    public async Task<bool> CheckAndRunMaintenance(bool forceMaintenance = false)
+    public async Task<bool> CheckAndRunMaintenance(bool forceMaintenance = false, bool silent = true)
     {
         if (maintenanceRunning)
         {
-            terminal.WriteLine("Maintenance is already running!", "red");
+            if (!silent)
+                terminal.WriteLine("Maintenance is already running!", "red");
             return false;
         }
-        
+
         var today = DateTime.Now.Date;
         var needsMaintenance = forceMaintenance || lastMaintenanceDate.Date < today;
-        
+
         if (needsMaintenance)
         {
-            await RunDailyMaintenance(forceMaintenance);
+            await RunDailyMaintenance(forceMaintenance, silent);
             return true;
         }
-        
+
         return false;
     }
-    
+
     /// <summary>
     /// Run complete daily maintenance - Pascal MAINT.PAS main procedure
     /// </summary>
-    public async Task RunDailyMaintenance(bool forced = false)
+    public async Task RunDailyMaintenance(bool forced = false, bool silent = true)
     {
         if (maintenanceRunning)
         {
-            terminal.WriteLine("Maintenance is already in progress!", "red");
+            if (!silent)
+                terminal.WriteLine("Maintenance is already in progress!", "red");
             return;
         }
-        
+
         maintenanceRunning = true;
-        
+        silentMode = silent;  // Set the global silent mode flag
+
         try
         {
-            // Display maintenance header
-            await DisplayMaintenanceHeader(forced);
-            
-            // Create maintenance lock file
-            CreateMaintenanceFlag();
-            
+            // Display maintenance header (only if not silent)
+            if (!silent)
+                await DisplayMaintenanceHeader(forced);
+
+            // Create maintenance lock file (skip if silent to avoid file errors)
+            if (!silent)
+                CreateMaintenanceFlag();
+
             // Load configuration values
             var config = LoadMaintenanceConfiguration();
-            
+
             // Process all players
-            await ProcessAllPlayers(config);
-            
+            await ProcessAllPlayers(config, silent);
+
             // Process royal system
             await ProcessRoyalSystem(config);
-            
+
             // Process economic systems
             await ProcessEconomicSystems(config);
-            
+
             // Clean up inactive players and data
             await CleanupSystems(config);
-            
+
             // Update system records
             await UpdateSystemRecords();
-            
+
             // Save maintenance completion
             SaveMaintenanceDate();
-            
-            // Display completion message
-            await DisplayMaintenanceCompletion();
+
+            // Display completion message (only if not silent)
+            if (!silent)
+                await DisplayMaintenanceCompletion();
+            else
+            {
+                // Log silently to Godot console
+                GD.Print($"[Maintenance] Daily maintenance completed at {DateTime.Now:MM-dd-yyyy HH:mm:ss}");
+            }
         }
         finally
         {
-            // Remove maintenance lock
-            RemoveMaintenanceFlag();
+            // Remove maintenance lock (only if not silent)
+            if (!silent)
+                RemoveMaintenanceFlag();
             maintenanceRunning = false;
+            silentMode = true;  // Reset to silent
         }
     }
     
+    /// <summary>
+    /// Write line to terminal only if not in silent mode
+    /// </summary>
+    private void WriteIfNotSilent(string text, string color = "white")
+    {
+        if (!silentMode)
+            terminal.WriteLine(text, color);
+    }
+
     /// <summary>
     /// Display maintenance header - Pascal maintenance display
     /// </summary>
@@ -157,35 +180,39 @@ public class MaintenanceSystem
     /// Process all players for daily maintenance
     /// Pascal: Main player processing loop in MAINT.PAS
     /// </summary>
-    private async Task ProcessAllPlayers(MaintenanceConfig config)
+    private async Task ProcessAllPlayers(MaintenanceConfig config, bool silent = true)
     {
-        terminal.WriteLine("Processing player records...", "white");
-        
+        if (!silent)
+            terminal.WriteLine("Processing player records...", "white");
+
         // In a real implementation, this would iterate through all player files
         // For now, process the current player if available
         var gameEngine = GameEngine.Instance;
         if (gameEngine?.CurrentPlayer != null)
         {
-            await ProcessPlayerDailyMaintenance(gameEngine.CurrentPlayer, config);
+            await ProcessPlayerDailyMaintenance(gameEngine.CurrentPlayer, config, silent);
         }
-        
-        terminal.WriteLine("Player processing complete.", "green");
-        await Task.Delay(500);
+
+        if (!silent)
+        {
+            terminal.WriteLine("Player processing complete.", "green");
+            await Task.Delay(500);
+        }
     }
     
     /// <summary>
     /// Process individual player daily maintenance
     /// Pascal: Player processing section in MAINT.PAS lines 335-400
     /// </summary>
-    private async Task ProcessPlayerDailyMaintenance(Character player, MaintenanceConfig config)
+    private async Task ProcessPlayerDailyMaintenance(Character player, MaintenanceConfig config, bool silent = true)
     {
         // Player alive bonus (Pascal: level * 350 per day)
         if (player.HP > 0 && player.AliveBonus < GameConfig.MaxAliveBonus)
         {
             var bonus = player.Level * GameConfig.AliveBonus;
             player.AliveBonus += bonus;
-            
-            terminal.WriteLine($"  {player.Name2}: Alive bonus +{bonus}", "green");
+
+            WriteIfNotSilent($"  {player.Name2}: Alive bonus +{bonus}", "green");
         }
         
         // Class-specific daily processing
@@ -329,14 +356,14 @@ public class MaintenanceSystem
     /// </summary>
     private async Task ProcessRoyalSystem(MaintenanceConfig config)
     {
-        terminal.WriteLine("Processing royal system...", "white");
-        
+        WriteIfNotSilent("Processing royal system...", "white");
+
         // Load king data (in real implementation, would load from king file)
         var gameEngine = GameEngine.Instance;
         if (gameEngine?.CurrentPlayer?.King != null)
         {
             var king = gameEngine.CurrentPlayer;
-            
+
             // Reset daily royal limits (Pascal: king daily resets)
             king.PrisonsLeft = GameConfig.DailyPrisonSentences;
             king.ExecuteLeft = GameConfig.DailyExecutions;
@@ -344,16 +371,17 @@ public class MaintenanceSystem
             king.MarryActions = GameConfig.DefaultMarryActions;
             king.WolfFeed = GameConfig.DefaultWolfFeeding;
             king.RoyalAdoptions = GameConfig.DefaultRoyalAdoptions;
-            
+
             // Increment days in power
             king.DaysInPower++;
-            
-            terminal.WriteLine("  Royal limits reset", "cyan");
-            terminal.WriteLine($"  Days in power: {king.DaysInPower}", "white");
+
+            WriteIfNotSilent("  Royal limits reset", "cyan");
+            WriteIfNotSilent($"  Days in power: {king.DaysInPower}", "white");
         }
-        
-        terminal.WriteLine("Royal system processing complete.", "green");
-        await Task.Delay(500);
+
+        WriteIfNotSilent("Royal system processing complete.", "green");
+        if (!silentMode)
+            await Task.Delay(500);
     }
     
     /// <summary>
@@ -362,21 +390,22 @@ public class MaintenanceSystem
     /// </summary>
     private async Task ProcessEconomicSystems(MaintenanceConfig config)
     {
-        terminal.WriteLine("Processing economic systems...", "white");
-        
+        WriteIfNotSilent("Processing economic systems...", "white");
+
         // Bank interest processing
         await ProcessBankInterest(config);
-        
+
         // Safe value reset (Pascal: Safe_Reset)
         ProcessSafeReset();
-        
+
         // Town pot management
         ProcessTownPot(config);
-        
-        terminal.WriteLine("Economic processing complete.", "green");
-        await Task.Delay(500);
+
+        WriteIfNotSilent("Economic processing complete.", "green");
+        if (!silentMode)
+            await Task.Delay(500);
     }
-    
+
     /// <summary>
     /// Process bank interest for all accounts
     /// Pascal: Bank interest calculation
@@ -387,15 +416,15 @@ public class MaintenanceSystem
         if (gameEngine?.CurrentPlayer != null)
         {
             var player = gameEngine.CurrentPlayer;
-            
+
             if (player.BankGold > 0)
             {
                 var interest = (long)(player.BankGold * config.BankInterest / 100.0);
                 player.BankGold += interest;
                 player.Interest += interest;
-                
-                terminal.WriteLine($"  Bank interest: {interest} gold added", "green");
-                
+
+                WriteIfNotSilent($"  Bank interest: {interest} gold added", "green");
+
                 // Send bank statement mail
                 MailSystem.SendSystemMail(player.Name2, "Bank Interest",
                     "Your bank account has earned interest!",
@@ -403,7 +432,7 @@ public class MaintenanceSystem
             }
         }
     }
-    
+
     /// <summary>
     /// Reset bank safe values
     /// Pascal: Safe_Reset procedure
@@ -411,7 +440,7 @@ public class MaintenanceSystem
     private void ProcessSafeReset()
     {
         // Bank safe reset logic (Pascal implementation)
-        terminal.WriteLine("  Bank safes reset", "cyan");
+        WriteIfNotSilent("  Bank safes reset", "cyan");
     }
     
     /// <summary>

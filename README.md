@@ -13,62 +13,106 @@ Usurper Reloaded brings the brutal medieval world of the original BBS classic to
 **Modern Recreation**: Built with Godot 4.4+ and C#  
 **License**: GNU General Public License v2 (GPL v2)
 
-## Current Status & Implemented Features (Alpha 0.2 – Summer 2025)
+## Current Status & Implemented Features (Alpha - Active Development)
 
-Progress has moved from "bare foundations" to a **play-testable alpha**.  Highlights:
+Progress has moved from "bare foundations" to a **play-testable alpha** with continuous development.
 
 ### Core Engine
-* Godot 4.2 Mono build that launches a DOS-style 80×25 terminal.
-* Full data layer – `Character`, `Player`, `NPC`, `Item`, `Monster`, `Quest` and a 1 100-line `GameConfig` mirroring Pascal globals.
+* Godot 4.4+ Mono build with DOS-style terminal interface
+* Full data layer – `Character`, `Player`, `NPC`, `Item`, `Monster`, `Quest` and comprehensive `GameConfig`
+* **Persistent Turn System** - Counts upward from 0, drives world simulation every 5 turns
+* **Modern Save System** - Autosaves with rotation (keeps 5 most recent), manual saves, comprehensive state preservation
 
-### Playable Locations (16 / 23 complete)
-* **Main Street, Inn, Bank, Magic Shop, Healer, Temple, Dungeon**
-* NEW: **Church, Dark Alley, Level Master, Marketplace, Anchor Road hub, Hall of Recruitment, Dormitory** – all feature-complete ports of the original Pascal logic.
+### Playable Locations (30 location files)
+* **Main Street, Inn, Bank, Weapon Shop, Armor Shop, Magic Shop, Advanced Magic Shop, Healer, Temple**
+* **Church, Dark Alley, Level Master, Marketplace, Anchor Road, Hall of Recruitment, Dormitory**
+* **Castle, Prison, Love Corner, Team Corner, News, Quest Hall, Royal Quest, God World**
+* **Dungeon** - 50+ level system with groups of 1-5 monsters (regular encounters) and rare boss fights
+* **Home, Gym, Prison Walk** - Additional specialized locations
+
+### Combat & Magic Systems
+* **Advanced Combat Engine** - 6 combat modes (Attack, Defend, Power Attack, Precise Strike, Rage, Smite)
+* **37 Combat Spells** - Complete spell system across 3 classes (Cleric, Magician, Sage)
+* **Status Effects** - Blur, Stoneskin, Haste, damage absorption, AC bonuses
+* **Group Combat** - Fight through groups of 1-5 monsters in dungeon encounters
+* **Dynamic Difficulty** - Monster strength scales with dungeon level, balanced for winnable fights
 
 ### NPC Renaissance
-* 30+ NPCs loaded from `Data/npcs.json` (with stats, dialogue, starting locations).
-* **Enhanced NPC AI**: personality-driven brains, goal system, memory & emotions.
-* **WorldSimulator** now runs every 60 s in a background task → NPCs wander, trade, fight and socialise.  Enter a room and you'll meet living townsfolk.
+* **50 Classic NPCs** - Original Usurper-style characters with classic names and personalities
+* **Enhanced NPC AI**: personality-driven brains, goal system, memory & emotions
+* **Continuous World Simulation** - NPCs act every 5 player turns, wander, trade, fight and socialize
+* **Relationship System** - NPCs remember interactions and build relationships
+* **Diverse Cast**: Fighters, Mages, Thieves, Paladins, Clerics, Sages, Rangers, and Mercenaries
 
 ### Systems & Tooling
-* **Hall of Recruitment** supports hiring / bribing NPCs into your team.
-* **Dormitory** provides full rest & daily reset.
-* Trading board in **Marketplace**, shady services in **Dark Alley**, levelling with the **Level Master**, donations & blessings in **Church** – all with flavour text and original costs.
-* Robust JSON loaders, test-suite (>300 cases) and CI builds.
+* **Complete Save/Load** - Comprehensive state preservation including potions, equipment, stats, diseases, and character details
+* **Silent Maintenance** - Background world processing without intrusive messages
+* **Hall of Recruitment** - Hire and bribe NPCs into your team
+* **Dormitory** - Full rest and recovery mechanics
+* **Trading Board** - Marketplace trading system
+* **Dark Alley** - Shady services and black market
+* **Level Master** - Level advancement services
+* **Church** - Donations, blessings, healing, marriages, confessions
+* **Colorized Menus** - Fully colorized interface throughout all locations
+* Robust JSON loaders, comprehensive test suite, and CI/CD builds
 
-### Still Missing (major milestones below)
-* Deep dungeon crawl beyond basic monster fights, castle politics, child/marriage systems, etc.
-* Spell casting, cursed item mechanics, full save persistence for new systems.
-* Multiplayer / node support.
+### Still Missing (major milestones)
+* Mail system, message system, item transfer between players
+* Team management features, gossip system completion
+* Castle politics (throne challenge, prison management, royal quests)
+* Child/marriage system completion
+* Tournament system
+* Multiplayer/node support for BBS-style gameplay
 
 ## Getting Started
 
 ### Prerequisites
-- [Godot 4.2+ Mono version](https://godotengine.org/download)
-- [.NET SDK 6.0+](https://dotnet.microsoft.com/download)
+- [Godot 4.4+ Mono version](https://godotengine.org/download) (tested with 4.4.1)
+- [.NET SDK 6.0+](https://dotnet.microsoft.com/download) (works with .NET 9.0)
 - Git
 
 ### Quick Start
 ```bash
 # Clone the repository
 git clone https://github.com/binary-knight/usurper-reloaded.git
-cd usurper-reloaded
+cd usurper-remake
 
 # Build the project
 dotnet build
 
-# Run tests
-cd Tests && powershell ./run_tests.ps1
-
-# Open in Godot
+# Run the game (after opening in Godot)
 godot project.godot
+
+# Or run directly from Godot editor: Press F5
 ```
 
-### Building for Release
-The project includes automated GitHub Actions for building:
-- Push to `main` for development builds
-- Tag with `v*` for release builds
-- Artifacts available in Actions tab
+### Building Standalone Executables
+
+#### Build for Windows
+```bash
+dotnet publish usurper-reloaded.csproj -c Release -r win-x64 -o publish/windows \
+  -p:PublishSingleFile=true -p:SelfContained=true -p:InvariantGlobalization=true
+```
+
+#### Build for Linux
+```bash
+dotnet publish usurper-reloaded.csproj -c Release -r linux-x64 -o publish/linux \
+  -p:PublishSingleFile=true -p:SelfContained=true -p:InvariantGlobalization=true
+```
+
+#### Build for macOS
+```bash
+dotnet publish usurper-reloaded.csproj -c Release -r osx-x64 -o publish/mac \
+  -p:PublishSingleFile=true -p:SelfContained=true -p:InvariantGlobalization=true
+```
+
+### Automated Builds
+The project includes GitHub Actions CI/CD pipeline (`.github/workflows/ci-cd.yml`):
+- **Continuous Integration**: Builds and tests on every push to `main` or `develop`
+- **Multi-Platform Builds**: Automatically builds Windows, Linux, and macOS executables
+- **GPL Compliance**: Includes source code archive and license files with every build
+- **Steam Preparation**: Generates Steam depot structure for releases
+- **Artifacts**: Download built executables from the Actions tab on GitHub
 
 ## Roadmap
 
@@ -92,7 +136,7 @@ The project includes automated GitHub Actions for building:
 - [ ] **Message System** - Player-to-player communication missing
 - [ ] **Item Transfer** - Player-to-player item trading missing
 - [ ] **Team Management** - Many "not yet implemented" features in Team Corner
-- [ ] **Combat Spells** - "Spell casting not yet implemented"
+- [X] **Combat Spells** - COMPLETE! 37 spells across 3 classes (Cleric, Magician, Sage) fully integrated
 - [ ] **Combat Items** - "Item usage not yet implemented"
 - [ ] **Gossip System** - Love Corner gossip features incomplete
 - [ ] **Child System** - Child examination and interaction incomplete
@@ -198,11 +242,12 @@ usurper-reloaded/
 ### Testing
 The project includes extensive testing to ensure Pascal compatibility:
 ```bash
-# Run all tests
-cd Tests && powershell ./run_tests.ps1
+# Build and run tests (if test project is set up)
+dotnet build Tests/Tests.csproj
+dotnet test Tests/Tests.csproj
 
-# Run specific test suite
-dotnet test Tests/CombatTests.cs
+# Note: Test suite is comprehensive with 300+ test cases
+# covering combat, character progression, save/load, and Pascal formula accuracy
 ```
 
 ## Contributing
@@ -218,11 +263,13 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 
 ## Technical Details
 
-- **Engine**: Godot 4.2+ with C#
-- **Lines of Code**: 50,000+ across 100+ files
-- **Pascal Compatibility**: 100% formula accuracy
+- **Engine**: Godot 4.4+ with C# (.NET 6.0)
+- **Lines of Code**: 50,000+ across 126+ C# files
+- **Pascal Compatibility**: 100% formula accuracy from original source
 - **Test Coverage**: 300+ test cases
-- **Platforms**: Windows, Linux, macOS (Steam Deck verified)
+- **Platforms**: Windows, Linux, macOS
+- **Architecture**: Single-player with persistent turn-based world simulation
+- **Save System**: JSON-based with autosave rotation and manual saves
 
 ## License & Your Rights
 
@@ -242,11 +289,11 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 - **No Hidden Code**: Everything needed to build and modify the game
 
 ### GPL v2 Compliance
-This distribution includes:
+All releases include:
 - `LICENSE` - Complete GPL v2 license text
 - `GPL_NOTICE.txt` - Your rights and freedoms
 - `usurper-reloaded-source.zip` - Complete source code archive
-- `GPL_COMPLIANCE.md` - Detailed compliance information
+- Full source code available on GitHub
 
 **This is truly FREE software - you own it completely!**
 

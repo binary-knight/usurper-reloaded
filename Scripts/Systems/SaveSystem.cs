@@ -195,14 +195,202 @@ namespace UsurperRemake.Systems
         }
         
         /// <summary>
-        /// Auto-save the current game state
+        /// Auto-save the current game state with rotation (keeps 5 most recent autosaves)
         /// </summary>
         public async Task<bool> AutoSave(Character player)
         {
             if (player == null) return false;
-            
+
             var playerName = player.Name2 ?? player.Name1;
-            return await SaveGame($"{playerName}_autosave", player);
+            var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+            var autosaveName = $"{playerName}_autosave_{timestamp}";
+
+            // Save the new autosave
+            var success = await SaveGame(autosaveName, player);
+
+            if (success)
+            {
+                // Rotate autosaves - keep only the 5 most recent
+                RotateAutosaves(playerName);
+            }
+
+            return success;
+        }
+
+        /// <summary>
+        /// Rotate autosaves to keep only the 5 most recent
+        /// </summary>
+        private void RotateAutosaves(string playerName)
+        {
+            try
+            {
+                // Get all autosaves for this player
+                var autosavePattern = $"{string.Join("_", playerName.Split(Path.GetInvalidFileNameChars()))}_autosave_*.json";
+                var autosaveFiles = Directory.GetFiles(saveDirectory, autosavePattern);
+
+                // Sort by creation time, newest first
+                var sortedFiles = autosaveFiles
+                    .Select(f => new FileInfo(f))
+                    .OrderByDescending(f => f.CreationTime)
+                    .ToList();
+
+                // Delete all but the 5 most recent
+                for (int i = 5; i < sortedFiles.Count; i++)
+                {
+                    sortedFiles[i].Delete();
+                    GD.Print($"Deleted old autosave: {sortedFiles[i].Name}");
+                }
+            }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"Failed to rotate autosaves: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Get all saves for a specific player (including autosaves)
+        /// </summary>
+        public List<SaveInfo> GetPlayerSaves(string playerName)
+        {
+            var saves = new List<SaveInfo>();
+            var sanitizedName = string.Join("_", playerName.Split(Path.GetInvalidFileNameChars()));
+
+            try
+            {
+                // Get all saves for this player (manual saves and autosaves)
+                var pattern = $"{sanitizedName}*.json";
+                var files = Directory.GetFiles(saveDirectory, pattern);
+
+                foreach (var file in files)
+                {
+                    try
+                    {
+                        var json = File.ReadAllText(file);
+                        var saveData = JsonSerializer.Deserialize<SaveGameData>(json, jsonOptions);
+
+                        if (saveData?.Player != null)
+                        {
+                            var fileName = Path.GetFileName(file);
+                            var isAutosave = fileName.Contains("_autosave_");
+
+                            saves.Add(new SaveInfo
+                            {
+                                PlayerName = saveData.Player.Name2 ?? saveData.Player.Name1,
+                                SaveTime = saveData.SaveTime,
+                                Level = saveData.Player.Level,
+                                CurrentDay = saveData.CurrentDay,
+                                TurnsRemaining = saveData.Player.TurnsRemaining,
+                                FileName = fileName,
+                                IsAutosave = isAutosave,
+                                SaveType = isAutosave ? "Autosave" : "Manual Save"
+                            });
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        GD.PrintErr($"Failed to read save file {file}: {ex.Message}");
+                    }
+                }
+
+                // Sort by save time, newest first
+                saves = saves.OrderByDescending(s => s.SaveTime).ToList();
+            }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"Failed to get player saves: {ex.Message}");
+            }
+
+            return saves;
+        }
+
+        /// <summary>
+        /// Get the most recent save for a player (autosave or manual)
+        /// </summary>
+        public SaveInfo? GetMostRecentSave(string playerName)
+        {
+            var saves = GetPlayerSaves(playerName);
+            return saves.FirstOrDefault();
+        }
+
+        /// <summary>
+        /// Load a save by filename
+        /// </summary>
+        public async Task<SaveGameData?> LoadSaveByFileName(string fileName)
+        {
+            try
+            {
+                var filePath = Path.Combine(saveDirectory, fileName);
+
+                if (!File.Exists(filePath))
+                {
+                    return null;
+                }
+
+                var json = await File.ReadAllTextAsync(filePath);
+                var saveData = JsonSerializer.Deserialize<SaveGameData>(json, jsonOptions);
+
+                if (saveData == null)
+                {
+                    GD.PrintErr("Failed to deserialize save data");
+                    return null;
+                }
+
+                // Validate save version compatibility
+                if (saveData.Version < GameConfig.MinSaveVersion)
+                {
+                    GD.PrintErr($"Save file version {saveData.Version} is too old (minimum: {GameConfig.MinSaveVersion})");
+                    return null;
+                }
+
+                GD.Print($"Game loaded successfully: {fileName}");
+                return saveData;
+            }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"Failed to load game: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Get list of all unique player names that have saves
+        /// </summary>
+        public List<string> GetAllPlayerNames()
+        {
+            var playerNames = new HashSet<string>();
+
+            try
+            {
+                var files = Directory.GetFiles(saveDirectory, "*.json");
+
+                foreach (var file in files)
+                {
+                    try
+                    {
+                        var json = File.ReadAllText(file);
+                        var saveData = JsonSerializer.Deserialize<SaveGameData>(json, jsonOptions);
+
+                        if (saveData?.Player != null)
+                        {
+                            var playerName = saveData.Player.Name2 ?? saveData.Player.Name1;
+                            if (!string.IsNullOrWhiteSpace(playerName))
+                            {
+                                playerNames.Add(playerName);
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // Skip invalid save files
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"Failed to enumerate player names: {ex.Message}");
+            }
+
+            return playerNames.OrderBy(n => n).ToList();
         }
         
         /// <summary>
@@ -259,8 +447,15 @@ namespace UsurperRemake.Systems
                 Charisma = player.Charisma,
                 Dexterity = player.Dexterity,
                 Wisdom = player.Wisdom,
+                Intelligence = player.Intelligence,
+                Constitution = player.Constitution,
                 Mana = player.Mana,
                 MaxMana = player.MaxMana,
+
+                // Equipment and items (CRITICAL FIXES)
+                Healing = player.Healing,     // POTIONS
+                WeapPow = player.WeapPow,     // WEAPON POWER
+                ArmPow = player.ArmPow,       // ARMOR POWER
                 
                 // Character details
                 Race = player.Race,
@@ -285,16 +480,46 @@ namespace UsurperRemake.Systems
                 Items = player.Item?.ToArray() ?? new int[0],
                 ItemTypes = player.ItemType?.Select(t => (int)t).ToArray() ?? new int[0],
                 
-                // Social
+                // Social/Team
                 Team = player.Team,
                 TeamPassword = player.TeamPW,
                 IsTeamLeader = player.CTurf,
-                
+                TeamRec = player.TeamRec,
+                BGuard = player.BGuard,
+
                 // Status
                 Chivalry = player.Chivalry,
                 Darkness = player.Darkness,
                 Mental = player.Mental,
                 Poison = player.Poison,
+                GnollP = player.GnollP,
+                Addict = player.Addict,
+                Mercy = player.Mercy,
+
+                // Disease status
+                Blind = player.Blind,
+                Plague = player.Plague,
+                Smallpox = player.Smallpox,
+                Measles = player.Measles,
+                Leprosy = player.Leprosy,
+
+                // Character settings
+                AutoHeal = player.AutoHeal,
+                Loyalty = player.Loyalty,
+                Haunt = player.Haunt,
+                Master = player.Master,
+                WellWish = player.WellWish,
+
+                // Physical appearance
+                Height = player.Height,
+                Weight = player.Weight,
+                Eyes = player.Eyes,
+                Hair = player.Hair,
+                Skin = player.Skin,
+
+                // Character flavor text
+                Phrases = player.Phrases?.ToList() ?? new List<string>(),
+                Description = player.Description?.ToList() ?? new List<string>(),
                 
                 // Relationships
                 Relationships = SerializeRelationships(player),
@@ -494,19 +719,19 @@ namespace UsurperRemake.Systems
             // For console mode, use platform-specific directories
             var appName = "UsurperReloaded";
             
-            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+            if (System.Environment.OSVersion.Platform == PlatformID.Win32NT)
             {
-                return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), appName);
+                return Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData), appName);
             }
-            else if (Environment.OSVersion.Platform == PlatformID.Unix)
+            else if (System.Environment.OSVersion.Platform == PlatformID.Unix)
             {
-                var home = Environment.GetEnvironmentVariable("HOME");
+                var home = System.Environment.GetEnvironmentVariable("HOME");
                 return Path.Combine(home ?? "/tmp", ".local", "share", appName);
             }
             else
             {
                 // Mac or other - use application support
-                var home = Environment.GetEnvironmentVariable("HOME");
+                var home = System.Environment.GetEnvironmentVariable("HOME");
                 return Path.Combine(home ?? "/tmp", "Library", "Application Support", appName);
             }
         }

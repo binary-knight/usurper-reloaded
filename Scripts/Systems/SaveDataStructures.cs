@@ -45,8 +45,15 @@ namespace UsurperRemake.Systems
         public long Charisma { get; set; }
         public long Dexterity { get; set; }
         public long Wisdom { get; set; }
+        public long Intelligence { get; set; }
+        public long Constitution { get; set; }
         public long Mana { get; set; }
         public long MaxMana { get; set; }
+
+        // Equipment and items
+        public long Healing { get; set; }  // CRITICAL: Healing potions count
+        public long WeapPow { get; set; }  // CRITICAL: Weapon power
+        public long ArmPow { get; set; }   // CRITICAL: Armor power
         
         // Character details
         public CharacterRace Race { get; set; }
@@ -71,16 +78,46 @@ namespace UsurperRemake.Systems
         public int[] Items { get; set; } = new int[0];
         public int[] ItemTypes { get; set; } = new int[0];
         
-        // Social
+        // Social/Team
         public string Team { get; set; } = "";
         public string TeamPassword { get; set; } = "";
         public bool IsTeamLeader { get; set; }
+        public int TeamRec { get; set; }  // Team record, days had town
+        public int BGuard { get; set; }   // Type of guard
         
         // Status
         public long Chivalry { get; set; }
         public long Darkness { get; set; }
         public int Mental { get; set; }
         public int Poison { get; set; }
+        public int GnollP { get; set; }  // Gnoll poison (temporary)
+        public int Addict { get; set; }  // Drug addiction level
+        public int Mercy { get; set; }   // Mercy counter
+
+        // Disease status
+        public bool Blind { get; set; }
+        public bool Plague { get; set; }
+        public bool Smallpox { get; set; }
+        public bool Measles { get; set; }
+        public bool Leprosy { get; set; }
+
+        // Character settings
+        public bool AutoHeal { get; set; }  // Auto-heal in battle
+        public int Loyalty { get; set; }    // Loyalty percentage (0-100)
+        public int Haunt { get; set; }      // How many demons haunt player
+        public char Master { get; set; }    // Level master player uses
+        public bool WellWish { get; set; }  // Has visited wishing well
+
+        // Physical appearance
+        public int Height { get; set; }
+        public int Weight { get; set; }
+        public int Eyes { get; set; }
+        public int Hair { get; set; }
+        public int Skin { get; set; }
+
+        // Character flavor text
+        public List<string> Phrases { get; set; } = new();      // Combat phrases (6 phrases)
+        public List<string> Description { get; set; } = new();  // Character description (4 lines)
         
         // Relationships
         public Dictionary<string, float> Relationships { get; set; } = new();
@@ -167,6 +204,8 @@ namespace UsurperRemake.Systems
         public int CurrentDay { get; set; }
         public int TurnsRemaining { get; set; }
         public string FileName { get; set; } = "";
+        public bool IsAutosave { get; set; }
+        public string SaveType { get; set; } = "Manual Save";
     }
 
     /// <summary>

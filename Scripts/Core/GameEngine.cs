@@ -83,6 +83,10 @@ public partial class GameEngine : Node
     private async Task RunMainGameLoop()
     {
         InitializeGame();
+
+        // Show splash screen
+        await UsurperRemake.UI.SplashScreen.Show(terminal);
+
         ShowTitleScreen();
         await MainMenu();
     }
@@ -209,93 +213,462 @@ public partial class GameEngine : Node
     private async Task MainMenu()
     {
         bool done = false;
-        
+
         while (!done)
         {
             terminal.ClearScreen();
+
+            // Title header
+            terminal.SetColor("bright_red");
+            terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
             terminal.SetColor("bright_yellow");
-            terminal.WriteLine("USURPER - The Dungeon of Death");
-            terminal.SetColor("yellow");
-            terminal.WriteLine("═══════════════════════════════");
+            terminal.WriteLine("║               USURPER RELOADED - The Dungeon of Death                       ║");
+            terminal.SetColor("bright_red");
+            terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
             terminal.WriteLine("");
+
+            // Menu options with classic BBS style
+            terminal.SetColor("darkgray");
+            terminal.Write("  [");
+            terminal.SetColor("bright_cyan");
+            terminal.Write("E");
+            terminal.SetColor("darkgray");
+            terminal.Write("] ");
+            terminal.SetColor("cyan");
+            terminal.WriteLine("Enter the Game");
+
+            terminal.SetColor("darkgray");
+            terminal.Write("  [");
+            terminal.SetColor("bright_cyan");
+            terminal.Write("I");
+            terminal.SetColor("darkgray");
+            terminal.Write("] ");
             terminal.SetColor("white");
-            
-            var options = new List<MenuOption>
+            terminal.WriteLine("Instructions");
+
+            terminal.SetColor("darkgray");
+            terminal.Write("  [");
+            terminal.SetColor("bright_cyan");
+            terminal.Write("L");
+            terminal.SetColor("darkgray");
+            terminal.Write("] ");
+            terminal.SetColor("white");
+            terminal.WriteLine("List Players");
+
+            terminal.SetColor("darkgray");
+            terminal.Write("  [");
+            terminal.SetColor("bright_cyan");
+            terminal.Write("T");
+            terminal.SetColor("darkgray");
+            terminal.Write("] ");
+            terminal.SetColor("white");
+            terminal.WriteLine("Teams");
+
+            terminal.SetColor("darkgray");
+            terminal.Write("  [");
+            terminal.SetColor("bright_cyan");
+            terminal.Write("N");
+            terminal.SetColor("darkgray");
+            terminal.Write("] ");
+            terminal.SetColor("white");
+            terminal.WriteLine("Yesterday's News");
+
+            terminal.SetColor("darkgray");
+            terminal.Write("  [");
+            terminal.SetColor("bright_cyan");
+            terminal.Write("S");
+            terminal.SetColor("darkgray");
+            terminal.Write("] ");
+            terminal.SetColor("white");
+            terminal.WriteLine("Game Settings");
+
+            terminal.WriteLine("");
+            terminal.SetColor("darkgray");
+            terminal.Write("  [");
+            terminal.SetColor("bright_red");
+            terminal.Write("Q");
+            terminal.SetColor("darkgray");
+            terminal.Write("] ");
+            terminal.SetColor("red");
+            terminal.WriteLine("Quit to DOS");
+
+            terminal.WriteLine("");
+            terminal.SetColor("bright_white");
+            var choice = await terminal.GetInput("Your choice: ");
+
+            switch (choice.ToUpper())
             {
-                new MenuOption { Key = "E", Text = "Enter the Game", Action = async () => await EnterGame() },
-                new MenuOption { Key = "I", Text = "Instructions", Action = async () => await ShowInstructions() },
-                new MenuOption { Key = "L", Text = "List Players", Action = async () => await ListPlayers() },
-                new MenuOption { Key = "T", Text = "Teams", Action = async () => await ShowTeams() },
-                new MenuOption { Key = "N", Text = "Yesterday's News", Action = async () => await ShowNews() },
-                new MenuOption { Key = "S", Text = "Game Settings", Action = async () => await ShowGameSettings() },
-                new MenuOption { Key = "Q", Text = "Quit", Action = async () => { done = true; } }
-            };
-            
-            var choice = await terminal.GetMenuChoice(options);
-            if (choice >= 0 && choice < options.Count)
-            {
-                await options[choice].Action();
+                case "E":
+                    await EnterGame();
+                    break;
+                case "I":
+                    await ShowInstructions();
+                    break;
+                case "L":
+                    await ListPlayers();
+                    break;
+                case "T":
+                    await ShowTeams();
+                    break;
+                case "N":
+                    await ShowNews();
+                    break;
+                case "S":
+                    await ShowGameSettings();
+                    break;
+                case "Q":
+                    done = true;
+                    break;
             }
         }
     }
     
     /// <summary>
-    /// Enter the game with save/load integration
+    /// Enter the game with modern save/load UI
     /// </summary>
     private async Task EnterGame()
     {
-        terminal.ClearScreen();
-        terminal.SetColor("bright_cyan");
-        terminal.WriteLine("Enter the Game");
-        terminal.WriteLine("══════════════");
-        terminal.WriteLine("");
-        
-        var playerName = await terminal.GetInput("Enter your name: ");
-        
-        if (string.IsNullOrWhiteSpace(playerName))
+        while (true)
         {
-            terminal.WriteLine("Invalid name!", "red");
-            await Task.Delay(2000);
-            return;
-        }
-        
-        // Check for existing save
-        var saveExists = SaveSystem.Instance.SaveExists(playerName);
-        
-        if (saveExists)
-        {
-            terminal.WriteLine($"Found existing save for '{playerName}'", "green");
+            terminal.ClearScreen();
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine("╔═══════════════════════════════════════════════════════════════════════════╗");
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine("║                           SAVE FILE MANAGEMENT                           ║");
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine("╚═══════════════════════════════════════════════════════════════════════════╝");
             terminal.WriteLine("");
-            terminal.WriteLine("1. Continue existing game");
-            terminal.WriteLine("2. Start new game (WARNING: Will overwrite save!)");
-            terminal.WriteLine("3. Back to main menu");
-            
-            var choice = await terminal.GetMenuChoice();
-            
-            switch (choice)
+
+            // Get all unique player names
+            var playerNames = SaveSystem.Instance.GetAllPlayerNames();
+
+            if (playerNames.Count == 0)
             {
-                case 0: // Continue
-                    await LoadExistingGame(playerName);
-                    break;
-                    
-                case 1: // New game
-                    terminal.WriteLine("");
-                    var confirm = await terminal.GetInput("Are you sure? This will delete your existing save! (yes/no): ");
-                    if (confirm.ToLower() == "yes")
+                // No saves exist - create new character
+                terminal.SetColor("yellow");
+                terminal.WriteLine("No saved games found.");
+                terminal.WriteLine("");
+                terminal.SetColor("white");
+                terminal.WriteLine("Let's create a new character!");
+                terminal.WriteLine("");
+
+                var playerName = await terminal.GetInput("Enter your real name (or player name): ");
+
+                if (string.IsNullOrWhiteSpace(playerName))
+                {
+                    terminal.WriteLine("Invalid name!", "red");
+                    await Task.Delay(2000);
+                    continue;
+                }
+
+                await CreateNewGame(playerName);
+                return;
+            }
+
+            // Show existing save slots
+            terminal.SetColor("bright_green");
+            terminal.WriteLine("Existing Save Slots:");
+            terminal.WriteLine("");
+
+            for (int i = 0; i < playerNames.Count; i++)
+            {
+                var playerName = playerNames[i];
+                var mostRecentSave = SaveSystem.Instance.GetMostRecentSave(playerName);
+
+                if (mostRecentSave != null)
+                {
+                    terminal.SetColor("darkgray");
+                    terminal.Write($"[");
+                    terminal.SetColor("bright_cyan");
+                    terminal.Write($"{i + 1}");
+                    terminal.SetColor("darkgray");
+                    terminal.Write("] ");
+                    terminal.SetColor("white");
+                    terminal.Write($"{mostRecentSave.PlayerName}");
+                    terminal.SetColor("gray");
+                    terminal.Write($" - Level {mostRecentSave.Level}");
+                    terminal.SetColor("darkgray");
+                    terminal.Write(" | ");
+                    terminal.SetColor(mostRecentSave.IsAutosave ? "yellow" : "green");
+                    terminal.Write(mostRecentSave.SaveType);
+                    terminal.SetColor("darkgray");
+                    terminal.Write(" | ");
+                    terminal.SetColor("gray");
+                    terminal.WriteLine(mostRecentSave.SaveTime.ToString("yyyy-MM-dd HH:mm:ss"));
+                }
+            }
+
+            terminal.WriteLine("");
+            terminal.SetColor("darkgray");
+            terminal.Write("[");
+            terminal.SetColor("bright_green");
+            terminal.Write("N");
+            terminal.SetColor("darkgray");
+            terminal.Write("] ");
+            terminal.SetColor("green");
+            terminal.WriteLine("New Character");
+
+            terminal.SetColor("darkgray");
+            terminal.Write("[");
+            terminal.SetColor("bright_red");
+            terminal.Write("B");
+            terminal.SetColor("darkgray");
+            terminal.Write("] ");
+            terminal.SetColor("red");
+            terminal.WriteLine("Back to Main Menu");
+
+            terminal.WriteLine("");
+            terminal.SetColor("bright_white");
+            var choice = await terminal.GetInput("Select save slot or option: ");
+
+            // Handle numeric selection
+            if (int.TryParse(choice, out int slotNumber) && slotNumber > 0 && slotNumber <= playerNames.Count)
+            {
+                var selectedPlayer = playerNames[slotNumber - 1];
+                await ShowSaveSlotMenu(selectedPlayer);
+                return;
+            }
+
+            // Handle letter commands
+            switch (choice.ToUpper())
+            {
+                case "N":
+                    var newName = await terminal.GetInput("Enter new character name: ");
+                    if (!string.IsNullOrWhiteSpace(newName))
                     {
-                        SaveSystem.Instance.DeleteSave(playerName);
-                        await CreateNewGame(playerName);
+                        if (playerNames.Contains(newName))
+                        {
+                            terminal.WriteLine("That name already exists! Choose a different name.", "red");
+                            await Task.Delay(2000);
+                        }
+                        else
+                        {
+                            await CreateNewGame(newName);
+                            return;
+                        }
                     }
                     break;
-                    
-                case 2: // Back
+
+                case "B":
                     return;
+
+                default:
+                    terminal.WriteLine("Invalid choice!", "red");
+                    await Task.Delay(1500);
+                    break;
             }
+        }
+    }
+
+    /// <summary>
+    /// Show save slot menu for a specific player
+    /// </summary>
+    private async Task ShowSaveSlotMenu(string playerName)
+    {
+        while (true)
+        {
+            terminal.ClearScreen();
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine($"╔═══════════════════════════════════════════════════════════════════════════╗");
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine($"║                      SAVE SLOTS FOR: {playerName.PadRight(33)}║");
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine($"╚═══════════════════════════════════════════════════════════════════════════╝");
+            terminal.WriteLine("");
+
+            var saves = SaveSystem.Instance.GetPlayerSaves(playerName);
+
+            if (saves.Count == 0)
+            {
+                terminal.WriteLine("No saves found for this character.", "red");
+                await Task.Delay(2000);
+                return;
+            }
+
+            // Display all saves (autosaves and manual saves)
+            terminal.SetColor("bright_green");
+            terminal.WriteLine("Available Saves:");
+            terminal.WriteLine("");
+
+            for (int i = 0; i < saves.Count && i < 10; i++) // Show up to 10 saves
+            {
+                var save = saves[i];
+                terminal.SetColor("darkgray");
+                terminal.Write($"[");
+                terminal.SetColor("bright_cyan");
+                terminal.Write($"{i + 1}");
+                terminal.SetColor("darkgray");
+                terminal.Write("] ");
+
+                terminal.SetColor(save.IsAutosave ? "yellow" : "bright_green");
+                terminal.Write($"{save.SaveType.PadRight(12)}");
+
+                terminal.SetColor("gray");
+                terminal.Write($" - Day {save.CurrentDay}, Level {save.Level}, {save.TurnsRemaining} turns");
+
+                terminal.SetColor("darkgray");
+                terminal.Write(" | ");
+
+                terminal.SetColor("cyan");
+                terminal.WriteLine(save.SaveTime.ToString("yyyy-MM-dd HH:mm:ss"));
+            }
+
+            terminal.WriteLine("");
+            terminal.SetColor("darkgray");
+            terminal.Write("[");
+            terminal.SetColor("bright_red");
+            terminal.Write("D");
+            terminal.SetColor("darkgray");
+            terminal.Write("] ");
+            terminal.SetColor("red");
+            terminal.WriteLine("Delete this character (all saves)");
+
+            terminal.SetColor("darkgray");
+            terminal.Write("[");
+            terminal.SetColor("bright_red");
+            terminal.Write("B");
+            terminal.SetColor("darkgray");
+            terminal.Write("] ");
+            terminal.SetColor("red");
+            terminal.WriteLine("Back");
+
+            terminal.WriteLine("");
+            terminal.SetColor("bright_white");
+            var choice = await terminal.GetInput("Select save to load: ");
+
+            // Handle numeric selection
+            if (int.TryParse(choice, out int saveNumber) && saveNumber > 0 && saveNumber <= saves.Count)
+            {
+                var selectedSave = saves[saveNumber - 1];
+                await LoadSaveByFileName(selectedSave.FileName);
+                return;
+            }
+
+            // Handle letter commands
+            switch (choice.ToUpper())
+            {
+                case "D":
+                    terminal.WriteLine("");
+                    var confirm = await terminal.GetInput($"Delete ALL saves for '{playerName}'? Type 'DELETE' to confirm: ");
+                    if (confirm == "DELETE")
+                    {
+                        // Delete all saves for this player
+                        foreach (var save in saves)
+                        {
+                            var filePath = System.IO.Path.Combine(
+                                System.IO.Path.Combine(GetUserDataPath(), "saves"),
+                                save.FileName);
+                            try
+                            {
+                                System.IO.File.Delete(filePath);
+                            }
+                            catch (Exception ex)
+                            {
+                                GD.PrintErr($"Failed to delete {save.FileName}: {ex.Message}");
+                            }
+                        }
+                        terminal.WriteLine("All saves deleted.", "green");
+                        await Task.Delay(1500);
+                        return;
+                    }
+                    break;
+
+                case "B":
+                    return;
+
+                default:
+                    terminal.WriteLine("Invalid choice!", "red");
+                    await Task.Delay(1500);
+                    break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Load game by filename
+    /// </summary>
+    private async Task LoadSaveByFileName(string fileName)
+    {
+        try
+        {
+            terminal.WriteLine("Loading save...", "yellow");
+
+            var saveData = await SaveSystem.Instance.LoadSaveByFileName(fileName);
+            if (saveData == null)
+            {
+                terminal.WriteLine("Failed to load save file!", "red");
+                terminal.WriteLine("The save file may be corrupted or invalid.", "yellow");
+                await Task.Delay(3000);
+                return;
+            }
+
+            // Validate save data
+            if (saveData.Player == null)
+            {
+                terminal.WriteLine("Save file is missing player data!", "red");
+                await Task.Delay(3000);
+                return;
+            }
+
+            terminal.WriteLine($"Restoring {saveData.Player.Name2 ?? saveData.Player.Name1}...", "green");
+            await Task.Delay(500);
+
+            // Restore player from save data
+            currentPlayer = RestorePlayerFromSaveData(saveData.Player);
+
+            if (currentPlayer == null)
+            {
+                terminal.WriteLine("Failed to restore player data!", "red");
+                await Task.Delay(3000);
+                return;
+            }
+
+            // Load daily system state
+            if (dailyManager != null)
+            {
+                dailyManager.LoadFromSaveData(saveData);
+            }
+
+            // Restore world state
+            await RestoreWorldState(saveData.WorldState);
+
+            // Restore NPCs
+            await RestoreNPCs(saveData.NPCs);
+
+            terminal.WriteLine("Save loaded successfully!", "bright_green");
+            await Task.Delay(1000);
+
+            // Start game at saved location
+            await locationManager.EnterLocation(GameLocation.MainStreet, currentPlayer);
+        }
+        catch (Exception ex)
+        {
+            terminal.WriteLine($"Error loading save: {ex.Message}", "red");
+            GD.PrintErr($"Failed to load save {fileName}: {ex}");
+            await Task.Delay(3000);
+        }
+    }
+
+    /// <summary>
+    /// Get user data path (cross-platform)
+    /// </summary>
+    private string GetUserDataPath()
+    {
+        var appName = "UsurperReloaded";
+
+        if (System.Environment.OSVersion.Platform == PlatformID.Win32NT)
+        {
+            return System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData), appName);
+        }
+        else if (System.Environment.OSVersion.Platform == PlatformID.Unix)
+        {
+            var home = System.Environment.GetEnvironmentVariable("HOME");
+            return System.IO.Path.Combine(home ?? "/tmp", ".local", "share", appName);
         }
         else
         {
-            // No existing save, create new game
-            await CreateNewGame(playerName);
+            var home = System.Environment.GetEnvironmentVariable("HOME");
+            return System.IO.Path.Combine(home ?? "/tmp", "Library", "Application Support", appName);
         }
     }
     
@@ -373,7 +746,10 @@ public partial class GameEngine : Node
     private async Task EnterGameWorld()
     {
         if (currentPlayer == null) return;
-        
+
+        // Initialize NPCs on first game start
+        await NPCSpawnSystem.Instance.InitializeClassicNPCs();
+
         // Check if player is allowed to play
         if (!currentPlayer.Allowed)
         {
@@ -381,7 +757,7 @@ public partial class GameEngine : Node
             await Task.Delay(2000);
             return;
         }
-        
+
         // Check daily limits (but not in endless mode)
         if (dailyManager.CurrentMode != DailyCycleMode.Endless && !await CheckDailyLimits())
         {
@@ -389,21 +765,21 @@ public partial class GameEngine : Node
             await Task.Delay(2000);
             return;
         }
-        
+
         // Check if player is in prison
         if (currentPlayer.DaysInPrison > 0)
         {
             await HandlePrison();
             return;
         }
-        
+
         // Check if player is dead
         if (!currentPlayer.IsAlive)
         {
             await HandleDeath();
             return;
         }
-        
+
         // Enter main game using location system
         await locationManager.EnterLocation(GameLocation.MainStreet, currentPlayer);
     }
@@ -432,9 +808,16 @@ public partial class GameEngine : Node
             Charisma = playerData.Charisma,
             Dexterity = playerData.Dexterity,
             Wisdom = playerData.Wisdom,
+            Intelligence = playerData.Intelligence,
+            Constitution = playerData.Constitution,
             Mana = playerData.Mana,
             MaxMana = playerData.MaxMana,
-            
+
+            // Equipment and items (CRITICAL FIXES)
+            Healing = playerData.Healing,     // POTIONS
+            WeapPow = playerData.WeapPow,     // WEAPON POWER
+            ArmPow = playerData.ArmPow,       // ARMOR POWER
+
             // Character details
             Race = playerData.Race,
             Class = playerData.Class,
@@ -458,14 +841,51 @@ public partial class GameEngine : Node
             Darkness = playerData.Darkness,
             Mental = playerData.Mental,
             Poison = playerData.Poison,
-            
-            // Social
+            GnollP = playerData.GnollP,
+            Addict = playerData.Addict,
+            Mercy = playerData.Mercy,
+
+            // Disease status
+            Blind = playerData.Blind,
+            Plague = playerData.Plague,
+            Smallpox = playerData.Smallpox,
+            Measles = playerData.Measles,
+            Leprosy = playerData.Leprosy,
+
+            // Character settings
+            AutoHeal = playerData.AutoHeal,
+            Loyalty = playerData.Loyalty,
+            Haunt = playerData.Haunt,
+            Master = playerData.Master,
+            WellWish = playerData.WellWish,
+
+            // Physical appearance
+            Height = playerData.Height,
+            Weight = playerData.Weight,
+            Eyes = playerData.Eyes,
+            Hair = playerData.Hair,
+            Skin = playerData.Skin,
+
+            // Social/Team
             Team = playerData.Team,
             TeamPW = playerData.TeamPassword,
             CTurf = playerData.IsTeamLeader,
-            
+            TeamRec = playerData.TeamRec,
+            BGuard = playerData.BGuard,
+
             Allowed = true // Always allow loaded players
         };
+
+        // Restore character flavor text
+        if (playerData.Phrases?.Count > 0)
+        {
+            player.Phrases = playerData.Phrases;
+        }
+
+        if (playerData.Description?.Count > 0)
+        {
+            player.Description = playerData.Description;
+        }
         
         // Restore items
         if (playerData.Items?.Length > 0)
@@ -853,7 +1273,11 @@ public partial class GameEngine : Node
     
     // Placeholder initialization methods
     private void ReadStartCfgValues() { /* Load config from file */ }
-    private void InitializeItems() { /* Load items from data */ }
+    private void InitializeItems()
+    {
+        // Initialize items using ItemManager
+        ItemManager.InitializeItems();
+    }
     private void InitializeMonsters() { /* Load monsters from data */ }
     private void InitializeNPCs()
     {
