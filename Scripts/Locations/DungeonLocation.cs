@@ -44,7 +44,10 @@ public class DungeonLocation : BaseLocation
     protected override void DisplayLocation()
     {
         terminal.ClearScreen();
-        
+
+        // Breadcrumb navigation
+        ShowBreadcrumb();
+
         // ASCII art header
         terminal.SetColor("red");
         terminal.WriteLine("╔═══════════════════════════════════════════════════╗");
@@ -72,19 +75,112 @@ public class DungeonLocation : BaseLocation
         
         terminal.WriteLine(descriptions[dungeonRandom.Next(descriptions.Length)]);
         terminal.WriteLine("");
-        
+
         ShowDungeonMenu();
     }
-    
+
+    protected override string GetBreadcrumbPath()
+    {
+        return $"Main Street → Dungeons → Level {currentDungeonLevel}";
+    }
+
     private void ShowDungeonMenu()
     {
+        // Row 1 - Exploration actions
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("E");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
         terminal.SetColor("white");
-        terminal.WriteLine("(E)xplore Level     (D)escend Deeper    (A)scend to Surface");
-        terminal.WriteLine("(I)ncrease Difficulty( +10 )            ");
-        terminal.WriteLine("(T)eam Management   (S)tatus            (R)est");
-        terminal.WriteLine("(M)ap of Area       (Q)uit to Town      (?) Help");
+        terminal.Write("xplore Level     ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_magenta");
+        terminal.Write("D");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("escend Deeper    ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_green");
+        terminal.Write("A");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("scend to Surface");
+
+        // Row 2 - Difficulty increase
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_red");
+        terminal.Write("I");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("ncrease Difficulty (+10)");
+
+        // Row 3 - Team and status
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_cyan");
+        terminal.Write("T");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("eam Management   ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("cyan");
+        terminal.Write("S");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("tatus            ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("green");
+        terminal.Write("P");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("otions (Monk)");
+
+        // Row 4 - Map and exit
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_cyan");
+        terminal.Write("M");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("ap of Area       ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_red");
+        terminal.Write("Q");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("red");
+        terminal.Write("uit to Town      ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("yellow");
+        terminal.Write("?");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine(" Help");
         terminal.WriteLine("");
-        
+
         // Show team members
         if (teammates.Count > 0)
         {
@@ -98,7 +194,7 @@ public class DungeonLocation : BaseLocation
             }
             terminal.WriteLine("");
         }
-        
+
         // Level warning
         if (currentDungeonLevel > GetCurrentPlayer().Level + 5)
         {
@@ -106,6 +202,9 @@ public class DungeonLocation : BaseLocation
             terminal.WriteLine("⚠ WARNING: This level is extremely dangerous for your level!");
             terminal.WriteLine("");
         }
+
+        // Show quick command bar
+        ShowQuickCommandBar();
     }
     
     protected override async Task<bool> ProcessChoice(string choice)
@@ -136,9 +235,9 @@ public class DungeonLocation : BaseLocation
             case "S":
                 await ShowDungeonStatus();
                 return false;
-                
-            case "R":
-                await RestInDungeon();
+
+            case "P":
+                await VisitMonk();
                 return false;
                 
             case "M":
@@ -170,26 +269,20 @@ public class DungeonLocation : BaseLocation
     private async Task ExploreLevel()
     {
         var currentPlayer = GetCurrentPlayer();
-        
-        // Check if player has fights left
-        if (currentPlayer.Fights <= 0)
-        {
-            terminal.WriteLine("You have no dungeon fights left today!", "red");
-            await Task.Delay(2000);
-            return;
-        }
-        
+
+        // No turn/fight limits in the new persistent system - explore freely!
+
         terminal.ClearScreen();
         terminal.SetColor("yellow");
         terminal.WriteLine("═══ EXPLORING ═══");
         terminal.WriteLine("");
-        
+
         // Atmospheric exploration text
         await ShowExplorationText();
-        
+
         // Determine encounter type (Pascal-compatible)
         var encounterRoll = dungeonRandom.NextDouble();
-        
+
         if (encounterRoll < MonsterEncounterChance)
         {
             await MonsterEncounter();
@@ -206,10 +299,7 @@ public class DungeonLocation : BaseLocation
         {
             await EmptyRoomEncounter();
         }
-        
-        // Use up one fight
-        currentPlayer.Fights--;
-        
+
         await Task.Delay(1000);
         await terminal.PressAnyKey();
     }
@@ -222,18 +312,48 @@ public class DungeonLocation : BaseLocation
         terminal.SetColor("red");
         terminal.WriteLine("▼ MONSTER ENCOUNTER ▼");
         terminal.WriteLine("");
-        
-        // Create monster based on terrain and level (Pascal-compatible)
-        var monster = CreateDungeonMonster(true); // Leader monster
-        
-        terminal.WriteLine($"A {monster.Name} appears!");
-        await Task.Delay(2000);
-        
-        // Combat using our combat engine
+
+        // Use new MonsterGenerator to create level-appropriate monsters
+        var monsters = MonsterGenerator.GenerateMonsterGroup(currentDungeonLevel, dungeonRandom);
+
         var combatEngine = new CombatEngine(terminal);
-        var result = await combatEngine.PlayerVsMonster(GetCurrentPlayer(), monster, teammates);
-        
-        // (Monster level already tagged on creation)
+
+        // Display encounter message with color
+        if (monsters.Count == 1)
+        {
+            var monster = monsters[0];
+            if (monster.IsBoss)
+            {
+                terminal.SetColor("bright_red");
+                terminal.WriteLine($"⚠ A powerful [{monster.MonsterColor}]{monster.Name}[/] blocks your path! ⚠");
+            }
+            else
+            {
+                terminal.SetColor(monster.MonsterColor);
+                terminal.WriteLine($"A [{monster.MonsterColor}]{monster.Name}[/] appears!");
+            }
+        }
+        else
+        {
+            terminal.SetColor("yellow");
+            terminal.Write($"You encounter a group of [{monsters[0].MonsterColor}]{monsters.Count} {monsters[0].Name}");
+            if (monsters[0].FamilyName != "")
+            {
+                terminal.Write($"[/] from the {monsters[0].FamilyName} family!");
+            }
+            else
+            {
+                terminal.Write("[/]!");
+            }
+            terminal.WriteLine("");
+        }
+
+        terminal.WriteLine("");
+        await Task.Delay(2000);
+
+        // Use new PlayerVsMonsters method - ALL monsters fight at once!
+        // Monk will appear after ALL monsters are defeated
+        await combatEngine.PlayerVsMonsters(GetCurrentPlayer(), monsters, teammates, offerMonkEncounter: true);
     }
     
     /// <summary>
@@ -406,8 +526,8 @@ public class DungeonLocation : BaseLocation
     /// </summary>
     private async Task SpecialEventEncounter()
     {
-        var eventType = dungeonRandom.Next(3);
-        
+        var eventType = dungeonRandom.Next(4);
+
         switch (eventType)
         {
             case 0:
@@ -419,7 +539,63 @@ public class DungeonLocation : BaseLocation
             case 2:
                 await BeggarEncounter();
                 break;
+            case 3:
+                await PotionCacheEncounter();
+                break;
         }
+    }
+
+    /// <summary>
+    /// Potion cache encounter - find random potions
+    /// </summary>
+    private async Task PotionCacheEncounter()
+    {
+        terminal.SetColor("bright_green");
+        terminal.WriteLine("✚ POTION CACHE ✚");
+        terminal.WriteLine("");
+
+        var currentPlayer = GetCurrentPlayer();
+
+        // Random potion messages
+        string[] messages = new[]
+        {
+            "You discover an abandoned healer's satchel!",
+            "A fallen adventurer's pack contains healing supplies!",
+            "You find a monk's abandoned cache of potions!",
+            "A hidden alcove reveals a stash of healing elixirs!",
+            "The corpse of a cleric clutches a bag of potions!"
+        };
+
+        terminal.WriteLine(messages[dungeonRandom.Next(messages.Length)], "cyan");
+        terminal.WriteLine("");
+
+        // Give 1-5 potions, but don't exceed max
+        int potionsFound = dungeonRandom.Next(1, 6);
+        int currentPotions = (int)currentPlayer.Healing;
+        int maxPotions = currentPlayer.MaxPotions;
+        int roomAvailable = maxPotions - currentPotions;
+
+        if (roomAvailable <= 0)
+        {
+            terminal.WriteLine("You already have the maximum number of potions!", "yellow");
+            terminal.WriteLine("You leave the potions for another adventurer.", "gray");
+        }
+        else
+        {
+            int actualGained = Math.Min(potionsFound, roomAvailable);
+            currentPlayer.Healing += actualGained;
+
+            terminal.SetColor("green");
+            terminal.WriteLine($"You collect {actualGained} healing potion{(actualGained > 1 ? "s" : "")}!");
+            terminal.WriteLine($"Potions: {currentPlayer.Healing}/{currentPlayer.MaxPotions}", "cyan");
+
+            if (actualGained < potionsFound)
+            {
+                terminal.WriteLine($"(You had to leave {potionsFound - actualGained} potion{(potionsFound - actualGained > 1 ? "s" : "")} behind - at maximum capacity)", "gray");
+            }
+        }
+
+        await Task.Delay(2500);
     }
     
     /// <summary>
@@ -577,13 +753,15 @@ public class DungeonLocation : BaseLocation
         // Smooth scaling factors – tuned for balanced difficulty curve
         float scaleFactor = 1f + (currentDungeonLevel / 20f); // every 20 levels → +100 %
 
-        long hp = (long)(currentDungeonLevel * 4 * scaleFactor); // survivability
-        if (isLeader) hp = (long)(hp * 1.5f);
+        // Regular monsters are weaker, bosses are tougher (like the original game)
+        float monsterMultiplier = isLeader ? 1.8f : 0.6f; // Regular monsters are 60% strength, bosses are 180%
 
-        int strength = (int)(currentDungeonLevel * 1.5f * scaleFactor); // base damage
-        int punch    = (int)(currentDungeonLevel * 1.2f * scaleFactor); // natural attacks
-        int weapPow  = (int)(currentDungeonLevel * 0.9f * scaleFactor); // weapon bonus
-        int armPow   = (int)(currentDungeonLevel * 0.9f * scaleFactor); // defense bonus
+        long hp = (long)(currentDungeonLevel * 4 * scaleFactor * monsterMultiplier); // survivability
+
+        int strength = (int)(currentDungeonLevel * 1.5f * scaleFactor * monsterMultiplier); // base damage
+        int punch    = (int)(currentDungeonLevel * 1.2f * scaleFactor * monsterMultiplier); // natural attacks
+        int weapPow  = (int)(currentDungeonLevel * 0.9f * scaleFactor * monsterMultiplier); // weapon bonus
+        int armPow   = (int)(currentDungeonLevel * 0.9f * scaleFactor * monsterMultiplier); // defense bonus
 
         var monster = Monster.CreateMonster(
             nr: currentDungeonLevel,
@@ -746,12 +924,11 @@ public class DungeonLocation : BaseLocation
         await ShowStatus();
     }
     
-    private async Task RestInDungeon()
+    private async Task VisitMonk()
     {
-        terminal.WriteLine("You rest in a safe alcove and recover some health.", "green");
         var player = GetCurrentPlayer();
-        player.HP = Math.Min(player.MaxHP, player.HP + 10);
-        await Task.Delay(2000);
+        var combatEngine = new CombatEngine(terminal);
+        await combatEngine.OfferMonkPotionPurchase(player);
     }
     
     private async Task ShowDungeonMap()
@@ -773,12 +950,12 @@ public class DungeonLocation : BaseLocation
         terminal.WriteLine("============");
         terminal.WriteLine("");
         terminal.SetColor("white");
-        terminal.WriteLine("E - Explore the current level (uses 1 dungeon fight)");
+        terminal.WriteLine("E - Explore the current level");
         terminal.WriteLine("D - Descend to a deeper, more dangerous level");
         terminal.WriteLine("A - Ascend to a safer level or return to town");
         terminal.WriteLine("T - Manage your team members");
         terminal.WriteLine("S - View your character status");
-        terminal.WriteLine("R - Rest to recover health");
+        terminal.WriteLine("P - Buy potions from the wandering monk");
         terminal.WriteLine("M - View the dungeon map");
         terminal.WriteLine("Q - Quit and return to town");
         terminal.WriteLine("");

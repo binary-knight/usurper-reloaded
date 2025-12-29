@@ -119,22 +119,135 @@ public class InnLocation : BaseLocation
         terminal.SetColor("yellow");
         terminal.WriteLine("Inn Activities:");
         terminal.WriteLine("");
-        
+
+        // Row 1
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("D");
+        terminal.SetColor("darkgray");
+        terminal.Write("] ");
         terminal.SetColor("white");
-        terminal.WriteLine("(D) Buy a drink (5 gold)      (T) Talk to patrons");
-        terminal.WriteLine("(F) Challenge Seth Able       (G) Play drinking game");
-        terminal.WriteLine("(R) Listen to rumors          (B) Check bulletin board");
-        terminal.WriteLine("(E) Rest at table             (O) Order food (10 gold)");
+        terminal.Write("Buy a drink (5 gold)      ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_cyan");
+        terminal.Write("T");
+        terminal.SetColor("darkgray");
+        terminal.Write("] ");
+        terminal.SetColor("white");
+        terminal.WriteLine("Talk to patrons");
+
+        // Row 2
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_red");
+        terminal.Write("F");
+        terminal.SetColor("darkgray");
+        terminal.Write("] ");
+        terminal.SetColor("white");
+        terminal.Write("Challenge Seth Able       ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_magenta");
+        terminal.Write("G");
+        terminal.SetColor("darkgray");
+        terminal.Write("] ");
+        terminal.SetColor("white");
+        terminal.WriteLine("Play drinking game");
+
+        // Row 3
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("cyan");
+        terminal.Write("R");
+        terminal.SetColor("darkgray");
+        terminal.Write("] ");
+        terminal.SetColor("white");
+        terminal.Write("Listen to rumors          ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("yellow");
+        terminal.Write("B");
+        terminal.SetColor("darkgray");
+        terminal.Write("] ");
+        terminal.SetColor("white");
+        terminal.WriteLine("Check bulletin board");
+
+        // Row 4
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("green");
+        terminal.Write("E");
+        terminal.SetColor("darkgray");
+        terminal.Write("] ");
+        terminal.SetColor("white");
+        terminal.Write("Rest at table             ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_green");
+        terminal.Write("O");
+        terminal.SetColor("darkgray");
+        terminal.Write("] ");
+        terminal.SetColor("white");
+        terminal.WriteLine("Order food (10 gold)");
         terminal.WriteLine("");
-        
+
         terminal.SetColor("cyan");
         terminal.WriteLine("Special Areas:");
-        terminal.WriteLine("(C) Team Corner              (H) Hall of Recruitment");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_cyan");
+        terminal.Write("C");
+        terminal.SetColor("darkgray");
+        terminal.Write("] ");
+        terminal.SetColor("white");
+        terminal.Write("Team Corner              ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("magenta");
+        terminal.Write("H");
+        terminal.SetColor("darkgray");
+        terminal.Write("] ");
+        terminal.SetColor("white");
+        terminal.WriteLine("Hall of Recruitment");
         terminal.WriteLine("");
-        
+
         terminal.SetColor("yellow");
         terminal.WriteLine("Navigation:");
-        terminal.WriteLine("(M) Return to Main Street    (S) Status    (?) Help");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_red");
+        terminal.Write("M");
+        terminal.SetColor("darkgray");
+        terminal.Write("] ");
+        terminal.SetColor("red");
+        terminal.Write("Return to Main Street    ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("cyan");
+        terminal.Write("S");
+        terminal.SetColor("darkgray");
+        terminal.Write("] ");
+        terminal.SetColor("white");
+        terminal.Write("Status    ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("yellow");
+        terminal.Write("?");
+        terminal.SetColor("darkgray");
+        terminal.Write("] ");
+        terminal.SetColor("white");
+        terminal.WriteLine("Help");
         terminal.WriteLine("");
     }
     

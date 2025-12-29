@@ -178,18 +178,19 @@ public static class SpellSystem
     public static List<SpellInfo> GetAvailableSpells(Character character)
     {
         var availableSpells = new List<SpellInfo>();
-        
+
         if (!SpellBook.TryGetValue(character.Class, out var classSpells))
             return availableSpells;
-            
+
         foreach (var spell in classSpells.Values)
         {
-            if (character.Level >= GetLevelRequired(character.Class, spell.Level))
+            // Use the actual LevelRequired from the spell definition, not the generic formula
+            if (character.Level >= spell.LevelRequired)
             {
                 availableSpells.Add(spell);
             }
         }
-        
+
         return availableSpells;
     }
     

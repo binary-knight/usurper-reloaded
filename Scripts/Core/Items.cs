@@ -1,3 +1,4 @@
+using System.Linq;
 using UsurperRemake.Utils;
 using Godot;
 using System;
@@ -356,34 +357,88 @@ public static class ItemManager
     
     /// <summary>
     /// Initialize classic armor from Pascal armor array
+    /// Extended to 50 armors for comprehensive progression
     /// </summary>
     private static void InitializeClassicArmor()
     {
-        // From Pascal INIT.PAS armor initialization
+        // Expanded armor list from basic to legendary (50 total)
         var armor = new (string name, long value, long power)[]
         {
+            // Basic armors (AC 0-5)
             ("Skin", 0, 0),
-            ("Leather Armor", 50, 2),
-            ("Studded Leather", 100, 3),
-            ("Ring Mail", 200, 4),
-            ("Scale Mail", 400, 5),
-            ("Chain Mail", 800, 6),
-            ("Splint Mail", 1500, 7),
-            ("Banded Mail", 3000, 8),
-            ("Plate Mail", 5000, 9),
-            ("Field Plate", 8000, 10),
-            ("Full Plate", 12000, 11),
-            ("Plate of Honor", 18000, 12),
-            ("Holy Plate", 25000, 13),
-            ("Demon Plate", 35000, 14),
-            ("Dragon Scale", 50000, 15),
-            ("Celestial Armor", 75000, 16),
-            ("Divine Protection", 100000, 17)
+            ("Cloth Rags", 25, 1),
+            ("Padded Cloth", 50, 2),
+            ("Leather Tunic", 100, 3),
+            ("Hardened Leather", 200, 4),
+            ("Studded Leather", 400, 5),
+
+            // Light mail (AC 6-10)
+            ("Ring Mail", 750, 6),
+            ("Scale Mail", 1200, 7),
+            ("Chain Shirt", 2000, 8),
+            ("Chain Mail", 3200, 9),
+            ("Reinforced Chain", 5000, 10),
+
+            // Medium armor (AC 11-15)
+            ("Splint Mail", 7500, 11),
+            ("Banded Mail", 11000, 12),
+            ("Bronze Plate", 16000, 13),
+            ("Steel Plate", 22000, 14),
+            ("Plate Mail", 30000, 15),
+
+            // Heavy armor (AC 16-20)
+            ("Field Plate", 40000, 16),
+            ("Full Plate", 52000, 17),
+            ("Master Plate", 66000, 18),
+            ("Knight's Plate", 82000, 19),
+            ("Royal Plate", 100000, 20),
+
+            // Enchanted armor (AC 21-25)
+            ("Plate of Valor", 125000, 21),
+            ("Blessed Plate", 155000, 22),
+            ("Plate of Honor", 190000, 23),
+            ("Sacred Plate", 230000, 24),
+            ("Holy Plate", 275000, 25),
+
+            // Dark armors (AC 26-30)
+            ("Shadow Plate", 330000, 26),
+            ("Demon Plate", 390000, 27),
+            ("Cursed Plate", 460000, 28),
+            ("Infernal Plate", 540000, 29),
+            ("Abyssal Armor", 630000, 30),
+
+            // Dragon armors (AC 31-35)
+            ("Dragon Scale", 730000, 31),
+            ("Wyrm Scale", 840000, 32),
+            ("Ancient Dragon Hide", 960000, 33),
+            ("Great Wyrm Armor", 1100000, 34),
+            ("Elder Dragon Plate", 1250000, 35),
+
+            // Celestial armors (AC 36-40)
+            ("Celestial Armor", 1420000, 36),
+            ("Heavenly Plate", 1600000, 37),
+            ("Angelic Armor", 1800000, 38),
+            ("Seraphim Plate", 2050000, 39),
+            ("Divine Protection", 2300000, 40),
+
+            // Legendary armors (AC 41-45)
+            ("Titan Armor", 2600000, 41),
+            ("Godforged Plate", 2950000, 42),
+            ("Eternal Guardian", 3350000, 43),
+            ("Mythril Armor", 3800000, 44),
+            ("Adamantine Plate", 4300000, 45),
+
+            // Ultimate armors (AC 46-50)
+            ("Supreme Protection", 4900000, 46),
+            ("Armor of the Ancients", 5600000, 47),
+            ("Immortal's Shell", 6400000, 48),
+            ("Armor of Eternity", 7300000, 49),
+            ("Ultimate Defense", 8500000, 50)
         };
-        
+
         for (int i = 0; i < armor.Length; i++)
         {
-            classicArmor[i] = new ClassicArmor(armor[i].name, armor[i].value, armor[i].power);
+            classicArmor[i + 1] = new ClassicArmor(armor[i].name, armor[i].value, armor[i].power);
         }
     }
     

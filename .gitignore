@@ -27,8 +27,21 @@ bin/
 obj/
 [Dd]ebug/
 [Rr]elease/
+build/
+publish/
 
 # User saves and logs
 saves/
 logs/
-*.log 
+*.log
+
+# Exported game builds
+*.exe
+*.pck
+*.zip
+*.dmg
+*.app/
+
+# Exclude publish artifacts
+**/publish/
+**/build/ 

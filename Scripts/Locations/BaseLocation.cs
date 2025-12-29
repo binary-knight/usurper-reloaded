@@ -1,4 +1,5 @@
 using UsurperRemake.Utils;
+using UsurperRemake.Systems;
 using Godot;
 using System;
 using System.Collections.Generic;
@@ -60,17 +61,49 @@ public abstract class BaseLocation
     protected virtual async Task LocationLoop()
     {
         bool exitLocation = false;
-        
-        while (!exitLocation && currentPlayer.IsAlive && currentPlayer.TurnsLeft > 0)
+
+        while (!exitLocation && currentPlayer.IsAlive) // No turn limit - continuous gameplay
         {
+            // Autosave BEFORE displaying location (save stable state)
+            // This ensures we don't save during quit/exit actions
+            if (currentPlayer != null)
+            {
+                await SaveSystem.Instance.AutoSave(currentPlayer);
+            }
+
             // Display location
             DisplayLocation();
-            
+
             // Get user choice
             var choice = await GetUserChoice();
-            
+
             // Process choice
             exitLocation = await ProcessChoice(choice);
+
+            // Increment turn count (drives world simulation)
+            if (currentPlayer != null && !string.IsNullOrWhiteSpace(choice))
+            {
+                currentPlayer.TurnCount++;
+
+                // Run world simulation every 5 turns
+                if (currentPlayer.TurnCount % 5 == 0)
+                {
+                    await RunWorldSimulationTick();
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Run a tick of world simulation (NPCs act, world events, etc.)
+    /// </summary>
+    private async Task RunWorldSimulationTick()
+    {
+        // Run game engine's periodic update for world simulation
+        var gameEngine = GameEngine.Instance;
+        if (gameEngine != null)
+        {
+            await gameEngine.PeriodicUpdate();
         }
     }
     
@@ -80,7 +113,10 @@ public abstract class BaseLocation
     protected virtual void DisplayLocation()
     {
         terminal.ClearScreen();
-        
+
+        // Breadcrumb navigation
+        ShowBreadcrumb();
+
         // Location header
         terminal.SetColor("bright_yellow");
         terminal.WriteLine(Name);
@@ -167,18 +203,150 @@ public abstract class BaseLocation
     }
     
     /// <summary>
+    /// Show breadcrumb navigation at top of screen
+    /// </summary>
+    protected virtual void ShowBreadcrumb()
+    {
+        terminal.SetColor("gray");
+        terminal.Write("Location: ");
+        terminal.SetColor("bright_cyan");
+
+        // Build breadcrumb path based on current location
+        string breadcrumb = GetBreadcrumbPath();
+        terminal.WriteLine(breadcrumb);
+        terminal.WriteLine("");
+    }
+
+    /// <summary>
+    /// Get breadcrumb path for current location
+    /// </summary>
+    protected virtual string GetBreadcrumbPath()
+    {
+        // Default: just show location name
+        // Subclasses can override for more complex paths (e.g., "Main Street → Dungeons → Level 3")
+        switch (LocationId)
+        {
+            case GameLocation.MainStreet:
+                return "Main Street";
+            case GameLocation.Home:
+                return "Anchor Road → Your Home";
+            case GameLocation.AnchorRoad:
+                return "Main Street → Anchor Road";
+            case GameLocation.WeaponShop:
+                return "Main Street → Weapon Shop";
+            case GameLocation.ArmorShop:
+                return "Main Street → Armor Shop";
+            case GameLocation.MagicShop:
+                return "Main Street → Magic Shop";
+            case GameLocation.TheInn:
+                return "Main Street → The Inn";
+            case GameLocation.DarkAlley:
+                return "Main Street → Dark Alley";
+            case GameLocation.Church:
+                return "Main Street → Church";
+            case GameLocation.Bank:
+                return "Main Street → Bank";
+            case GameLocation.Castle:
+                return "Main Street → Royal Castle";
+            case GameLocation.Prison:
+                return "Anchor Road → Outside Prison";
+            default:
+                return Name ?? "Unknown";
+        }
+    }
+
+    /// <summary>
     /// Show status line at bottom
     /// </summary>
     protected virtual void ShowStatusLine()
     {
         terminal.SetColor("gray");
-        terminal.WriteLine($"HP: {currentPlayer.HP}/{currentPlayer.MaxHP} | " +
-                          $"Gold: {currentPlayer.Gold} | " +
-                          $"Level: {currentPlayer.Level} | " +
-                          $"Turns: {currentPlayer.TurnsLeft}");
+        terminal.Write("HP: ");
+        terminal.SetColor("red");
+        terminal.Write($"{currentPlayer.HP}");
+        terminal.SetColor("gray");
+        terminal.Write("/");
+        terminal.SetColor("red");
+        terminal.Write($"{currentPlayer.MaxHP}");
+
+        terminal.SetColor("gray");
+        terminal.Write(" | Gold: ");
+        terminal.SetColor("yellow");
+        terminal.Write($"{currentPlayer.Gold}");
+
+        if (currentPlayer.MaxMana > 0)
+        {
+            terminal.SetColor("gray");
+            terminal.Write(" | Mana: ");
+            terminal.SetColor("blue");
+            terminal.Write($"{currentPlayer.Mana}");
+            terminal.SetColor("gray");
+            terminal.Write("/");
+            terminal.SetColor("blue");
+            terminal.Write($"{currentPlayer.MaxMana}");
+        }
+
+        terminal.SetColor("gray");
+        terminal.Write(" | Level: ");
+        terminal.SetColor("cyan");
+        terminal.Write($"{currentPlayer.Level}");
+
+        terminal.SetColor("gray");
+        terminal.Write(" | Turn: ");
+        terminal.SetColor("white");
+        terminal.WriteLine($"{currentPlayer.TurnCount}");
+        terminal.WriteLine("");
+
+        // Quick command bar
+        ShowQuickCommandBar();
+    }
+
+    /// <summary>
+    /// Show quick command bar with common keyboard shortcuts
+    /// </summary>
+    protected virtual void ShowQuickCommandBar()
+    {
+        terminal.SetColor("darkgray");
+        terminal.Write("─────────────────────────────────────────────────────────────────────────────");
+        terminal.WriteLine("");
+
+        terminal.SetColor("gray");
+        terminal.Write("Quick Commands: ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("cyan");
+        terminal.Write("S");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("tatus  ");
+
+        if (LocationId != GameLocation.MainStreet)
+        {
+            terminal.SetColor("darkgray");
+            terminal.Write("[");
+            terminal.SetColor("cyan");
+            terminal.Write("Q");
+            terminal.SetColor("darkgray");
+            terminal.Write("]");
+            terminal.SetColor("white");
+            terminal.Write("uick Return  ");
+        }
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("cyan");
+        terminal.Write("?");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("Help");
+
+        terminal.WriteLine("");
         terminal.WriteLine("");
     }
-    
+
     /// <summary>
     /// Get user choice
     /// </summary>
@@ -235,11 +403,33 @@ public abstract class BaseLocation
                 }
                 break;
             default:
-                terminal.WriteLine("Invalid choice!", "red");
-                await Task.Delay(1000);
+                terminal.SetColor("red");
+                terminal.WriteLine($"Invalid choice: '{choice}'");
+                terminal.SetColor("gray");
+                terminal.Write("Try: ");
+                terminal.SetColor("cyan");
+                terminal.Write("[S]");
+                terminal.SetColor("gray");
+                terminal.Write("tatus");
+
+                if (LocationId != GameLocation.MainStreet)
+                {
+                    terminal.Write(", ");
+                    terminal.SetColor("cyan");
+                    terminal.Write("[Q]");
+                    terminal.SetColor("gray");
+                    terminal.Write("uick Return");
+                }
+
+                terminal.Write(", or ");
+                terminal.SetColor("cyan");
+                terminal.Write("[?]");
+                terminal.SetColor("gray");
+                terminal.WriteLine(" for help");
+                await Task.Delay(2000);
                 break;
         }
-        
+
         return false;
     }
     
@@ -266,31 +456,511 @@ public abstract class BaseLocation
     }
     
     /// <summary>
-    /// Show player status
+    /// Show player status - Comprehensive character information display
     /// </summary>
     protected virtual async Task ShowStatus()
     {
         terminal.ClearScreen();
+
+        // Header
         terminal.SetColor("bright_cyan");
-        terminal.WriteLine("Player Status");
-        terminal.WriteLine("=============");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║                           CHARACTER STATUS                                  ║");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
         terminal.WriteLine("");
-        
+
+        // Basic Info
+        terminal.SetColor("yellow");
+        terminal.WriteLine("═══ BASIC INFORMATION ═══");
         terminal.SetColor("white");
-        terminal.WriteLine($"Name: {currentPlayer.DisplayName}");
-        terminal.WriteLine($"Level: {currentPlayer.Level}");
-        terminal.WriteLine($"Class: {currentPlayer.Class}");
-        terminal.WriteLine($"Race: {currentPlayer.Race}");
-        terminal.WriteLine($"HP: {currentPlayer.HP}/{currentPlayer.MaxHP}");
-        terminal.WriteLine($"Experience: {currentPlayer.Experience}");
-        terminal.WriteLine($"Gold: {currentPlayer.Gold}");
-        terminal.WriteLine($"Bank: {currentPlayer.BankGold}");
-        terminal.WriteLine($"Strength: {currentPlayer.Strength}");
-        terminal.WriteLine($"Defence: {currentPlayer.Defence}");
-        terminal.WriteLine($"Turns Left: {currentPlayer.TurnsLeft}");
-        
+        terminal.Write("Name: ");
+        terminal.SetColor("bright_white");
+        terminal.WriteLine(currentPlayer.DisplayName);
+
+        terminal.SetColor("white");
+        terminal.Write("Class: ");
+        terminal.SetColor("bright_green");
+        terminal.Write($"{currentPlayer.Class}");
+        terminal.SetColor("white");
+        terminal.Write("  |  Race: ");
+        terminal.SetColor("bright_green");
+        terminal.Write($"{currentPlayer.Race}");
+        terminal.SetColor("white");
+        terminal.Write("  |  Sex: ");
+        terminal.SetColor("bright_green");
+        terminal.WriteLine($"{(currentPlayer.Sex == CharacterSex.Male ? "Male" : "Female")}");
+
+        terminal.SetColor("white");
+        terminal.Write("Age: ");
+        terminal.SetColor("cyan");
+        terminal.Write($"{currentPlayer.Age}");
+        terminal.SetColor("white");
+        terminal.Write("  |  Height: ");
+        terminal.SetColor("cyan");
+        terminal.Write($"{currentPlayer.Height}cm");
+        terminal.SetColor("white");
+        terminal.Write("  |  Weight: ");
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"{currentPlayer.Weight}kg");
+        terminal.WriteLine("");
+
+        // Level & Experience
+        terminal.SetColor("yellow");
+        terminal.WriteLine("═══ LEVEL & EXPERIENCE ═══");
+        terminal.SetColor("white");
+        terminal.Write("Current Level: ");
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine($"{currentPlayer.Level}");
+
+        terminal.SetColor("white");
+        terminal.Write("Experience: ");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine($"{currentPlayer.Experience:N0}");
+
+        // Calculate XP needed for next level
+        long nextLevelXP = GetExperienceForLevel(currentPlayer.Level + 1);
+        long xpNeeded = nextLevelXP - currentPlayer.Experience;
+
+        terminal.SetColor("white");
+        terminal.Write("XP to Next Level: ");
+        terminal.SetColor("bright_magenta");
+        terminal.Write($"{xpNeeded:N0}");
+        terminal.SetColor("gray");
+        terminal.WriteLine($" (Need {nextLevelXP:N0} total)");
+        terminal.WriteLine("");
+
+        // Combat Stats
+        terminal.SetColor("yellow");
+        terminal.WriteLine("═══ COMBAT STATISTICS ═══");
+        terminal.SetColor("white");
+        terminal.Write("HP: ");
+        terminal.SetColor("bright_red");
+        terminal.Write($"{currentPlayer.HP}");
+        terminal.SetColor("white");
+        terminal.Write("/");
+        terminal.SetColor("red");
+        terminal.WriteLine($"{currentPlayer.MaxHP}");
+
+        if (currentPlayer.MaxMana > 0)
+        {
+            terminal.SetColor("white");
+            terminal.Write("Mana: ");
+            terminal.SetColor("bright_blue");
+            terminal.Write($"{currentPlayer.Mana}");
+            terminal.SetColor("white");
+            terminal.Write("/");
+            terminal.SetColor("blue");
+            terminal.WriteLine($"{currentPlayer.MaxMana}");
+        }
+
+        terminal.SetColor("white");
+        terminal.Write("Strength: ");
+        terminal.SetColor("bright_green");
+        terminal.Write($"{currentPlayer.Strength}");
+        terminal.SetColor("white");
+        terminal.Write("  |  Defence: ");
+        terminal.SetColor("bright_green");
+        terminal.Write($"{currentPlayer.Defence}");
+        terminal.SetColor("white");
+        terminal.Write("  |  Agility: ");
+        terminal.SetColor("bright_green");
+        terminal.WriteLine($"{currentPlayer.Agility}");
+
+        terminal.SetColor("white");
+        terminal.Write("Dexterity: ");
+        terminal.SetColor("cyan");
+        terminal.Write($"{currentPlayer.Dexterity}");
+        terminal.SetColor("white");
+        terminal.Write("  |  Stamina: ");
+        terminal.SetColor("cyan");
+        terminal.Write($"{currentPlayer.Stamina}");
+        terminal.SetColor("white");
+        terminal.Write("  |  Wisdom: ");
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"{currentPlayer.Wisdom}");
+
+        terminal.SetColor("white");
+        terminal.Write("Intelligence: ");
+        terminal.SetColor("cyan");
+        terminal.Write($"{currentPlayer.Intelligence}");
+        terminal.SetColor("white");
+        terminal.Write("  |  Charisma: ");
+        terminal.SetColor("cyan");
+        terminal.Write($"{currentPlayer.Charisma}");
+        terminal.SetColor("white");
+        terminal.Write("  |  Constitution: ");
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"{currentPlayer.Constitution}");
+        terminal.WriteLine("");
+
+        // Pagination - Page 1 break
+        terminal.SetColor("gray");
+        terminal.Write("Press Space to continue...");
+        await terminal.GetInput("");
+        terminal.WriteLine("");
+
+        // Equipment
+        terminal.SetColor("yellow");
+        terminal.WriteLine("═══ EQUIPMENT ═══");
+
+        // Weapon
+        terminal.SetColor("white");
+        terminal.Write("Weapon: ");
+        if (currentPlayer.Weapon > 0)
+        {
+            var weapon = ItemManager.GetClassicWeapon(currentPlayer.Weapon);
+            if (weapon != null)
+            {
+                terminal.SetColor("bright_yellow");
+                terminal.Write($"{weapon.Name}");
+                terminal.SetColor("white");
+                terminal.Write(" (Power: ");
+                terminal.SetColor("yellow");
+                terminal.Write($"{weapon.Power}");
+                terminal.SetColor("white");
+                terminal.WriteLine(")");
+            }
+            else
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine($"Unknown weapon #{currentPlayer.Weapon}");
+            }
+        }
+        else
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("None (Bare Hands)");
+        }
+
+        // Armor
+        terminal.SetColor("white");
+        terminal.Write("Armor: ");
+        if (currentPlayer.Armor > 0)
+        {
+            var armor = ItemManager.GetClassicArmor(currentPlayer.Armor);
+            if (armor != null)
+            {
+                terminal.SetColor("bright_cyan");
+                terminal.Write($"{armor.Name}");
+                terminal.SetColor("white");
+                terminal.Write(" (AC: ");
+                terminal.SetColor("cyan");
+                terminal.Write($"{armor.Power}");
+                terminal.SetColor("white");
+                terminal.WriteLine(")");
+            }
+            else
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine($"Unknown armor #{currentPlayer.Armor}");
+            }
+        }
+        else
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("None (Unarmored)");
+        }
+
+        // Show active buffs if any
+        if (currentPlayer.MagicACBonus > 0 || currentPlayer.DamageAbsorptionPool > 0 ||
+            currentPlayer.IsRaging || currentPlayer.SmiteChargesRemaining > 0)
+        {
+            terminal.WriteLine("");
+            terminal.SetColor("bright_magenta");
+            terminal.WriteLine("Active Effects:");
+
+            if (currentPlayer.MagicACBonus > 0)
+            {
+                terminal.SetColor("magenta");
+                terminal.WriteLine($"  • Magic AC Bonus: +{currentPlayer.MagicACBonus}");
+            }
+            if (currentPlayer.DamageAbsorptionPool > 0)
+            {
+                terminal.SetColor("magenta");
+                terminal.WriteLine($"  • Stoneskin: {currentPlayer.DamageAbsorptionPool} damage absorption");
+            }
+            if (currentPlayer.IsRaging)
+            {
+                terminal.SetColor("bright_red");
+                terminal.WriteLine("  • RAGING! (+Strength, +HP, -AC)");
+            }
+            if (currentPlayer.SmiteChargesRemaining > 0)
+            {
+                terminal.SetColor("yellow");
+                terminal.WriteLine($"  • Smite Evil: {currentPlayer.SmiteChargesRemaining} charges");
+            }
+        }
+        terminal.WriteLine("");
+
+        // Wealth
+        terminal.SetColor("yellow");
+        terminal.WriteLine("═══ WEALTH ═══");
+        terminal.SetColor("white");
+        terminal.Write("Gold on Hand: ");
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine($"{currentPlayer.Gold:N0}");
+
+        terminal.SetColor("white");
+        terminal.Write("Gold in Bank: ");
+        terminal.SetColor("yellow");
+        terminal.WriteLine($"{currentPlayer.BankGold:N0}");
+
+        terminal.SetColor("white");
+        terminal.Write("Total Wealth: ");
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine($"{(currentPlayer.Gold + currentPlayer.BankGold):N0}");
+        terminal.WriteLine("");
+
+        // Pagination - Page 2 break
+        terminal.SetColor("gray");
+        terminal.Write("Press Space to continue...");
+        await terminal.GetInput("");
+        terminal.WriteLine("");
+
+        // Relationships
+        terminal.SetColor("yellow");
+        terminal.WriteLine("═══ RELATIONSHIPS ═══");
+        terminal.SetColor("white");
+        terminal.Write("Marital Status: ");
+        if (currentPlayer.Married || currentPlayer.IsMarried)
+        {
+            terminal.SetColor("bright_magenta");
+            terminal.Write("Married");
+            if (!string.IsNullOrEmpty(currentPlayer.SpouseName))
+            {
+                terminal.SetColor("white");
+                terminal.Write(" to ");
+                terminal.SetColor("magenta");
+                terminal.Write(currentPlayer.SpouseName);
+            }
+            terminal.WriteLine("");
+
+            terminal.SetColor("white");
+            terminal.Write("Children: ");
+            terminal.SetColor("cyan");
+            terminal.WriteLine($"{currentPlayer.Kids}");
+
+            if (currentPlayer.Pregnancy > 0)
+            {
+                terminal.SetColor("white");
+                terminal.Write("Pregnancy: ");
+                terminal.SetColor("bright_cyan");
+                terminal.WriteLine($"{currentPlayer.Pregnancy} days");
+            }
+        }
+        else
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("Single");
+        }
+
+        terminal.SetColor("white");
+        terminal.Write("Team: ");
+        if (!string.IsNullOrEmpty(currentPlayer.Team))
+        {
+            terminal.SetColor("bright_green");
+            terminal.WriteLine(currentPlayer.Team);
+        }
+        else
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("None");
+        }
+        terminal.WriteLine("");
+
+        // Alignment & Reputation
+        terminal.SetColor("yellow");
+        terminal.WriteLine("═══ ALIGNMENT & REPUTATION ═══");
+        terminal.SetColor("white");
+        terminal.Write("Chivalry: ");
+        terminal.SetColor("bright_green");
+        terminal.Write($"{currentPlayer.Chivalry}");
+        terminal.SetColor("white");
+        terminal.Write("  |  Darkness: ");
+        terminal.SetColor("red");
+        terminal.WriteLine($"{currentPlayer.Darkness}");
+
+        terminal.SetColor("white");
+        terminal.Write("Loyalty: ");
+        terminal.SetColor("cyan");
+        terminal.Write($"{currentPlayer.Loyalty}%");
+        terminal.SetColor("white");
+        terminal.Write("  |  Mental Health: ");
+        terminal.SetColor(currentPlayer.Mental >= 50 ? "green" : "red");
+        terminal.WriteLine($"{currentPlayer.Mental}");
+
+        if (currentPlayer.King)
+        {
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine("👑 REIGNING MONARCH 👑");
+        }
+        terminal.WriteLine("");
+
+        // Game Progress
+        terminal.SetColor("yellow");
+        terminal.WriteLine("═══ GAME PROGRESS ═══");
+        terminal.SetColor("white");
+        terminal.Write("Turn Count: ");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine($"{currentPlayer.TurnCount}");
+
+        terminal.SetColor("white");
+        terminal.Write("Dungeon Fights: ");
+        terminal.SetColor("cyan");
+        terminal.Write($"{currentPlayer.Fights}");
+        terminal.SetColor("white");
+        terminal.Write("  |  Player Fights: ");
+        terminal.SetColor("cyan");
+        terminal.Write($"{currentPlayer.PFights}");
+        terminal.SetColor("white");
+        terminal.Write("  |  Team Fights: ");
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"{currentPlayer.TFights}");
+
+        terminal.SetColor("white");
+        terminal.Write("Good Deeds: ");
+        terminal.SetColor("green");
+        terminal.Write($"{currentPlayer.ChivNr}");
+        terminal.SetColor("white");
+        terminal.Write("  |  Dark Deeds: ");
+        terminal.SetColor("red");
+        terminal.WriteLine($"{currentPlayer.DarkNr}");
+
+        terminal.SetColor("white");
+        terminal.Write("Thieveries: ");
+        terminal.SetColor("cyan");
+        terminal.Write($"{currentPlayer.Thiefs}");
+        terminal.SetColor("white");
+        terminal.Write("  |  Assassinations: ");
+        terminal.SetColor("cyan");
+        terminal.Write($"{currentPlayer.Assa}");
+        terminal.SetColor("white");
+        terminal.Write("  |  Brawls: ");
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"{currentPlayer.Brawls}");
+        terminal.WriteLine("");
+
+        // Pagination - Page 3 break
+        terminal.SetColor("gray");
+        terminal.Write("Press Space to continue...");
+        await terminal.GetInput("");
+        terminal.WriteLine("");
+
+        // Battle Record
+        terminal.SetColor("yellow");
+        terminal.WriteLine("═══ BATTLE RECORD ═══");
+        terminal.SetColor("white");
+        terminal.Write("Monster Kills: ");
+        terminal.SetColor("bright_green");
+        terminal.Write($"{currentPlayer.MKills}");
+        terminal.SetColor("white");
+        terminal.Write("  |  Monster Defeats: ");
+        terminal.SetColor("red");
+        terminal.WriteLine($"{currentPlayer.MDefeats}");
+
+        terminal.SetColor("white");
+        terminal.Write("Player Kills: ");
+        terminal.SetColor("bright_yellow");
+        terminal.Write($"{currentPlayer.PKills}");
+        terminal.SetColor("white");
+        terminal.Write("  |  Player Defeats: ");
+        terminal.SetColor("red");
+        terminal.WriteLine($"{currentPlayer.PDefeats}");
+
+        // Calculate win rate
+        long totalMonsterBattles = currentPlayer.MKills + currentPlayer.MDefeats;
+        long totalPlayerBattles = currentPlayer.PKills + currentPlayer.PDefeats;
+
+        if (totalMonsterBattles > 0)
+        {
+            double monsterWinRate = (double)currentPlayer.MKills / totalMonsterBattles * 100;
+            terminal.SetColor("white");
+            terminal.Write("Monster Win Rate: ");
+            terminal.SetColor("cyan");
+            terminal.WriteLine($"{monsterWinRate:F1}%");
+        }
+
+        if (totalPlayerBattles > 0)
+        {
+            double playerWinRate = (double)currentPlayer.PKills / totalPlayerBattles * 100;
+            terminal.SetColor("white");
+            terminal.Write("PvP Win Rate: ");
+            terminal.SetColor("cyan");
+            terminal.WriteLine($"{playerWinRate:F1}%");
+        }
+        terminal.WriteLine("");
+
+        // Diseases & Afflictions
+        if (currentPlayer.Blind || currentPlayer.Plague || currentPlayer.Smallpox ||
+            currentPlayer.Measles || currentPlayer.Leprosy || currentPlayer.Poison > 0 ||
+            currentPlayer.Addict > 0 || currentPlayer.Haunt > 0)
+        {
+            terminal.SetColor("bright_red");
+            terminal.WriteLine("═══ AFFLICTIONS ═══");
+
+            if (currentPlayer.Blind)
+            {
+                terminal.SetColor("red");
+                terminal.WriteLine("  • Blind");
+            }
+            if (currentPlayer.Plague)
+            {
+                terminal.SetColor("red");
+                terminal.WriteLine("  • Plague");
+            }
+            if (currentPlayer.Smallpox)
+            {
+                terminal.SetColor("red");
+                terminal.WriteLine("  • Smallpox");
+            }
+            if (currentPlayer.Measles)
+            {
+                terminal.SetColor("red");
+                terminal.WriteLine("  • Measles");
+            }
+            if (currentPlayer.Leprosy)
+            {
+                terminal.SetColor("red");
+                terminal.WriteLine("  • Leprosy");
+            }
+            if (currentPlayer.Poison > 0)
+            {
+                terminal.SetColor("red");
+                terminal.WriteLine($"  • Poisoned (Level {currentPlayer.Poison})");
+            }
+            if (currentPlayer.Addict > 0)
+            {
+                terminal.SetColor("red");
+                terminal.WriteLine($"  • Addicted (Level {currentPlayer.Addict})");
+            }
+            if (currentPlayer.Haunt > 0)
+            {
+                terminal.SetColor("red");
+                terminal.WriteLine($"  • Haunted by {currentPlayer.Haunt} demon(s)");
+            }
+            terminal.WriteLine("");
+        }
+
+        // Footer
+        terminal.SetColor("gray");
+        terminal.WriteLine("────────────────────────────────────────────────────────────────────────────────");
+
         terminal.WriteLine("");
         await terminal.PressAnyKey();
+    }
+
+    /// <summary>
+    /// Calculate experience required for a given level (cumulative)
+    /// </summary>
+    private static long GetExperienceForLevel(int level)
+    {
+        if (level <= 1) return 0;
+        long exp = 0;
+        for (int i = 2; i <= level; i++)
+        {
+            exp += (long)(Math.Pow(i, 2.5) * 100);
+        }
+        return exp;
     }
     
     /// <summary>

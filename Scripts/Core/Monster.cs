@@ -84,7 +84,14 @@ public class Monster
     public int PoisonRounds { get; set; } = 0;
     public int StunRounds { get; set; } = 0;
     public int WeakenRounds { get; set; } = 0;
-    
+
+    // Enhanced monster family system properties
+    public string FamilyName { get; set; } = "";            // Monster family (Goblinoid, Undead, etc.)
+    public string TierName { get; set; } = "";              // Tier name (Goblin, Hobgoblin, etc.)
+    public string MonsterColor { get; set; } = "white";     // Color for display
+    public string AttackType { get; set; } = "physical";    // Attack type (physical, fire, poison, etc.)
+    public List<string> SpecialAbilities { get; set; } = new List<string>();  // Special abilities
+
     /// <summary>
     /// Constructor for creating a monster
     /// </summary>
@@ -93,6 +100,7 @@ public class Monster
         // Initialize spells list
         Spell = new List<bool>(new bool[GameConfig.MaxMSpells]);
         LastAction = DateTime.Now;
+        SpecialAbilities = new List<string>();
     }
     
     /// <summary>
@@ -202,6 +210,10 @@ public class Monster
             Punch = Math.Max(0, Punch / 2);
             WeapPow = Math.Max(0, WeapPow - 1);
         }
+
+        // Set experience and gold rewards (CRITICAL - without this, monsters give 0 XP/gold!)
+        Experience = GetExperienceReward();
+        Gold = GetGoldReward();
     }
     
     /// <summary>

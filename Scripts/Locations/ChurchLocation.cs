@@ -146,15 +146,79 @@ namespace UsurperRemake.Locations
             terminal.SetColor("bright_green");
             terminal.WriteLine("Church Services Available:");
             terminal.WriteLine("─────────────────────────");
-            terminal.SetColor("green");
-            terminal.WriteLine("(C) Make a donation to the Church");
-            terminal.WriteLine("(B) Purchase a blessing for your soul");
-            terminal.WriteLine("(H) Seek healing services");
-            terminal.WriteLine("(M) Arrange a marriage ceremony");
-            terminal.WriteLine("(F) Confess your sins");
-            terminal.WriteLine("(R) View church records");
-            terminal.WriteLine("(S) Speak with the Bishop");
-            terminal.WriteLine("(Q) Return to Main Street");
+
+            terminal.SetColor("darkgray");
+            terminal.Write("[");
+            terminal.SetColor("bright_green");
+            terminal.Write("C");
+            terminal.SetColor("darkgray");
+            terminal.Write("] ");
+            terminal.SetColor("white");
+            terminal.WriteLine("Make a donation to the Church");
+
+            terminal.SetColor("darkgray");
+            terminal.Write("[");
+            terminal.SetColor("bright_yellow");
+            terminal.Write("B");
+            terminal.SetColor("darkgray");
+            terminal.Write("] ");
+            terminal.SetColor("white");
+            terminal.WriteLine("Purchase a blessing for your soul");
+
+            terminal.SetColor("darkgray");
+            terminal.Write("[");
+            terminal.SetColor("bright_cyan");
+            terminal.Write("H");
+            terminal.SetColor("darkgray");
+            terminal.Write("] ");
+            terminal.SetColor("white");
+            terminal.WriteLine("Seek healing services");
+
+            terminal.SetColor("darkgray");
+            terminal.Write("[");
+            terminal.SetColor("bright_magenta");
+            terminal.Write("M");
+            terminal.SetColor("darkgray");
+            terminal.Write("] ");
+            terminal.SetColor("white");
+            terminal.WriteLine("Arrange a marriage ceremony");
+
+            terminal.SetColor("darkgray");
+            terminal.Write("[");
+            terminal.SetColor("cyan");
+            terminal.Write("F");
+            terminal.SetColor("darkgray");
+            terminal.Write("] ");
+            terminal.SetColor("white");
+            terminal.WriteLine("Confess your sins");
+
+            terminal.SetColor("darkgray");
+            terminal.Write("[");
+            terminal.SetColor("yellow");
+            terminal.Write("R");
+            terminal.SetColor("darkgray");
+            terminal.Write("] ");
+            terminal.SetColor("white");
+            terminal.WriteLine("View church records");
+
+            terminal.SetColor("darkgray");
+            terminal.Write("[");
+            terminal.SetColor("magenta");
+            terminal.Write("S");
+            terminal.SetColor("darkgray");
+            terminal.Write("] ");
+            terminal.SetColor("white");
+            terminal.WriteLine("Speak with the Bishop");
+
+            terminal.WriteLine("");
+            terminal.SetColor("darkgray");
+            terminal.Write("[");
+            terminal.SetColor("bright_red");
+            terminal.Write("Q");
+            terminal.SetColor("darkgray");
+            terminal.Write("] ");
+            terminal.SetColor("red");
+            terminal.WriteLine("Return to Main Street");
             terminal.WriteLine("");
             
             // Status line (basic)

@@ -83,13 +83,55 @@ public class WeaponShopLocation : BaseLocation
     /// </summary>
     private void ShowWeaponShopMenu()
     {
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("B");
+        terminal.SetColor("darkgray");
+        terminal.Write("] ");
         terminal.SetColor("white");
-        terminal.WriteLine("(R)eturn to street");
-        terminal.WriteLine("(B)uy");
-        terminal.WriteLine("(T)he best weapon for your gold");
-        terminal.WriteLine("(S)ell");
-        terminal.WriteLine("(L)ist items");
+        terminal.WriteLine("uy weapon");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("T");
+        terminal.SetColor("darkgray");
+        terminal.Write("] ");
+        terminal.SetColor("white");
+        terminal.WriteLine("he best weapon for your gold");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_green");
+        terminal.Write("S");
+        terminal.SetColor("darkgray");
+        terminal.Write("] ");
+        terminal.SetColor("white");
+        terminal.WriteLine("ell weapon");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_cyan");
+        terminal.Write("L");
+        terminal.SetColor("darkgray");
+        terminal.Write("] ");
+        terminal.SetColor("white");
+        terminal.WriteLine("ist all weapons");
+
         terminal.WriteLine("");
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_red");
+        terminal.Write("R");
+        terminal.SetColor("darkgray");
+        terminal.Write("] ");
+        terminal.SetColor("red");
+        terminal.WriteLine("eturn to street");
+        terminal.WriteLine("");
+
+        // Show quick command bar
+        ShowQuickCommandBar();
     }
     
     protected override async Task<bool> ProcessChoice(string choice)
@@ -184,7 +226,50 @@ public class WeaponShopLocation : BaseLocation
         terminal.Write("So you want a ");
         terminal.SetColor("cyan");
         terminal.WriteLine(weapon.Name);
-        
+        terminal.WriteLine("");
+
+        // Show equipment comparison if player has current weapon
+        if (currentPlayer.RHand > 0)
+        {
+            var currentWeapon = ItemManager.GetWeapon(currentPlayer.RHand);
+            if (currentWeapon != null)
+            {
+                terminal.SetColor("gray");
+                terminal.Write("Current: ");
+                terminal.SetColor("white");
+                terminal.Write($"{currentWeapon.Name}");
+                terminal.SetColor("yellow");
+                terminal.WriteLine($" (Power: {currentWeapon.Power})");
+
+                terminal.SetColor("gray");
+                terminal.Write("New:     ");
+                terminal.SetColor("bright_cyan");
+                terminal.Write($"{weapon.Name}");
+                terminal.SetColor("bright_yellow");
+                terminal.WriteLine($" (Power: {weapon.Power})");
+
+                long powerChange = weapon.Power - currentWeapon.Power;
+                terminal.SetColor("gray");
+                terminal.Write("Change:  ");
+                if (powerChange > 0)
+                {
+                    terminal.SetColor("bright_green");
+                    terminal.WriteLine($"+{powerChange} Power");
+                }
+                else if (powerChange < 0)
+                {
+                    terminal.SetColor("bright_red");
+                    terminal.WriteLine($"{powerChange} Power (DOWNGRADE!)");
+                }
+                else
+                {
+                    terminal.SetColor("yellow");
+                    terminal.WriteLine("No change");
+                }
+                terminal.WriteLine("");
+            }
+        }
+
         long finalPrice = weapon.Value;
         
         // Apply race discount for trolls
@@ -337,7 +422,7 @@ public class WeaponShopLocation : BaseLocation
         }
         
         long sellPrice = weapon.Value / 2; // Sell for half value
-        
+
         terminal.SetColor("white");
         terminal.WriteLine("The troll declares that he will pay you");
         terminal.SetColor("yellow");
@@ -347,9 +432,19 @@ public class WeaponShopLocation : BaseLocation
         terminal.SetColor("cyan");
         terminal.WriteLine(weapon.Name);
         terminal.WriteLine("");
-        
+
+        // Warning for valuable items
+        if (weapon.Value > 1000)
+        {
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine("⚠ WARNING: This is a valuable weapon!");
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"   You'll only get {sellPrice:N0} gold (half its value).");
+            terminal.WriteLine("");
+        }
+
         var confirm = await terminal.GetInput("Will you sell it? (Y/N): ");
-        
+
         if (confirm.ToUpper() == "Y")
         {
             terminal.WriteLine("You give the troll your weapon, and receive the gold.", "green");

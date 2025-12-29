@@ -393,8 +393,8 @@ public static class CharacterCreationSystemValidation
             "Default player fights should be 3");
 
         Test("Default healing potions are correct", () =>
-            GameConfig.DefaultStartingHealing == 125,
-            "Default healing potions should be 125");
+            GameConfig.DefaultStartingHealing == 20,
+            "Default healing potions should be 20");
 
         Test("Default loyalty is correct", () =>
             GameConfig.DefaultLoyalty == 50,

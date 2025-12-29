@@ -10,14 +10,15 @@ public partial class TerminalEmulator : Control
 {
     private const int COLUMNS = 80;
     private const int ROWS = 25;
-    
+
     private RichTextLabel display;
     private LineEdit inputLine;
     private Font dosFont;
-    
+
     private Queue<string> outputBuffer = new Queue<string>();
     private TaskCompletionSource<string> inputAwaiter;
     private int cursorX = 0, cursorY = 0;
+    private string currentColor = "white";
     
     // Static instance property for compatibility
     public static TerminalEmulator Instance { get; private set; }
@@ -104,13 +105,36 @@ public partial class TerminalEmulator : Control
     {
         if (display != null)
         {
-            string formattedText = $"[color={color}]{text}[/color]";
+            // Convert simplified [colorname]text[/] format to BBCode [color=colorname]text[/color]
+            string processedText = ConvertSimplifiedColorToBBCode(text);
+            string formattedText = $"[color={color}]{processedText}[/color]";
             display.Text += formattedText + "\n";
         }
         else
         {
             Console.WriteLine(text);
         }
+    }
+
+    /// <summary>
+    /// Convert simplified [colorname]text[/] format to Godot BBCode [color=colorname]text[/color]
+    /// This allows combat messages to use simple color codes that work in both Godot and console modes
+    /// </summary>
+    private string ConvertSimplifiedColorToBBCode(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return text;
+
+        // Replace [colorname] with [color=colorname]
+        text = System.Text.RegularExpressions.Regex.Replace(
+            text,
+            @"\[([a-z_]+)\]",
+            "[color=$1]"
+        );
+
+        // Replace [/] with [/color]
+        text = text.Replace("[/]", "[/color]");
+
+        return text;
     }
     
     // Overload for cases with no text parameter
@@ -125,21 +149,24 @@ public partial class TerminalEmulator : Control
         WriteLine(text, "white");
     }
     
-    public void Write(string text, string color = "white")
+    public void Write(string text, string color = null)
     {
+        // Use current color if no color specified
+        string effectiveColor = color ?? currentColor;
+
         // If the Godot RichTextLabel is available use it, otherwise fall back to plain Console output
         if (display != null)
         {
-        var colorCode = ansiColors.ContainsKey(color) ? 
-            ansiColors[color].ToHtml() : ansiColors["white"].ToHtml();
-            
+        var colorCode = ansiColors.ContainsKey(effectiveColor) ?
+            ansiColors[effectiveColor].ToHtml() : ansiColors["white"].ToHtml();
+
         display.AppendText($"[color=#{colorCode}]{text}[/color]");
         }
         else
         {
             // Console fallback – approximate ANSI colour mapping
             ConsoleColor oldColor = Console.ForegroundColor;
-            Console.ForegroundColor = ColorNameToConsole(color);
+            Console.ForegroundColor = ColorNameToConsole(effectiveColor);
             Console.Write(text);
             Console.ForegroundColor = oldColor;
         }
@@ -347,8 +374,7 @@ public partial class TerminalEmulator : Control
     // Missing API methods for compatibility
     public void SetColor(string color)
     {
-        // For console output, we don't need to set a persistent color
-        // Individual WriteLine/Write calls already handle color
+        currentColor = color;
     }
     
     public async Task<string> GetKeyInput()

@@ -130,6 +130,9 @@ public class CastleLocation : BaseLocation
         terminal.WriteLine("(S)tatus            (Q)uests            (T)he Royal Orphanage");
         terminal.WriteLine("(R)eturn to Town");
         terminal.WriteLine("");
+
+        // Show quick command bar
+        ShowQuickCommandBar();
     }
     
     /// <summary>
@@ -139,7 +142,7 @@ public class CastleLocation : BaseLocation
     {
         terminal.SetColor("white");
         terminal.WriteLine("(T)he Royal Guard   (P)rison            (D)onate to Royal Purse");
-        
+
         if (CanChallengeThrone())
         {
             terminal.WriteLine("(I)nfiltrate Castle (Challenge for Throne)");
@@ -148,9 +151,12 @@ public class CastleLocation : BaseLocation
         {
             terminal.WriteLine("(C)laim Empty Throne");
         }
-        
+
         terminal.WriteLine("(R)eturn to Town");
         terminal.WriteLine("");
+
+        // Show quick command bar
+        ShowQuickCommandBar();
     }
     
     protected override async Task<bool> ProcessChoice(string choice)

@@ -12,9 +12,8 @@ config_version=5
 
 config/name="Usurper Reborn"
 config/description="A faithful remake of the classic BBS door game with advanced NPC AI"
-run/main_scene=""
-config/features=PackedStringArray("4.3", "GL Compatibility")
-config/icon=""
+run/main_scene="res://Main.tscn"
+config/features=PackedStringArray("4.4", "C#", "GL Compatibility")
 
 [display]
 

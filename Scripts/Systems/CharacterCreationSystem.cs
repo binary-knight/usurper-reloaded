@@ -235,10 +235,11 @@ public class CharacterCreationSystem
         do
         {
             terminal.WriteLine("");
-            terminal.WriteLine("Enter your character name (alias):", "cyan");
-            terminal.WriteLine("This will be your identity in the realm.");
+            terminal.WriteLine("Enter your character's name:", "cyan");
+            terminal.WriteLine("This is the name your character will be known by in the realm.");
+            terminal.WriteLine("(This can be different from your real name)");
             terminal.WriteLine("");
-            
+
             alias = await terminal.GetInputAsync("Character name: ");
             
             if (string.IsNullOrWhiteSpace(alias))

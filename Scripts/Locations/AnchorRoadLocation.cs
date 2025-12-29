@@ -34,30 +34,34 @@ public class AnchorRoadLocation : BaseLocation
     private void ShowFullMenu()
     {
         var terminal = this.terminal;
-        
+
         terminal.ClearScreen();
         terminal.WriteLine($"\n{GameConfig.BrightColor}-*- {GameConfig.AnchorName}, {LocationDescription} -*-{GameConfig.TextColor}");
         terminal.WriteLine("\nTo the north you can see the Castle in all its might.");
         terminal.WriteLine("The Dormitory lies to the west.");
         terminal.WriteLine("The Red Fields are to the east.");
         terminal.WriteLine("It's time to be brave.\n");
-        
+
         // Menu options with Pascal spacing
         terminal.Write($"{PadMenuOption("(D)ormitory", MenuOffset)}{PadMenuOption("(B)ounty hunting", MenuOffset)}");
         terminal.WriteLine("(Q)uests");
-        
+
         terminal.Write($"{PadMenuOption("(G)ang war", MenuOffset)}{PadMenuOption("(O)nline war", MenuOffset)}{PadMenuOption("(A)ltar of the Gods", MenuOffset)}");
         terminal.WriteLine("");
-        
+
         terminal.Write($"{PadMenuOption("(C)laim town", MenuOffset)}");
         terminal.WriteLine("(F)lee town control");
-        
+
         terminal.Write($"{PadMenuOption("(S)tatus", MenuOffset)}{PadMenuOption("(K)ings Castle", MenuOffset)}");
         terminal.WriteLine("(T)he Gym");
-        
+
         terminal.WriteLine("(P)rison grounds (attempt a jailbreak)");
-        
+
         terminal.WriteLine($"{PadMenuOption("(R)eturn to town", MenuOffset)}");
+
+        terminal.WriteLine("");
+        // Show quick command bar
+        ShowQuickCommandBar();
     }
     
     /// <summary>

@@ -1,3 +1,4 @@
+using System.Linq;
 using UsurperRemake.Utils;
 using Godot;
 using System.Collections.Generic;
@@ -564,7 +565,7 @@ public static partial class GameConfig
     public const int DefaultStartingLevel = 1;
     public const int DefaultDungeonFights = 5;    // dngfights
     public const int DefaultPlayerFights = 3;     // plfights
-    public const int DefaultStartingHealing = 125;
+    public const int DefaultStartingHealing = 20;  // starting potions (scales with level)
     public const int DefaultGoodDeeds = 3;        // chivnr
     public const int DefaultDarkDeeds = 3;        // darknr
     public const int DefaultLoyalty = 50;

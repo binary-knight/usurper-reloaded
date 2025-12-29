@@ -26,6 +26,7 @@ public class Character
     public long Strength { get; set; }              // strength
     public long Defence { get; set; }               // defence
     public long Healing { get; set; }               // healing potions
+    public int MaxPotions => 20 + (Level - 1);      // max potions = 20 + (level - 1)
     public bool Allowed { get; set; }               // allowed to play
     public long MaxHP { get; set; }                 // max hitpoints
     public long LastOn { get; set; }                // laston, date
@@ -260,15 +261,18 @@ public class Character
     }
     
     // Additional properties for API compatibility
-    // TurnsRemaining is an alias for the calculated TurnsLeft value but can be overridden manually
+    // TurnCount - counts UP from 0, drives world simulation (single-player persistent system)
+    public int TurnCount { get; set; } = 0;
+
+    // Legacy properties for compatibility (no longer used for limiting gameplay)
     private int? _manualTurnsRemaining;
     public int TurnsRemaining
     {
-        get => _manualTurnsRemaining ?? TurnsLeft;
+        get => _manualTurnsRemaining ?? TurnCount; // Now returns turn count for save compatibility
         set => _manualTurnsRemaining = value;
     }
     public int PrisonsLeft { get; set; } = 0; // Prison sentences remaining
-    public int ExecuteLeft { get; set; } = 0; // Execution attempts remaining  
+    public int ExecuteLeft { get; set; } = 0; // Execution attempts remaining
     public int MarryActions { get; set; } = 0; // Marriage actions remaining
     public int WolfFeed { get; set; } = 0; // Wolf feeding actions
     public int RoyalAdoptions { get; set; } = 0; // Royal adoption actions
@@ -358,7 +362,9 @@ public class Character
     public bool IsPlayer => AI == CharacterAI.Human;
     public bool IsNPC => AI == CharacterAI.Computer;
     public string DisplayName => !string.IsNullOrEmpty(Name2) ? Name2 : Name1;
-    public int TurnsLeft => Math.Max(0, GameConfig.TurnsPerDay - Fights - PFights);
+
+    // TurnsLeft - now just returns TurnCount for backward compatibility (no limits in single-player)
+    public int TurnsLeft => TurnCount;
     
     // Combat-related properties
     public long WeaponValue => WeapPow;
