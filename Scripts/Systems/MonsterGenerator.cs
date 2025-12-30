@@ -75,45 +75,46 @@ public static class MonsterGenerator
     /// <summary>
     /// Calculate balanced stats for a monster
     /// Formulas designed to scale smoothly from level 1 to 100
+    /// Reduced exponential scaling to make combat more manageable
     /// </summary>
     private static MonsterStats CalculateMonsterStats(int level, float powerMultiplier, bool isBoss)
     {
         // Base multipliers for boss monsters
-        float bossMultiplier = isBoss ? 2.0f : 1.0f;
+        float bossMultiplier = isBoss ? 1.8f : 1.0f;
         float totalMultiplier = powerMultiplier * bossMultiplier;
 
-        // Smooth exponential scaling with linear base
-        // Formula: base * level + (level^1.3) * scale
-        // This gives gentle early growth, steeper late-game growth
+        // Gentler exponential scaling with linear base
+        // Reduced exponents from 1.35/1.25/1.2 to 1.2/1.15/1.1
+        // This makes monsters scale more linearly with level
 
-        // HP scales most aggressively (players need HP to survive)
-        long baseHP = (long)((50 * level) + Math.Pow(level, 1.35) * 25);
+        // HP scales moderately (reduced from 1.35 to 1.2)
+        long baseHP = (long)((40 * level) + Math.Pow(level, 1.2) * 15);
         long hp = (long)(baseHP * totalMultiplier);
 
-        // Strength scales moderately (affects damage output)
-        long baseStrength = (long)((5 * level) + Math.Pow(level, 1.25) * 3);
+        // Strength scales gently (reduced from 1.25 to 1.15)
+        long baseStrength = (long)((4 * level) + Math.Pow(level, 1.15) * 2);
         long strength = (long)(baseStrength * totalMultiplier);
 
-        // Defence scales gently (prevents combat from being too long)
-        long baseDefence = (long)((3 * level) + Math.Pow(level, 1.2) * 2);
-        long defence = (long)(baseDefence * totalMultiplier * 0.8f);
+        // Defence scales minimally (reduced from 1.2 to 1.1)
+        long baseDefence = (long)((2 * level) + Math.Pow(level, 1.1) * 1.5);
+        long defence = (long)(baseDefence * totalMultiplier * 0.7f);
 
-        // Punch (natural attack bonus) scales with level
-        long basePunch = (long)((2 * level) + Math.Pow(level, 1.15) * 1.5);
+        // Punch (natural attack bonus) - reduced scaling
+        long basePunch = (long)((1.5 * level) + Math.Pow(level, 1.1) * 1);
         long punch = (long)(basePunch * totalMultiplier);
 
-        // Weapon power scales with dungeon level
-        long baseWeaponPower = (long)((4 * level) + Math.Pow(level, 1.2) * 2.5);
+        // Weapon power - reduced scaling
+        long baseWeaponPower = (long)((3 * level) + Math.Pow(level, 1.15) * 1.5);
         long weaponPower = (long)(baseWeaponPower * totalMultiplier);
 
-        // Armor power scales to keep combat challenging but winnable
-        long baseArmorPower = (long)((3 * level) + Math.Pow(level, 1.18) * 2);
-        long armorPower = (long)(baseArmorPower * totalMultiplier * 0.7f);
+        // Armor power - reduced to keep combat reasonable
+        long baseArmorPower = (long)((2 * level) + Math.Pow(level, 1.1) * 1.5);
+        long armorPower = (long)(baseArmorPower * totalMultiplier * 0.6f);
 
         return new MonsterStats
         {
-            HP = Math.Max(20, hp),
-            Strength = Math.Max(5, strength),
+            HP = Math.Max(15, hp),
+            Strength = Math.Max(3, strength),
             Defence = Math.Max(0, defence),
             Punch = Math.Max(1, punch),
             WeaponPower = Math.Max(1, weaponPower),

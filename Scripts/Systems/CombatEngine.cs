@@ -1835,10 +1835,14 @@ public partial class CombatEngine
             // Calculate exp reward based on level difference
             long baseExp = monster.Experience;
             long levelDiff = monster.Level - result.Player.Level;
-            // Bonus/penalty based on level difference (max 50% bonus, min 50% of base)
-            long levelModifier = Math.Clamp(levelDiff * 10, -baseExp / 2, baseExp / 2);
-            long expReward = baseExp + levelModifier;
-            expReward = Math.Max(baseExp / 2, expReward); // Minimum 50% of base exp (never negative)
+
+            // Percentage-based bonus/penalty: 15% per level difference
+            // Fighting higher level monsters gives significant bonus (up to 100% extra)
+            // Fighting lower level monsters gives penalty (minimum 25% of base)
+            double levelMultiplier = 1.0 + (levelDiff * 0.15);
+            levelMultiplier = Math.Clamp(levelMultiplier, 0.25, 2.0);
+            long expReward = (long)(baseExp * levelMultiplier);
+            expReward = Math.Max(10, expReward); // Never less than 10 XP
 
             // Calculate gold reward
             long goldReward = monster.Gold + random.Next(0, (int)(monster.Gold * 0.5));

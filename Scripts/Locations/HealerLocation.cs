@@ -63,36 +63,36 @@ public class HealerLocation : BaseLocation
         {
             case "H":
                 await HealHP();
-                return true;
+                return false; // Stay in location
             case "F":
                 await FullHeal();
-                return true;
+                return false; // Stay in location
             case "B":
                 await BuyPotions();
-                return true;
+                return false; // Stay in location
             case "P":
                 await CurePoison();
-                return true;
+                return false; // Stay in location
             case "C":
                 await CureDisease();
-                return true;
+                return false; // Stay in location
             case "D":
                 await RemoveCursedItem();
-                return true;
+                return false; // Stay in location
             case "S":
                 await DisplayPlayerStatus();
-                return true;
+                return false; // Stay in location
             case "R":
                 await NavigateToLocation(GameLocation.MainStreet);
-                return true;
+                return true; // Exit location (navigating away)
             case "?":
                 ShowFullMenu();
                 await terminal.PressAnyKey();
-                return true;
+                return false; // Stay in location
             default:
                 terminal.WriteLine("Invalid choice. Press ? for menu.", "red");
                 await Task.Delay(1000);
-                return true;
+                return false; // Stay in location
         }
     }
 

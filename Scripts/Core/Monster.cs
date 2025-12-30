@@ -442,43 +442,52 @@ public class Monster
     
     /// <summary>
     /// Get experience reward for defeating this monster
+    /// Scaled to match the gentler XP requirement curve (level^1.8 * 50)
     /// </summary>
     public long GetExperienceReward()
     {
-        long baseExp = (Strength + Defence + WeapPow + ArmPow) / 4;
-        baseExp += MonsterType * 10;
-        
+        // Base XP scales with monster level using level^1.5 curve
+        // This matches the progression curve and makes grinding reasonable
+        int level = Math.Max(1, Level > 0 ? Level : MonsterType);
+        long baseExp = (long)(Math.Pow(level, 1.5) * 15);
+
+        // Add bonus for monster stats (smaller component)
+        baseExp += (Strength + Defence + WeapPow + ArmPow) / 8;
+
         if (IsBoss)
         {
             baseExp *= 3;
         }
-        
+
         if (IsUnique)
         {
             baseExp *= 5;
         }
-        
-        return Math.Max(10, baseExp);
+
+        return Math.Max(15, baseExp);
     }
     
     /// <summary>
     /// Get gold reward for defeating this monster
+    /// Scaled to provide meaningful gold progression
     /// </summary>
     public long GetGoldReward()
     {
-        long baseGold = MonsterType * 5 + GD.RandRange(1, 20);
-        
+        // Gold scales with level using level^1.3 curve
+        int level = Math.Max(1, Level > 0 ? Level : MonsterType);
+        long baseGold = (long)(Math.Pow(level, 1.3) * 8) + GD.RandRange(5, 25);
+
         if (IsBoss)
         {
-            baseGold *= 2;
+            baseGold *= 3;
         }
-        
+
         if (IsUnique)
         {
-            baseGold *= 4;
+            baseGold *= 5;
         }
-        
-        return Math.Max(1, baseGold);
+
+        return Math.Max(5, baseGold);
     }
     
     /// <summary>

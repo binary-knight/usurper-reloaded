@@ -1,7 +1,9 @@
 using UsurperRemake.Utils;
+using UsurperRemake.Systems;
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 /// <summary>
@@ -1437,7 +1439,177 @@ public class DungeonLocation : BaseLocation
     
     private async Task ManageTeam()
     {
-        terminal.WriteLine("Team management not yet implemented.", "gray");
+        var player = GetCurrentPlayer();
+
+        terminal.ClearScreen();
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╔═══════════════════════════════════════════════════╗");
+        terminal.WriteLine("║               TEAM MANAGEMENT                     ║");
+        terminal.WriteLine("╚═══════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+
+        // Check if player is in a team
+        if (string.IsNullOrEmpty(player.Team))
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("You are not in a team.");
+            terminal.WriteLine("Visit the Team Corner in town to create or join a team!");
+            terminal.WriteLine("");
+            await terminal.PressAnyKey();
+            return;
+        }
+
+        terminal.SetColor("white");
+        terminal.WriteLine($"Team: {player.Team}");
+        terminal.WriteLine($"Team controls turf: {(player.CTurf ? "Yes" : "No")}");
+        terminal.WriteLine("");
+
+        // Show current dungeon party
+        terminal.SetColor("cyan");
+        terminal.WriteLine("Current Dungeon Party:");
+        terminal.WriteLine($"  1. {player.DisplayName} (You) - Level {player.Level} {player.Class}");
+        for (int i = 0; i < teammates.Count; i++)
+        {
+            var tm = teammates[i];
+            string status = tm.IsAlive ? $"HP: {tm.HP}/{tm.MaxHP}" : "[INJURED]";
+            terminal.WriteLine($"  {i + 2}. {tm.DisplayName} - Level {tm.Level} {tm.Class} - {status}");
+        }
+        terminal.WriteLine("");
+
+        // Get available NPC teammates from same team
+        var npcTeammates = UsurperRemake.Systems.NPCSpawnSystem.Instance.ActiveNPCs
+            .Where(n => n.Team == player.Team && n.IsAlive && !teammates.Contains(n))
+            .ToList();
+
+        if (npcTeammates.Count > 0)
+        {
+            terminal.SetColor("green");
+            terminal.WriteLine("Available Team Members (not in dungeon party):");
+            for (int i = 0; i < npcTeammates.Count; i++)
+            {
+                var npc = npcTeammates[i];
+                terminal.WriteLine($"  [{i + 1}] {npc.DisplayName} - Level {npc.Level} {npc.Class} - HP: {npc.HP}/{npc.MaxHP}");
+            }
+            terminal.WriteLine("");
+        }
+        else if (teammates.Count == 0)
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("No team members available to join your dungeon party.");
+            terminal.WriteLine("Recruit NPCs at the Team Corner or Hall of Recruitment!");
+            terminal.WriteLine("");
+        }
+
+        // Show options
+        terminal.SetColor("white");
+        terminal.WriteLine("Options:");
+        if (npcTeammates.Count > 0 && teammates.Count < 4) // Max 4 teammates + player = 5
+        {
+            terminal.WriteLine("  [A]dd a team member to dungeon party");
+        }
+        if (teammates.Count > 0)
+        {
+            terminal.WriteLine("  [R]emove a team member from party");
+        }
+        terminal.WriteLine("  [B]ack to dungeon menu");
+        terminal.WriteLine("");
+
+        var choice = await terminal.GetInput("Choice: ");
+        choice = choice.ToUpper().Trim();
+
+        switch (choice)
+        {
+            case "A":
+                if (npcTeammates.Count > 0 && teammates.Count < 4)
+                {
+                    await AddTeammateToParty(npcTeammates);
+                }
+                else if (teammates.Count >= 4)
+                {
+                    terminal.WriteLine("Your dungeon party is full (max 4 teammates)!", "yellow");
+                    await Task.Delay(1500);
+                }
+                else
+                {
+                    terminal.WriteLine("No team members available to add.", "gray");
+                    await Task.Delay(1500);
+                }
+                break;
+
+            case "R":
+                if (teammates.Count > 0)
+                {
+                    await RemoveTeammateFromParty();
+                }
+                else
+                {
+                    terminal.WriteLine("No teammates to remove.", "gray");
+                    await Task.Delay(1500);
+                }
+                break;
+
+            case "B":
+            default:
+                break;
+        }
+    }
+
+    private async Task AddTeammateToParty(List<NPC> available)
+    {
+        terminal.WriteLine("");
+        terminal.SetColor("white");
+        terminal.Write("Enter number of team member to add (1-");
+        terminal.Write($"{available.Count}");
+        terminal.Write("): ");
+        var input = await terminal.GetInput("");
+
+        if (int.TryParse(input, out int index) && index >= 1 && index <= available.Count)
+        {
+            var npc = available[index - 1];
+            teammates.Add(npc);
+
+            // Move NPC to dungeon
+            npc.UpdateLocation("Dungeon");
+
+            terminal.SetColor("green");
+            terminal.WriteLine($"{npc.DisplayName} joins your dungeon party!");
+            terminal.WriteLine("They will fight alongside you against monsters.");
+
+            // 15% team XP/gold bonus for having teammates
+            terminal.SetColor("cyan");
+            terminal.WriteLine("Team bonus: +15% XP and gold from battles!");
+        }
+        else
+        {
+            terminal.WriteLine("Invalid selection.", "red");
+        }
+        await Task.Delay(2000);
+    }
+
+    private async Task RemoveTeammateFromParty()
+    {
+        terminal.WriteLine("");
+        terminal.SetColor("white");
+        terminal.Write("Enter number of teammate to remove (1-");
+        terminal.Write($"{teammates.Count}");
+        terminal.Write("): ");
+        var input = await terminal.GetInput("");
+
+        if (int.TryParse(input, out int index) && index >= 1 && index <= teammates.Count)
+        {
+            var npc = teammates[index - 1];
+            teammates.RemoveAt(index - 1);
+
+            // Move NPC back to town
+            npc.UpdateLocation("Main Street");
+
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"{npc.DisplayName} leaves the dungeon party and returns to town.");
+        }
+        else
+        {
+            terminal.WriteLine("Invalid selection.", "red");
+        }
         await Task.Delay(1500);
     }
     

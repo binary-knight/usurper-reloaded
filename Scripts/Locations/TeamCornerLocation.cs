@@ -1,4 +1,5 @@
 using UsurperRemake.Utils;
+using UsurperRemake.Systems;
 using Godot;
 using System;
 using System.Collections.Generic;
@@ -43,6 +44,7 @@ public class TeamCornerLocation : BaseLocation
         AddMenuOption("2", "Sack Member");
         AddMenuOption("S", "Status");
         AddMenuOption("O", "Other Team, check");
+        AddMenuOption("N", "Recruit NPC to team");  // New option for direct NPC recruitment
         AddMenuOption("R", "Return");
     }
     
@@ -139,7 +141,11 @@ public class TeamCornerLocation : BaseLocation
             case 'O':
                 await CheckOtherTeam(player);
                 return true;
-                
+
+            case 'N':
+                await RecruitNPCToTeam(player);
+                return true;
+
             default:
                 terminal.WriteLine($"{GameConfig.NewsColorDeath}Invalid choice.{GameConfig.NewsColorDefault}");
                 return true;
@@ -167,6 +173,7 @@ public class TeamCornerLocation : BaseLocation
         terminal.WriteLine($"{GameConfig.NewsColorHighlight}(Q)uit team".PadRight(offset) + $"{GameConfig.NewsColorDefault}(1) Send items to member");
         terminal.WriteLine($"{GameConfig.NewsColorHighlight}(A)pply for membership".PadRight(offset) + $"{GameConfig.NewsColorDefault}(2) Sack Member");
         terminal.WriteLine($"{GameConfig.NewsColorHighlight}(S)tatus".PadRight(offset) + $"{GameConfig.NewsColorDefault}(O)ther Team, check");
+        terminal.WriteLine($"{GameConfig.NewsColorRoyal}(N)PC Recruitment".PadRight(offset) + $"{GameConfig.NewsColorDefault}");
         terminal.WriteLine();
         terminal.WriteLine($"{GameConfig.NewsColorDefault}(R)eturn");
     }
@@ -471,16 +478,67 @@ public class TeamCornerLocation : BaseLocation
     {
         terminal.Clear();
         terminal.WriteLine();
-        terminal.WriteLine($"{GameConfig.NewsColorRoyal}Team Rankings{GameConfig.NewsColorDefault}");
-        terminal.WriteLine("══════════════");
+        terminal.WriteLine($"{GameConfig.NewsColorRoyal}═══════════════════════════════════════{GameConfig.NewsColorDefault}");
+        terminal.WriteLine($"{GameConfig.NewsColorRoyal}           TEAM RANKINGS               {GameConfig.NewsColorDefault}");
+        terminal.WriteLine($"{GameConfig.NewsColorRoyal}═══════════════════════════════════════{GameConfig.NewsColorDefault}");
         terminal.WriteLine();
-        
-        // TODO: Implement team ranking display
-        // This would load all teams and sort by power/score
-        terminal.WriteLine($"{GameConfig.NewsColorDefault}Team ranking system not yet implemented.");
-        terminal.WriteLine("This will show teams sorted by power and achievements.");
+
+        // Get all teams from NPCs and any player teams
+        var allNPCs = UsurperRemake.Systems.NPCSpawnSystem.Instance.ActiveNPCs;
+        var teamGroups = allNPCs
+            .Where(n => !string.IsNullOrEmpty(n.Team) && n.IsAlive)
+            .GroupBy(n => n.Team)
+            .Select(g => new
+            {
+                TeamName = g.Key,
+                MemberCount = g.Count(),
+                TotalPower = g.Sum(m => m.Level + (int)m.Strength + (int)m.Defence),
+                AverageLevel = (int)g.Average(m => m.Level),
+                ControlsTurf = g.Any(m => m.CTurf)
+            })
+            .OrderByDescending(t => t.TotalPower)
+            .ToList();
+
+        // Add player's team if not already in the list
+        if (!string.IsNullOrEmpty(player.Character.Team))
+        {
+            var playerTeamExists = teamGroups.Any(t => t.TeamName == player.Character.Team);
+            if (!playerTeamExists)
+            {
+                // Player is in a team with no other NPCs, add it
+                var playerPower = player.Character.Level + (int)player.Character.Strength + (int)player.Character.Defence;
+                terminal.WriteLine($"{GameConfig.NewsColorPlayer}Your Team: {player.Character.Team}{GameConfig.NewsColorDefault}");
+                terminal.WriteLine($"  Members: 1 (just you), Power: {playerPower}, Turf: {(player.Character.CTurf ? "Yes" : "No")}");
+                terminal.WriteLine();
+            }
+        }
+
+        if (teamGroups.Count == 0 && string.IsNullOrEmpty(player.Character.Team))
+        {
+            terminal.WriteLine($"{GameConfig.NewsColorDefault}No teams have been formed yet.");
+            terminal.WriteLine("Visit Team Corner to create or join a team!");
+        }
+        else
+        {
+            terminal.WriteLine($"{"Rank",-5} {"Team Name",-22} {"Members",-8} {"Power",-8} {"Avg Lvl",-8} {"Turf",-5}");
+            terminal.WriteLine(new string('─', 60));
+
+            int rank = 1;
+            foreach (var team in teamGroups)
+            {
+                string color = GameConfig.NewsColorDefault;
+                if (team.ControlsTurf) color = GameConfig.NewsColorRoyal;
+                if (team.TeamName == player.Character.Team) color = GameConfig.NewsColorPlayer;
+
+                terminal.WriteLine($"{color}{rank,-5} {team.TeamName,-22} {team.MemberCount,-8} {team.TotalPower,-8} {team.AverageLevel,-8} {(team.ControlsTurf ? "★" : "-"),-5}{GameConfig.NewsColorDefault}");
+                rank++;
+            }
+
+            terminal.WriteLine();
+            terminal.WriteLine($"{GameConfig.NewsColorHighlight}★ = Controls the town{GameConfig.NewsColorDefault}");
+        }
+
         terminal.WriteLine();
-        
         await WaitForKeyPress();
     }
     
@@ -520,30 +578,204 @@ public class TeamCornerLocation : BaseLocation
             terminal.WriteLine();
             return;
         }
-        
+
         terminal.WriteLine();
         terminal.WriteLine($"{GameConfig.NewsColorDefault}Examine which team member? (enter {GameConfig.NewsColorHighlight}?{GameConfig.NewsColorDefault} to see your team)");
         terminal.Write($"{GameConfig.NewsColorDefault}: ");
         string memberName = await terminal.ReadLineAsync();
-        
+
         if (memberName == "?")
         {
             await ShowTeamMembers(player.Character.Team, true);
             return;
         }
-        
-        // TODO: Implement member examination
-        // This would show detailed stats of the team member
+
+        // Find the member
+        var allNPCs = NPCSpawnSystem.Instance.ActiveNPCs;
+        var member = allNPCs.FirstOrDefault(n =>
+            n.Team == player.Character.Team &&
+            n.DisplayName.Equals(memberName, StringComparison.OrdinalIgnoreCase));
+
+        if (member == null)
+        {
+            terminal.WriteLine($"{GameConfig.NewsColorDeath}No team member named '{memberName}' found.{GameConfig.NewsColorDefault}");
+            return;
+        }
+
+        // Show detailed stats
+        terminal.Clear();
         terminal.WriteLine();
-        terminal.WriteLine($"{GameConfig.NewsColorDefault}Member examination not yet implemented.");
-        terminal.WriteLine("This will show detailed character information.");
+        terminal.WriteLine($"{GameConfig.NewsColorRoyal}═══════════════════════════════════════{GameConfig.NewsColorDefault}");
+        terminal.WriteLine($"{GameConfig.NewsColorHighlight}        {member.DisplayName.ToUpper()}{GameConfig.NewsColorDefault}");
+        terminal.WriteLine($"{GameConfig.NewsColorRoyal}═══════════════════════════════════════{GameConfig.NewsColorDefault}");
         terminal.WriteLine();
+
+        terminal.WriteLine($"{GameConfig.NewsColorDefault}Class: {GameConfig.NewsColorHighlight}{member.Class}{GameConfig.NewsColorDefault}");
+        terminal.WriteLine($"{GameConfig.NewsColorDefault}Race: {GameConfig.NewsColorHighlight}{member.Race}{GameConfig.NewsColorDefault}");
+        terminal.WriteLine($"{GameConfig.NewsColorDefault}Level: {GameConfig.NewsColorHighlight}{member.Level}{GameConfig.NewsColorDefault}");
+        terminal.WriteLine($"{GameConfig.NewsColorDefault}Status: {(member.IsAlive ? $"{GameConfig.NewsColorPlayer}Alive" : $"{GameConfig.NewsColorDeath}Dead")}{GameConfig.NewsColorDefault}");
+        terminal.WriteLine();
+
+        terminal.WriteLine($"{GameConfig.NewsColorDefault}HP: {GameConfig.NewsColorPlayer}{member.HP}/{member.MaxHP}{GameConfig.NewsColorDefault}");
+        terminal.WriteLine($"{GameConfig.NewsColorDefault}Mana: {GameConfig.NewsColorPlayer}{member.Mana}/{member.MaxMana}{GameConfig.NewsColorDefault}");
+        terminal.WriteLine($"{GameConfig.NewsColorDefault}Gold: {GameConfig.NewsColorHighlight}{member.Gold:N0}{GameConfig.NewsColorDefault}");
+        terminal.WriteLine();
+
+        terminal.WriteLine($"{GameConfig.NewsColorDefault}Strength: {member.Strength,-6} Defence: {member.Defence,-6}");
+        terminal.WriteLine($"{GameConfig.NewsColorDefault}Agility:  {member.Agility,-6} Stamina: {member.Stamina,-6}");
+        terminal.WriteLine($"{GameConfig.NewsColorDefault}Weapon Power: {member.WeapPow,-6} Armor Power: {member.ArmPow,-6}");
+        terminal.WriteLine();
+
+        terminal.WriteLine($"{GameConfig.NewsColorDefault}Location: {GameConfig.NewsColorHighlight}{member.CurrentLocation ?? "Unknown"}{GameConfig.NewsColorDefault}");
+        terminal.WriteLine();
+
+        await WaitForKeyPress();
     }
-    
+
+    /// <summary>
+    /// Recruit an NPC to join the player's team
+    /// </summary>
+    private async Task RecruitNPCToTeam(Player player)
+    {
+        if (string.IsNullOrEmpty(player.Character.Team))
+        {
+            terminal.WriteLine();
+            terminal.WriteLine($"{GameConfig.NewsColorDeath}You must be in a team to recruit members!{GameConfig.NewsColorDefault}");
+            terminal.WriteLine($"{GameConfig.NewsColorDefault}Create a team first with the (C)reate team option.{GameConfig.NewsColorDefault}");
+            terminal.WriteLine();
+            return;
+        }
+
+        // Count current team size
+        var allNPCs = NPCSpawnSystem.Instance.ActiveNPCs;
+        var currentTeamSize = allNPCs.Count(n => n.Team == player.Character.Team && n.IsAlive) + 1; // +1 for player
+        const int maxTeamSize = 5;
+
+        if (currentTeamSize >= maxTeamSize)
+        {
+            terminal.WriteLine();
+            terminal.WriteLine($"{GameConfig.NewsColorDeath}Your team is full! (Max {maxTeamSize} members){GameConfig.NewsColorDefault}");
+            terminal.WriteLine();
+            return;
+        }
+
+        terminal.Clear();
+        terminal.WriteLine();
+        terminal.WriteLine($"{GameConfig.NewsColorRoyal}═══════════════════════════════════════{GameConfig.NewsColorDefault}");
+        terminal.WriteLine($"{GameConfig.NewsColorRoyal}           NPC RECRUITMENT             {GameConfig.NewsColorDefault}");
+        terminal.WriteLine($"{GameConfig.NewsColorRoyal}═══════════════════════════════════════{GameConfig.NewsColorDefault}");
+        terminal.WriteLine();
+        terminal.WriteLine($"{GameConfig.NewsColorDefault}Team: {GameConfig.NewsColorHighlight}{player.Character.Team}{GameConfig.NewsColorDefault}");
+        terminal.WriteLine($"{GameConfig.NewsColorDefault}Current Size: {currentTeamSize}/{maxTeamSize}");
+        terminal.WriteLine();
+
+        // Find NPCs that are not in any team and are in town locations
+        var townLocations = new[] { "Main Street", "Market", "Inn", "Temple", "Gym", "Weapon Shop", "Armor Shop", "Tavern", "Castle", "Team Corner" };
+        var availableNPCs = allNPCs
+            .Where(n => n.IsAlive &&
+                   string.IsNullOrEmpty(n.Team) &&
+                   townLocations.Contains(n.CurrentLocation))
+            .OrderByDescending(n => n.Level)
+            .Take(10) // Show top 10 candidates
+            .ToList();
+
+        if (availableNPCs.Count == 0)
+        {
+            terminal.WriteLine($"{GameConfig.NewsColorDeath}No NPCs available for recruitment right now.{GameConfig.NewsColorDefault}");
+            terminal.WriteLine("Try again later - NPCs move around the world!");
+            terminal.WriteLine();
+            await WaitForKeyPress();
+            return;
+        }
+
+        terminal.WriteLine($"{GameConfig.NewsColorHighlight}Available Recruits:{GameConfig.NewsColorDefault}");
+        terminal.WriteLine($"{"#",-3} {"Name",-18} {"Class",-12} {"Lvl",-5} {"Location",-14} {"Cost",-10}");
+        terminal.WriteLine(new string('─', 65));
+
+        for (int i = 0; i < availableNPCs.Count; i++)
+        {
+            var npc = availableNPCs[i];
+            long recruitCost = CalculateRecruitmentCost(npc, player.Character);
+            string location = npc.CurrentLocation ?? "Unknown";
+            if (location.Length > 13) location = location.Substring(0, 13);
+
+            terminal.WriteLine($"{i + 1,-3} {npc.DisplayName,-18} {npc.Class,-12} {npc.Level,-5} {location,-14} {recruitCost:N0}g");
+        }
+
+        terminal.WriteLine();
+        terminal.WriteLine($"{GameConfig.NewsColorDefault}Your Gold: {GameConfig.NewsColorHighlight}{player.Character.Gold:N0}{GameConfig.NewsColorDefault}");
+        terminal.WriteLine();
+        terminal.Write($"{GameConfig.NewsColorDefault}Enter number to recruit (0 to cancel): ");
+        string input = await terminal.ReadLineAsync();
+
+        if (int.TryParse(input, out int choice) && choice >= 1 && choice <= availableNPCs.Count)
+        {
+            var recruit = availableNPCs[choice - 1];
+            long cost = CalculateRecruitmentCost(recruit, player.Character);
+
+            if (player.Character.Gold < cost)
+            {
+                terminal.WriteLine();
+                terminal.WriteLine($"{GameConfig.NewsColorDeath}You don't have enough gold to recruit {recruit.DisplayName}!{GameConfig.NewsColorDefault}");
+                terminal.WriteLine($"You need {cost:N0} gold, but only have {player.Character.Gold:N0}.");
+            }
+            else
+            {
+                // Recruitment success!
+                player.Character.Gold -= cost;
+                recruit.Team = player.Character.Team;
+                recruit.TeamPW = player.Character.TeamPW;
+                recruit.CTurf = player.Character.CTurf;
+
+                terminal.WriteLine();
+                terminal.WriteLine($"{GameConfig.NewsColorRoyal}{recruit.DisplayName} has joined your team!{GameConfig.NewsColorDefault}");
+                terminal.WriteLine($"You paid {cost:N0} gold for recruitment.");
+                terminal.WriteLine();
+                terminal.WriteLine($"{GameConfig.NewsColorPlayer}\"I'll fight alongside you, boss!\"{GameConfig.NewsColorDefault}");
+
+                // Generate news
+                NewsSystem.Instance.Newsy(true, $"{player.Character.DisplayName} recruited {recruit.DisplayName} into team '{player.Character.Team}'!");
+            }
+        }
+        else if (choice != 0)
+        {
+            terminal.WriteLine($"{GameConfig.NewsColorDeath}Invalid choice.{GameConfig.NewsColorDefault}");
+        }
+
+        terminal.WriteLine();
+        await WaitForKeyPress();
+    }
+
+    /// <summary>
+    /// Calculate the cost to recruit an NPC based on their stats and level
+    /// </summary>
+    private long CalculateRecruitmentCost(NPC npc, Character recruiter)
+    {
+        // Base cost scales with NPC level
+        long baseCost = npc.Level * 500;
+
+        // Add cost for stats
+        baseCost += ((long)npc.Strength + (long)npc.Defence + (long)npc.Agility) * 20;
+
+        // Higher level NPCs cost more if they're above the recruiter
+        if (npc.Level > recruiter.Level)
+        {
+            baseCost = (long)(baseCost * 1.5);
+        }
+
+        // Discount if NPC is much lower level
+        if (npc.Level < recruiter.Level - 5)
+        {
+            baseCost = (long)(baseCost * 0.7);
+        }
+
+        return Math.Max(100, baseCost);
+    }
+
     #endregion
-    
+
     #region Helper Functions
-    
+
     /// <summary>
     /// Show team members - Pascal TCORNER.PAS display_members functionality
     /// </summary>
@@ -551,15 +783,48 @@ public class TeamCornerLocation : BaseLocation
     {
         terminal.WriteLine($"{GameConfig.NewsColorDefault}Team Members:");
         terminal.WriteLine("─────────────");
-        
-        // TODO: Implement team member display
-        // This would load all characters with matching team name
-        terminal.WriteLine($"{GameConfig.NewsColorDefault}Team member display not yet fully implemented.");
-        terminal.WriteLine($"Members of {GameConfig.NewsColorHighlight}{teamName}{GameConfig.NewsColorDefault} would be shown here.");
-        
+
+        // Get NPCs in this team
+        var allNPCs = UsurperRemake.Systems.NPCSpawnSystem.Instance.ActiveNPCs;
+        var teamMembers = allNPCs
+            .Where(n => n.Team == teamName)
+            .OrderByDescending(n => n.Level)
+            .ToList();
+
+        if (teamMembers.Count == 0)
+        {
+            terminal.WriteLine($"{GameConfig.NewsColorDefault}No members found in team '{teamName}'.");
+            return;
+        }
+
         if (detailed)
         {
-            terminal.WriteLine("Detailed stats and status would be included.");
+            // Detailed view with full stats
+            terminal.WriteLine($"{"Name",-20} {"Class",-12} {"Lvl",-5} {"HP",-12} {"Location",-15} {"Status",-8}");
+            terminal.WriteLine(new string('─', 75));
+
+            foreach (var member in teamMembers)
+            {
+                string status = member.IsAlive ? "Alive" : "Dead";
+                string statusColor = member.IsAlive ? GameConfig.NewsColorPlayer : GameConfig.NewsColorDeath;
+                string hpDisplay = $"{member.HP}/{member.MaxHP}";
+                string location = member.CurrentLocation ?? "Unknown";
+                if (location.Length > 14) location = location.Substring(0, 14);
+
+                terminal.WriteLine($"{GameConfig.NewsColorHighlight}{member.DisplayName,-20}{GameConfig.NewsColorDefault} {member.Class,-12} {member.Level,-5} {hpDisplay,-12} {location,-15} {statusColor}{status}{GameConfig.NewsColorDefault}");
+            }
+
+            terminal.WriteLine();
+            terminal.WriteLine($"{GameConfig.NewsColorDefault}Total: {teamMembers.Count} members, {teamMembers.Count(m => m.IsAlive)} alive");
+        }
+        else
+        {
+            // Simple view
+            foreach (var member in teamMembers)
+            {
+                string status = member.IsAlive ? "" : " (Dead)";
+                terminal.WriteLine($"  {GameConfig.NewsColorHighlight}{member.DisplayName}{GameConfig.NewsColorDefault} - Level {member.Level} {member.Class}{status}");
+            }
         }
     }
     

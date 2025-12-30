@@ -286,7 +286,8 @@ public partial class NPC : Character
         long exp = 0;
         for (int i = 2; i <= level; i++)
         {
-            exp += (long)(Math.Pow(i, 2.5) * 100);
+            // Gentler curve: level^1.8 * 50 instead of level^2.5 * 100
+            exp += (long)(Math.Pow(i, 1.8) * 50);
         }
         return exp;
     }

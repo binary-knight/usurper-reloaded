@@ -3,6 +3,7 @@ using UsurperRemake.Systems;
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 /// <summary>
@@ -118,7 +119,8 @@ public class MainStreetLocation : BaseLocation
         long exp = 0;
         for (int i = 2; i <= level; i++)
         {
-            exp += (long)(Math.Pow(i, 2.5) * 100);
+            // Gentler curve: level^1.8 * 50 instead of level^2.5 * 100
+            exp += (long)(Math.Pow(i, 1.8) * 50);
         }
         return exp;
     }
@@ -294,7 +296,16 @@ public class MainStreetLocation : BaseLocation
         terminal.SetColor("darkgray");
         terminal.Write("]");
         terminal.SetColor("white");
-        terminal.WriteLine("ame");
+        terminal.Write("ame         ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("cyan");
+        terminal.Write("L");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("ist Citizens");
 
         terminal.WriteLine("");
         terminal.SetColor("bright_cyan");
@@ -548,37 +559,264 @@ public class MainStreetLocation : BaseLocation
     
     private async Task ShowFame()
     {
-        terminal.ClearScreen();
-        terminal.SetColor("bright_cyan");
-        terminal.WriteLine("Hall of Fame");
-        terminal.WriteLine("============");
-        terminal.WriteLine("");
-        terminal.SetColor("white");
-        terminal.WriteLine("Top Players:");
-        terminal.WriteLine("1. King Arthur - Level 45 - Paladin");
-        terminal.WriteLine("2. Morgana - Level 42 - Magician");  
-        terminal.WriteLine("3. Lancelot - Level 40 - Warrior");
-        terminal.WriteLine("");
-        terminal.WriteLine($"Your Rank: #{GetPlayerRank()} - Level {currentPlayer.Level}");
-        terminal.WriteLine("");
-        await terminal.PressAnyKey();
+        // Get all characters (player + NPCs) and rank them
+        var npcs = NPCSpawnSystem.Instance.ActiveNPCs;
+
+        // If no NPCs, try to initialize them
+        if (npcs == null || npcs.Count == 0)
+        {
+            await NPCSpawnSystem.Instance.InitializeClassicNPCs();
+            npcs = NPCSpawnSystem.Instance.ActiveNPCs;
+        }
+
+        // Build a list of all characters for ranking
+        var allCharacters = new List<(string Name, int Level, string Class, long Experience, bool IsPlayer, bool IsAlive)>();
+
+        // Add player
+        allCharacters.Add((currentPlayer.DisplayName, currentPlayer.Level, currentPlayer.Class.ToString(), currentPlayer.Experience, true, currentPlayer.IsAlive));
+
+        // Add NPCs
+        if (npcs != null)
+        {
+            foreach (var npc in npcs)
+            {
+                allCharacters.Add((npc.Name, npc.Level, npc.Class.ToString(), npc.Experience, false, npc.IsAlive));
+            }
+        }
+
+        // Sort by level (desc), then experience (desc), then name
+        var ranked = allCharacters
+            .Where(c => c.IsAlive)
+            .OrderByDescending(c => c.Level)
+            .ThenByDescending(c => c.Experience)
+            .ThenBy(c => c.Name)
+            .ToList();
+
+        // Find player's rank
+        int playerRank = ranked.FindIndex(c => c.IsPlayer) + 1;
+        if (playerRank == 0) playerRank = ranked.Count + 1; // Player is dead
+
+        int currentPage = 0;
+        int itemsPerPage = 15;
+        int totalPages = Math.Max(1, (ranked.Count + itemsPerPage - 1) / itemsPerPage);
+
+        while (true)
+        {
+            terminal.ClearScreen();
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+            terminal.WriteLine("║                           -= HALL OF FAME =-                                 ║");
+            terminal.WriteLine("║                      The Greatest Heroes of the Realm                        ║");
+            terminal.WriteLine("╠══════════════════════════════════════════════════════════════════════════════╣");
+            terminal.WriteLine("");
+
+            // Show player's rank
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine($"  Your Rank: #{playerRank} of {ranked.Count} - {currentPlayer.DisplayName} (Level {currentPlayer.Level})");
+            terminal.WriteLine("");
+
+            // Column headers
+            terminal.SetColor("gray");
+            terminal.WriteLine($"  {"Rank",-6} {"Name",-20} {"Level",5}  {"Class",-12} {"Experience",12}");
+            terminal.WriteLine($"  {"────",-6} {"────────────────────",-20} {"─────",5}  {"────────────",-12} {"────────────",12}");
+
+            // Display current page
+            int startIdx = currentPage * itemsPerPage;
+            int endIdx = Math.Min(startIdx + itemsPerPage, ranked.Count);
+
+            for (int i = startIdx; i < endIdx; i++)
+            {
+                var entry = ranked[i];
+                int rank = i + 1;
+
+                // Color coding
+                string color;
+                if (entry.IsPlayer)
+                    color = "bright_green";
+                else if (rank <= 3)
+                    color = rank == 1 ? "bright_yellow" : (rank == 2 ? "white" : "yellow");
+                else if (entry.Level > currentPlayer.Level)
+                    color = "bright_red";
+                else
+                    color = "gray";
+
+                terminal.SetColor(color);
+
+                string rankStr = rank <= 3 ? $"#{rank}" : $" {rank}.";
+                string marker = entry.IsPlayer ? "★" : " ";
+                terminal.WriteLine($"  {rankStr,-6}{marker}{entry.Name,-19} {entry.Level,5}  {entry.Class,-12} {entry.Experience,12:N0}");
+            }
+
+            terminal.WriteLine("");
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+            terminal.WriteLine("");
+
+            // Navigation
+            terminal.SetColor("cyan");
+            terminal.WriteLine($"  Page {currentPage + 1}/{totalPages}");
+            var options = new List<string>();
+            if (currentPage > 0) options.Add("[P]rev");
+            if (currentPage < totalPages - 1) options.Add("[N]ext");
+            options.Add("[R]eturn");
+            terminal.WriteLine($"  {string.Join("  ", options)}");
+
+            string input = (await terminal.GetKeyInput()).ToUpperInvariant();
+
+            if (input == "P" && currentPage > 0)
+                currentPage--;
+            else if (input == "N" && currentPage < totalPages - 1)
+                currentPage++;
+            else if (input == "R" || input == "Q" || input == "ESCAPE")
+                break;
+        }
     }
     
     private async Task ListCharacters()
     {
-        terminal.ClearScreen();
-        terminal.SetColor("bright_green");
-        terminal.WriteLine("Character List");
-        terminal.WriteLine("==============");
-        terminal.WriteLine("");
-        terminal.SetColor("white");
-        terminal.WriteLine("Active Players:");
-        terminal.WriteLine($"• {currentPlayer.DisplayName} (You) - Level {currentPlayer.Level} {currentPlayer.Class}");
-        terminal.WriteLine("• Sir Galahad - Level 38 Paladin");
-        terminal.WriteLine("• Dark Wizard - Level 35 Magician");
-        terminal.WriteLine("• Swift Arrow - Level 33 Ranger");
-        terminal.WriteLine("");
-        await terminal.PressAnyKey();
+        // Get NPCs from the spawn system
+        var npcs = NPCSpawnSystem.Instance.ActiveNPCs;
+
+        // Debug: If no NPCs, try to initialize them
+        if (npcs == null || npcs.Count == 0)
+        {
+            GD.Print("[ListCharacters] No NPCs found, attempting to initialize...");
+            await NPCSpawnSystem.Instance.InitializeClassicNPCs();
+            npcs = NPCSpawnSystem.Instance.ActiveNPCs;
+            GD.Print($"[ListCharacters] After init: {npcs?.Count ?? 0} NPCs");
+        }
+
+        var aliveNPCs = npcs?.Where(n => n.IsAlive).OrderByDescending(n => n.Level).ThenBy(n => n.Name).ToList() ?? new List<NPC>();
+        var deadNPCs = npcs?.Where(n => !n.IsAlive).OrderByDescending(n => n.Level).ThenBy(n => n.Name).ToList() ?? new List<NPC>();
+
+        int currentPage = 0;
+        int itemsPerPage = 18;
+        int totalAlivePages = (aliveNPCs.Count + itemsPerPage - 1) / itemsPerPage;
+        int totalDeadPages = (deadNPCs.Count + itemsPerPage - 1) / itemsPerPage;
+        bool viewingDead = false;
+
+        while (true)
+        {
+            terminal.ClearScreen();
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine("║                         -= CITIZENS OF THE REALM =-                          ║");
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine("╠══════════════════════════════════════════════════════════════════════════════╣");
+            terminal.WriteLine("");
+
+            // Always show player first
+            terminal.SetColor("bright_green");
+            terminal.WriteLine("  ═══ PLAYERS ═══");
+            terminal.SetColor("yellow");
+            string playerSex = currentPlayer.Sex == CharacterSex.Male ? "M" : "F";
+            terminal.WriteLine($"  ★ {currentPlayer.DisplayName,-18} {playerSex} Lv{currentPlayer.Level,3} {currentPlayer.Class,-10} HP:{currentPlayer.HP}/{currentPlayer.MaxHP} (You)");
+            terminal.WriteLine("");
+
+            if (!viewingDead)
+            {
+                // Show alive NPCs
+                terminal.SetColor("bright_green");
+                int totalPages = Math.Max(1, totalAlivePages);
+                terminal.WriteLine($"  ═══ ADVENTURERS ({aliveNPCs.Count} active) - Page {currentPage + 1}/{totalPages} ═══");
+
+                if (aliveNPCs.Count > 0)
+                {
+                    int startIdx = currentPage * itemsPerPage;
+                    int endIdx = Math.Min(startIdx + itemsPerPage, aliveNPCs.Count);
+
+                    for (int i = startIdx; i < endIdx; i++)
+                    {
+                        var npc = aliveNPCs[i];
+                        // Color based on level relative to player
+                        string color = npc.Level > currentPlayer.Level + 5 ? "bright_red" :
+                                       npc.Level > currentPlayer.Level ? "yellow" :
+                                       npc.Level > currentPlayer.Level - 5 ? "white" : "gray";
+
+                        terminal.SetColor(color);
+                        string classStr = npc.Class.ToString();
+                        string locationStr = string.IsNullOrEmpty(npc.CurrentLocation) ? "???" : npc.CurrentLocation;
+                        string sex = npc.Sex == CharacterSex.Male ? "M" : "F";
+                        terminal.WriteLine($"  • {npc.Name,-18} {sex} Lv{npc.Level,3} {classStr,-10} @ {locationStr}");
+                    }
+                }
+                else
+                {
+                    terminal.SetColor("gray");
+                    terminal.WriteLine("  No adventurers found in the realm.");
+                }
+            }
+            else
+            {
+                // Show dead NPCs
+                terminal.SetColor("dark_gray");
+                int totalPages = Math.Max(1, totalDeadPages);
+                terminal.WriteLine($"  ═══ FALLEN ({deadNPCs.Count}) - Page {currentPage + 1}/{totalPages} ═══");
+
+                if (deadNPCs.Count > 0)
+                {
+                    int startIdx = currentPage * itemsPerPage;
+                    int endIdx = Math.Min(startIdx + itemsPerPage, deadNPCs.Count);
+
+                    for (int i = startIdx; i < endIdx; i++)
+                    {
+                        var npc = deadNPCs[i];
+                        terminal.SetColor("dark_gray");
+                        string sex = npc.Sex == CharacterSex.Male ? "M" : "F";
+                        terminal.WriteLine($"  † {npc.Name,-18} {sex} Lv{npc.Level,3} {npc.Class,-10} - R.I.P.");
+                    }
+                }
+                else
+                {
+                    terminal.SetColor("gray");
+                    terminal.WriteLine("  No fallen adventurers.");
+                }
+            }
+
+            terminal.WriteLine("");
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+            terminal.WriteLine("");
+
+            // Navigation options
+            terminal.SetColor("cyan");
+            var options = new List<string>();
+            int maxPages = viewingDead ? totalDeadPages : totalAlivePages;
+            if (currentPage > 0) options.Add("[P]rev");
+            if (currentPage < maxPages - 1) options.Add("[N]ext");
+            if (!viewingDead && deadNPCs.Count > 0) options.Add("[D]ead");
+            if (viewingDead) options.Add("[A]live");
+            options.Add("[R]eturn");
+
+            terminal.WriteLine($"  {string.Join("  ", options)}");
+            terminal.WriteLine("");
+
+            string input = (await terminal.GetKeyInput()).ToUpperInvariant();
+
+            if (input == "P" && currentPage > 0)
+            {
+                currentPage--;
+            }
+            else if (input == "N" && currentPage < maxPages - 1)
+            {
+                currentPage++;
+            }
+            else if (input == "D" && !viewingDead && deadNPCs.Count > 0)
+            {
+                viewingDead = true;
+                currentPage = 0;
+            }
+            else if (input == "A" && viewingDead)
+            {
+                viewingDead = false;
+                currentPage = 0;
+            }
+            else if (input == "R" || input == "Q" || input == "ESCAPE")
+            {
+                break;
+            }
+        }
     }
     
     private async Task ShowRelations()
@@ -673,8 +911,24 @@ public class MainStreetLocation : BaseLocation
     
     private int GetPlayerRank()
     {
-        // Simplified ranking system
-        return Math.Max(1, 20 - (int)(currentPlayer.Level / 2));
+        // Calculate real rank based on all characters
+        var npcs = NPCSpawnSystem.Instance.ActiveNPCs;
+        int rank = 1;
+
+        if (npcs != null)
+        {
+            foreach (var npc in npcs.Where(n => n.IsAlive))
+            {
+                // NPC ranks higher if higher level, or same level with more XP
+                if (npc.Level > currentPlayer.Level ||
+                    (npc.Level == currentPlayer.Level && npc.Experience > currentPlayer.Experience))
+                {
+                    rank++;
+                }
+            }
+        }
+
+        return rank;
     }
     
     private async Task ProcessGoodDeed(string choice)

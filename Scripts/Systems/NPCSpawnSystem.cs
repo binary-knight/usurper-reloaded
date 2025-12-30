@@ -26,9 +26,11 @@ namespace UsurperRemake.Systems
         /// </summary>
         public async Task InitializeClassicNPCs()
         {
-            if (npcsInitialized)
+            // Check both the flag AND the actual count to be safe
+            // This handles cases where the flag is set but NPCs weren't actually created
+            if (npcsInitialized && spawnedNPCs.Count > 0)
             {
-                GD.Print("[NPCSpawn] NPCs already initialized");
+                GD.Print($"[NPCSpawn] NPCs already initialized ({spawnedNPCs.Count} active)");
                 return;
             }
 
@@ -50,6 +52,17 @@ namespace UsurperRemake.Systems
             GD.Print($"[NPCSpawn] Successfully initialized {spawnedNPCs.Count} NPCs");
 
             await Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// Force re-initialization of NPCs (for loading saves or debugging)
+        /// </summary>
+        public async Task ForceReinitializeNPCs()
+        {
+            GD.Print("[NPCSpawn] Force reinitializing NPCs...");
+            npcsInitialized = false;
+            spawnedNPCs.Clear();
+            await InitializeClassicNPCs();
         }
 
         /// <summary>
@@ -240,20 +253,21 @@ namespace UsurperRemake.Systems
         /// </summary>
         private string GetRandomStartLocation()
         {
-            // Place NPCs in various town locations
+            // Place NPCs in various town locations with readable names
             var locations = new[]
             {
-                0,  // Main Street
-                1,  // Market
-                2,  // Inn
-                3,  // Temple
-                4,  // Gym
-                10, // Weapon Shop
-                11, // Armor Shop
-                20  // Love Corner
+                "Main Street",
+                "Market",
+                "Inn",
+                "Temple",
+                "Gym",
+                "Weapon Shop",
+                "Armor Shop",
+                "Tavern",
+                "Castle"
             };
 
-            return locations[random.Next(locations.Length)].ToString();
+            return locations[random.Next(locations.Length)];
         }
 
         /// <summary>

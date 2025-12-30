@@ -63,6 +63,7 @@ namespace UsurperConsole
 
         /// <summary>
         /// Parse and render text with inline color markup tags like [red]text[/]
+        /// Uses regex-based approach for reliable parsing
         /// </summary>
         public void WriteMarkup(string text)
         {
@@ -73,88 +74,74 @@ namespace UsurperConsole
 
             var oldColor = Console.ForegroundColor;
 
-            // Pattern matches [color]content[/] or plain text
-            // Supports nested: [red]some [yellow]yellow[/] text[/]
-            var pattern = @"\[([a-z_]+)\](.*?)\[/\]";
-            var lastIndex = 0;
-
-            // Use a simple state-based parser for proper nesting support
-            int i = 0;
-            while (i < text.Length)
+            // Process text sequentially, finding color tags
+            int pos = 0;
+            while (pos < text.Length)
             {
-                // Look for opening tag
-                if (text[i] == '[' && i + 1 < text.Length && text[i + 1] != '/')
+                // Look for an opening color tag [colorname]
+                var tagMatch = Regex.Match(text.Substring(pos), @"^\[([a-z_]+)\]", RegexOptions.IgnoreCase);
+                if (tagMatch.Success)
                 {
-                    // Find the closing bracket
-                    var closeIndex = text.IndexOf(']', i);
-                    if (closeIndex > i)
+                    string colorName = tagMatch.Groups[1].Value;
+                    var color = ColorNameToConsole(colorName);
+
+                    // Move past the opening tag
+                    pos += tagMatch.Length;
+
+                    // Find the content and closing tag [/]
+                    int depth = 1;
+                    int contentStart = pos;
+                    int contentEnd = pos;
+
+                    while (pos < text.Length && depth > 0)
                     {
-                        var colorName = text.Substring(i + 1, closeIndex - i - 1);
-                        var color = ColorNameToConsole(colorName);
-
-                        // Find matching [/]
-                        var endTagIndex = FindMatchingEndTag(text, closeIndex + 1);
-                        if (endTagIndex > closeIndex)
+                        // Check for closing tag [/] - need pos+2 to be a valid index
+                        if (pos + 2 <= text.Length - 1 && text[pos] == '[' && text[pos + 1] == '/' && text[pos + 2] == ']')
                         {
-                            // Extract content between tags
-                            var content = text.Substring(closeIndex + 1, endTagIndex - closeIndex - 1);
-
-                            // Recursively process content (for nested tags)
-                            Console.ForegroundColor = color;
-                            WriteMarkup(content);
-                            Console.ForegroundColor = oldColor;
-
-                            // Move past the [/]
-                            i = endTagIndex + 3;
+                            depth--;
+                            if (depth == 0)
+                            {
+                                contentEnd = pos;
+                                pos += 3; // Skip [/]
+                                break;
+                            }
+                            pos += 3;
                             continue;
                         }
+
+                        // Check for nested opening tag
+                        var nestedMatch = Regex.Match(text.Substring(pos), @"^\[([a-z_]+)\]", RegexOptions.IgnoreCase);
+                        if (nestedMatch.Success)
+                        {
+                            depth++;
+                            pos += nestedMatch.Length;
+                            continue;
+                        }
+
+                        pos++;
                     }
+
+                    // Extract and render the content with the color
+                    string content = text.Substring(contentStart, contentEnd - contentStart);
+                    Console.ForegroundColor = color;
+                    WriteMarkup(content); // Recursive for nested tags
+                    Console.ForegroundColor = oldColor;
+                    continue;
                 }
 
-                // Regular character, just print it
-                Console.Write(text[i]);
-                i++;
+                // Check for stray closing tag (shouldn't happen, but handle it)
+                if (pos + 2 <= text.Length - 1 && text[pos] == '[' && text[pos + 1] == '/' && text[pos + 2] == ']')
+                {
+                    pos += 3;
+                    continue;
+                }
+
+                // Regular character, print it
+                Console.Write(text[pos]);
+                pos++;
             }
 
             Console.ForegroundColor = oldColor;
-        }
-
-        /// <summary>
-        /// Find the matching [/] end tag, handling nesting
-        /// </summary>
-        private int FindMatchingEndTag(string text, int startIndex)
-        {
-            int depth = 1;
-            int i = startIndex;
-
-            while (i < text.Length && depth > 0)
-            {
-                if (text[i] == '[')
-                {
-                    // Check for end tag [/]
-                    if (i + 2 < text.Length && text[i + 1] == '/' && text[i + 2] == ']')
-                    {
-                        depth--;
-                        if (depth == 0)
-                        {
-                            return i;
-                        }
-                        i += 3;
-                        continue;
-                    }
-                    // Check for opening tag [something]
-                    var closeIndex = text.IndexOf(']', i);
-                    if (closeIndex > i && text[i + 1] != '/')
-                    {
-                        depth++;
-                        i = closeIndex + 1;
-                        continue;
-                    }
-                }
-                i++;
-            }
-
-            return -1;
         }
 
         public void WriteLine(string text, ConsoleColor color)

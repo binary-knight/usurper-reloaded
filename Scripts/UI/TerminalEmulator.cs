@@ -112,8 +112,117 @@ public partial class TerminalEmulator : Control
         }
         else
         {
-            Console.WriteLine(text);
+            // Console fallback - parse and render inline color tags
+            WriteLineWithColors(text, color);
         }
+    }
+
+    /// <summary>
+    /// Console-mode output with inline color tag parsing
+    /// Handles [colorname]text[/] format for console output
+    /// </summary>
+    private void WriteLineWithColors(string text, string baseColor)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            Console.WriteLine();
+            return;
+        }
+
+        // Check if text contains color tags
+        if (!text.Contains("[") || !text.Contains("[/]"))
+        {
+            // No tags, just output with base color
+            var oldColor = Console.ForegroundColor;
+            Console.ForegroundColor = ColorNameToConsole(baseColor);
+            Console.WriteLine(text);
+            Console.ForegroundColor = oldColor;
+            return;
+        }
+
+        // Parse and render with colors
+        var savedColor = Console.ForegroundColor;
+        Console.ForegroundColor = ColorNameToConsole(baseColor);
+        WriteMarkupToConsole(text);
+        Console.WriteLine();
+        Console.ForegroundColor = savedColor;
+    }
+
+    /// <summary>
+    /// Parse inline [colorname]text[/] markup and output to console with colors
+    /// </summary>
+    private void WriteMarkupToConsole(string text)
+    {
+        var oldColor = Console.ForegroundColor;
+        int pos = 0;
+
+        while (pos < text.Length)
+        {
+            // Look for opening color tag [colorname]
+            var tagMatch = System.Text.RegularExpressions.Regex.Match(
+                text.Substring(pos), @"^\[([a-z_]+)\]", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+            if (tagMatch.Success)
+            {
+                string colorName = tagMatch.Groups[1].Value;
+                var color = ColorNameToConsole(colorName);
+                pos += tagMatch.Length;
+
+                // Find content and closing tag
+                int depth = 1;
+                int contentStart = pos;
+                int contentEnd = pos;
+
+                while (pos < text.Length && depth > 0)
+                {
+                    // Check for [/]
+                    if (pos + 2 <= text.Length - 1 && text[pos] == '[' && text[pos + 1] == '/' && text[pos + 2] == ']')
+                    {
+                        depth--;
+                        if (depth == 0)
+                        {
+                            contentEnd = pos;
+                            pos += 3;
+                            break;
+                        }
+                        pos += 3;
+                        continue;
+                    }
+
+                    // Check for nested opening tag
+                    var nestedMatch = System.Text.RegularExpressions.Regex.Match(
+                        text.Substring(pos), @"^\[([a-z_]+)\]", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                    if (nestedMatch.Success)
+                    {
+                        depth++;
+                        pos += nestedMatch.Length;
+                        continue;
+                    }
+
+                    pos++;
+                }
+
+                // Render content with color
+                string content = text.Substring(contentStart, contentEnd - contentStart);
+                Console.ForegroundColor = color;
+                WriteMarkupToConsole(content); // Recursive for nested tags
+                Console.ForegroundColor = oldColor;
+                continue;
+            }
+
+            // Check for stray [/]
+            if (pos + 2 <= text.Length - 1 && text[pos] == '[' && text[pos + 1] == '/' && text[pos + 2] == ']')
+            {
+                pos += 3;
+                continue;
+            }
+
+            // Regular character
+            Console.Write(text[pos]);
+            pos++;
+        }
+
+        Console.ForegroundColor = oldColor;
     }
 
     /// <summary>
