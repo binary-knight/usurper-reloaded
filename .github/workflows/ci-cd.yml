@@ -38,12 +38,12 @@ jobs:
             ${{ runner.os }}-nuget-
 
       - name: Restore .NET dependencies
-        run: dotnet restore
+        run: dotnet restore usurper-reloaded.csproj
         env:
           DOTNET_SYSTEM_GLOBALIZATION_INVARIANT: 1
 
       - name: Build C# project
-        run: dotnet build --configuration Release --no-restore
+        run: dotnet build usurper-reloaded.csproj --configuration Release --no-restore
         env:
           DOTNET_SYSTEM_GLOBALIZATION_INVARIANT: 1
 
@@ -78,7 +78,7 @@ jobs:
           include-templates: true
 
       - name: Build C# project
-        run: dotnet build --configuration Release
+        run: dotnet build usurper-reloaded.csproj --configuration Release
         env:
           DOTNET_SYSTEM_GLOBALIZATION_INVARIANT: 1
 
