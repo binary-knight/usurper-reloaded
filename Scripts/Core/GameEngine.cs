@@ -747,8 +747,12 @@ public partial class GameEngine : Node
     {
         if (currentPlayer == null) return;
 
-        // Initialize NPCs on first game start
-        await NPCSpawnSystem.Instance.InitializeClassicNPCs();
+        // Initialize NPCs only if they haven't been initialized yet
+        // The NPCSpawnSystem has a guard flag to prevent duplicate spawning
+        if (NPCSpawnSystem.Instance.ActiveNPCs.Count == 0)
+        {
+            await NPCSpawnSystem.Instance.InitializeClassicNPCs();
+        }
 
         // Check if player is allowed to play
         if (!currentPlayer.Allowed)
@@ -887,16 +891,14 @@ public partial class GameEngine : Node
             player.Description = playerData.Description;
         }
         
-        // Restore items
-        if (playerData.Items?.Length > 0)
-        {
-            player.Item = playerData.Items.ToList();
-        }
-        
-        if (playerData.ItemTypes?.Length > 0)
-        {
-            player.ItemType = playerData.ItemTypes.Select(i => (ObjType)i).ToList();
-        }
+        // Restore items (ensure lists are always initialized)
+        player.Item = playerData.Items?.Length > 0
+            ? playerData.Items.ToList()
+            : new List<int>();
+
+        player.ItemType = playerData.ItemTypes?.Length > 0
+            ? playerData.ItemTypes.Select(i => (ObjType)i).ToList()
+            : new List<ObjType>();
         
         // Parse location
         if (int.TryParse(playerData.CurrentLocation, out var locationId))

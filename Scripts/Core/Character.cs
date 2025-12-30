@@ -72,8 +72,8 @@ public class Character
     public int Mercy { get; set; }                  // mercy??
     
     // Inventory - array from Pascal
-    public List<int> Item { get; set; }             // inventory items (item IDs)
-    public List<ObjType> ItemType { get; set; }     // type of items in inventory
+    public List<int> Item { get; set; } = new List<int>();             // inventory items (item IDs)
+    public List<ObjType> ItemType { get; set; } = new List<ObjType>(); // type of items in inventory
     
     // Phrases used in different situations (6 phrases from Pascal)
     public List<string> Phrases { get; set; }       // phr array[1..6]
