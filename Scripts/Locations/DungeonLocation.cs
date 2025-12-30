@@ -16,11 +16,9 @@ public class DungeonLocation : BaseLocation
     private DungeonTerrain currentTerrain = DungeonTerrain.Underground;
     private Random dungeonRandom = new Random();
     
-    // Pascal-compatible encounter chances
-    private const float MonsterEncounterChance = 0.45f;
-    private const float TreasureEncounterChance = 0.20f;
-    private const float EventEncounterChance = 0.15f;
-    private const float EmptyRoomChance = 0.20f;
+    // Encounter chances: 90% monsters, 10% special events (no empty rooms - always something happens!)
+    private const float MonsterEncounterChance = 0.90f;
+    private const float SpecialEventChance = 0.10f;
     
     public DungeonLocation() : base(
         GameLocation.Dungeons,
@@ -280,24 +278,16 @@ public class DungeonLocation : BaseLocation
         // Atmospheric exploration text
         await ShowExplorationText();
 
-        // Determine encounter type (Pascal-compatible)
+        // Determine encounter type: 90% monsters, 10% special events
         var encounterRoll = dungeonRandom.NextDouble();
 
         if (encounterRoll < MonsterEncounterChance)
         {
             await MonsterEncounter();
         }
-        else if (encounterRoll < MonsterEncounterChance + TreasureEncounterChance)
-        {
-            await TreasureEncounter();
-        }
-        else if (encounterRoll < MonsterEncounterChance + TreasureEncounterChance + EventEncounterChance)
-        {
-            await SpecialEventEncounter();
-        }
         else
         {
-            await EmptyRoomEncounter();
+            await SpecialEventEncounter();
         }
 
         await Task.Delay(1000);
@@ -354,74 +344,6 @@ public class DungeonLocation : BaseLocation
         // Use new PlayerVsMonsters method - ALL monsters fight at once!
         // Monk will appear after ALL monsters are defeated
         await combatEngine.PlayerVsMonsters(GetCurrentPlayer(), monsters, teammates, offerMonkEncounter: true);
-    }
-    
-    /// <summary>
-    /// Treasure encounter - Pascal treasure mechanics
-    /// </summary>
-    private async Task TreasureEncounter()
-    {
-        terminal.SetColor("yellow");
-        terminal.WriteLine("★ TREASURE FOUND ★");
-        terminal.WriteLine("");
-        
-        var treasureType = dungeonRandom.Next(3);
-        var currentPlayer = GetCurrentPlayer();
-        
-        switch (treasureType)
-        {
-            case 0: // Gold treasure (Pascal formula)
-                {
-                    terminal.WriteLine("You have found a treasure chest!");
-                    await Task.Delay(1500);
-                    
-                    long goldFound = currentDungeonLevel * 1500 + dungeonRandom.Next(5000);
-                    long expGained = currentDungeonLevel * 200 + dungeonRandom.Next(5000);
-                    
-                    terminal.SetColor("green");
-                    terminal.WriteLine($"You find {goldFound} gold pieces!");
-                    terminal.WriteLine($"You gain {expGained} experience points!");
-                    
-                    currentPlayer.Gold += goldFound;
-                    currentPlayer.Experience += expGained;
-                    
-                    // Share with team
-                    if (teammates.Count > 0)
-                    {
-                        long teamShare = goldFound / (teammates.Count + 1);
-                        foreach (var member in teammates)
-                        {
-                            if (member.IsAlive)
-                            {
-                                member.Gold += teamShare;
-                                member.Experience += expGained / (teammates.Count + 1);
-                            }
-                        }
-                        terminal.WriteLine($"Your team shares the wealth!");
-                    }
-                }
-                break;
-                
-            case 1: // Healing potions
-                {
-                    terminal.WriteLine("The chest is filled with healing potions!");
-                    
-                    int potionsFound = dungeonRandom.Next(currentPlayer.Level) + 1;
-                    potionsFound *= 2; // Pascal formula
-                    
-                    terminal.SetColor("green");
-                    terminal.WriteLine($"You took {potionsFound} potions.");
-                    
-                    currentPlayer.Healing += potionsFound;
-                }
-                break;
-                
-            case 2: // Magic scroll
-                {
-                    await HandleMagicScroll();
-                }
-                break;
-        }
     }
     
     /// <summary>
@@ -522,27 +444,660 @@ public class DungeonLocation : BaseLocation
     }
     
     /// <summary>
-    /// Special event encounters - Pascal DUNGEV2.PAS
+    /// Special event encounters - Based on Pascal DUNGEVC.PAS and DUNGEV2.PAS
+    /// Includes positive, negative, and neutral events for variety
     /// </summary>
     private async Task SpecialEventEncounter()
     {
-        var eventType = dungeonRandom.Next(4);
+        // 12 different event types based on original Pascal
+        var eventType = dungeonRandom.Next(12);
 
         switch (eventType)
         {
             case 0:
-                await MerchantEncounter();
+                await TreasureChestEncounter();
                 break;
             case 1:
-                await WitchDoctorEncounter();
-                break;
-            case 2:
-                await BeggarEncounter();
-                break;
-            case 3:
                 await PotionCacheEncounter();
                 break;
+            case 2:
+                await MerchantEncounter();
+                break;
+            case 3:
+                await WitchDoctorEncounter();
+                break;
+            case 4:
+                await BeggarEncounter();
+                break;
+            case 5:
+                await StrangersEncounter();
+                break;
+            case 6:
+                await HarassedWomanEncounter();
+                break;
+            case 7:
+                await WoundedManEncounter();
+                break;
+            case 8:
+                await MysteriousShrine();
+                break;
+            case 9:
+                await TrapEncounter();
+                break;
+            case 10:
+                await AncientScrollEncounter();
+                break;
+            case 11:
+                await GamblingGhostEncounter();
+                break;
         }
+    }
+
+    /// <summary>
+    /// Treasure chest encounter - Classic Pascal treasure mechanics
+    /// </summary>
+    private async Task TreasureChestEncounter()
+    {
+        terminal.SetColor("yellow");
+        terminal.WriteLine("★ TREASURE CHEST ★");
+        terminal.WriteLine("");
+
+        terminal.WriteLine("You discover an ancient chest hidden in the shadows!", "cyan");
+        terminal.WriteLine("");
+
+        var choice = await terminal.GetInput("(O)pen the chest or (L)eave it alone? ");
+
+        var currentPlayer = GetCurrentPlayer();
+
+        if (choice.ToUpper() == "O")
+        {
+            // 70% good, 20% trap, 10% mimic
+            var chestRoll = dungeonRandom.Next(10);
+
+            if (chestRoll < 7)
+            {
+                // Good treasure!
+                long goldFound = currentDungeonLevel * 1500 + dungeonRandom.Next(5000);
+                long expGained = currentDungeonLevel * 200 + dungeonRandom.Next(3000);
+
+                terminal.SetColor("green");
+                terminal.WriteLine("The chest opens to reveal glittering treasure!");
+                terminal.WriteLine($"You find {goldFound} gold pieces!");
+                terminal.WriteLine($"You gain {expGained} experience!");
+
+                currentPlayer.Gold += goldFound;
+                currentPlayer.Experience += expGained;
+            }
+            else if (chestRoll < 9)
+            {
+                // Trap!
+                terminal.SetColor("red");
+                terminal.WriteLine("CLICK! It's a trap!");
+
+                var trapType = dungeonRandom.Next(3);
+                switch (trapType)
+                {
+                    case 0:
+                        var poisonDmg = currentDungeonLevel * 5;
+                        currentPlayer.HP -= poisonDmg;
+                        terminal.WriteLine($"Poison gas! You take {poisonDmg} damage!");
+                        currentPlayer.Poison = Math.Max(currentPlayer.Poison, 1);
+                        terminal.WriteLine("You have been poisoned!", "magenta");
+                        break;
+                    case 1:
+                        var spikeDmg = currentDungeonLevel * 8;
+                        currentPlayer.HP -= spikeDmg;
+                        terminal.WriteLine($"Spikes shoot out! You take {spikeDmg} damage!");
+                        break;
+                    case 2:
+                        var goldLost = currentPlayer.Gold / 10;
+                        currentPlayer.Gold -= goldLost;
+                        terminal.WriteLine($"Acid sprays your coin pouch! You lose {goldLost} gold!");
+                        break;
+                }
+            }
+            else
+            {
+                // Mimic! (triggers combat)
+                terminal.SetColor("bright_red");
+                terminal.WriteLine("The chest MOVES! It's a MIMIC!");
+                await Task.Delay(1500);
+
+                var mimic = Monster.CreateMonster(
+                    currentDungeonLevel, "Mimic",
+                    currentDungeonLevel * 15, currentDungeonLevel * 4, 0,
+                    "Fooled you!", false, false, "Teeth", "Wooden Shell",
+                    false, false, currentDungeonLevel * 5, currentDungeonLevel * 3, currentDungeonLevel * 3
+                );
+                mimic.IsBoss = true;
+                mimic.Level = currentDungeonLevel;
+
+                var combatEngine = new CombatEngine(terminal);
+                await combatEngine.PlayerVsMonster(currentPlayer, mimic, teammates);
+            }
+        }
+        else
+        {
+            terminal.WriteLine("You wisely leave the chest alone and continue on.", "gray");
+        }
+
+        await Task.Delay(2000);
+    }
+
+    /// <summary>
+    /// Strangers encounter - Band of rogues/orcs (from Pascal DUNGEV2.PAS)
+    /// </summary>
+    private async Task StrangersEncounter()
+    {
+        terminal.SetColor("red");
+        terminal.WriteLine("⚔ STRANGERS APPROACH ⚔");
+        terminal.WriteLine("");
+
+        var currentPlayer = GetCurrentPlayer();
+        var groupType = dungeonRandom.Next(4);
+        string groupName;
+        string[] memberTypes;
+
+        switch (groupType)
+        {
+            case 0:
+                groupName = "orcs";
+                memberTypes = new[] { "Orc", "Half-Orc", "Orc Raider" };
+                terminal.WriteLine("A group of orcs emerges from the shadows!", "gray");
+                terminal.WriteLine("They are poorly armed with sticks and clubs.", "gray");
+                break;
+            case 1:
+                groupName = "trolls";
+                memberTypes = new[] { "Troll", "Half-Troll", "Lumber-Troll" };
+                terminal.WriteLine("A band of trolls blocks your path!", "green");
+                terminal.WriteLine("They carry clubs and spears.", "gray");
+                break;
+            case 2:
+                groupName = "rogues";
+                memberTypes = new[] { "Rogue", "Thief", "Pirate" };
+                terminal.WriteLine("A gang of rogues surrounds you!", "cyan");
+                terminal.WriteLine("They brandish knives and rapiers.", "gray");
+                break;
+            default:
+                groupName = "dwarves";
+                memberTypes = new[] { "Dwarf", "Dwarf Warrior", "Dwarf Scout" };
+                terminal.WriteLine("A group of armed dwarves approaches!", "yellow");
+                terminal.WriteLine("They carry swords and axes.", "gray");
+                break;
+        }
+
+        terminal.WriteLine("");
+        terminal.WriteLine("Their leader demands your gold!", "white");
+        terminal.WriteLine("");
+
+        var choice = await terminal.GetInput("(F)ight them, (P)ay them off, or try to (E)scape? ");
+
+        if (choice.ToUpper() == "F")
+        {
+            terminal.WriteLine("You draw your weapon and prepare for battle!", "yellow");
+            await Task.Delay(1500);
+
+            // Create the group
+            int groupSize = dungeonRandom.Next(3, 6);
+            var monsters = new List<Monster>();
+
+            for (int i = 0; i < groupSize; i++)
+            {
+                var name = memberTypes[dungeonRandom.Next(memberTypes.Length)];
+                if (i == 0) name = name + " Leader";
+
+                var monster = Monster.CreateMonster(
+                    currentDungeonLevel, name,
+                    currentDungeonLevel * (i == 0 ? 8 : 4),
+                    currentDungeonLevel * 2, 0,
+                    "Attack!", false, false, "Weapon", "Armor",
+                    false, false, currentDungeonLevel * 2, currentDungeonLevel, currentDungeonLevel * 2
+                );
+                monster.Level = currentDungeonLevel;
+                if (i == 0) monster.IsBoss = true;
+                monsters.Add(monster);
+            }
+
+            var combatEngine = new CombatEngine(terminal);
+            await combatEngine.PlayerVsMonsters(currentPlayer, monsters, teammates, offerMonkEncounter: false);
+        }
+        else if (choice.ToUpper() == "P")
+        {
+            long bribe = currentDungeonLevel * 500 + dungeonRandom.Next(1000);
+            if (currentPlayer.Gold >= bribe)
+            {
+                currentPlayer.Gold -= bribe;
+                terminal.WriteLine($"You reluctantly hand over {bribe} gold.", "yellow");
+                terminal.WriteLine($"The {groupName} leave you in peace.", "gray");
+            }
+            else
+            {
+                terminal.WriteLine("You don't have enough gold!", "red");
+                terminal.WriteLine("They attack anyway!", "red");
+                await Task.Delay(1500);
+                // Trigger simplified combat
+                var monster = Monster.CreateMonster(
+                    currentDungeonLevel, $"{groupName.Substring(0, 1).ToUpper()}{groupName.Substring(1)} Leader",
+                    currentDungeonLevel * 10, currentDungeonLevel * 3, 0,
+                    "No gold means death!", false, false, "Weapon", "Armor",
+                    false, false, currentDungeonLevel * 3, currentDungeonLevel * 2, currentDungeonLevel * 2
+                );
+                var combatEngine = new CombatEngine(terminal);
+                await combatEngine.PlayerVsMonster(currentPlayer, monster, teammates);
+            }
+        }
+        else
+        {
+            // Escape attempt - 60% chance
+            if (dungeonRandom.NextDouble() < 0.6)
+            {
+                terminal.WriteLine("You manage to slip away into the shadows!", "green");
+            }
+            else
+            {
+                terminal.WriteLine("They catch you trying to escape!", "red");
+                long stolen = currentPlayer.Gold / 5;
+                currentPlayer.Gold -= stolen;
+                terminal.WriteLine($"They beat you and steal {stolen} gold!", "red");
+            }
+        }
+
+        await Task.Delay(2000);
+    }
+
+    /// <summary>
+    /// Harassed woman encounter - Moral choice event (from Pascal DUNGEVC.PAS)
+    /// </summary>
+    private async Task HarassedWomanEncounter()
+    {
+        terminal.SetColor("magenta");
+        terminal.WriteLine("♀ DAMSEL IN DISTRESS ♀");
+        terminal.WriteLine("");
+
+        terminal.WriteLine("You hear screams echoing through the corridor!", "white");
+        terminal.WriteLine("A woman is being harassed by a band of ruffians.", "gray");
+        terminal.WriteLine("");
+
+        var choice = await terminal.GetInput("(H)elp her, (I)gnore the situation, or (J)oin the ruffians? ");
+
+        var currentPlayer = GetCurrentPlayer();
+
+        if (choice.ToUpper() == "H")
+        {
+            terminal.WriteLine("You rush to her defense!", "green");
+            terminal.WriteLine("\"Unhand her, villains!\"", "yellow");
+            await Task.Delay(1500);
+
+            // Fight ruffians
+            var monsters = new List<Monster>();
+            int count = dungeonRandom.Next(2, 4);
+            for (int i = 0; i < count; i++)
+            {
+                var name = i == 0 ? "Ruffian Leader" : "Ruffian";
+                var monster = Monster.CreateMonster(
+                    currentDungeonLevel, name,
+                    currentDungeonLevel * (i == 0 ? 6 : 3), currentDungeonLevel * 2, 0,
+                    "Mind your own business!", false, false, "Knife", "Rags",
+                    false, false, currentDungeonLevel * 2, currentDungeonLevel, currentDungeonLevel
+                );
+                monster.Level = currentDungeonLevel;
+                monsters.Add(monster);
+            }
+
+            var combatEngine = new CombatEngine(terminal);
+            await combatEngine.PlayerVsMonsters(currentPlayer, monsters, teammates, offerMonkEncounter: false);
+
+            if (currentPlayer.HP > 0)
+            {
+                terminal.WriteLine("");
+                terminal.WriteLine("The woman thanks you profusely!", "cyan");
+                long reward = currentDungeonLevel * 300 + dungeonRandom.Next(500);
+                long chivGain = dungeonRandom.Next(50) + 30;
+
+                terminal.WriteLine($"She rewards you with {reward} gold!", "yellow");
+                terminal.WriteLine($"Your chivalry increases by {chivGain}!", "white");
+
+                currentPlayer.Gold += reward;
+                currentPlayer.Chivalry += chivGain;
+            }
+        }
+        else if (choice.ToUpper() == "J")
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine("You join the ruffians in their villainy!");
+            terminal.WriteLine("This is a shameful act!");
+
+            long stolen = dungeonRandom.Next(200) + 50;
+            long darkGain = dungeonRandom.Next(75) + 50;
+
+            currentPlayer.Gold += stolen;
+            currentPlayer.Darkness += darkGain;
+
+            terminal.WriteLine($"You steal {stolen} gold from the woman.", "yellow");
+            terminal.WriteLine($"Your darkness increases by {darkGain}!", "magenta");
+        }
+        else
+        {
+            terminal.WriteLine("You turn away and pretend not to notice.", "gray");
+            terminal.WriteLine("Her cries fade as you continue your journey...", "gray");
+        }
+
+        await Task.Delay(2500);
+    }
+
+    /// <summary>
+    /// Wounded man encounter - Healing quest (from Pascal DUNGEVC.PAS)
+    /// </summary>
+    private async Task WoundedManEncounter()
+    {
+        terminal.SetColor("cyan");
+        terminal.WriteLine("✚ WOUNDED STRANGER ✚");
+        terminal.WriteLine("");
+
+        terminal.WriteLine("You find a wounded man lying against the wall.", "white");
+        terminal.WriteLine("He is bleeding heavily and begs for help.", "gray");
+        terminal.WriteLine("\"Please... I need healing... I can pay...\"", "yellow");
+        terminal.WriteLine("");
+
+        var choice = await terminal.GetInput("(H)elp him, (R)ob him, or (L)eave him? ");
+
+        var currentPlayer = GetCurrentPlayer();
+
+        if (choice.ToUpper() == "H")
+        {
+            if (currentPlayer.Healing > 0)
+            {
+                currentPlayer.Healing--;
+                terminal.WriteLine("You use a healing potion on the wounded stranger.", "green");
+                terminal.WriteLine("He recovers enough to stand.", "white");
+
+                long reward = currentDungeonLevel * 500 + dungeonRandom.Next(1000);
+                long chivGain = dungeonRandom.Next(40) + 20;
+
+                terminal.WriteLine($"\"Thank you, hero! Take this reward: {reward} gold!\"", "yellow");
+                terminal.WriteLine($"Your chivalry increases by {chivGain}!", "white");
+
+                currentPlayer.Gold += reward;
+                currentPlayer.Chivalry += chivGain;
+            }
+            else
+            {
+                terminal.WriteLine("You have no healing potions to spare!", "red");
+                terminal.WriteLine("You try to bandage his wounds with cloth...", "gray");
+
+                if (dungeonRandom.NextDouble() < 0.5)
+                {
+                    terminal.WriteLine("It seems to help a little.", "green");
+                    currentPlayer.Chivalry += 10;
+                }
+                else
+                {
+                    terminal.WriteLine("Unfortunately, he dies from his wounds.", "red");
+                }
+            }
+        }
+        else if (choice.ToUpper() == "R")
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine("You search the dying man's belongings...");
+
+            long stolen = dungeonRandom.Next(500) + 100;
+            long darkGain = dungeonRandom.Next(80) + 60;
+
+            terminal.WriteLine($"You find {stolen} gold in his purse.", "yellow");
+            terminal.WriteLine($"Your darkness increases by {darkGain}!", "magenta");
+
+            currentPlayer.Gold += stolen;
+            currentPlayer.Darkness += darkGain;
+
+            terminal.WriteLine("He dies cursing your name...", "gray");
+        }
+        else
+        {
+            terminal.WriteLine("You step over the dying man and continue on.", "gray");
+            terminal.WriteLine("His moans fade behind you...", "gray");
+        }
+
+        await Task.Delay(2500);
+    }
+
+    /// <summary>
+    /// Mysterious shrine - Random buff or debuff
+    /// </summary>
+    private async Task MysteriousShrine()
+    {
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("✦ MYSTERIOUS SHRINE ✦");
+        terminal.WriteLine("");
+
+        terminal.WriteLine("You discover an ancient shrine glowing with strange light.", "white");
+        terminal.WriteLine("Offerings of gold and bones surround a stone altar.", "gray");
+        terminal.WriteLine("");
+
+        var choice = await terminal.GetInput("(P)ray at the shrine, (D)esecrate it, or (L)eave? ");
+
+        var currentPlayer = GetCurrentPlayer();
+
+        if (choice.ToUpper() == "P")
+        {
+            terminal.WriteLine("You kneel before the ancient shrine...", "cyan");
+            await Task.Delay(1500);
+
+            // Random blessing or curse
+            var outcome = dungeonRandom.Next(6);
+            switch (outcome)
+            {
+                case 0:
+                    terminal.WriteLine("Divine light fills you!", "bright_yellow");
+                    currentPlayer.HP = currentPlayer.MaxHP;
+                    terminal.WriteLine("You are fully healed!", "green");
+                    break;
+                case 1:
+                    var strBonus = dungeonRandom.Next(5) + 1;
+                    currentPlayer.Strength += strBonus;
+                    terminal.WriteLine($"You feel stronger! +{strBonus} Strength!", "green");
+                    break;
+                case 2:
+                    var expBonus = currentDungeonLevel * 500;
+                    currentPlayer.Experience += expBonus;
+                    terminal.WriteLine($"Ancient wisdom flows into you! +{expBonus} EXP!", "yellow");
+                    break;
+                case 3:
+                    terminal.WriteLine("The shrine is silent...", "gray");
+                    terminal.WriteLine("Nothing happens.", "gray");
+                    break;
+                case 4:
+                    var hpLoss = currentPlayer.HP / 4;
+                    currentPlayer.HP -= hpLoss;
+                    terminal.WriteLine("The shrine drains your life force!", "red");
+                    terminal.WriteLine($"You lose {hpLoss} HP!", "red");
+                    break;
+                case 5:
+                    var goldLoss = currentPlayer.Gold / 5;
+                    currentPlayer.Gold -= goldLoss;
+                    terminal.WriteLine("Your gold dissolves into the altar!", "red");
+                    terminal.WriteLine($"You lose {goldLoss} gold!", "red");
+                    break;
+            }
+        }
+        else if (choice.ToUpper() == "D")
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine("You smash the shrine and steal the offerings!");
+
+            long stolen = currentDungeonLevel * 200 + dungeonRandom.Next(500);
+            long darkGain = dungeonRandom.Next(50) + 30;
+
+            terminal.WriteLine($"You find {stolen} gold among the offerings!", "yellow");
+            terminal.WriteLine($"Your darkness increases by {darkGain}!", "magenta");
+
+            currentPlayer.Gold += stolen;
+            currentPlayer.Darkness += darkGain;
+
+            // Chance of angering spirits
+            if (dungeonRandom.NextDouble() < 0.3)
+            {
+                terminal.WriteLine("");
+                terminal.WriteLine("An angry spirit emerges from the ruined shrine!", "bright_red");
+                await Task.Delay(1500);
+
+                var spirit = Monster.CreateMonster(
+                    currentDungeonLevel + 5, "Vengeful Spirit",
+                    currentDungeonLevel * 12, currentDungeonLevel * 4, 0,
+                    "You will pay for your sacrilege!", false, false, "Spectral Claws", "Ethereal Form",
+                    false, false, currentDungeonLevel * 4, currentDungeonLevel * 3, currentDungeonLevel * 3
+                );
+                spirit.IsBoss = true;
+
+                var combatEngine = new CombatEngine(terminal);
+                await combatEngine.PlayerVsMonster(currentPlayer, spirit, teammates);
+            }
+        }
+        else
+        {
+            terminal.WriteLine("You wisely leave the mysterious shrine alone.", "gray");
+        }
+
+        await Task.Delay(2000);
+    }
+
+    /// <summary>
+    /// Trap encounter - Various dungeon hazards
+    /// </summary>
+    private async Task TrapEncounter()
+    {
+        terminal.SetColor("red");
+        terminal.WriteLine("⚠ TRAP! ⚠");
+        terminal.WriteLine("");
+
+        var currentPlayer = GetCurrentPlayer();
+        var trapType = dungeonRandom.Next(5);
+
+        switch (trapType)
+        {
+            case 0:
+                terminal.WriteLine("The floor gives way beneath you!", "white");
+                var fallDmg = currentDungeonLevel * 3 + dungeonRandom.Next(10);
+                currentPlayer.HP -= fallDmg;
+                terminal.WriteLine($"You fall into a pit and take {fallDmg} damage!", "red");
+                break;
+            case 1:
+                terminal.WriteLine("Poison darts shoot from the walls!", "white");
+                var dartDmg = currentDungeonLevel * 2 + dungeonRandom.Next(8);
+                currentPlayer.HP -= dartDmg;
+                currentPlayer.Poison = Math.Max(currentPlayer.Poison, 1);
+                terminal.WriteLine($"You take {dartDmg} damage and are poisoned!", "magenta");
+                break;
+            case 2:
+                terminal.WriteLine("A magical rune explodes beneath your feet!", "bright_magenta");
+                var runeDmg = currentDungeonLevel * 5 + dungeonRandom.Next(15);
+                currentPlayer.HP -= runeDmg;
+                terminal.WriteLine($"You take {runeDmg} magical damage!", "red");
+                break;
+            case 3:
+                terminal.WriteLine("A net falls from above, trapping you!", "white");
+                terminal.WriteLine("You struggle free, but lose time...", "gray");
+                // Could implement time/turn penalty here
+                break;
+            case 4:
+                terminal.WriteLine("You trigger a tripwire!", "white");
+                terminal.WriteLine("But nothing happens... the trap is broken.", "green");
+                terminal.WriteLine("You find some gold hidden near the mechanism.", "yellow");
+                currentPlayer.Gold += currentDungeonLevel * 50;
+                break;
+        }
+
+        await Task.Delay(2500);
+    }
+
+    /// <summary>
+    /// Ancient scroll encounter - Magic scroll discovery
+    /// </summary>
+    private async Task AncientScrollEncounter()
+    {
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("📜 ANCIENT SCROLL 📜");
+        terminal.WriteLine("");
+
+        terminal.WriteLine("You discover an ancient scroll tucked into a wall crevice.", "white");
+        terminal.WriteLine("Strange symbols glow faintly on the parchment.", "gray");
+
+        await HandleMagicScroll();
+    }
+
+    /// <summary>
+    /// Gambling ghost encounter - Risk/reward minigame
+    /// </summary>
+    private async Task GamblingGhostEncounter()
+    {
+        terminal.SetColor("bright_white");
+        terminal.WriteLine("👻 GAMBLING GHOST 👻");
+        terminal.WriteLine("");
+
+        terminal.WriteLine("A spectral figure materializes before you!", "cyan");
+        terminal.WriteLine("\"Greetings, mortal! Care for a game of chance?\"", "yellow");
+        terminal.WriteLine("The ghost produces a pair of ethereal dice.", "gray");
+        terminal.WriteLine("");
+
+        var currentPlayer = GetCurrentPlayer();
+        long minBet = 100;
+        long maxBet = currentPlayer.Gold / 2;
+
+        if (currentPlayer.Gold < minBet)
+        {
+            terminal.WriteLine("\"Bah! You have no gold worth gambling for!\"", "yellow");
+            terminal.WriteLine("The ghost fades away in disappointment.", "gray");
+            await Task.Delay(2000);
+            return;
+        }
+
+        terminal.WriteLine($"\"Place your bet! (Minimum {minBet}, Maximum {maxBet})\"", "yellow");
+        var betStr = await terminal.GetInput("Your bet (or 0 to decline): ");
+
+        if (!long.TryParse(betStr, out long bet) || bet < minBet || bet > maxBet)
+        {
+            terminal.WriteLine("\"Coward! Perhaps next time...\"", "yellow");
+            terminal.WriteLine("The ghost fades away.", "gray");
+            await Task.Delay(2000);
+            return;
+        }
+
+        terminal.WriteLine($"You bet {bet} gold!", "white");
+        terminal.WriteLine("The ghost rolls the dice...", "gray");
+        await Task.Delay(1500);
+
+        var ghostRoll = dungeonRandom.Next(1, 7) + dungeonRandom.Next(1, 7);
+        terminal.WriteLine($"Ghost rolls: {ghostRoll}", "cyan");
+
+        terminal.WriteLine("Your turn to roll...", "gray");
+        await Task.Delay(1000);
+
+        var playerRoll = dungeonRandom.Next(1, 7) + dungeonRandom.Next(1, 7);
+        terminal.WriteLine($"You roll: {playerRoll}", "yellow");
+
+        if (playerRoll > ghostRoll)
+        {
+            terminal.SetColor("green");
+            terminal.WriteLine("YOU WIN!");
+            terminal.WriteLine($"The ghost begrudgingly pays you {bet} gold!", "yellow");
+            currentPlayer.Gold += bet;
+        }
+        else if (playerRoll < ghostRoll)
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine("YOU LOSE!");
+            terminal.WriteLine($"The ghost cackles as your gold vanishes!", "yellow");
+            currentPlayer.Gold -= bet;
+        }
+        else
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("TIE!");
+            terminal.WriteLine("\"Interesting... keep your gold, mortal. Until next time!\"", "yellow");
+        }
+
+        terminal.WriteLine("The ghost fades into the shadows...", "gray");
+        await Task.Delay(2500);
     }
 
     /// <summary>
@@ -698,39 +1253,6 @@ public class DungeonLocation : BaseLocation
         }
         
         await Task.Delay(3000);
-    }
-    
-    /// <summary>
-    /// Empty room encounter
-    /// </summary>
-    private async Task EmptyRoomEncounter()
-    {
-        terminal.SetColor("gray");
-        terminal.WriteLine("○ EMPTY CHAMBER ○");
-        terminal.WriteLine("");
-        
-        var descriptions = new[]
-        {
-            "You enter an empty stone chamber. Dust motes dance in the torchlight.",
-            "This room appears abandoned. Old bones litter the floor.",
-            "Ancient murals cover the walls of this empty hall.",
-            "You find nothing of interest in this forgotten room.",
-            "The chamber echoes with the sounds of your footsteps."
-        };
-        
-        terminal.WriteLine(descriptions[dungeonRandom.Next(descriptions.Length)]);
-        terminal.WriteLine("");
-        
-        // Small chance of hidden treasure in empty rooms
-        if (dungeonRandom.NextDouble() < 0.1)
-        {
-            terminal.WriteLine("Wait... you notice something hidden!");
-            long hiddenGold = dungeonRandom.Next(100 * currentDungeonLevel);
-            GetCurrentPlayer().Gold += hiddenGold;
-            terminal.WriteLine($"You find {hiddenGold} gold hidden in a crack!", "yellow");
-        }
-        
-        await Task.Delay(2000);
     }
     
     /// <summary>

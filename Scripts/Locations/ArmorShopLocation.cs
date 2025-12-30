@@ -7,13 +7,29 @@ using System.Linq;
 using System.Threading.Tasks;
 
 /// <summary>
-/// Armor Shop Location - Complete Pascal-compatible armor system
-/// Based on ARMSHOP.PAS with Reese and multi-slot equipment
+/// Armor Shop Location - Modern RPG slot-based armor system
+/// Sells armor pieces for each body slot (Head, Body, Arms, Hands, Legs, Feet, Waist, Face, Cloak)
 /// </summary>
 public class ArmorShopLocation : BaseLocation
 {
     private string shopkeeperName = "Reese";
-    private bool isKicked = false;
+    private EquipmentSlot? currentSlotCategory = null;
+    private int currentPage = 0;
+    private const int ItemsPerPage = 15;
+
+    // Armor slots sold in this shop
+    private static readonly EquipmentSlot[] ArmorSlots = new[]
+    {
+        EquipmentSlot.Head,
+        EquipmentSlot.Body,
+        EquipmentSlot.Arms,
+        EquipmentSlot.Hands,
+        EquipmentSlot.Legs,
+        EquipmentSlot.Feet,
+        EquipmentSlot.Waist,
+        EquipmentSlot.Face,
+        EquipmentSlot.Cloak
+    };
 
     public ArmorShopLocation() : base(
         GameLocation.ArmorShop,
@@ -51,15 +67,26 @@ public class ArmorShopLocation : BaseLocation
         terminal.WriteLine("════════════════════════════════════════════════════════");
         terminal.WriteLine("");
 
+        if (currentSlotCategory.HasValue)
+        {
+            // Show items for the selected slot
+            ShowSlotItems(currentSlotCategory.Value);
+        }
+        else
+        {
+            // Show main menu with slot categories
+            ShowMainMenu();
+        }
+    }
+
+    private void ShowMainMenu()
+    {
         terminal.SetColor("white");
         terminal.WriteLine("As you enter the store you notice a strange but appealing smell.");
-        terminal.WriteLine("You recall that some merchants use magic elixirs to make their selling easier...");
         terminal.SetColor("bright_green");
         terminal.Write(shopkeeperName);
         terminal.SetColor("white");
-        terminal.WriteLine(" suddenly appears out of nowhere, with a smile on his face.");
-        terminal.WriteLine("He is known as a respectable citizen, although evil tongues speak of");
-        terminal.WriteLine("meetings with dark and mysterious creatures from the deep dungeons.");
+        terminal.WriteLine(" appears with a smile: \"What armor piece interests you today?\"");
         terminal.WriteLine("");
 
         terminal.SetColor("white");
@@ -70,20 +97,48 @@ public class ArmorShopLocation : BaseLocation
         terminal.WriteLine(" gold crowns.");
         terminal.WriteLine("");
 
-        ShowArmorShopMenu();
-    }
+        // Show current equipment summary
+        ShowEquippedArmor();
+        terminal.WriteLine("");
 
-    private void ShowArmorShopMenu()
-    {
-        terminal.SetColor("darkgray");
-        terminal.Write("[");
-        terminal.SetColor("bright_yellow");
-        terminal.Write("B");
-        terminal.SetColor("darkgray");
-        terminal.Write("] ");
-        terminal.SetColor("white");
-        terminal.WriteLine("uy armor");
+        terminal.SetColor("cyan");
+        terminal.WriteLine("Select an armor category:");
+        terminal.WriteLine("");
 
+        int num = 1;
+        foreach (var slot in ArmorSlots)
+        {
+            var currentItem = currentPlayer.GetEquipment(slot);
+            terminal.SetColor("darkgray");
+            terminal.Write("[");
+            terminal.SetColor("bright_yellow");
+            terminal.Write($"{num}");
+            terminal.SetColor("darkgray");
+            terminal.Write("] ");
+            terminal.SetColor("white");
+            terminal.Write($"{slot.GetDisplayName().PadRight(12)}");
+
+            if (currentItem != null)
+            {
+                terminal.SetColor("gray");
+                terminal.Write(" - ");
+                terminal.SetColor("bright_cyan");
+                terminal.Write($"{currentItem.Name}");
+                terminal.SetColor("gray");
+                terminal.Write($" (AC:{currentItem.ArmorClass})");
+            }
+            else
+            {
+                terminal.SetColor("darkgray");
+                terminal.Write(" - Empty");
+            }
+            terminal.WriteLine("");
+            num++;
+        }
+
+        terminal.WriteLine("");
+
+        // Sell option
         terminal.SetColor("darkgray");
         terminal.Write("[");
         terminal.SetColor("bright_green");
@@ -91,29 +146,17 @@ public class ArmorShopLocation : BaseLocation
         terminal.SetColor("darkgray");
         terminal.Write("] ");
         terminal.SetColor("white");
-        terminal.WriteLine("ell armor");
+        terminal.WriteLine("ell equipped armor");
 
-        terminal.SetColor("darkgray");
-        terminal.Write("[");
-        terminal.SetColor("bright_cyan");
-        terminal.Write("L");
-        terminal.SetColor("darkgray");
-        terminal.Write("] ");
-        terminal.SetColor("white");
-        terminal.WriteLine("ist armor");
-
+        // Auto-equip option
         terminal.SetColor("darkgray");
         terminal.Write("[");
         terminal.SetColor("bright_magenta");
-        terminal.Write("1");
+        terminal.Write("A");
         terminal.SetColor("darkgray");
         terminal.Write("] ");
         terminal.SetColor("magenta");
-        terminal.Write("Ask ");
-        terminal.SetColor("bright_cyan");
-        terminal.Write(shopkeeperName);
-        terminal.SetColor("magenta");
-        terminal.WriteLine(" for help with your equipment!");
+        terminal.WriteLine($"uto-buy best affordable armor for all slots");
 
         terminal.WriteLine("");
         terminal.SetColor("darkgray");
@@ -125,9 +168,165 @@ public class ArmorShopLocation : BaseLocation
         terminal.SetColor("red");
         terminal.WriteLine("eturn to street");
         terminal.WriteLine("");
+    }
 
-        // Show quick command bar
-        ShowQuickCommandBar();
+    private void ShowEquippedArmor()
+    {
+        terminal.SetColor("cyan");
+        terminal.WriteLine("Current Armor:");
+
+        long totalAC = 0;
+        foreach (var slot in ArmorSlots)
+        {
+            var item = currentPlayer.GetEquipment(slot);
+            if (item != null)
+            {
+                totalAC += item.ArmorClass;
+            }
+        }
+
+        terminal.SetColor("white");
+        terminal.Write("Total Armor Class: ");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine($"{totalAC}");
+    }
+
+    private void ShowSlotItems(EquipmentSlot slot)
+    {
+        var items = EquipmentDatabase.GetBySlot(slot)
+            .OrderBy(i => i.Value)
+            .ToList();
+
+        var currentItem = currentPlayer.GetEquipment(slot);
+
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine($"═══ {slot.GetDisplayName()} Armor ═══");
+        terminal.WriteLine("");
+
+        if (currentItem != null)
+        {
+            terminal.SetColor("cyan");
+            terminal.Write("Currently Equipped: ");
+            terminal.SetColor("bright_white");
+            terminal.Write($"{currentItem.Name}");
+            terminal.SetColor("gray");
+            terminal.WriteLine($" (AC: {currentItem.ArmorClass}, Value: {FormatNumber(currentItem.Value)})");
+            terminal.WriteLine("");
+        }
+
+        // Paginate items
+        int startIndex = currentPage * ItemsPerPage;
+        var pageItems = items.Skip(startIndex).Take(ItemsPerPage).ToList();
+        int totalPages = (items.Count + ItemsPerPage - 1) / ItemsPerPage;
+
+        terminal.SetColor("gray");
+        terminal.WriteLine($"Page {currentPage + 1}/{totalPages} - {items.Count} items total");
+        terminal.WriteLine("");
+
+        terminal.SetColor("bright_blue");
+        terminal.WriteLine("  #   Name                          AC   Price       Bonus");
+        terminal.SetColor("darkgray");
+        terminal.WriteLine("─────────────────────────────────────────────────────────────");
+
+        int num = 1;
+        foreach (var item in pageItems)
+        {
+            bool canAfford = currentPlayer.Gold >= item.Value;
+            bool isUpgrade = currentItem == null || item.ArmorClass > currentItem.ArmorClass;
+
+            terminal.SetColor(canAfford ? "bright_cyan" : "darkgray");
+            terminal.Write($"{num,3}. ");
+
+            terminal.SetColor(canAfford ? "white" : "darkgray");
+            terminal.Write($"{item.Name,-28}");
+
+            terminal.SetColor(canAfford ? "bright_cyan" : "darkgray");
+            terminal.Write($"{item.ArmorClass,4}  ");
+
+            terminal.SetColor(canAfford ? "yellow" : "darkgray");
+            terminal.Write($"{FormatNumber(item.Value),10}  ");
+
+            // Show bonus stats
+            var bonuses = GetBonusDescription(item);
+            if (!string.IsNullOrEmpty(bonuses))
+            {
+                terminal.SetColor(canAfford ? "green" : "darkgray");
+                terminal.Write(bonuses);
+            }
+
+            // Show upgrade indicator
+            if (isUpgrade && canAfford)
+            {
+                terminal.SetColor("bright_green");
+                terminal.Write(" ↑");
+            }
+            else if (!isUpgrade && currentItem != null)
+            {
+                terminal.SetColor("red");
+                terminal.Write(" ↓");
+            }
+
+            terminal.WriteLine("");
+            num++;
+        }
+
+        terminal.WriteLine("");
+
+        // Navigation
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("#");
+        terminal.SetColor("darkgray");
+        terminal.Write("] ");
+        terminal.SetColor("white");
+        terminal.Write("Buy item   ");
+
+        if (currentPage > 0)
+        {
+            terminal.SetColor("darkgray");
+            terminal.Write("[");
+            terminal.SetColor("bright_cyan");
+            terminal.Write("P");
+            terminal.SetColor("darkgray");
+            terminal.Write("] Previous   ");
+        }
+
+        if (currentPage < totalPages - 1)
+        {
+            terminal.SetColor("darkgray");
+            terminal.Write("[");
+            terminal.SetColor("bright_cyan");
+            terminal.Write("N");
+            terminal.SetColor("darkgray");
+            terminal.Write("] Next   ");
+        }
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_red");
+        terminal.Write("B");
+        terminal.SetColor("darkgray");
+        terminal.Write("] ");
+        terminal.SetColor("red");
+        terminal.WriteLine("Back");
+        terminal.WriteLine("");
+    }
+
+    private string GetBonusDescription(Equipment item)
+    {
+        var bonuses = new List<string>();
+
+        if (item.StrengthBonus != 0) bonuses.Add($"Str{(item.StrengthBonus > 0 ? "+" : "")}{item.StrengthBonus}");
+        if (item.DexterityBonus != 0) bonuses.Add($"Dex{(item.DexterityBonus > 0 ? "+" : "")}{item.DexterityBonus}");
+        if (item.ConstitutionBonus != 0) bonuses.Add($"Con{(item.ConstitutionBonus > 0 ? "+" : "")}{item.ConstitutionBonus}");
+        if (item.IntelligenceBonus != 0) bonuses.Add($"Int{(item.IntelligenceBonus > 0 ? "+" : "")}{item.IntelligenceBonus}");
+        if (item.WisdomBonus != 0) bonuses.Add($"Wis{(item.WisdomBonus > 0 ? "+" : "")}{item.WisdomBonus}");
+        if (item.MaxHPBonus != 0) bonuses.Add($"HP+{item.MaxHPBonus}");
+        if (item.MaxManaBonus != 0) bonuses.Add($"MP+{item.MaxManaBonus}");
+        if (item.MagicResistance != 0) bonuses.Add($"MR{item.MagicResistance}%");
+
+        return string.Join(" ", bonuses.Take(3)); // Limit to 3 to fit
     }
 
     protected override async Task<bool> ProcessChoice(string choice)
@@ -142,26 +341,25 @@ public class ArmorShopLocation : BaseLocation
 
         var upperChoice = choice.ToUpper().Trim();
 
+        // In slot view
+        if (currentSlotCategory.HasValue)
+        {
+            return await ProcessSlotChoice(upperChoice);
+        }
+
+        // In main menu
         switch (upperChoice)
         {
             case "R":
                 await NavigateToLocation(GameLocation.MainStreet);
                 return true;
 
-            case "L":
-                await ListArmors();
-                return false;
-
-            case "B":
-                await BuyArmor();
-                return false;
-
             case "S":
                 await SellArmor();
                 return false;
 
-            case "1":
-                await BuyBestEquipment();
+            case "A":
+                await AutoBuyBestArmor();
                 return false;
 
             case "?":
@@ -169,444 +367,288 @@ public class ArmorShopLocation : BaseLocation
                 return false;
 
             default:
+                // Try to parse as slot number
+                if (int.TryParse(upperChoice, out int slotNum) && slotNum >= 1 && slotNum <= ArmorSlots.Length)
+                {
+                    currentSlotCategory = ArmorSlots[slotNum - 1];
+                    currentPage = 0;
+                    return false;
+                }
+
                 terminal.WriteLine("Invalid choice!", "red");
                 await Task.Delay(1000);
                 return false;
         }
     }
 
-    /// <summary>
-    /// List all available armors in the shop (Classic mode)
-    /// Based on ARMSHOP.PAS lines 774-815
-    /// </summary>
-    private async Task ListArmors()
+    private async Task<bool> ProcessSlotChoice(string choice)
     {
-        terminal.ClearScreen();
-        terminal.SetColor("bright_blue");
-        terminal.WriteLine("═══════════════════════════════════════════════════");
-        terminal.WriteLine("             Ancient Armors                 Price");
-        terminal.WriteLine("═══════════════════════════════════════════════════");
-
-        var armors = ItemManager.GetShopArmors();
-        int count = 0;
-
-        foreach (var armor in armors)
+        switch (choice)
         {
-            terminal.SetColor("bright_cyan");
-            terminal.Write($"{count + 1,3}. ");
+            case "B":
+                currentSlotCategory = null;
+                currentPage = 0;
+                return false;
 
-            terminal.SetColor("bright_white");
-            var nameField = armor.Name.PadRight(30, '.');
-            terminal.Write(nameField);
+            case "P":
+                if (currentPage > 0) currentPage--;
+                return false;
 
-            terminal.SetColor("yellow");
-            var priceField = FormatNumber(armor.Value).PadLeft(15, '.');
-            terminal.WriteLine(priceField);
+            case "N":
+                var items = EquipmentDatabase.GetBySlot(currentSlotCategory.Value);
+                int totalPages = (items.Count + ItemsPerPage - 1) / ItemsPerPage;
+                if (currentPage < totalPages - 1) currentPage++;
+                return false;
 
-            count++;
-
-            if (count % 20 == 0 && count < armors.Count)
-            {
-                terminal.WriteLine("");
-                terminal.SetColor("yellow");
-                terminal.Write("Continue? (Y/N): ");
-                var response = await terminal.GetInput("");
-                if (response.ToUpper() != "Y" && response.ToUpper() != "")
-                    break;
-                terminal.ClearScreen();
-            }
+            default:
+                // Try to parse as item number
+                if (int.TryParse(choice, out int itemNum) && itemNum >= 1)
+                {
+                    await BuyItem(currentSlotCategory.Value, itemNum);
+                }
+                return false;
         }
-
-        terminal.WriteLine("");
-        await Pause();
     }
 
-    /// <summary>
-    /// Buy armor - Classic mode from ARMSHOP.PAS lines 987-1093
-    /// </summary>
-    private async Task BuyArmor()
+    private async Task BuyItem(EquipmentSlot slot, int itemIndex)
     {
-        if (currentPlayer == null) return;
+        var items = EquipmentDatabase.GetBySlot(slot)
+            .OrderBy(i => i.Value)
+            .ToList();
 
-        terminal.ClearScreen();
-
-        // Classic mode check - player can only have one armor at a time
-        if (currentPlayer.Armor != 0)
+        int actualIndex = currentPage * ItemsPerPage + itemIndex - 1;
+        if (actualIndex < 0 || actualIndex >= items.Count)
         {
-            terminal.SetColor("bright_magenta");
-            terminal.WriteLine("Get rid of your old armor first!");
+            terminal.WriteLine("Invalid item number!", "red");
+            await Task.Delay(1000);
+            return;
+        }
+
+        var item = items[actualIndex];
+
+        if (currentPlayer.Gold < item.Value)
+        {
+            terminal.WriteLine("");
+            terminal.SetColor("red");
+            terminal.WriteLine($"You need {FormatNumber(item.Value)} gold but only have {FormatNumber(currentPlayer.Gold)}!");
             await Pause();
             return;
         }
 
-        terminal.SetColor("bright_magenta");
-        terminal.Write("Which one? (number or 0 to cancel): ");
-        var input = await terminal.GetInput("");
-
-        if (!int.TryParse(input, out int armorChoice) || armorChoice <= 0)
+        // Check alignment requirements
+        if (item.RequiresGood && currentPlayer.Chivalry <= currentPlayer.Darkness)
         {
-            return;
-        }
-
-        var armors = ItemManager.GetShopArmors();
-        if (armorChoice > armors.Count)
-        {
-            terminal.WriteLine("Invalid selection!", "red");
+            terminal.WriteLine("");
+            terminal.SetColor("red");
+            terminal.WriteLine($"{item.Name} requires a good alignment!");
             await Pause();
             return;
         }
 
-        var selectedArmor = armors[armorChoice - 1];
+        if (item.RequiresEvil && currentPlayer.Darkness <= currentPlayer.Chivalry)
+        {
+            terminal.WriteLine("");
+            terminal.SetColor("red");
+            terminal.WriteLine($"{item.Name} requires an evil alignment!");
+            await Pause();
+            return;
+        }
 
         terminal.WriteLine("");
         terminal.SetColor("white");
-        terminal.Write("So you want a ");
-        terminal.SetColor("bright_cyan");
-        terminal.WriteLine(selectedArmor.Name);
+        terminal.Write($"Buy {item.Name} for ");
+        terminal.SetColor("yellow");
+        terminal.Write(FormatNumber(item.Value));
+        terminal.SetColor("white");
+        terminal.Write(" gold? (Y/N): ");
+
+        var confirm = await terminal.GetInput("");
+        if (confirm.ToUpper() != "Y")
+        {
+            return;
+        }
+
+        // Process purchase
+        currentPlayer.Gold -= item.Value;
+
+        // Equip the item (will auto-unequip old item)
+        if (currentPlayer.EquipItem(item, out string message))
+        {
+            terminal.SetColor("bright_green");
+            terminal.WriteLine("");
+            terminal.WriteLine($"You purchased and equipped {item.Name}!");
+            terminal.SetColor("gray");
+            terminal.WriteLine(message);
+
+            // Recalculate combat stats
+            currentPlayer.RecalculateStats();
+        }
+        else
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine($"Failed to equip: {message}");
+            // Refund
+            currentPlayer.Gold += item.Value;
+        }
+
+        await Pause();
+    }
+
+    private async Task SellArmor()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("═══ Sell Equipped Armor ═══");
         terminal.WriteLine("");
 
-        // Show equipment comparison if player has current armor
-        if (currentPlayer.Armor > 0)
+        // List all equipped armor pieces
+        var equippedArmor = new List<(EquipmentSlot slot, Equipment item)>();
+        int num = 1;
+
+        foreach (var slot in ArmorSlots)
         {
-            var currentArmor = ItemManager.GetClassicArmor(currentPlayer.Armor);
-            if (currentArmor != null)
+            var item = currentPlayer.GetEquipment(slot);
+            if (item != null)
             {
-                terminal.SetColor("gray");
-                terminal.Write("Current: ");
+                equippedArmor.Add((slot, item));
+                long sellPrice = item.Value / 2;
+
+                terminal.SetColor("bright_cyan");
+                terminal.Write($"{num}. ");
                 terminal.SetColor("white");
-                terminal.Write($"{currentArmor.Name}");
-                terminal.SetColor("cyan");
-                terminal.WriteLine($" (AC: {currentArmor.Power})");
+                terminal.Write($"{slot.GetDisplayName()}: {item.Name}");
+                terminal.SetColor("yellow");
+                terminal.WriteLine($" - Sell for {FormatNumber(sellPrice)} gold");
+                num++;
+            }
+        }
 
-                terminal.SetColor("gray");
-                terminal.Write("New:     ");
-                terminal.SetColor("bright_cyan");
-                terminal.Write($"{selectedArmor.Name}");
-                terminal.SetColor("bright_cyan");
-                terminal.WriteLine($" (AC: {selectedArmor.Power})");
+        if (equippedArmor.Count == 0)
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("You have no armor equipped to sell.");
+            await Pause();
+            return;
+        }
 
-                long acChange = selectedArmor.Power - currentArmor.Power;
-                terminal.SetColor("gray");
-                terminal.Write("Change:  ");
-                if (acChange > 0)
+        terminal.WriteLine("");
+        terminal.SetColor("white");
+        terminal.Write("Sell which piece? (0 to cancel): ");
+
+        var input = await terminal.GetInput("");
+        if (!int.TryParse(input, out int sellChoice) || sellChoice < 1 || sellChoice > equippedArmor.Count)
+        {
+            return;
+        }
+
+        var (sellSlot, sellItem) = equippedArmor[sellChoice - 1];
+        long price = sellItem.Value / 2;
+
+        // Check if cursed
+        if (sellItem.IsCursed)
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine("");
+            terminal.WriteLine($"The {sellItem.Name} is CURSED and cannot be removed!");
+            await Pause();
+            return;
+        }
+
+        terminal.SetColor("white");
+        terminal.Write($"Sell {sellItem.Name} for ");
+        terminal.SetColor("yellow");
+        terminal.Write(FormatNumber(price));
+        terminal.SetColor("white");
+        terminal.Write(" gold? (Y/N): ");
+
+        var confirm = await terminal.GetInput("");
+        if (confirm.ToUpper() == "Y")
+        {
+            currentPlayer.UnequipSlot(sellSlot);
+            currentPlayer.Gold += price;
+            currentPlayer.RecalculateStats();
+
+            terminal.SetColor("bright_green");
+            terminal.WriteLine("");
+            terminal.WriteLine($"Sold {sellItem.Name} for {FormatNumber(price)} gold!");
+        }
+
+        await Pause();
+    }
+
+    private async Task AutoBuyBestArmor()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("═══ Auto-Buy Best Affordable Armor ═══");
+        terminal.WriteLine("");
+
+        int purchased = 0;
+        long totalSpent = 0;
+
+        foreach (var slot in ArmorSlots)
+        {
+            var currentItem = currentPlayer.GetEquipment(slot);
+            int currentAC = currentItem?.ArmorClass ?? 0;
+
+            // Find best affordable upgrade for this slot
+            var bestItem = EquipmentDatabase.GetBySlot(slot)
+                .Where(i => i.ArmorClass > currentAC)
+                .Where(i => i.Value <= currentPlayer.Gold)
+                .Where(i => !i.RequiresGood || currentPlayer.Chivalry > currentPlayer.Darkness)
+                .Where(i => !i.RequiresEvil || currentPlayer.Darkness > currentPlayer.Chivalry)
+                .OrderByDescending(i => i.ArmorClass)
+                .ThenBy(i => i.Value)
+                .FirstOrDefault();
+
+            if (bestItem != null)
+            {
+                currentPlayer.Gold -= bestItem.Value;
+                totalSpent += bestItem.Value;
+
+                if (currentPlayer.EquipItem(bestItem, out _))
                 {
+                    purchased++;
                     terminal.SetColor("bright_green");
-                    terminal.WriteLine($"+{acChange} AC");
+                    terminal.WriteLine($"✓ {slot.GetDisplayName()}: Bought {bestItem.Name} (AC:{bestItem.ArmorClass}) for {FormatNumber(bestItem.Value)}");
                 }
-                else if (acChange < 0)
+            }
+            else
+            {
+                if (currentItem != null)
                 {
-                    terminal.SetColor("bright_red");
-                    terminal.WriteLine($"{acChange} AC (DOWNGRADE!)");
+                    terminal.SetColor("gray");
+                    terminal.WriteLine($"  {slot.GetDisplayName()}: {currentItem.Name} is already best affordable");
                 }
                 else
                 {
-                    terminal.SetColor("yellow");
-                    terminal.WriteLine("No change");
+                    terminal.SetColor("darkgray");
+                    terminal.WriteLine($"  {slot.GetDisplayName()}: No affordable armor found");
                 }
-                terminal.WriteLine("");
             }
         }
 
-        terminal.SetColor("white");
-        terminal.Write("It will cost you ");
-        terminal.SetColor("yellow");
-        terminal.Write(FormatNumber(selectedArmor.Value));
-        terminal.SetColor("white");
-        terminal.WriteLine(" in gold.");
         terminal.WriteLine("");
-
-        terminal.SetColor("white");
-        terminal.WriteLine("Pay? (Y)es, [N]o: ");
-        var response = await terminal.GetInput("");
-
-        if (response.ToUpper() != "Y")
-        {
-            terminal.WriteLine("No", "bright_red");
-            return;
-        }
-
-        terminal.WriteLine("Yes", "bright_green");
-        terminal.WriteLine("");
-
-        if (currentPlayer.Gold < selectedArmor.Value)
-        {
-            terminal.SetColor("bright_magenta");
-            terminal.Write("No gold, no armor!");
-            terminal.SetColor("white");
-            terminal.Write(", ");
-            terminal.SetColor("bright_green");
-            terminal.Write(shopkeeperName);
-            terminal.SetColor("white");
-            terminal.WriteLine(" yells.");
-            await Pause();
-            return;
-        }
-
-        // Complete the purchase
-        terminal.SetColor("bright_magenta");
-        terminal.Write("Deal!");
-        terminal.SetColor("white");
-        terminal.Write(", says ");
-        terminal.SetColor("bright_green");
-        terminal.Write(shopkeeperName);
-        terminal.SetColor("white");
-        terminal.WriteLine(" and gives you the armor.");
-        terminal.WriteLine("");
-
-        terminal.WriteLine("You hand over the gold.");
-
-        currentPlayer.Gold -= selectedArmor.Value;
-        currentPlayer.Armor = armorChoice;
-        currentPlayer.APow = (int)selectedArmor.Power;
-
-        terminal.WriteLine("");
-        terminal.SetColor("bright_green");
-        terminal.WriteLine($"You are now equipped with {selectedArmor.Name} (AC: {selectedArmor.Power})!");
-
-        await Pause();
-    }
-
-    /// <summary>
-    /// Sell armor - Based on ARMSHOP.PAS lines 817-844
-    /// </summary>
-    private async Task SellArmor()
-    {
-        if (currentPlayer == null) return;
-
-        terminal.ClearScreen();
-
-        if (currentPlayer.Armor == 0)
-        {
-            terminal.SetColor("bright_magenta");
-            terminal.WriteLine("You don't have anything to sell!");
-            await Pause();
-            return;
-        }
-
-        var armor = ItemManager.GetClassicArmor(currentPlayer.Armor);
-        if (armor == null)
-        {
-            terminal.WriteLine("Error loading armor data!", "red");
-            await Pause();
-            return;
-        }
-
-        long sellPrice = armor.Value / 2;
-
-        terminal.SetColor("bright_green");
-        terminal.Write(shopkeeperName);
-        terminal.SetColor("white");
-        terminal.WriteLine(" declares that he will pay you ");
-        terminal.SetColor("yellow");
-        terminal.Write(FormatNumber(sellPrice));
-        terminal.SetColor("white");
-        terminal.Write(" gold crowns for your ");
         terminal.SetColor("bright_cyan");
-        terminal.WriteLine(armor.Name);
-        terminal.WriteLine("");
+        terminal.WriteLine($"Purchased {purchased} armor pieces for {FormatNumber(totalSpent)} gold.");
 
-        // Warning for valuable items
-        if (armor.Value > 1000)
+        if (purchased > 0)
         {
-            terminal.SetColor("bright_yellow");
-            terminal.WriteLine("⚠ WARNING: This is valuable armor!");
-            terminal.SetColor("yellow");
-            terminal.WriteLine($"   You'll only get {FormatNumber(sellPrice)} gold (half its value).");
-            terminal.WriteLine("");
+            currentPlayer.RecalculateStats();
         }
-
-        terminal.SetColor("white");
-        terminal.Write("Will you sell it? (Y/[N]): ");
-        var response = await terminal.GetInput("");
-
-        if (response.ToUpper() != "Y")
-        {
-            return;
-        }
-
-        terminal.WriteLine("");
-        terminal.SetColor("white");
-        terminal.Write("You give ");
-        terminal.SetColor("bright_green");
-        terminal.Write(shopkeeperName);
-        terminal.SetColor("white");
-        terminal.WriteLine(" your armor, and receive the gold.");
-
-        currentPlayer.Gold += sellPrice;
-        currentPlayer.Armor = 0;
-        currentPlayer.APow = 0;
 
         await Pause();
-    }
-
-    /// <summary>
-    /// Ask Reese to help equip player with best affordable equipment
-    /// Based on ARMSHOP.PAS lines 602-773
-    /// </summary>
-    private async Task BuyBestEquipment()
-    {
-        if (currentPlayer == null) return;
-
-        terminal.ClearScreen();
-
-        terminal.SetColor("bright_magenta");
-        terminal.Write("Hey! I need some help over here!");
-        terminal.SetColor("white");
-        terminal.Write(", you shout to ");
-        terminal.SetColor("bright_green");
-        terminal.Write(shopkeeperName);
-        terminal.SetColor("white");
-        terminal.WriteLine(".");
-        terminal.WriteLine("");
-
-        terminal.SetColor("bright_magenta");
-        terminal.Write("Ok. Let's see how much gold you got");
-        terminal.SetColor("white");
-        terminal.Write(", ");
-        terminal.SetColor("bright_green");
-        terminal.Write(shopkeeperName);
-        terminal.SetColor("white");
-        terminal.WriteLine(" says.");
-
-        await Pause();
-        terminal.WriteLine("");
-
-        if (currentPlayer.Gold == 0)
-        {
-            terminal.SetColor("white");
-            terminal.Write("You show ");
-            terminal.SetColor("bright_green");
-            terminal.Write(shopkeeperName);
-            terminal.SetColor("white");
-            terminal.WriteLine(" your empty purse.");
-            terminal.WriteLine("");
-
-            terminal.SetColor("bright_magenta");
-            terminal.Write("Is this supposed to be funny?");
-            terminal.SetColor("white");
-            terminal.Write(", ");
-            terminal.SetColor("bright_green");
-            terminal.Write(shopkeeperName);
-            terminal.SetColor("white");
-            terminal.WriteLine(" says with a strange voice.");
-            await Pause();
-            return;
-        }
-
-        if (currentPlayer.Gold < 50)
-        {
-            terminal.SetColor("white");
-            terminal.WriteLine($"You show {shopkeeperName} your gold crowns.");
-            terminal.WriteLine("");
-
-            terminal.SetColor("bright_magenta");
-            terminal.Write("You won't get anything for that!");
-            terminal.SetColor("white");
-            terminal.Write(", ");
-            terminal.SetColor("bright_green");
-            terminal.Write(shopkeeperName);
-            terminal.SetColor("white");
-            terminal.WriteLine(" says in a mocking tone.");
-            await Pause();
-            return;
-        }
-
-        // Check if player already has armor
-        if (currentPlayer.Armor != 0)
-        {
-            terminal.SetColor("bright_magenta");
-            terminal.Write("You are already fully equipped!");
-            terminal.SetColor("white");
-            terminal.Write(", ");
-            terminal.SetColor("bright_green");
-            terminal.Write(shopkeeperName);
-            terminal.SetColor("white");
-            terminal.WriteLine(" says.");
-            await Pause();
-            return;
-        }
-
-        // Find best armor player can afford (using Body as the armor type for classic mode)
-        var bestArmor = ItemManager.GetBestAffordableArmor(ObjType.Body, currentPlayer.Gold, currentPlayer);
-
-        if (bestArmor == null)
-        {
-            terminal.SetColor("bright_magenta");
-            terminal.Write("Too bad we couldn't find anything suitable.");
-            terminal.SetColor("white");
-            terminal.Write(", ");
-            terminal.SetColor("bright_green");
-            terminal.Write(shopkeeperName);
-            terminal.SetColor("white");
-            terminal.WriteLine(" says.");
-            await Pause();
-            return;
-        }
-
-        terminal.WriteLine("");
-        terminal.SetColor("bright_magenta");
-        terminal.Write("I have a nice ");
-        terminal.SetColor("bright_cyan");
-        terminal.Write(bestArmor.Name);
-        terminal.SetColor("bright_magenta");
-        terminal.Write(" here");
-        terminal.SetColor("white");
-        terminal.Write(", ");
-        terminal.SetColor("bright_green");
-        terminal.Write(shopkeeperName);
-        terminal.SetColor("white");
-        terminal.WriteLine(" says.");
-
-        terminal.SetColor("white");
-        terminal.Write("You can get it for ");
-        terminal.SetColor("yellow");
-        terminal.Write(FormatNumber(bestArmor.Value));
-        terminal.SetColor("white");
-        terminal.WriteLine(" gold crowns.");
-        terminal.WriteLine("");
-
-        terminal.SetColor("white");
-        terminal.Write("Buy it? (Y/N): ");
-        var response = await terminal.GetInput("");
-
-        if (response.ToUpper() != "Y")
-        {
-            return;
-        }
-
-        // Complete purchase
-        currentPlayer.Gold -= bestArmor.Value;
-        var armorIndex = ItemManager.GetShopArmors().IndexOf(bestArmor) + 1;
-        currentPlayer.Armor = armorIndex;
-        currentPlayer.APow = (int)bestArmor.Power;
-
-        terminal.WriteLine("");
-        terminal.SetColor("bright_magenta");
-        terminal.Write("A pleasure doing business with you!");
-        terminal.SetColor("white");
-        terminal.Write(", ");
-        terminal.SetColor("bright_green");
-        terminal.Write(shopkeeperName);
-        terminal.SetColor("white");
-        terminal.WriteLine(" smiles.");
-        terminal.WriteLine("");
-
-        terminal.SetColor("bright_green");
-        terminal.WriteLine($"You equipped {bestArmor.Name} (AC: {bestArmor.Power})!");
-
-        await Pause();
-    }
-
-    private string FormatNumber(long number)
-    {
-        return number.ToString("N0");
     }
 
     private async Task Pause()
     {
-        terminal.WriteLine("");
-        terminal.SetColor("yellow");
-        terminal.Write("Press any key to continue...");
+        terminal.SetColor("gray");
+        terminal.Write("Press ENTER to continue...");
         await terminal.GetInput("");
     }
-} 
+
+    private static string FormatNumber(long value)
+    {
+        return value.ToString("N0");
+    }
+}

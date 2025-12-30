@@ -1,0 +1,476 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using UsurperRemake.Data;
+
+namespace UsurperRemake.Systems
+{
+    /// <summary>
+    /// Global inventory system - accessible from any location via hotkey
+    /// Allows viewing and managing equipped items
+    /// </summary>
+    public class InventorySystem
+    {
+        private TerminalEmulator terminal;
+        private Character player;
+
+        public InventorySystem(TerminalEmulator term, Character character)
+        {
+            terminal = term;
+            player = character;
+        }
+
+        /// <summary>
+        /// Main inventory menu - shows equipment and allows management
+        /// </summary>
+        public async Task ShowInventory()
+        {
+            bool exitInventory = false;
+
+            while (!exitInventory)
+            {
+                terminal.ClearScreen();
+                DisplayInventoryHeader();
+                DisplayEquipmentOverview();
+                DisplayInventoryMenu();
+
+                var choice = await terminal.GetInput("Inventory: ");
+                exitInventory = await ProcessInventoryChoice(choice.ToUpper().Trim());
+            }
+        }
+
+        private void DisplayInventoryHeader()
+        {
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+            terminal.WriteLine("║                              INVENTORY                                       ║");
+            terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+            terminal.WriteLine("");
+
+            // Show weapon configuration
+            terminal.SetColor("yellow");
+            terminal.Write("Combat Style: ");
+            terminal.SetColor("bright_white");
+            if (player.IsTwoHanding)
+                terminal.WriteLine("Two-Handed (+25% damage, -15% defense)");
+            else if (player.IsDualWielding)
+                terminal.WriteLine("Dual-Wield (+1 attack, -10% defense)");
+            else if (player.HasShieldEquipped)
+                terminal.WriteLine("Sword & Board (balanced, 20% block chance)");
+            else
+                terminal.WriteLine("One-Handed");
+            terminal.WriteLine("");
+        }
+
+        private void DisplayEquipmentOverview()
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("═══ EQUIPPED ITEMS ═══");
+            terminal.WriteLine("");
+
+            // Weapons section
+            terminal.SetColor("bright_red");
+            terminal.WriteLine("[ WEAPONS ]");
+            DisplaySlot("Main Hand", EquipmentSlot.MainHand, "1");
+            DisplaySlot("Off Hand", EquipmentSlot.OffHand, "2");
+            terminal.WriteLine("");
+
+            // Armor section
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine("[ ARMOR ]");
+            DisplaySlot("Head", EquipmentSlot.Head, "3");
+            DisplaySlot("Body", EquipmentSlot.Body, "4");
+            DisplaySlot("Arms", EquipmentSlot.Arms, "5");
+            DisplaySlot("Hands", EquipmentSlot.Hands, "6");
+            DisplaySlot("Legs", EquipmentSlot.Legs, "7");
+            DisplaySlot("Feet", EquipmentSlot.Feet, "8");
+            DisplaySlot("Waist", EquipmentSlot.Waist, "9");
+            DisplaySlot("Face", EquipmentSlot.Face, "F");
+            DisplaySlot("Cloak", EquipmentSlot.Cloak, "C");
+            terminal.WriteLine("");
+
+            // Accessories section
+            terminal.SetColor("bright_magenta");
+            terminal.WriteLine("[ ACCESSORIES ]");
+            DisplaySlot("Neck", EquipmentSlot.Neck, "N");
+            DisplaySlot("Left Ring", EquipmentSlot.LFinger, "L");
+            DisplaySlot("Right Ring", EquipmentSlot.RFinger, "R");
+            terminal.WriteLine("");
+
+            // Stats summary
+            DisplayStatsSummary();
+        }
+
+        private void DisplaySlot(string slotName, EquipmentSlot slot, string key)
+        {
+            var item = player.GetEquipment(slot);
+
+            terminal.SetColor("gray");
+            terminal.Write($"  [{key}] ");
+            terminal.SetColor("white");
+            terminal.Write($"{slotName,-12}: ");
+
+            if (item != null)
+            {
+                // Color based on rarity
+                terminal.SetColor(GetRarityColor(item.Rarity));
+                terminal.Write(item.Name);
+
+                // Show key stats
+                terminal.SetColor("gray");
+                var stats = GetItemStatSummary(item);
+                if (!string.IsNullOrEmpty(stats))
+                {
+                    terminal.Write($" ({stats})");
+                }
+                terminal.WriteLine("");
+            }
+            else
+            {
+                terminal.SetColor("darkgray");
+                terminal.WriteLine("Empty");
+            }
+        }
+
+        private string GetRarityColor(EquipmentRarity rarity)
+        {
+            return rarity switch
+            {
+                EquipmentRarity.Common => "white",
+                EquipmentRarity.Uncommon => "green",
+                EquipmentRarity.Rare => "blue",
+                EquipmentRarity.Epic => "magenta",
+                EquipmentRarity.Legendary => "yellow",
+                EquipmentRarity.Artifact => "bright_red",
+                _ => "white"
+            };
+        }
+
+        private string GetItemStatSummary(Equipment item)
+        {
+            var stats = new List<string>();
+
+            if (item.WeaponPower > 0) stats.Add($"WP:{item.WeaponPower}");
+            if (item.ArmorClass > 0) stats.Add($"AC:{item.ArmorClass}");
+            if (item.ShieldBonus > 0) stats.Add($"Block:{item.ShieldBonus}");
+            if (item.StrengthBonus != 0) stats.Add($"Str:{item.StrengthBonus:+#;-#;0}");
+            if (item.DexterityBonus != 0) stats.Add($"Dex:{item.DexterityBonus:+#;-#;0}");
+            if (item.ConstitutionBonus != 0) stats.Add($"Con:{item.ConstitutionBonus:+#;-#;0}");
+            if (item.IntelligenceBonus != 0) stats.Add($"Int:{item.IntelligenceBonus:+#;-#;0}");
+            if (item.WisdomBonus != 0) stats.Add($"Wis:{item.WisdomBonus:+#;-#;0}");
+            if (item.MaxHPBonus != 0) stats.Add($"HP:{item.MaxHPBonus:+#;-#;0}");
+            if (item.MaxManaBonus != 0) stats.Add($"MP:{item.MaxManaBonus:+#;-#;0}");
+            if (item.MagicResistance != 0) stats.Add($"MR:{item.MagicResistance:+#;-#;0}");
+            if (item.CriticalChanceBonus != 0) stats.Add($"Crit:{item.CriticalChanceBonus}%");
+            if (item.LifeSteal != 0) stats.Add($"LS:{item.LifeSteal}%");
+
+            return string.Join(", ", stats.Take(4)); // Limit to 4 stats for display
+        }
+
+        private void DisplayStatsSummary()
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("═══ EQUIPMENT BONUSES ═══");
+
+            // Calculate total bonuses from equipment
+            int totalWeapPow = 0, totalArmPow = 0;
+            int totalStr = 0, totalDex = 0, totalCon = 0, totalInt = 0, totalWis = 0, totalCha = 0;
+            int totalMaxHP = 0, totalMaxMana = 0, totalMR = 0, totalDef = 0;
+
+            foreach (var slot in Enum.GetValues<EquipmentSlot>())
+            {
+                var item = player.GetEquipment(slot);
+                if (item != null)
+                {
+                    totalWeapPow += item.WeaponPower;
+                    totalArmPow += item.ArmorClass + item.ShieldBonus;
+                    totalStr += item.StrengthBonus;
+                    totalDex += item.DexterityBonus;
+                    totalCon += item.ConstitutionBonus;
+                    totalInt += item.IntelligenceBonus;
+                    totalWis += item.WisdomBonus;
+                    totalCha += item.CharismaBonus;
+                    totalMaxHP += item.MaxHPBonus;
+                    totalMaxMana += item.MaxManaBonus;
+                    totalMR += item.MagicResistance;
+                    totalDef += item.DefenceBonus;
+                }
+            }
+
+            terminal.SetColor("white");
+            terminal.Write("Weapon Power: ");
+            terminal.SetColor("bright_red");
+            terminal.Write($"{totalWeapPow}");
+            terminal.SetColor("white");
+            terminal.Write("  |  Armor Class: ");
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine($"{totalArmPow}");
+
+            // Stat bonuses
+            if (totalStr != 0 || totalDex != 0 || totalCon != 0)
+            {
+                terminal.SetColor("white");
+                terminal.Write("Stats: ");
+                if (totalStr != 0) { terminal.SetColor("green"); terminal.Write($"Str {totalStr:+#;-#;0}  "); }
+                if (totalDex != 0) { terminal.SetColor("green"); terminal.Write($"Dex {totalDex:+#;-#;0}  "); }
+                if (totalCon != 0) { terminal.SetColor("green"); terminal.Write($"Con {totalCon:+#;-#;0}  "); }
+                if (totalInt != 0) { terminal.SetColor("cyan"); terminal.Write($"Int {totalInt:+#;-#;0}  "); }
+                if (totalWis != 0) { terminal.SetColor("cyan"); terminal.Write($"Wis {totalWis:+#;-#;0}  "); }
+                if (totalCha != 0) { terminal.SetColor("cyan"); terminal.Write($"Cha {totalCha:+#;-#;0}  "); }
+                terminal.WriteLine("");
+            }
+
+            if (totalMaxHP != 0 || totalMaxMana != 0 || totalMR != 0 || totalDef != 0)
+            {
+                terminal.SetColor("white");
+                terminal.Write("Other: ");
+                if (totalMaxHP != 0) { terminal.SetColor("red"); terminal.Write($"MaxHP {totalMaxHP:+#;-#;0}  "); }
+                if (totalMaxMana != 0) { terminal.SetColor("blue"); terminal.Write($"MaxMP {totalMaxMana:+#;-#;0}  "); }
+                if (totalMR != 0) { terminal.SetColor("magenta"); terminal.Write($"MagicRes {totalMR:+#;-#;0}  "); }
+                if (totalDef != 0) { terminal.SetColor("cyan"); terminal.Write($"Def {totalDef:+#;-#;0}  "); }
+                terminal.WriteLine("");
+            }
+
+            terminal.WriteLine("");
+        }
+
+        private void DisplayInventoryMenu()
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("────────────────────────────────────────────────────────────────────────────────");
+            terminal.SetColor("white");
+            terminal.WriteLine("Options: [1-9,F,C,N,L,R] View/Manage Slot  |  [U]nequip All  |  [Q]uit Inventory");
+            terminal.WriteLine("");
+        }
+
+        private async Task<bool> ProcessInventoryChoice(string choice)
+        {
+            switch (choice)
+            {
+                case "Q":
+                case "":
+                    return true;
+
+                case "1":
+                    await ManageSlot(EquipmentSlot.MainHand);
+                    break;
+                case "2":
+                    await ManageSlot(EquipmentSlot.OffHand);
+                    break;
+                case "3":
+                    await ManageSlot(EquipmentSlot.Head);
+                    break;
+                case "4":
+                    await ManageSlot(EquipmentSlot.Body);
+                    break;
+                case "5":
+                    await ManageSlot(EquipmentSlot.Arms);
+                    break;
+                case "6":
+                    await ManageSlot(EquipmentSlot.Hands);
+                    break;
+                case "7":
+                    await ManageSlot(EquipmentSlot.Legs);
+                    break;
+                case "8":
+                    await ManageSlot(EquipmentSlot.Feet);
+                    break;
+                case "9":
+                    await ManageSlot(EquipmentSlot.Waist);
+                    break;
+                case "F":
+                    await ManageSlot(EquipmentSlot.Face);
+                    break;
+                case "C":
+                    await ManageSlot(EquipmentSlot.Cloak);
+                    break;
+                case "N":
+                    await ManageSlot(EquipmentSlot.Neck);
+                    break;
+                case "L":
+                    await ManageSlot(EquipmentSlot.LFinger);
+                    break;
+                case "R":
+                    await ManageSlot(EquipmentSlot.RFinger);
+                    break;
+                case "U":
+                    await UnequipAll();
+                    break;
+                default:
+                    terminal.WriteLine("Invalid choice.", "red");
+                    await Task.Delay(500);
+                    break;
+            }
+
+            return false;
+        }
+
+        private async Task ManageSlot(EquipmentSlot slot)
+        {
+            terminal.ClearScreen();
+
+            var currentItem = player.GetEquipment(slot);
+            var slotName = GetSlotDisplayName(slot);
+
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine($"═══ {slotName.ToUpper()} SLOT ═══");
+            terminal.WriteLine("");
+
+            // Show current item
+            terminal.SetColor("white");
+            terminal.Write("Currently Equipped: ");
+            if (currentItem != null)
+            {
+                terminal.SetColor(GetRarityColor(currentItem.Rarity));
+                terminal.WriteLine(currentItem.Name);
+                DisplayItemDetails(currentItem);
+            }
+            else
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine("Nothing");
+            }
+            terminal.WriteLine("");
+
+            // Show options
+            terminal.SetColor("cyan");
+            terminal.WriteLine("Options:");
+            terminal.SetColor("white");
+            if (currentItem != null)
+            {
+                terminal.WriteLine("  [U] Unequip this item");
+            }
+            terminal.WriteLine("  [Q] Return to inventory");
+            terminal.WriteLine("");
+
+            var choice = await terminal.GetInput("Choice: ");
+
+            if (choice.ToUpper().Trim() == "U" && currentItem != null)
+            {
+                var unequipped = player.UnequipSlot(slot);
+                if (unequipped != null)
+                {
+                    terminal.SetColor("yellow");
+                    terminal.WriteLine($"Unequipped {unequipped.Name}.");
+                    terminal.SetColor("gray");
+                    terminal.WriteLine("(Item returned to shop inventory)");
+                    await Task.Delay(1500);
+                }
+            }
+        }
+
+        private void DisplayItemDetails(Equipment item)
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine($"  Type: {item.Slot}  |  Rarity: {item.Rarity}");
+
+            var stats = new List<string>();
+
+            // Combat stats
+            if (item.WeaponPower > 0) stats.Add($"Weapon Power: {item.WeaponPower}");
+            if (item.ArmorClass > 0) stats.Add($"Armor Class: {item.ArmorClass}");
+            if (item.ShieldBonus > 0) stats.Add($"Shield Block: {item.ShieldBonus}");
+
+            // Attribute bonuses
+            if (item.StrengthBonus != 0) stats.Add($"Strength: {item.StrengthBonus:+#;-#;0}");
+            if (item.DexterityBonus != 0) stats.Add($"Dexterity: {item.DexterityBonus:+#;-#;0}");
+            if (item.ConstitutionBonus != 0) stats.Add($"Constitution: {item.ConstitutionBonus:+#;-#;0}");
+            if (item.IntelligenceBonus != 0) stats.Add($"Intelligence: {item.IntelligenceBonus:+#;-#;0}");
+            if (item.WisdomBonus != 0) stats.Add($"Wisdom: {item.WisdomBonus:+#;-#;0}");
+            if (item.CharismaBonus != 0) stats.Add($"Charisma: {item.CharismaBonus:+#;-#;0}");
+            if (item.AgilityBonus != 0) stats.Add($"Agility: {item.AgilityBonus:+#;-#;0}");
+            if (item.StaminaBonus != 0) stats.Add($"Stamina: {item.StaminaBonus:+#;-#;0}");
+
+            // Other bonuses
+            if (item.MaxHPBonus != 0) stats.Add($"Max HP: {item.MaxHPBonus:+#;-#;0}");
+            if (item.MaxManaBonus != 0) stats.Add($"Max Mana: {item.MaxManaBonus:+#;-#;0}");
+            if (item.DefenceBonus != 0) stats.Add($"Defence: {item.DefenceBonus:+#;-#;0}");
+            if (item.MagicResistance != 0) stats.Add($"Magic Resist: {item.MagicResistance:+#;-#;0}");
+            if (item.CriticalChanceBonus != 0) stats.Add($"Crit Chance: {item.CriticalChanceBonus}%");
+            if (item.CriticalDamageBonus != 0) stats.Add($"Crit Damage: {item.CriticalDamageBonus}%");
+            if (item.LifeSteal != 0) stats.Add($"Life Steal: {item.LifeSteal}%");
+
+            if (stats.Count > 0)
+            {
+                terminal.SetColor("green");
+                foreach (var stat in stats)
+                {
+                    terminal.WriteLine($"  • {stat}");
+                }
+            }
+
+            // Requirements
+            var reqs = new List<string>();
+            if (item.MinLevel > 1) reqs.Add($"Level {item.MinLevel}");
+            if (item.StrengthRequired > 0) reqs.Add($"Str {item.StrengthRequired}");
+            if (item.RequiresGood) reqs.Add("Good alignment");
+            if (item.RequiresEvil) reqs.Add("Evil alignment");
+            if (item.IsUnique) reqs.Add("UNIQUE");
+
+            if (reqs.Count > 0)
+            {
+                terminal.SetColor("yellow");
+                terminal.WriteLine($"  Requires: {string.Join(", ", reqs)}");
+            }
+
+            terminal.SetColor("gray");
+            terminal.WriteLine($"  Value: {item.Value:N0} gold");
+        }
+
+        private string GetSlotDisplayName(EquipmentSlot slot)
+        {
+            return slot switch
+            {
+                EquipmentSlot.MainHand => "Main Hand",
+                EquipmentSlot.OffHand => "Off Hand",
+                EquipmentSlot.Head => "Head",
+                EquipmentSlot.Body => "Body",
+                EquipmentSlot.Arms => "Arms",
+                EquipmentSlot.Hands => "Hands",
+                EquipmentSlot.Legs => "Legs",
+                EquipmentSlot.Feet => "Feet",
+                EquipmentSlot.Waist => "Waist",
+                EquipmentSlot.Neck => "Neck",
+                EquipmentSlot.Face => "Face",
+                EquipmentSlot.Cloak => "Cloak",
+                EquipmentSlot.LFinger => "Left Ring",
+                EquipmentSlot.RFinger => "Right Ring",
+                _ => slot.ToString()
+            };
+        }
+
+        private async Task UnequipAll()
+        {
+            terminal.WriteLine("");
+            terminal.SetColor("yellow");
+            terminal.WriteLine("Unequipping all items...");
+
+            int count = 0;
+            foreach (var slot in Enum.GetValues<EquipmentSlot>())
+            {
+                if (slot == EquipmentSlot.None) continue;
+                var item = player.UnequipSlot(slot);
+                if (item != null)
+                {
+                    count++;
+                }
+            }
+
+            if (count > 0)
+            {
+                terminal.SetColor("green");
+                terminal.WriteLine($"Unequipped {count} item(s).");
+                terminal.SetColor("gray");
+                terminal.WriteLine("(Items returned to shop inventories)");
+            }
+            else
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine("No items to unequip.");
+            }
+
+            await Task.Delay(1500);
+        }
+    }
+}

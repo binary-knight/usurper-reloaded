@@ -77,7 +77,23 @@ namespace UsurperRemake.Systems
         // Items and equipment
         public int[] Items { get; set; } = new int[0];
         public int[] ItemTypes { get; set; } = new int[0];
-        
+
+        // NEW: Modern RPG Equipment System
+        public Dictionary<int, int> EquippedItems { get; set; } = new(); // EquipmentSlot -> Equipment ID
+
+        // Base stats (without equipment bonuses)
+        public long BaseStrength { get; set; }
+        public long BaseDexterity { get; set; }
+        public long BaseConstitution { get; set; }
+        public long BaseIntelligence { get; set; }
+        public long BaseWisdom { get; set; }
+        public long BaseCharisma { get; set; }
+        public long BaseMaxHP { get; set; }
+        public long BaseMaxMana { get; set; }
+        public long BaseDefence { get; set; }
+        public long BaseStamina { get; set; }
+        public long BaseAgility { get; set; }
+
         // Social/Team
         public string Team { get; set; } = "";
         public string TeamPassword { get; set; } = "";

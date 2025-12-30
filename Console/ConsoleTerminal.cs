@@ -1,4 +1,5 @@
 using System;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace UsurperConsole
@@ -48,7 +49,112 @@ namespace UsurperConsole
 
         public void WriteLine(string text)
         {
-            Console.WriteLine(text);
+            // Check for inline color markup tags like [red]text[/]
+            if (text != null && text.Contains("[") && text.Contains("[/]"))
+            {
+                WriteMarkup(text);
+                Console.WriteLine();
+            }
+            else
+            {
+                Console.WriteLine(text);
+            }
+        }
+
+        /// <summary>
+        /// Parse and render text with inline color markup tags like [red]text[/]
+        /// </summary>
+        public void WriteMarkup(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return;
+            }
+
+            var oldColor = Console.ForegroundColor;
+
+            // Pattern matches [color]content[/] or plain text
+            // Supports nested: [red]some [yellow]yellow[/] text[/]
+            var pattern = @"\[([a-z_]+)\](.*?)\[/\]";
+            var lastIndex = 0;
+
+            // Use a simple state-based parser for proper nesting support
+            int i = 0;
+            while (i < text.Length)
+            {
+                // Look for opening tag
+                if (text[i] == '[' && i + 1 < text.Length && text[i + 1] != '/')
+                {
+                    // Find the closing bracket
+                    var closeIndex = text.IndexOf(']', i);
+                    if (closeIndex > i)
+                    {
+                        var colorName = text.Substring(i + 1, closeIndex - i - 1);
+                        var color = ColorNameToConsole(colorName);
+
+                        // Find matching [/]
+                        var endTagIndex = FindMatchingEndTag(text, closeIndex + 1);
+                        if (endTagIndex > closeIndex)
+                        {
+                            // Extract content between tags
+                            var content = text.Substring(closeIndex + 1, endTagIndex - closeIndex - 1);
+
+                            // Recursively process content (for nested tags)
+                            Console.ForegroundColor = color;
+                            WriteMarkup(content);
+                            Console.ForegroundColor = oldColor;
+
+                            // Move past the [/]
+                            i = endTagIndex + 3;
+                            continue;
+                        }
+                    }
+                }
+
+                // Regular character, just print it
+                Console.Write(text[i]);
+                i++;
+            }
+
+            Console.ForegroundColor = oldColor;
+        }
+
+        /// <summary>
+        /// Find the matching [/] end tag, handling nesting
+        /// </summary>
+        private int FindMatchingEndTag(string text, int startIndex)
+        {
+            int depth = 1;
+            int i = startIndex;
+
+            while (i < text.Length && depth > 0)
+            {
+                if (text[i] == '[')
+                {
+                    // Check for end tag [/]
+                    if (i + 2 < text.Length && text[i + 1] == '/' && text[i + 2] == ']')
+                    {
+                        depth--;
+                        if (depth == 0)
+                        {
+                            return i;
+                        }
+                        i += 3;
+                        continue;
+                    }
+                    // Check for opening tag [something]
+                    var closeIndex = text.IndexOf(']', i);
+                    if (closeIndex > i && text[i + 1] != '/')
+                    {
+                        depth++;
+                        i = closeIndex + 1;
+                        continue;
+                    }
+                }
+                i++;
+            }
+
+            return -1;
         }
 
         public void WriteLine(string text, ConsoleColor color)
@@ -66,7 +172,15 @@ namespace UsurperConsole
 
         public void Write(string text)
         {
-            Console.Write(text);
+            // Check for inline color markup tags like [red]text[/]
+            if (text != null && text.Contains("[") && text.Contains("[/]"))
+            {
+                WriteMarkup(text);
+            }
+            else
+            {
+                Console.Write(text);
+            }
         }
 
         public void Write(string text, ConsoleColor color)

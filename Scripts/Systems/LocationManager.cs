@@ -1,5 +1,6 @@
 using UsurperRemake.Utils;
 using UsurperRemake.Locations;
+using UsurperRemake.Systems;
 using Godot;
 using System;
 using System.Collections.Generic;
@@ -224,6 +225,17 @@ public class LocationManager
         try
         {
             await currentLocation.EnterLocation(player, terminal);
+
+            // After location loop exits, check if player died
+            if (!player.IsAlive)
+            {
+                await HandlePlayerDeath(player);
+                // After resurrection, continue playing at the Inn
+                if (player.IsAlive)
+                {
+                    await EnterLocation(GameLocation.TheInn, player);
+                }
+            }
         }
         catch (LocationExitException ex)
         {
@@ -244,7 +256,7 @@ public class LocationManager
             // Handle legacy location change exception
             terminal.WriteLine($"Navigating to {ex.Destination}...", "yellow");
             await Task.Delay(1000);
-            
+
             // Convert string destination to GameLocation enum
             if (Enum.TryParse<GameLocation>(ex.Destination, true, out var destination))
             {
@@ -256,6 +268,97 @@ public class LocationManager
                 await Task.Delay(1500);
             }
         }
+    }
+
+    /// <summary>
+    /// Handle player death with penalties and resurrection
+    /// </summary>
+    private async Task HandlePlayerDeath(Character player)
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_red");
+        terminal.WriteLine("═══════════════════════════════════════════════════════════════");
+        terminal.WriteLine("                        YOU HAVE DIED!                          ");
+        terminal.WriteLine("═══════════════════════════════════════════════════════════════");
+        terminal.WriteLine("");
+
+        terminal.SetColor("gray");
+        terminal.WriteLine("Your vision fades to black as death claims you...");
+        terminal.WriteLine("");
+        await Task.Delay(2000);
+
+        // Check if player has resurrections (from items/temple)
+        if (player.Resurrections > 0)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"You have {player.Resurrections} resurrection(s) available!");
+            terminal.WriteLine("");
+            var resurrect = await terminal.GetInput("Use a resurrection to avoid penalties? (Y/N): ");
+
+            if (resurrect.ToUpper().StartsWith("Y"))
+            {
+                player.Resurrections--;
+                player.HP = player.MaxHP;
+                terminal.SetColor("bright_green");
+                terminal.WriteLine("");
+                terminal.WriteLine("Divine light surrounds you!");
+                terminal.WriteLine("You have been fully resurrected with no penalties!");
+                await Task.Delay(2500);
+
+                player.Location = (int)GameLocation.TheInn;
+                await SaveSystem.Instance.AutoSave(player);
+                return;
+            }
+        }
+
+        // Apply death penalties
+        terminal.SetColor("red");
+        terminal.WriteLine("Death Penalties Applied:");
+        terminal.WriteLine("─────────────────────────");
+
+        // Calculate penalties
+        long expLoss = player.Experience / 10;  // Lose 10% experience
+        long goldLoss = player.Gold / 4;        // Lose 25% gold on hand
+
+        // Apply penalties
+        player.Experience = Math.Max(0, player.Experience - expLoss);
+        player.Gold = Math.Max(0, player.Gold - goldLoss);
+
+        // Track death count
+        player.MDefeats++;
+
+        terminal.SetColor("yellow");
+        if (expLoss > 0)
+            terminal.WriteLine($"  • Lost {expLoss:N0} experience points");
+        if (goldLoss > 0)
+            terminal.WriteLine($"  • Lost {goldLoss:N0} gold (dropped upon death)");
+        terminal.WriteLine($"  • Monster defeats: {player.MDefeats}");
+        terminal.WriteLine("");
+
+        // Resurrect player at the Inn with half HP
+        player.HP = Math.Max(1, player.MaxHP / 2);
+        player.Location = (int)GameLocation.TheInn;
+
+        // Clear any negative status effects
+        player.Poison = 0;
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine("You wake up at the Inn, nursed back to health by the innkeeper.");
+        terminal.WriteLine($"Your wounds have partially healed. (HP: {player.HP}/{player.MaxHP})");
+        terminal.WriteLine("");
+
+        terminal.SetColor("gray");
+        terminal.WriteLine("\"You're lucky to be alive, friend. Rest up and try again.\"");
+        terminal.WriteLine("");
+
+        await terminal.PressAnyKey();
+
+        // Save the resurrected character
+        await SaveSystem.Instance.AutoSave(player);
+
+        terminal.SetColor("green");
+        terminal.WriteLine("Your adventure continues...");
+        await Task.Delay(1500);
     }
     
     /// <summary>

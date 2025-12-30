@@ -1,8 +1,10 @@
 using UsurperRemake.Utils;
 using UsurperRemake.Systems;
+using UsurperRemake.Data;
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 /// <summary>
@@ -337,6 +339,15 @@ public abstract class BaseLocation
         terminal.SetColor("darkgray");
         terminal.Write("[");
         terminal.SetColor("cyan");
+        terminal.Write("*");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("Inventory  ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("cyan");
         terminal.Write("?");
         terminal.SetColor("darkgray");
         terminal.Write("]");
@@ -392,6 +403,9 @@ public abstract class BaseLocation
             case "S":
                 await ShowStatus();
                 break;
+            case "*":
+                await ShowInventory();
+                break;
             case "?":
                 // Help/menu already shown
                 break;
@@ -410,7 +424,11 @@ public abstract class BaseLocation
                 terminal.SetColor("cyan");
                 terminal.Write("[S]");
                 terminal.SetColor("gray");
-                terminal.Write("tatus");
+                terminal.Write("tatus, ");
+                terminal.SetColor("cyan");
+                terminal.Write("[*]");
+                terminal.SetColor("gray");
+                terminal.Write("Inventory");
 
                 if (LocationId != GameLocation.MainStreet)
                 {
@@ -455,6 +473,15 @@ public abstract class BaseLocation
         throw new LocationExitException(destination);
     }
     
+    /// <summary>
+    /// Show the inventory screen for managing equipment
+    /// </summary>
+    protected virtual async Task ShowInventory()
+    {
+        var inventorySystem = new InventorySystem(terminal, currentPlayer);
+        await inventorySystem.ShowInventory();
+    }
+
     /// <summary>
     /// Show player status - Comprehensive character information display
     /// </summary>
@@ -599,73 +626,94 @@ public abstract class BaseLocation
         await terminal.GetInput("");
         terminal.WriteLine("");
 
-        // Equipment
+        // Equipment - Full Slot Display
         terminal.SetColor("yellow");
         terminal.WriteLine("═══ EQUIPMENT ═══");
 
-        // Weapon
+        // Combat style indicator
         terminal.SetColor("white");
-        terminal.Write("Weapon: ");
-        if (currentPlayer.Weapon > 0)
+        terminal.Write("Combat Style: ");
+        if (currentPlayer.IsTwoHanding)
         {
-            var weapon = ItemManager.GetClassicWeapon(currentPlayer.Weapon);
-            if (weapon != null)
-            {
-                terminal.SetColor("bright_yellow");
-                terminal.Write($"{weapon.Name}");
-                terminal.SetColor("white");
-                terminal.Write(" (Power: ");
-                terminal.SetColor("yellow");
-                terminal.Write($"{weapon.Power}");
-                terminal.SetColor("white");
-                terminal.WriteLine(")");
-            }
-            else
-            {
-                terminal.SetColor("gray");
-                terminal.WriteLine($"Unknown weapon #{currentPlayer.Weapon}");
-            }
+            terminal.SetColor("bright_red");
+            terminal.WriteLine("Two-Handed (+25% damage, -15% defense)");
+        }
+        else if (currentPlayer.IsDualWielding)
+        {
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine("Dual-Wield (+1 attack, -10% defense)");
+        }
+        else if (currentPlayer.HasShieldEquipped)
+        {
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine("Sword & Board (balanced, 20% block chance)");
         }
         else
         {
             terminal.SetColor("gray");
-            terminal.WriteLine("None (Bare Hands)");
+            terminal.WriteLine("One-Handed");
         }
+        terminal.WriteLine("");
 
-        // Armor
-        terminal.SetColor("white");
-        terminal.Write("Armor: ");
-        if (currentPlayer.Armor > 0)
-        {
-            var armor = ItemManager.GetClassicArmor(currentPlayer.Armor);
-            if (armor != null)
-            {
-                terminal.SetColor("bright_cyan");
-                terminal.Write($"{armor.Name}");
-                terminal.SetColor("white");
-                terminal.Write(" (AC: ");
-                terminal.SetColor("cyan");
-                terminal.Write($"{armor.Power}");
-                terminal.SetColor("white");
-                terminal.WriteLine(")");
-            }
-            else
-            {
-                terminal.SetColor("gray");
-                terminal.WriteLine($"Unknown armor #{currentPlayer.Armor}");
-            }
-        }
-        else
-        {
-            terminal.SetColor("gray");
-            terminal.WriteLine("None (Unarmored)");
-        }
+        // Weapons
+        terminal.SetColor("bright_red");
+        terminal.Write("Main Hand: ");
+        DisplayEquipmentSlot(EquipmentSlot.MainHand);
+        terminal.SetColor("bright_red");
+        terminal.Write("Off Hand:  ");
+        DisplayEquipmentSlot(EquipmentSlot.OffHand);
+        terminal.WriteLine("");
+
+        // Armor slots (in two columns)
+        terminal.SetColor("bright_cyan");
+        terminal.Write("Head:      ");
+        DisplayEquipmentSlot(EquipmentSlot.Head);
+        terminal.SetColor("bright_cyan");
+        terminal.Write("Body:      ");
+        DisplayEquipmentSlot(EquipmentSlot.Body);
+        terminal.SetColor("bright_cyan");
+        terminal.Write("Arms:      ");
+        DisplayEquipmentSlot(EquipmentSlot.Arms);
+        terminal.SetColor("bright_cyan");
+        terminal.Write("Hands:     ");
+        DisplayEquipmentSlot(EquipmentSlot.Hands);
+        terminal.SetColor("bright_cyan");
+        terminal.Write("Legs:      ");
+        DisplayEquipmentSlot(EquipmentSlot.Legs);
+        terminal.SetColor("bright_cyan");
+        terminal.Write("Feet:      ");
+        DisplayEquipmentSlot(EquipmentSlot.Feet);
+        terminal.SetColor("bright_cyan");
+        terminal.Write("Waist:     ");
+        DisplayEquipmentSlot(EquipmentSlot.Waist);
+        terminal.SetColor("bright_cyan");
+        terminal.Write("Face:      ");
+        DisplayEquipmentSlot(EquipmentSlot.Face);
+        terminal.SetColor("bright_cyan");
+        terminal.Write("Cloak:     ");
+        DisplayEquipmentSlot(EquipmentSlot.Cloak);
+        terminal.WriteLine("");
+
+        // Accessories
+        terminal.SetColor("bright_magenta");
+        terminal.Write("Neck:      ");
+        DisplayEquipmentSlot(EquipmentSlot.Neck);
+        terminal.SetColor("bright_magenta");
+        terminal.Write("Left Ring: ");
+        DisplayEquipmentSlot(EquipmentSlot.LFinger);
+        terminal.SetColor("bright_magenta");
+        terminal.Write("Right Ring:");
+        DisplayEquipmentSlot(EquipmentSlot.RFinger);
+        terminal.WriteLine("");
+
+        // Equipment totals
+        DisplayEquipmentTotals();
+        terminal.WriteLine("");
 
         // Show active buffs if any
         if (currentPlayer.MagicACBonus > 0 || currentPlayer.DamageAbsorptionPool > 0 ||
             currentPlayer.IsRaging || currentPlayer.SmiteChargesRemaining > 0)
         {
-            terminal.WriteLine("");
             terminal.SetColor("bright_magenta");
             terminal.WriteLine("Active Effects:");
 
@@ -689,8 +737,8 @@ public abstract class BaseLocation
                 terminal.SetColor("yellow");
                 terminal.WriteLine($"  • Smite Evil: {currentPlayer.SmiteChargesRemaining} charges");
             }
+            terminal.WriteLine("");
         }
-        terminal.WriteLine("");
 
         // Wealth
         terminal.SetColor("yellow");
@@ -962,7 +1010,128 @@ public abstract class BaseLocation
         }
         return exp;
     }
-    
+
+    /// <summary>
+    /// Display a single equipment slot for the status screen
+    /// </summary>
+    private void DisplayEquipmentSlot(EquipmentSlot slot)
+    {
+        var item = currentPlayer.GetEquipment(slot);
+
+        if (item != null)
+        {
+            // Color based on rarity
+            terminal.SetColor(GetEquipmentRarityColor(item.Rarity));
+            terminal.Write(item.Name);
+
+            // Show key stats
+            var stats = GetEquipmentStatSummary(item);
+            if (!string.IsNullOrEmpty(stats))
+            {
+                terminal.SetColor("gray");
+                terminal.Write($" ({stats})");
+            }
+            terminal.WriteLine("");
+        }
+        else
+        {
+            terminal.SetColor("darkgray");
+            terminal.WriteLine("Empty");
+        }
+    }
+
+    /// <summary>
+    /// Get color based on equipment rarity
+    /// </summary>
+    private static string GetEquipmentRarityColor(EquipmentRarity rarity)
+    {
+        return rarity switch
+        {
+            EquipmentRarity.Common => "white",
+            EquipmentRarity.Uncommon => "green",
+            EquipmentRarity.Rare => "blue",
+            EquipmentRarity.Epic => "magenta",
+            EquipmentRarity.Legendary => "yellow",
+            EquipmentRarity.Artifact => "bright_red",
+            _ => "white"
+        };
+    }
+
+    /// <summary>
+    /// Get a short summary of equipment stats
+    /// </summary>
+    private static string GetEquipmentStatSummary(Equipment item)
+    {
+        var stats = new List<string>();
+
+        if (item.WeaponPower > 0) stats.Add($"WP:{item.WeaponPower}");
+        if (item.ArmorClass > 0) stats.Add($"AC:{item.ArmorClass}");
+        if (item.ShieldBonus > 0) stats.Add($"Block:{item.ShieldBonus}");
+        if (item.StrengthBonus != 0) stats.Add($"Str:{item.StrengthBonus:+#;-#;0}");
+        if (item.DexterityBonus != 0) stats.Add($"Dex:{item.DexterityBonus:+#;-#;0}");
+        if (item.ConstitutionBonus != 0) stats.Add($"Con:{item.ConstitutionBonus:+#;-#;0}");
+        if (item.MaxHPBonus != 0) stats.Add($"HP:{item.MaxHPBonus:+#;-#;0}");
+        if (item.MaxManaBonus != 0) stats.Add($"MP:{item.MaxManaBonus:+#;-#;0}");
+
+        // Limit to 4 stats for concise display
+        return string.Join(", ", stats.Take(4));
+    }
+
+    /// <summary>
+    /// Display total equipment bonuses
+    /// </summary>
+    private void DisplayEquipmentTotals()
+    {
+        int totalWeapPow = 0, totalArmPow = 0;
+        int totalStr = 0, totalDex = 0, totalCon = 0, totalInt = 0, totalWis = 0;
+        int totalMaxHP = 0, totalMaxMana = 0;
+
+        foreach (var slot in Enum.GetValues<EquipmentSlot>())
+        {
+            var item = currentPlayer.GetEquipment(slot);
+            if (item != null)
+            {
+                totalWeapPow += item.WeaponPower;
+                totalArmPow += item.ArmorClass + item.ShieldBonus;
+                totalStr += item.StrengthBonus;
+                totalDex += item.DexterityBonus;
+                totalCon += item.ConstitutionBonus;
+                totalInt += item.IntelligenceBonus;
+                totalWis += item.WisdomBonus;
+                totalMaxHP += item.MaxHPBonus;
+                totalMaxMana += item.MaxManaBonus;
+            }
+        }
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine("Equipment Totals:");
+        terminal.SetColor("white");
+        terminal.Write("  Weapon Power: ");
+        terminal.SetColor("bright_red");
+        terminal.Write($"{totalWeapPow}");
+        terminal.SetColor("white");
+        terminal.Write("  |  Armor Class: ");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine($"{totalArmPow}");
+
+        // Only show stat bonuses if there are any
+        bool hasStatBonuses = totalStr != 0 || totalDex != 0 || totalCon != 0 ||
+                              totalInt != 0 || totalWis != 0 || totalMaxHP != 0 || totalMaxMana != 0;
+        if (hasStatBonuses)
+        {
+            terminal.SetColor("white");
+            terminal.Write("  Bonuses: ");
+            if (totalStr != 0) { terminal.SetColor("green"); terminal.Write($"Str {totalStr:+#;-#;0}  "); }
+            if (totalDex != 0) { terminal.SetColor("green"); terminal.Write($"Dex {totalDex:+#;-#;0}  "); }
+            if (totalCon != 0) { terminal.SetColor("green"); terminal.Write($"Con {totalCon:+#;-#;0}  "); }
+            if (totalInt != 0) { terminal.SetColor("cyan"); terminal.Write($"Int {totalInt:+#;-#;0}  "); }
+            if (totalWis != 0) { terminal.SetColor("cyan"); terminal.Write($"Wis {totalWis:+#;-#;0}  "); }
+            if (totalMaxHP != 0) { terminal.SetColor("red"); terminal.Write($"MaxHP {totalMaxHP:+#;-#;0}  "); }
+            if (totalMaxMana != 0) { terminal.SetColor("blue"); terminal.Write($"MaxMP {totalMaxMana:+#;-#;0}  "); }
+            terminal.WriteLine("");
+        }
+    }
+
     /// <summary>
     /// Get location name for display
     /// </summary>

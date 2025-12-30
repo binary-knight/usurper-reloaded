@@ -6,101 +6,143 @@ using System.Linq;
 using System.Threading.Tasks;
 
 /// <summary>
-/// Weapon Shop Location - Pascal-compatible trading system
-/// Based on WEAPSHOP.PAS with Tully the troll, haggling, and race bonuses
+/// Weapon Shop Location - Modern RPG weapon and shield system
+/// Sells One-Handed Weapons, Two-Handed Weapons, and Shields
+/// Supports dual-wielding configuration
 /// </summary>
 public class WeaponShopLocation : BaseLocation
 {
     private string shopkeeperName = "Tully";
-    private bool isKicked = false;
-    private Character? currentPlayer => GameEngine.Instance?.CurrentPlayer;
-    
+    private WeaponCategory? currentCategory = null;
+    private int currentPage = 0;
+    private const int ItemsPerPage = 15;
+
+    private enum WeaponCategory
+    {
+        OneHanded,
+        TwoHanded,
+        Shields,
+        DualWield
+    }
+
     public WeaponShopLocation() : base(
         GameLocation.WeaponShop,
         "Weapon Shop",
         "You enter the dusty old weaponstore filled with all kinds of different weapons."
     ) { }
-    
+
     protected override void SetupLocation()
     {
         base.SetupLocation();
-        
-        // Load shopkeeper name from config (Pascal cfg_string(15))
-        shopkeeperName = "Tully"; // TODO: Load from game config
-        
-        if (currentPlayer == null) return;
-        
-        isKicked = currentPlayer.WeapHag == 0; // Kicked if no haggling attempts left
+        shopkeeperName = "Tully";
     }
-    
+
     protected override void DisplayLocation()
     {
         terminal.ClearScreen();
-        
-        // ASCII art header
+
+        if (currentPlayer == null) return;
+
+        // Check if player has been kicked out for bad haggling
+        if (currentPlayer.WeapHag < 1)
+        {
+            terminal.SetColor("bright_red");
+            terminal.WriteLine("The big trolls pick you up and throw you out!");
+            terminal.WriteLine("Maybe you should be more careful about haggling next time...");
+            terminal.WriteLine("");
+            terminal.WriteLine("Press any key to return to street...", "yellow");
+            return;
+        }
+
         terminal.SetColor("brown");
         terminal.WriteLine("╔══════════════════════════════════════════════════════╗");
-        terminal.WriteLine("║                    WEAPON SHOP                      ║");
+        terminal.WriteLine("║                    WEAPON SHOP                       ║");
         terminal.WriteLine("╚══════════════════════════════════════════════════════╝");
         terminal.WriteLine("");
-        
-        // Pascal shop description
+
+        if (currentCategory.HasValue)
+        {
+            ShowCategoryItems(currentCategory.Value);
+        }
+        else
+        {
+            ShowMainMenu();
+        }
+    }
+
+    private void ShowMainMenu()
+    {
         terminal.SetColor("yellow");
         terminal.WriteLine($"Weaponstore, run by {shopkeeperName} the troll");
-        terminal.WriteLine(new string('=', $"Weaponstore, run by {shopkeeperName} the troll".Length));
-        
-        terminal.SetColor("white");
-        terminal.WriteLine("You enter the dusty old weaponstore and notice that the shelves");
-        terminal.WriteLine("are filled with all kinds of different weapons. Yet you know that the");
-        terminal.WriteLine("real powerful items dwells somewhere deeper within this mysterious");
-        terminal.WriteLine("building.");
         terminal.WriteLine("");
-        
-        terminal.WriteLine("A fat troll stumbles out from a room nearby and greets you.");
-        terminal.Write("You realize that this dirty old swine must be ");
+
+        terminal.SetColor("white");
+        terminal.WriteLine("A fat troll stumbles out from a back room and greets you.");
+        terminal.Write("You realize this must be ");
         terminal.SetColor("cyan");
         terminal.Write(shopkeeperName);
         terminal.SetColor("white");
-        terminal.WriteLine(" the owner.");
-        terminal.WriteLine("After a brief inspection of his customer he asks what you want.");
+        terminal.WriteLine(", the owner.");
         terminal.WriteLine("");
-        
-        // Display player gold
-        if (currentPlayer == null) return;
-        
-        terminal.Write("(You have ");
+
+        terminal.Write("You have ");
         terminal.SetColor("yellow");
-        terminal.Write($"{currentPlayer.Gold:N0}");
+        terminal.Write(FormatNumber(currentPlayer.Gold));
         terminal.SetColor("white");
-        terminal.WriteLine(" gold pieces)");
+        terminal.WriteLine(" gold crowns.");
         terminal.WriteLine("");
-        
-        ShowWeaponShopMenu();
-    }
-    
-    /// <summary>
-    /// Show weapon shop menu
-    /// </summary>
-    private void ShowWeaponShopMenu()
-    {
+
+        // Show current weapon configuration
+        ShowCurrentWeapons();
+        terminal.WriteLine("");
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine("Select a category:");
+        terminal.WriteLine("");
+
+        // One-handed weapons
         terminal.SetColor("darkgray");
         terminal.Write("[");
         terminal.SetColor("bright_yellow");
-        terminal.Write("B");
+        terminal.Write("1");
         terminal.SetColor("darkgray");
         terminal.Write("] ");
         terminal.SetColor("white");
-        terminal.WriteLine("uy weapon");
+        terminal.WriteLine("One-Handed Weapons (for dual-wield or sword+shield)");
 
+        // Two-handed weapons
         terminal.SetColor("darkgray");
         terminal.Write("[");
         terminal.SetColor("bright_yellow");
-        terminal.Write("T");
+        terminal.Write("2");
         terminal.SetColor("darkgray");
         terminal.Write("] ");
         terminal.SetColor("white");
-        terminal.WriteLine("he best weapon for your gold");
+        terminal.WriteLine("Two-Handed Weapons (high damage, both hands occupied)");
 
+        // Shields
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("3");
+        terminal.SetColor("darkgray");
+        terminal.Write("] ");
+        terminal.SetColor("white");
+        terminal.WriteLine("Shields (off-hand defense)");
+
+        terminal.WriteLine("");
+
+        // Dual-wield setup
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_magenta");
+        terminal.Write("D");
+        terminal.SetColor("darkgray");
+        terminal.Write("] ");
+        terminal.SetColor("magenta");
+        terminal.WriteLine("ual-Wield Setup (equip second weapon in off-hand)");
+
+        // Sell option
         terminal.SetColor("darkgray");
         terminal.Write("[");
         terminal.SetColor("bright_green");
@@ -108,16 +150,17 @@ public class WeaponShopLocation : BaseLocation
         terminal.SetColor("darkgray");
         terminal.Write("] ");
         terminal.SetColor("white");
-        terminal.WriteLine("ell weapon");
+        terminal.WriteLine("ell equipped weapons/shields");
 
+        // Auto-equip
         terminal.SetColor("darkgray");
         terminal.Write("[");
         terminal.SetColor("bright_cyan");
-        terminal.Write("L");
+        terminal.Write("A");
         terminal.SetColor("darkgray");
         terminal.Write("] ");
-        terminal.SetColor("white");
-        terminal.WriteLine("ist all weapons");
+        terminal.SetColor("cyan");
+        terminal.WriteLine("uto-buy best affordable weapon");
 
         terminal.WriteLine("");
         terminal.SetColor("darkgray");
@@ -129,445 +172,705 @@ public class WeaponShopLocation : BaseLocation
         terminal.SetColor("red");
         terminal.WriteLine("eturn to street");
         terminal.WriteLine("");
-
-        // Show quick command bar
-        ShowQuickCommandBar();
     }
-    
+
+    private void ShowCurrentWeapons()
+    {
+        terminal.SetColor("cyan");
+        terminal.WriteLine("Current Weapons:");
+
+        var mainHand = currentPlayer.GetEquipment(EquipmentSlot.MainHand);
+        var offHand = currentPlayer.GetEquipment(EquipmentSlot.OffHand);
+
+        terminal.SetColor("white");
+        terminal.Write("  Main Hand: ");
+        if (mainHand != null)
+        {
+            terminal.SetColor("bright_white");
+            terminal.Write(mainHand.Name);
+            terminal.SetColor("gray");
+            if (mainHand.Handedness == WeaponHandedness.TwoHanded)
+                terminal.WriteLine($" (2H, Pow:{mainHand.WeaponPower})");
+            else
+                terminal.WriteLine($" (1H, Pow:{mainHand.WeaponPower})");
+        }
+        else
+        {
+            terminal.SetColor("darkgray");
+            terminal.WriteLine("Empty");
+        }
+
+        terminal.SetColor("white");
+        terminal.Write("  Off Hand:  ");
+        if (offHand != null)
+        {
+            terminal.SetColor("bright_white");
+            terminal.Write(offHand.Name);
+            terminal.SetColor("gray");
+            if (offHand.WeaponType == WeaponType.Shield || offHand.WeaponType == WeaponType.Buckler || offHand.WeaponType == WeaponType.TowerShield)
+                terminal.WriteLine($" (Shield, AC:{offHand.ShieldBonus}, Block:{offHand.BlockChance}%)");
+            else
+                terminal.WriteLine($" (1H, Pow:{offHand.WeaponPower})");
+        }
+        else if (mainHand?.Handedness == WeaponHandedness.TwoHanded)
+        {
+            terminal.SetColor("darkgray");
+            terminal.WriteLine("(using 2H weapon)");
+        }
+        else
+        {
+            terminal.SetColor("darkgray");
+            terminal.WriteLine("Empty");
+        }
+
+        // Show weapon configuration
+        terminal.SetColor("gray");
+        terminal.Write("  Config: ");
+        if (currentPlayer.IsTwoHanding)
+        {
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine("Two-Handed (+25% damage, -15% defense)");
+        }
+        else if (currentPlayer.IsDualWielding)
+        {
+            terminal.SetColor("bright_magenta");
+            terminal.WriteLine("Dual-Wielding (+1 attack, -10% defense)");
+        }
+        else if (currentPlayer.HasShieldEquipped)
+        {
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine("Sword & Board (balanced defense)");
+        }
+        else if (mainHand != null)
+        {
+            terminal.SetColor("white");
+            terminal.WriteLine("One-Handed (standard)");
+        }
+        else
+        {
+            terminal.SetColor("darkgray");
+            terminal.WriteLine("Unarmed");
+        }
+
+        // Calculate total weapon power
+        long totalPow = (mainHand?.WeaponPower ?? 0);
+        if (currentPlayer.IsDualWielding)
+        {
+            totalPow += (offHand?.WeaponPower ?? 0) / 2; // Off-hand at 50%
+        }
+
+        terminal.SetColor("white");
+        terminal.Write("  Total Weapon Power: ");
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine($"{totalPow}");
+    }
+
+    private void ShowCategoryItems(WeaponCategory category)
+    {
+        List<Equipment> items;
+        string categoryName;
+
+        switch (category)
+        {
+            case WeaponCategory.OneHanded:
+                items = EquipmentDatabase.GetWeaponsByHandedness(WeaponHandedness.OneHanded).OrderBy(i => i.Value).ToList();
+                categoryName = "One-Handed Weapons";
+                break;
+            case WeaponCategory.TwoHanded:
+                items = EquipmentDatabase.GetWeaponsByHandedness(WeaponHandedness.TwoHanded).OrderBy(i => i.Value).ToList();
+                categoryName = "Two-Handed Weapons";
+                break;
+            case WeaponCategory.Shields:
+                items = EquipmentDatabase.GetShields().OrderBy(i => i.Value).ToList();
+                categoryName = "Shields";
+                break;
+            default:
+                return;
+        }
+
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine($"═══ {categoryName} ═══");
+        terminal.WriteLine("");
+
+        // Show current item in this category
+        Equipment currentItem = null;
+        if (category == WeaponCategory.Shields)
+        {
+            currentItem = currentPlayer.GetEquipment(EquipmentSlot.OffHand);
+            if (currentItem != null && currentItem.WeaponType != WeaponType.Shield && currentItem.WeaponType != WeaponType.Buckler && currentItem.WeaponType != WeaponType.TowerShield)
+                currentItem = null;
+        }
+        else
+        {
+            currentItem = currentPlayer.GetEquipment(EquipmentSlot.MainHand);
+        }
+
+        if (currentItem != null)
+        {
+            terminal.SetColor("cyan");
+            terminal.Write("Current: ");
+            terminal.SetColor("bright_white");
+            terminal.Write(currentItem.Name);
+            terminal.SetColor("gray");
+            if (category == WeaponCategory.Shields)
+                terminal.WriteLine($" (AC:{currentItem.ShieldBonus}, Block:{currentItem.BlockChance}%, Value:{FormatNumber(currentItem.Value)})");
+            else
+                terminal.WriteLine($" (Pow:{currentItem.WeaponPower}, Value:{FormatNumber(currentItem.Value)})");
+            terminal.WriteLine("");
+        }
+
+        // Paginate
+        int startIndex = currentPage * ItemsPerPage;
+        var pageItems = items.Skip(startIndex).Take(ItemsPerPage).ToList();
+        int totalPages = (items.Count + ItemsPerPage - 1) / ItemsPerPage;
+
+        terminal.SetColor("gray");
+        terminal.WriteLine($"Page {currentPage + 1}/{totalPages} - {items.Count} items total");
+        terminal.WriteLine("");
+
+        if (category == WeaponCategory.Shields)
+        {
+            terminal.SetColor("bright_blue");
+            terminal.WriteLine("  #   Name                          AC   Block  Price       Bonus");
+            terminal.SetColor("darkgray");
+            terminal.WriteLine("───────────────────────────────────────────────────────────────────");
+        }
+        else
+        {
+            terminal.SetColor("bright_blue");
+            terminal.WriteLine("  #   Name                          Pow  Type      Price       Bonus");
+            terminal.SetColor("darkgray");
+            terminal.WriteLine("────────────────────────────────────────────────────────────────────");
+        }
+
+        int num = 1;
+        foreach (var item in pageItems)
+        {
+            bool canAfford = currentPlayer.Gold >= item.Value;
+
+            terminal.SetColor(canAfford ? "bright_cyan" : "darkgray");
+            terminal.Write($"{num,3}. ");
+
+            terminal.SetColor(canAfford ? "white" : "darkgray");
+            terminal.Write($"{item.Name,-28}");
+
+            if (category == WeaponCategory.Shields)
+            {
+                terminal.SetColor(canAfford ? "bright_cyan" : "darkgray");
+                terminal.Write($"{item.ShieldBonus,4}  ");
+                terminal.Write($"{item.BlockChance,3}%   ");
+            }
+            else
+            {
+                terminal.SetColor(canAfford ? "bright_cyan" : "darkgray");
+                terminal.Write($"{item.WeaponPower,4}  ");
+                terminal.Write($"{item.WeaponType.ToString().Substring(0, Math.Min(8, item.WeaponType.ToString().Length)),-8}  ");
+            }
+
+            terminal.SetColor(canAfford ? "yellow" : "darkgray");
+            terminal.Write($"{FormatNumber(item.Value),10}  ");
+
+            // Show bonus stats
+            var bonuses = GetBonusDescription(item);
+            if (!string.IsNullOrEmpty(bonuses))
+            {
+                terminal.SetColor(canAfford ? "green" : "darkgray");
+                terminal.Write(bonuses);
+            }
+
+            terminal.WriteLine("");
+            num++;
+        }
+
+        terminal.WriteLine("");
+
+        // Navigation
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("#");
+        terminal.SetColor("darkgray");
+        terminal.Write("] ");
+        terminal.SetColor("white");
+        terminal.Write("Buy item   ");
+
+        if (currentPage > 0)
+        {
+            terminal.SetColor("darkgray");
+            terminal.Write("[");
+            terminal.SetColor("bright_cyan");
+            terminal.Write("P");
+            terminal.SetColor("darkgray");
+            terminal.Write("] Previous   ");
+        }
+
+        if (currentPage < totalPages - 1)
+        {
+            terminal.SetColor("darkgray");
+            terminal.Write("[");
+            terminal.SetColor("bright_cyan");
+            terminal.Write("N");
+            terminal.SetColor("darkgray");
+            terminal.Write("] Next   ");
+        }
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_red");
+        terminal.Write("B");
+        terminal.SetColor("darkgray");
+        terminal.Write("] ");
+        terminal.SetColor("red");
+        terminal.WriteLine("Back");
+        terminal.WriteLine("");
+    }
+
+    private string GetBonusDescription(Equipment item)
+    {
+        var bonuses = new List<string>();
+
+        if (item.StrengthBonus != 0) bonuses.Add($"Str{(item.StrengthBonus > 0 ? "+" : "")}{item.StrengthBonus}");
+        if (item.DexterityBonus != 0) bonuses.Add($"Dex{(item.DexterityBonus > 0 ? "+" : "")}{item.DexterityBonus}");
+        if (item.CriticalChanceBonus != 0) bonuses.Add($"Crit+{item.CriticalChanceBonus}%");
+        if (item.LifeSteal != 0) bonuses.Add($"Leech{item.LifeSteal}%");
+        if (item.PoisonDamage != 0) bonuses.Add($"Poison+{item.PoisonDamage}");
+
+        return string.Join(" ", bonuses.Take(3));
+    }
+
     protected override async Task<bool> ProcessChoice(string choice)
     {
-        if (string.IsNullOrWhiteSpace(choice))
-            return false;
-            
-        var upperChoice = choice.ToUpper().Trim();
-        if (currentPlayer == null) return false;
-        
-        // Check if player was kicked out
-        if (isKicked && upperChoice != "R")
+        if (currentPlayer == null) return true;
+
+        if (currentPlayer.WeapHag < 1)
         {
-            terminal.SetColor("red");
-            terminal.WriteLine("The strong desk-clerks throw you out!");
-            terminal.WriteLine("You realize that you went a little bit too far in");
-            terminal.WriteLine("your attempts to get a good deal.");
-            await Task.Delay(3000);
-            return true; // Force return to street
+            await NavigateToLocation(GameLocation.MainStreet);
+            return true;
         }
-        
+
+        var upperChoice = choice.ToUpper().Trim();
+
+        // In category view
+        if (currentCategory.HasValue)
+        {
+            return await ProcessCategoryChoice(upperChoice);
+        }
+
+        // In main menu
         switch (upperChoice)
         {
             case "R":
                 await NavigateToLocation(GameLocation.MainStreet);
                 return true;
-                
-            case "B":
-                await BuyWeapon();
+
+            case "1":
+                currentCategory = WeaponCategory.OneHanded;
+                currentPage = 0;
                 return false;
-                
-            case "T":
-                await BuyBestWeapon();
+
+            case "2":
+                currentCategory = WeaponCategory.TwoHanded;
+                currentPage = 0;
                 return false;
-                
+
+            case "3":
+                currentCategory = WeaponCategory.Shields;
+                currentPage = 0;
+                return false;
+
+            case "D":
+                await DualWieldSetup();
+                return false;
+
             case "S":
                 await SellWeapon();
                 return false;
-                
-            case "L":
-                await ListWeapons();
+
+            case "A":
+                await AutoBuyBestWeapon();
                 return false;
-                
+
             case "?":
-                // Menu is always shown
                 return false;
-                
-            default:
-                terminal.WriteLine("Invalid choice! Try again.", "red");
-                await Task.Delay(1500);
-                return false;
-        }
-    }
-    
-    /// <summary>
-    /// Buy a specific weapon
-    /// </summary>
-    private async Task BuyWeapon()
-    {
-        if (currentPlayer.RHand != 0)
-        {
-            terminal.SetColor("red");
-            terminal.WriteLine("Get rid of your old weapon first!");
-            await Task.Delay(2000);
-            return;
-        }
-        
-        terminal.SetColor("yellow");
-        terminal.Write("Which one?");
-        terminal.SetColor("white");
-        terminal.WriteLine(", the troll mutters:");
-        
-        var weaponChoice = await terminal.GetInput("Enter weapon number: ");
-        
-        if (!int.TryParse(weaponChoice, out int weaponId) || weaponId <= 0)
-        {
-            terminal.WriteLine("Invalid weapon number!", "red");
-            await Task.Delay(1500);
-            return;
-        }
-        
-        // Get weapon from item manager
-        var weapon = ItemManager.GetWeapon(weaponId);
-        if (weapon == null)
-        {
-            terminal.WriteLine("That weapon doesn't exist!", "red");
-            await Task.Delay(1500);
-            return;
-        }
-        
-        terminal.SetColor("white");
-        terminal.Write("So you want a ");
-        terminal.SetColor("cyan");
-        terminal.WriteLine(weapon.Name);
-        terminal.WriteLine("");
 
-        // Show equipment comparison if player has current weapon
-        if (currentPlayer.RHand > 0)
-        {
-            var currentWeapon = ItemManager.GetWeapon(currentPlayer.RHand);
-            if (currentWeapon != null)
-            {
-                terminal.SetColor("gray");
-                terminal.Write("Current: ");
-                terminal.SetColor("white");
-                terminal.Write($"{currentWeapon.Name}");
-                terminal.SetColor("yellow");
-                terminal.WriteLine($" (Power: {currentWeapon.Power})");
-
-                terminal.SetColor("gray");
-                terminal.Write("New:     ");
-                terminal.SetColor("bright_cyan");
-                terminal.Write($"{weapon.Name}");
-                terminal.SetColor("bright_yellow");
-                terminal.WriteLine($" (Power: {weapon.Power})");
-
-                long powerChange = weapon.Power - currentWeapon.Power;
-                terminal.SetColor("gray");
-                terminal.Write("Change:  ");
-                if (powerChange > 0)
-                {
-                    terminal.SetColor("bright_green");
-                    terminal.WriteLine($"+{powerChange} Power");
-                }
-                else if (powerChange < 0)
-                {
-                    terminal.SetColor("bright_red");
-                    terminal.WriteLine($"{powerChange} Power (DOWNGRADE!)");
-                }
-                else
-                {
-                    terminal.SetColor("yellow");
-                    terminal.WriteLine("No change");
-                }
-                terminal.WriteLine("");
-            }
-        }
-
-        long finalPrice = weapon.Value;
-        
-        // Apply race discount for trolls
-        if (currentPlayer.Race == CharacterRace.Troll)
-        {
-            finalPrice = HagglingEngine.ApplyRaceDiscount(currentPlayer, weapon.Value);
-            
-            terminal.SetColor("green");
-            terminal.WriteLine($"{shopkeeperName} blinks at you");
-            terminal.WriteLine("Hey, we trolls gotta stick together!");
-            terminal.WriteLine("Therefore I will give ya a discount!");
-            terminal.WriteLine("");
-        }
-        
-        terminal.SetColor("white");
-        terminal.Write("It will cost you ");
-        terminal.SetColor("yellow");
-        terminal.Write($"{finalPrice:N0}");
-        terminal.SetColor("white");
-        terminal.WriteLine(" in gold.");
-        terminal.WriteLine("");
-        
-        // Check if player can afford it
-        if (currentPlayer.Gold < finalPrice)
-        {
-            terminal.WriteLine("You don't have enough gold!", "red");
-            await Task.Delay(2000);
-            return;
-        }
-        
-        // Purchase options
-        terminal.WriteLine("Pay? (Y)es, [N]o, (H)aggle");
-        var choice = await terminal.GetInput(": ");
-        
-        switch (choice.ToUpper())
-        {
-            case "Y":
-                await CompleteWeaponPurchase(currentPlayer, weapon, finalPrice);
-                break;
-                
-            case "H":
-                var hagglePrice = await HagglingEngine.Haggle(currentPlayer, HagglingEngine.ShopType.Weapon, 
-                                                             finalPrice, shopkeeperName, terminal);
-                if (hagglePrice < finalPrice)
-                {
-                    await CompleteWeaponPurchase(currentPlayer, weapon, hagglePrice);
-                }
-                else
-                {
-                    terminal.WriteLine("No deal reached.", "yellow");
-                    await Task.Delay(1500);
-                }
-                break;
-                
-            case "N":
-            case "":
-                terminal.WriteLine("Maybe next time.", "gray");
-                await Task.Delay(1000);
-                break;
-                
             default:
                 terminal.WriteLine("Invalid choice!", "red");
                 await Task.Delay(1000);
-                break;
+                return false;
         }
     }
-    
-    /// <summary>
-    /// Buy the best weapon player can afford
-    /// </summary>
-    private async Task BuyBestWeapon()
+
+    private async Task<bool> ProcessCategoryChoice(string choice)
     {
-        if (currentPlayer.RHand != 0)
+        switch (choice)
         {
-            terminal.SetColor("red");
-            terminal.WriteLine("Get rid of your old weapon first!");
-            await Task.Delay(2000);
-            return;
+            case "B":
+                currentCategory = null;
+                currentPage = 0;
+                return false;
+
+            case "P":
+                if (currentPage > 0) currentPage--;
+                return false;
+
+            case "N":
+                List<Equipment> items = currentCategory switch
+                {
+                    WeaponCategory.OneHanded => EquipmentDatabase.GetWeaponsByHandedness(WeaponHandedness.OneHanded),
+                    WeaponCategory.TwoHanded => EquipmentDatabase.GetWeaponsByHandedness(WeaponHandedness.TwoHanded),
+                    WeaponCategory.Shields => EquipmentDatabase.GetShields(),
+                    _ => new List<Equipment>()
+                };
+                int totalPages = (items.Count + ItemsPerPage - 1) / ItemsPerPage;
+                if (currentPage < totalPages - 1) currentPage++;
+                return false;
+
+            default:
+                if (int.TryParse(choice, out int itemNum) && itemNum >= 1)
+                {
+                    await BuyItem(currentCategory.Value, itemNum);
+                }
+                return false;
         }
-        
-        // Find best affordable weapon
-        var bestWeapon = ItemManager.GetBestAffordableWeapon(currentPlayer.Gold, currentPlayer);
-        
-        if (bestWeapon == null)
+    }
+
+    private async Task BuyItem(WeaponCategory category, int itemIndex)
+    {
+        List<Equipment> items = category switch
         {
-            terminal.SetColor("red");
-            terminal.WriteLine("Sorry friend! I don't have any weapon you can afford.");
-            await Task.Delay(2000);
-            return;
-        }
-        
-        terminal.SetColor("green");
-        terminal.WriteLine("I have exactly what you are looking for!");
-        terminal.Write(", ");
-        terminal.SetColor("cyan");
-        terminal.Write(shopkeeperName);
-        terminal.SetColor("white");
-        terminal.WriteLine(" says.");
-        
-        terminal.Write("Buy ");
-        terminal.SetColor("cyan");
-        terminal.Write(bestWeapon.Name);
-        terminal.SetColor("white");
-        terminal.Write(" for ");
-        terminal.SetColor("yellow");
-        terminal.Write($"{bestWeapon.Value:N0}");
-        terminal.SetColor("white");
-        terminal.Write(" gold pieces?");
-        
-        var confirm = await terminal.GetInput(" (Y/N): ");
-        
-        if (confirm.ToUpper() == "Y")
+            WeaponCategory.OneHanded => EquipmentDatabase.GetWeaponsByHandedness(WeaponHandedness.OneHanded).OrderBy(i => i.Value).ToList(),
+            WeaponCategory.TwoHanded => EquipmentDatabase.GetWeaponsByHandedness(WeaponHandedness.TwoHanded).OrderBy(i => i.Value).ToList(),
+            WeaponCategory.Shields => EquipmentDatabase.GetShields().OrderBy(i => i.Value).ToList(),
+            _ => new List<Equipment>()
+        };
+
+        int actualIndex = currentPage * ItemsPerPage + itemIndex - 1;
+        if (actualIndex < 0 || actualIndex >= items.Count)
         {
-            terminal.SetColor("green");
-            terminal.WriteLine("Ok, says the troll and hands you the weapon.");
-            terminal.Write("You give ");
-            terminal.SetColor("cyan");
-            terminal.Write(shopkeeperName);
-            terminal.SetColor("white");
-            terminal.WriteLine(" the gold.");
-            
-            await CompleteWeaponPurchase(currentPlayer, bestWeapon, bestWeapon.Value);
-        }
-        else
-        {
-            terminal.WriteLine("Maybe another time.", "gray");
+            terminal.WriteLine("Invalid item number!", "red");
             await Task.Delay(1000);
-        }
-    }
-    
-    /// <summary>
-    /// Sell current weapon
-    /// </summary>
-    private async Task SellWeapon()
-    {
-        if (currentPlayer.RHand == 0)
-        {
-            terminal.SetColor("red");
-            terminal.WriteLine("Sell what?");
-            await Task.Delay(1500);
             return;
         }
-        
-        var weapon = ItemManager.GetWeapon(currentPlayer.RHand);
-        if (weapon == null)
-        {
-            terminal.WriteLine("Your weapon seems to have vanished!", "red");
-            await Task.Delay(1500);
-            return;
-        }
-        
-        long sellPrice = weapon.Value / 2; // Sell for half value
 
-        terminal.SetColor("white");
-        terminal.WriteLine("The troll declares that he will pay you");
-        terminal.SetColor("yellow");
-        terminal.Write($"{sellPrice:N0}");
-        terminal.SetColor("white");
-        terminal.Write(" gold pieces for your ");
-        terminal.SetColor("cyan");
-        terminal.WriteLine(weapon.Name);
-        terminal.WriteLine("");
+        var item = items[actualIndex];
 
-        // Warning for valuable items
-        if (weapon.Value > 1000)
+        if (currentPlayer.Gold < item.Value)
         {
-            terminal.SetColor("bright_yellow");
-            terminal.WriteLine("⚠ WARNING: This is a valuable weapon!");
-            terminal.SetColor("yellow");
-            terminal.WriteLine($"   You'll only get {sellPrice:N0} gold (half its value).");
             terminal.WriteLine("");
+            terminal.SetColor("red");
+            terminal.WriteLine($"You need {FormatNumber(item.Value)} gold but only have {FormatNumber(currentPlayer.Gold)}!");
+            await Pause();
+            return;
         }
 
-        var confirm = await terminal.GetInput("Will you sell it? (Y/N): ");
-
-        if (confirm.ToUpper() == "Y")
+        // Check alignment
+        if (item.RequiresGood && currentPlayer.Chivalry <= currentPlayer.Darkness)
         {
-            terminal.WriteLine("You give the troll your weapon, and receive the gold.", "green");
-            
-            // Complete the sale
-            currentPlayer.Gold += sellPrice;
-            currentPlayer.RHand = 0;
-            currentPlayer.WeapPow = 0;
-            
-            // Clear poison if weapon was poisoned
-            if (currentPlayer.Poison > 0)
+            terminal.WriteLine("");
+            terminal.SetColor("red");
+            terminal.WriteLine($"{item.Name} requires a good alignment!");
+            await Pause();
+            return;
+        }
+
+        if (item.RequiresEvil && currentPlayer.Darkness <= currentPlayer.Chivalry)
+        {
+            terminal.WriteLine("");
+            terminal.SetColor("red");
+            terminal.WriteLine($"{item.Name} requires an evil alignment!");
+            await Pause();
+            return;
+        }
+
+        // Warning for 2H weapons if shield equipped
+        if (item.Handedness == WeaponHandedness.TwoHanded && currentPlayer.HasShieldEquipped)
+        {
+            terminal.WriteLine("");
+            terminal.SetColor("yellow");
+            terminal.WriteLine("Warning: Two-handed weapons require both hands!");
+            terminal.WriteLine("Your shield will be unequipped.");
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("white");
+        terminal.Write($"Buy {item.Name} for ");
+        terminal.SetColor("yellow");
+        terminal.Write(FormatNumber(item.Value));
+        terminal.SetColor("white");
+        terminal.Write(" gold? (Y/N): ");
+
+        var confirm = await terminal.GetInput("");
+        if (confirm.ToUpper() != "Y")
+        {
+            return;
+        }
+
+        currentPlayer.Gold -= item.Value;
+
+        if (currentPlayer.EquipItem(item, out string message))
+        {
+            terminal.SetColor("bright_green");
+            terminal.WriteLine("");
+            terminal.WriteLine($"You purchased and equipped {item.Name}!");
+            if (!string.IsNullOrEmpty(message))
             {
-                terminal.WriteLine("You feel a bit sad, now when your poisoned weapon is gone.", "gray");
-                currentPlayer.Poison = 0;
+                terminal.SetColor("gray");
+                terminal.WriteLine(message);
             }
-            
-            await Task.Delay(2000);
+            currentPlayer.RecalculateStats();
         }
         else
         {
-            terminal.WriteLine("Keep it then.", "gray");
-            await Task.Delay(1000);
+            terminal.SetColor("red");
+            terminal.WriteLine($"Failed to equip: {message}");
+            currentPlayer.Gold += item.Value;
         }
+
+        await Pause();
     }
-    
-    /// <summary>
-    /// List available weapons
-    /// </summary>
-    private async Task ListWeapons()
+
+    private async Task DualWieldSetup()
     {
         terminal.ClearScreen();
-        terminal.SetColor("bright_white");
-        terminal.WriteLine("Ancient Weapons                    Price");
-        terminal.WriteLine("=====================================");
-        
-        var weapons = ItemManager.GetShopWeapons();
-        int count = 1;
-        
-        foreach (var weapon in weapons.Take(20)) // Show first 20 weapons
-        {
-            terminal.SetColor("cyan");
-            terminal.Write($"{count,3}. ");
-            
-            // Format weapon name with dots
-            string nameWithDots = weapon.Name;
-            while (nameWithDots.Length < 25)
-            {
-                nameWithDots += ".";
-            }
-            
-            terminal.SetColor("white");
-            terminal.Write(nameWithDots);
-            
-            // Format price with dots
-            string priceStr = $"{weapon.Value:N0}";
-            while (priceStr.Length < 10)
-            {
-                priceStr = "." + priceStr;
-            }
-            
-            terminal.SetColor("yellow");
-            terminal.WriteLine(priceStr);
-            
-            count++;
-            
-            // Pagination
-            if (count % 15 == 0)
-            {
-                terminal.WriteLine("");
-                var continueChoice = await terminal.GetInput("Continue? (Y/N): ");
-                if (continueChoice.ToUpper() != "Y")
-                {
-                    break;
-                }
-                terminal.WriteLine("");
-            }
-        }
-        
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("═══ Dual-Wield Setup ═══");
         terminal.WriteLine("");
-        await terminal.PressAnyKey();
-    }
-    
-    /// <summary>
-    /// Complete weapon purchase
-    /// </summary>
-    private async Task CompleteWeaponPurchase(Character player, ClassicWeapon weapon, long price)
-    {
-        player.Gold -= price;
-        player.RHand = GetWeaponId(weapon);
-        player.WeapPow = (int)weapon.Power;
-        
-        terminal.SetColor("green");
-        terminal.WriteLine("Transaction completed!");
-        terminal.WriteLine($"You are now wielding {weapon.Name}");
-        
-        // Create news entry (placeholder)
-        terminal.WriteLine($"[NEWS] {player.DisplayName} bought a {weapon.Name}.", "cyan");
-        
-        await Task.Delay(2000);
-    }
-    
-    /// <summary>
-    /// Get weapon ID from ClassicWeapon (helper method)
-    /// </summary>
-    private int GetWeaponId(ClassicWeapon weapon)
-    {
-        // Find the weapon ID in the classic weapons collection
-        var weapons = ItemManager.GetShopWeapons();
-        for (int i = 0; i < weapons.Count; i++)
+
+        // Check if using 2H weapon
+        if (currentPlayer.IsTwoHanding)
         {
-            if (weapons[i].Name == weapon.Name)
-                return i + 1; // 1-based indexing
+            terminal.SetColor("red");
+            terminal.WriteLine("Cannot dual-wield while using a two-handed weapon!");
+            terminal.WriteLine("Equip a one-handed weapon first.");
+            await Pause();
+            return;
         }
-        return 0;
+
+        var mainHand = currentPlayer.GetEquipment(EquipmentSlot.MainHand);
+        if (mainHand == null || mainHand.Handedness != WeaponHandedness.OneHanded)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("You need a one-handed weapon in your main hand to dual-wield.");
+            await Pause();
+            return;
+        }
+
+        terminal.SetColor("white");
+        terminal.WriteLine("Select a one-handed weapon for your off-hand:");
+        terminal.WriteLine("");
+
+        var oneHandedWeapons = EquipmentDatabase.GetWeaponsByHandedness(WeaponHandedness.OneHanded)
+            .Where(w => currentPlayer.Gold >= w.Value)
+            .OrderBy(w => w.Value)
+            .Take(15)
+            .ToList();
+
+        if (oneHandedWeapons.Count == 0)
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("No affordable one-handed weapons available.");
+            await Pause();
+            return;
+        }
+
+        int num = 1;
+        foreach (var weapon in oneHandedWeapons)
+        {
+            terminal.SetColor("bright_cyan");
+            terminal.Write($"{num}. ");
+            terminal.SetColor("white");
+            terminal.Write($"{weapon.Name,-28}");
+            terminal.SetColor("bright_cyan");
+            terminal.Write($"Pow:{weapon.WeaponPower,3}  ");
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"{FormatNumber(weapon.Value)}");
+            num++;
+        }
+
+        terminal.WriteLine("");
+        terminal.Write("Select weapon (0 to cancel): ");
+        var input = await terminal.GetInput("");
+
+        if (!int.TryParse(input, out int selection) || selection < 1 || selection > oneHandedWeapons.Count)
+        {
+            return;
+        }
+
+        var selectedWeapon = oneHandedWeapons[selection - 1];
+
+        currentPlayer.Gold -= selectedWeapon.Value;
+
+        // Directly equip to off-hand
+        currentPlayer.UnequipSlot(EquipmentSlot.OffHand);
+        currentPlayer.EquippedItems[EquipmentSlot.OffHand] = selectedWeapon.Id;
+        selectedWeapon.ApplyToCharacter(currentPlayer);
+
+        terminal.SetColor("bright_green");
+        terminal.WriteLine("");
+        terminal.WriteLine($"Equipped {selectedWeapon.Name} in your off-hand!");
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("You are now dual-wielding! (+1 attack, -10% defense)");
+
+        currentPlayer.RecalculateStats();
+        await Pause();
     }
-    
-    /// <summary>
-    /// Check if player can use weapon (basic checks for classic weapons)
-    /// </summary>
-    private bool CanPlayerUseWeapon(Character player, ClassicWeapon weapon)
+
+    private async Task SellWeapon()
     {
-        // Classic weapons have minimal restrictions
-        // Most restrictions are handled at purchase time
-        return true;
+        terminal.ClearScreen();
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("═══ Sell Weapons/Shields ═══");
+        terminal.WriteLine("");
+
+        var equipped = new List<(EquipmentSlot slot, Equipment item)>();
+        int num = 1;
+
+        var mainHand = currentPlayer.GetEquipment(EquipmentSlot.MainHand);
+        if (mainHand != null)
+        {
+            equipped.Add((EquipmentSlot.MainHand, mainHand));
+            terminal.SetColor("bright_cyan");
+            terminal.Write($"{num}. ");
+            terminal.SetColor("white");
+            terminal.Write($"Main Hand: {mainHand.Name}");
+            terminal.SetColor("yellow");
+            terminal.WriteLine($" - Sell for {FormatNumber(mainHand.Value / 2)} gold");
+            num++;
+        }
+
+        var offHand = currentPlayer.GetEquipment(EquipmentSlot.OffHand);
+        if (offHand != null)
+        {
+            equipped.Add((EquipmentSlot.OffHand, offHand));
+            terminal.SetColor("bright_cyan");
+            terminal.Write($"{num}. ");
+            terminal.SetColor("white");
+            terminal.Write($"Off Hand: {offHand.Name}");
+            terminal.SetColor("yellow");
+            terminal.WriteLine($" - Sell for {FormatNumber(offHand.Value / 2)} gold");
+            num++;
+        }
+
+        if (equipped.Count == 0)
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("You have no weapons or shields equipped to sell.");
+            await Pause();
+            return;
+        }
+
+        terminal.WriteLine("");
+        terminal.Write("Sell which? (0 to cancel): ");
+        var input = await terminal.GetInput("");
+
+        if (!int.TryParse(input, out int sellChoice) || sellChoice < 1 || sellChoice > equipped.Count)
+        {
+            return;
+        }
+
+        var (sellSlot, sellItem) = equipped[sellChoice - 1];
+        long price = sellItem.Value / 2;
+
+        if (sellItem.IsCursed)
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine("");
+            terminal.WriteLine($"The {sellItem.Name} is CURSED and cannot be removed!");
+            await Pause();
+            return;
+        }
+
+        terminal.Write($"Sell {sellItem.Name} for ");
+        terminal.SetColor("yellow");
+        terminal.Write(FormatNumber(price));
+        terminal.SetColor("white");
+        terminal.Write(" gold? (Y/N): ");
+
+        var confirm = await terminal.GetInput("");
+        if (confirm.ToUpper() == "Y")
+        {
+            currentPlayer.UnequipSlot(sellSlot);
+            currentPlayer.Gold += price;
+            currentPlayer.RecalculateStats();
+
+            terminal.SetColor("bright_green");
+            terminal.WriteLine("");
+            terminal.WriteLine($"Sold {sellItem.Name} for {FormatNumber(price)} gold!");
+        }
+
+        await Pause();
     }
-} 
+
+    private async Task AutoBuyBestWeapon()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("═══ Auto-Buy Best Affordable Weapon ═══");
+        terminal.WriteLine("");
+
+        var currentWeapon = currentPlayer.GetEquipment(EquipmentSlot.MainHand);
+        int currentPow = currentWeapon?.WeaponPower ?? 0;
+
+        // Find best affordable upgrade
+        var allWeapons = EquipmentDatabase.GetWeaponsByHandedness(WeaponHandedness.OneHanded)
+            .Concat(EquipmentDatabase.GetWeaponsByHandedness(WeaponHandedness.TwoHanded))
+            .Where(w => w.WeaponPower > currentPow)
+            .Where(w => w.Value <= currentPlayer.Gold)
+            .Where(w => !w.RequiresGood || currentPlayer.Chivalry > currentPlayer.Darkness)
+            .Where(w => !w.RequiresEvil || currentPlayer.Darkness > currentPlayer.Chivalry)
+            .OrderByDescending(w => w.WeaponPower)
+            .ThenBy(w => w.Value)
+            .FirstOrDefault();
+
+        if (allWeapons == null)
+        {
+            if (currentWeapon != null)
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine($"Your {currentWeapon.Name} is already the best weapon you can afford.");
+            }
+            else
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine("No affordable weapons found.");
+            }
+            await Pause();
+            return;
+        }
+
+        currentPlayer.Gold -= allWeapons.Value;
+
+        if (currentPlayer.EquipItem(allWeapons, out string message))
+        {
+            terminal.SetColor("bright_green");
+            terminal.WriteLine($"Bought and equipped {allWeapons.Name}!");
+            terminal.SetColor("gray");
+            terminal.WriteLine($"Weapon Power: {allWeapons.WeaponPower}");
+            terminal.WriteLine($"Cost: {FormatNumber(allWeapons.Value)} gold");
+            if (!string.IsNullOrEmpty(message))
+                terminal.WriteLine(message);
+
+            currentPlayer.RecalculateStats();
+        }
+        else
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine($"Failed: {message}");
+            currentPlayer.Gold += allWeapons.Value;
+        }
+
+        await Pause();
+    }
+
+    private async Task Pause()
+    {
+        terminal.SetColor("gray");
+        terminal.Write("Press ENTER to continue...");
+        await terminal.GetInput("");
+    }
+
+    private static string FormatNumber(long value)
+    {
+        return value.ToString("N0");
+    }
+}

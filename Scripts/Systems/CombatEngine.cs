@@ -1,4 +1,5 @@
 using UsurperRemake.Utils;
+using UsurperRemake.Data;
 using Godot;
 using System;
 using System.Collections.Generic;
@@ -606,13 +607,18 @@ public partial class CombatEngine
     private async Task ExecuteAttack(Character attacker, Monster target, CombatResult result)
     {
         int swings = GetAttackCount(attacker);
+        int baseSwings = 1 + attacker.GetClassCombatModifiers().ExtraAttacks;
+
         for (int s = 0; s < swings && target.HP > 0; s++)
         {
-            await ExecuteSingleAttack(attacker, target, result, s > 0);
+            // Determine if this is an off-hand attack for dual-wielding
+            // Off-hand attacks are the extra attacks from dual-wielding
+            bool isOffHandAttack = attacker.IsDualWielding && s >= baseSwings;
+            await ExecuteSingleAttack(attacker, target, result, s > 0, isOffHandAttack);
         }
     }
-    
-    private async Task ExecuteSingleAttack(Character attacker, Monster target, CombatResult result, bool isExtra)
+
+    private async Task ExecuteSingleAttack(Character attacker, Monster target, CombatResult result, bool isExtra, bool isOffHandAttack = false)
     {
         long attackPower = attacker.Strength;
 
@@ -627,16 +633,27 @@ public partial class CombatEngine
             attackPower += 2;
         if (attacker.HasStatus(StatusEffect.Weakened))
             attackPower = Math.Max(1, attackPower - 4);
-        
+
         // Add weapon power
         if (attacker.WeapPow > 0)
         {
             attackPower += attacker.WeapPow + random.Next(0, (int)attacker.WeapPow + 1);
         }
-        
+
         // Random attack variation
         attackPower += random.Next(1, 21); // Pascal: random(20) + 1
-        
+
+        // Apply weapon configuration damage modifier (2H bonus, dual-wield off-hand penalty)
+        double damageModifier = GetWeaponConfigDamageModifier(attacker, isOffHandAttack);
+        attackPower = (long)(attackPower * damageModifier);
+
+        // Show off-hand attack message
+        if (isOffHandAttack)
+        {
+            terminal.SetColor("cyan");
+            terminal.WriteLine("Off-hand strike!");
+        }
+
         // Critical hit chance (Pascal: random(20) = 0)
         bool criticalHit = random.Next(20) == 0;
         if (criticalHit)
@@ -645,7 +662,7 @@ public partial class CombatEngine
             terminal.WriteLine("CRITICAL HIT!", "bright_red");
             await Task.Delay(1000);
         }
-        
+
         // Store punch for display
         attacker.Punch = attackPower;
         
@@ -931,28 +948,40 @@ public partial class CombatEngine
             // Use new colored combat message
             var attackMessage = CombatMessages.GetMonsterAttackMessage(monster.Name, monster.MonsterColor, monsterAttack, player.MaxHP);
             terminal.WriteLine(attackMessage);
-            
-            // Stoneskin absorption
-            // Stoneskin absorption handled later in this method
-            
+
+            // Check for shield block (20% chance to double shield AC)
+            var (blocked, blockBonus) = TryShieldBlock(player);
+            if (blocked)
+            {
+                terminal.SetColor("bright_cyan");
+                terminal.WriteLine($"You raise your shield and block the attack!");
+            }
+
             // Player defense (Pascal-compatible)
             long playerDefense = player.Defence + random.Next(0, (int)Math.Max(1, player.Defence / 8));
             // Add magical AC bonuses from spells (Shield / Prismatic Cage / Fog etc.)
             playerDefense += player.MagicACBonus;
-            
+
             if (player.ArmPow > 0)
             {
                 playerDefense += random.Next(0, (int)player.ArmPow + 1);
             }
-            
+
+            // Add shield block bonus (doubles shield AC when blocking)
+            playerDefense += blockBonus;
+
+            // Apply weapon configuration defense modifier (2H/dual-wield penalties)
+            double defenseModifier = GetWeaponConfigDefenseModifier(player);
+            playerDefense = (long)(playerDefense * defenseModifier);
+
             // Status modifications
             if (player.HasStatus(StatusEffect.Blessed))
                 playerDefense += 2;
             if (player.IsRaging)
                 playerDefense = Math.Max(0, playerDefense - 4);
-            
+
             long actualDamage = Math.Max(1, monsterAttack - playerDefense);
-            
+
             // Defending halves damage
             if (player.IsDefending)
             {
@@ -963,7 +992,11 @@ public partial class CombatEngine
             player.HP = Math.Max(0, player.HP - actualDamage);
 
             terminal.SetColor("red");
-            if (player.IsDefending)
+            if (blocked && actualDamage < monsterAttack / 2)
+            {
+                terminal.WriteLine($"Your shield absorbs most of the blow! You take only {actualDamage} damage!", "bright_cyan");
+            }
+            else if (player.IsDefending)
             {
                 terminal.WriteLine($"You brace for impact and only take {actualDamage} damage!", "bright_cyan");
             }
@@ -1615,15 +1648,36 @@ public partial class CombatEngine
 
                 if (target != null && target.IsAlive)
                 {
-                    terminal.WriteLine("");
-                    terminal.SetColor("bright_green");
-                    terminal.WriteLine($"You attack {target.Name}!");
-                    await Task.Delay(500);
+                    // Get attack count (includes dual-wield bonus)
+                    int swings = GetAttackCount(player);
+                    int baseSwings = 1 + player.GetClassCombatModifiers().ExtraAttacks;
 
-                    // Calculate player attack damage
-                    long attackPower = player.Strength + player.WeapPow + random.Next(1, 16);
-                    long damage = Math.Max(1, attackPower);
-                    await ApplySingleMonsterDamage(target, damage, result, "your attack");
+                    for (int s = 0; s < swings && target.IsAlive; s++)
+                    {
+                        bool isOffHandAttack = player.IsDualWielding && s >= baseSwings;
+
+                        terminal.WriteLine("");
+                        terminal.SetColor("bright_green");
+                        if (isOffHandAttack)
+                        {
+                            terminal.WriteLine($"Off-hand strike at {target.Name}!");
+                        }
+                        else
+                        {
+                            terminal.WriteLine($"You attack {target.Name}!");
+                        }
+                        await Task.Delay(500);
+
+                        // Calculate player attack damage
+                        long attackPower = player.Strength + player.WeapPow + random.Next(1, 16);
+
+                        // Apply weapon configuration damage modifier
+                        double damageModifier = GetWeaponConfigDamageModifier(player, isOffHandAttack);
+                        attackPower = (long)(attackPower * damageModifier);
+
+                        long damage = Math.Max(1, attackPower);
+                        await ApplySingleMonsterDamage(target, damage, result, isOffHandAttack ? "off-hand strike" : "your attack");
+                    }
                 }
                 break;
 
@@ -1747,6 +1801,11 @@ public partial class CombatEngine
 
             // Calculate teammate attack damage
             long attackPower = teammate.Strength + teammate.WeapPow + random.Next(1, 16);
+
+            // Apply weapon configuration damage modifier
+            double damageModifier = GetWeaponConfigDamageModifier(teammate);
+            attackPower = (long)(attackPower * damageModifier);
+
             long damage = Math.Max(1, attackPower);
             await ApplySingleMonsterDamage(weakestMonster, damage, result, $"{teammate.DisplayName}'s attack");
         }
@@ -1776,8 +1835,10 @@ public partial class CombatEngine
             // Calculate exp reward based on level difference
             long baseExp = monster.Experience;
             long levelDiff = monster.Level - result.Player.Level;
-            long expReward = baseExp + (levelDiff * 100);
-            expReward = Math.Max(expReward / 2, expReward); // Minimum 50% of base
+            // Bonus/penalty based on level difference (max 50% bonus, min 50% of base)
+            long levelModifier = Math.Clamp(levelDiff * 10, -baseExp / 2, baseExp / 2);
+            long expReward = baseExp + levelModifier;
+            expReward = Math.Max(baseExp / 2, expReward); // Minimum 50% of base exp (never negative)
 
             // Calculate gold reward
             long goldReward = monster.Gold + random.Next(0, (int)(monster.Gold * 0.5));
@@ -2050,7 +2111,26 @@ public partial class CombatEngine
 
         // 3. Default attack
         long attackPower = computer.Strength + computer.WeapPow + random.Next(1, 16);
+
+        // Apply weapon configuration damage modifier
+        double damageModifier = GetWeaponConfigDamageModifier(computer);
+        attackPower = (long)(attackPower * damageModifier);
+
+        // Check for shield block on defender
+        var (blocked, blockBonus) = TryShieldBlock(opponent);
+        if (blocked)
+        {
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine($"{opponent.DisplayName} raises their shield to block!");
+        }
+
         long defense = opponent.Defence + random.Next(0, (int)Math.Max(1, opponent.Defence / 8));
+        defense += blockBonus;
+
+        // Apply defender's weapon configuration defense modifier
+        double defenseModifier = GetWeaponConfigDefenseModifier(opponent);
+        defense = (long)(defense * defenseModifier);
+
         long damage = Math.Max(1, attackPower - defense);
         opponent.HP = Math.Max(0, opponent.HP - damage);
         terminal.WriteLine($"{computer.DisplayName} strikes for {damage} damage!", "red");
@@ -2321,6 +2401,10 @@ public partial class CombatEngine
 
         attackPower += random.Next(1, 21); // variation
 
+        // Apply weapon configuration damage modifier (2H bonus)
+        double damageModifier = GetWeaponConfigDamageModifier(attacker);
+        attackPower = (long)(attackPower * damageModifier);
+
         // Reduce "accuracy": enemy gains extra defense in calculation (25 % boost)
         long defense = target.Defence + random.Next(0, (int)Math.Max(1, target.Defence / 8));
         defense = (long)(defense * 1.25); // built-in accuracy penalty
@@ -2349,6 +2433,10 @@ public partial class CombatEngine
             attackPower += attacker.WeapPow + random.Next(0, (int)attacker.WeapPow + 1);
         }
         attackPower += random.Next(1, 21);
+
+        // Apply weapon configuration damage modifier (2H bonus)
+        double damageModifier = GetWeaponConfigDamageModifier(attacker);
+        attackPower = (long)(attackPower * damageModifier);
 
         // Boost accuracy by 25 % via reducing target defense.
         long defense = target.Defence + random.Next(0, (int)Math.Max(1, target.Defence / 8));
@@ -2421,6 +2509,10 @@ public partial class CombatEngine
         if (player.WeapPow > 0)
             damage += (long)(player.WeapPow * 1.5);
         damage += random.Next(1, 21);
+
+        // Apply weapon configuration damage modifier (2H bonus)
+        double damageModifier = GetWeaponConfigDamageModifier(player);
+        damage = (long)(damage * damageModifier);
 
         long defense = target.Defence + random.Next(0, (int)Math.Max(1, target.Defence / 8));
         long actual = Math.Max(1, damage - defense);
@@ -2499,6 +2591,10 @@ public partial class CombatEngine
         var mods = attacker.GetClassCombatModifiers();
         attacks += mods.ExtraAttacks;
 
+        // Dual-wield bonus: +1 attack with off-hand weapon
+        if (attacker.IsDualWielding)
+            attacks += 1;
+
         // Haste doubles attacks
         if (attacker.HasStatus(StatusEffect.Haste))
             attacks *= 2;
@@ -2508,6 +2604,64 @@ public partial class CombatEngine
             attacks = Math.Max(1, attacks / 2);
 
         return attacks;
+    }
+
+    /// <summary>
+    /// Calculate attack damage modifier based on weapon configuration
+    /// Two-Handed: +25% damage bonus
+    /// Dual-Wield: Off-hand attack at 50% power (handled in attack count)
+    /// </summary>
+    private double GetWeaponConfigDamageModifier(Character attacker, bool isOffHandAttack = false)
+    {
+        // Two-handed weapons get 25% damage bonus
+        if (attacker.IsTwoHanding)
+            return 1.25;
+
+        // Off-hand attacks in dual-wield do 50% damage
+        if (isOffHandAttack && attacker.IsDualWielding)
+            return 0.50;
+
+        return 1.0;
+    }
+
+    /// <summary>
+    /// Calculate defense modifier based on weapon configuration
+    /// Two-Handed: -15% defense penalty (less defensive stance)
+    /// Dual-Wield: -10% defense penalty (less focus on blocking)
+    /// Shield: No penalty, plus chance for block
+    /// </summary>
+    private double GetWeaponConfigDefenseModifier(Character defender)
+    {
+        if (defender.IsTwoHanding)
+            return 0.85; // 15% penalty
+
+        if (defender.IsDualWielding)
+            return 0.90; // 10% penalty
+
+        return 1.0;
+    }
+
+    /// <summary>
+    /// Check for shield block and return bonus AC if successful
+    /// 20% chance to block, which doubles shield AC for that hit
+    /// </summary>
+    private (bool blocked, int bonusAC) TryShieldBlock(Character defender)
+    {
+        if (!defender.HasShieldEquipped)
+            return (false, 0);
+
+        var shield = defender.GetEquipment(EquipmentSlot.OffHand);
+        if (shield == null)
+            return (false, 0);
+
+        // 20% chance to block
+        if (random.Next(100) < 20)
+        {
+            // Double the shield's AC bonus when blocking
+            return (true, shield.ShieldBonus);
+        }
+
+        return (false, 0);
     }
 }
 

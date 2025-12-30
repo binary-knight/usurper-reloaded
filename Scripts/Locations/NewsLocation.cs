@@ -1,325 +1,113 @@
-using UsurperRemake.Utils;
-using Godot;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
+using System.IO;
 
 /// <summary>
 /// News Location - Player news reading interface
 /// Based on Pascal news display functionality from VARIOUS.PAS display_file() calls
 /// Provides access to all news categories with Pascal-style menu system
+/// Rewritten for console mode compatibility
 /// </summary>
 public class NewsLocation : BaseLocation
 {
+    private const string NewsStandName = "Usurper Daily News";
     private readonly NewsSystem _newsSystem;
-    private const int MaxNewsDisplay = 50; // Maximum news lines to display at once
     private const int PageSize = 20; // Lines per page for paginated display
 
-    public new string LocationName => GameConfig.DefaultNewsLocation;
-    public new GameLocation LocationId => GameLocation.MainStreet; // Accessible from Main Street
-    
-    public NewsLocation()
+    public NewsLocation() : base(
+        GameLocation.MainStreet, // News is accessed from Main Street
+        NewsStandName,
+        "The town crier has posted the latest news on the board."
+    )
     {
         _newsSystem = NewsSystem.Instance;
     }
 
-    public new void HandlePlayerEntry(Player player)
+    protected override void SetupLocation()
     {
-        try
+        PossibleExits = new List<GameLocation>
         {
-            DisplayNewsMenu(player);
-        }
-        catch (Exception ex)
-        {
-            GD.PrintErr($"Error in NewsLocation.HandlePlayerEntry: {ex.Message}");
-            player.SendMessage("An error occurred while accessing the news. Please try again later.");
-            ReturnToMainStreet(player);
-        }
-    }
-
-    public new bool HandlePlayerInput(Player player, string input)
-    {
-        if (string.IsNullOrWhiteSpace(input))
-        {
-            DisplayNewsMenu(player);
-            return true;
-        }
-
-        string choice = input.Trim().ToUpper();
-        
-        try
-        {
-            switch (choice)
-            {
-                case GameConfig.NewsMenuDaily:
-                    DisplayDailyNews(player);
-                    break;
-                
-                case GameConfig.NewsMenuRoyal:
-                    DisplayRoyalNews(player);
-                    break;
-                
-                case GameConfig.NewsMenuMarriage:
-                    DisplayMarriageNews(player);
-                    break;
-                
-                case GameConfig.NewsMenuBirth:
-                    DisplayBirthNews(player);
-                    break;
-                
-                case GameConfig.NewsMenuHoly:
-                    DisplayHolyNews(player);
-                    break;
-                
-                case GameConfig.NewsMenuYesterday:
-                    DisplayYesterdayNews(player);
-                    break;
-                
-                case GameConfig.NewsMenuReturn:
-                case "QUIT":
-                case "EXIT":
-                case "RETURN":
-                    ReturnToMainStreet(player);
-                    return false;
-                
-                default:
-                    player.SendMessage($"{GameConfig.NewsColorDefault}Invalid choice. Please try again.{GameConfig.NewsColorDefault}");
-                    DisplayNewsMenu(player);
-                    break;
-            }
-        }
-        catch (Exception ex)
-        {
-            GD.PrintErr($"Error handling input '{input}' in NewsLocation: {ex.Message}");
-            player.SendMessage("An error occurred while processing your request.");
-            DisplayNewsMenu(player);
-        }
-        
-        return true;
-    }
-
-    private void DisplayNewsMenu(Player player)
-    {
-        var menu = new List<string>
-        {
-            "",
-            $"{GameConfig.NewsColorHighlight}╔═══════════════════════════════════════════════════════════════════════════════╗",
-            $"║                          {GameConfig.NewsColorRoyal}USURPER DAILY NEWS{GameConfig.NewsColorHighlight}                            ║",
-            $"╠═══════════════════════════════════════════════════════════════════════════════╣",
-            $"║                                                                               ║",
-            $"║  {GameConfig.NewsColorDefault}[{GameConfig.NewsColorHighlight}D{GameConfig.NewsColorDefault}] Daily News       - Today's events and happenings                    ║",
-            $"║  {GameConfig.NewsColorDefault}[{GameConfig.NewsColorHighlight}R{GameConfig.NewsColorDefault}] Royal News       - Royal proclamations and decrees                ║",
-            $"║  {GameConfig.NewsColorDefault}[{GameConfig.NewsColorHighlight}M{GameConfig.NewsColorDefault}] Marriage News     - Weddings, divorces, and relationships          ║",
-            $"║  {GameConfig.NewsColorDefault}[{GameConfig.NewsColorHighlight}B{GameConfig.NewsColorDefault}] Birth News        - New arrivals and births                       ║",
-            $"║  {GameConfig.NewsColorDefault}[{GameConfig.NewsColorHighlight}H{GameConfig.NewsColorDefault}] Holy News         - Divine events and god activities              ║",
-            $"║  {GameConfig.NewsColorDefault}[{GameConfig.NewsColorHighlight}Y{GameConfig.NewsColorDefault}] Yesterday's News  - Previous day's archived news                 ║",
-            $"║                                                                               ║",
-            $"║  {GameConfig.NewsColorDefault}[{GameConfig.NewsColorHighlight}Q{GameConfig.NewsColorDefault}] Return           - Return to Main Street                         ║",
-            $"║                                                                               ║",
-            $"╚═══════════════════════════════════════════════════════════════════════════════╝",
-            "",
-            $"{GameConfig.NewsColorDefault}What would you like to read? "
+            GameLocation.MainStreet
         };
-
-        foreach (string line in menu)
-        {
-            player.SendMessage(line);
-        }
     }
 
-    private void DisplayDailyNews(Player player)
+    protected override void DisplayLocation()
     {
-        var news = _newsSystem.ReadNews(GameConfig.NewsCategory.General, GameConfig.Ansi);
-        DisplayNewsCategory(player, GameConfig.NewsHeaderDaily, news, "daily news");
+        terminal.ClearScreen();
+        terminal.WriteLine("");
+
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╔═══════════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║                      USURPER DAILY NEWS                           ║");
+        terminal.WriteLine("╚═══════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+
+        terminal.SetColor("gray");
+        terminal.WriteLine("Fresh copies of various news categories are available here.");
+        terminal.WriteLine("The news keeper maintains up-to-date information about all happenings.");
+        terminal.WriteLine("");
+
+        ShowMenu();
+        ShowNewsStats();
     }
 
-    private void DisplayRoyalNews(Player player)
+    private void ShowMenu()
     {
-        var news = _newsSystem.ReadNews(GameConfig.NewsCategory.Royal, GameConfig.Ansi);
-        DisplayNewsCategory(player, GameConfig.NewsHeaderRoyal, news, "royal proclamations");
+        terminal.SetColor("yellow");
+        terminal.WriteLine("Available News:");
+        terminal.WriteLine("");
+
+        terminal.SetColor("white");
+        terminal.Write("  (");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("D");
+        terminal.SetColor("white");
+        terminal.WriteLine(") Daily News - Today's events and happenings");
+
+        terminal.Write("  (");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("R");
+        terminal.SetColor("white");
+        terminal.WriteLine(") Royal News - Royal proclamations and decrees");
+
+        terminal.Write("  (");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("M");
+        terminal.SetColor("white");
+        terminal.WriteLine(") Marriage News - Weddings, divorces, and relationships");
+
+        terminal.Write("  (");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("B");
+        terminal.SetColor("white");
+        terminal.WriteLine(") Birth News - New arrivals and births");
+
+        terminal.Write("  (");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("H");
+        terminal.SetColor("white");
+        terminal.WriteLine(") Holy News - Divine events and god activities");
+
+        terminal.Write("  (");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("Y");
+        terminal.SetColor("white");
+        terminal.WriteLine(") Yesterday's News - Previous day's archived news");
+
+        terminal.WriteLine("");
+
+        terminal.Write("  (");
+        terminal.SetColor("bright_cyan");
+        terminal.Write("Q");
+        terminal.SetColor("white");
+        terminal.WriteLine(") Return to Main Street");
+
+        terminal.WriteLine("");
     }
 
-    private void DisplayMarriageNews(Player player)
+    private void ShowNewsStats()
     {
-        var news = _newsSystem.ReadNews(GameConfig.NewsCategory.Marriage, GameConfig.Ansi);
-        DisplayNewsCategory(player, GameConfig.NewsHeaderMarriage, news, "marriage and relationship news");
-    }
-
-    private void DisplayBirthNews(Player player)
-    {
-        var news = _newsSystem.ReadNews(GameConfig.NewsCategory.Birth, GameConfig.Ansi);
-        DisplayNewsCategory(player, GameConfig.NewsHeaderBirth, news, "birth announcements");
-    }
-
-    private void DisplayHolyNews(Player player)
-    {
-        var news = _newsSystem.ReadNews(GameConfig.NewsCategory.Holy, GameConfig.Ansi);
-        DisplayNewsCategory(player, GameConfig.NewsHeaderHoly, news, "holy events and divine activities");
-    }
-
-    private void DisplayYesterdayNews(Player player)
-    {
-        // Read yesterday's news from archived files
-        var news = new List<string>();
-        
-        try
-        {
-            // Read from yesterday's news files (Pascal YNEWS.ASC/ANS)
-            string yesterdayFile = GameConfig.Ansi ? GameConfig.YesterdayNewsAnsiFile : GameConfig.YesterdayNewsAsciiFile;
-            
-            if (System.IO.File.Exists(yesterdayFile))
-            {
-                var lines = System.IO.File.ReadAllLines(yesterdayFile);
-                news.AddRange(lines);
-            }
-            else
-            {
-                news.Add("No yesterday's news available.");
-            }
-        }
-        catch (Exception ex)
-        {
-            GD.PrintErr($"Error reading yesterday's news: {ex.Message}");
-            news.Add("Error reading yesterday's news files.");
-        }
-        
-        DisplayNewsCategory(player, GameConfig.NewsHeaderYesterday, news, "yesterday's news");
-    }
-
-    private async Task DisplayNewsCategory(Player player, string header, List<string> newsLines, string categoryName)
-    {
-        player.SendMessage("");
-        player.SendMessage($"{GameConfig.NewsColorHighlight}{header}{GameConfig.NewsColorDefault}");
-        player.SendMessage("");
-
-        if (newsLines == null || newsLines.Count == 0)
-        {
-            player.SendMessage($"{GameConfig.NewsColorDefault}No {categoryName} available at this time.{GameConfig.NewsColorDefault}");
-            player.SendMessage("");
-            await PromptForReturn(player);
-            return;
-        }
-
-        // Filter out header lines and empty lines for display count
-        var displayLines = newsLines
-            .Where(line => !string.IsNullOrWhiteSpace(line) && 
-                          !line.Contains("===") && 
-                          !line.StartsWith("Initialized:"))
-            .ToList();
-
-        if (displayLines.Count == 0)
-        {
-            player.SendMessage($"{GameConfig.NewsColorDefault}No {categoryName} available at this time.{GameConfig.NewsColorDefault}");
-            player.SendMessage("");
-            await PromptForReturn(player);
-            return;
-        }
-
-        // Display news with pagination if needed
-        if (displayLines.Count > MaxNewsDisplay)
-        {
-            await DisplayPaginatedNews(player, displayLines, categoryName);
-        }
-        else
-        {
-            // Display all news lines
-            foreach (string line in displayLines)
-            {
-                player.SendMessage($"{GameConfig.NewsColorDefault}{line}{GameConfig.NewsColorDefault}");
-            }
-        }
-
-        player.SendMessage("");
-        player.SendMessage($"{GameConfig.NewsColorTime}Total {categoryName}: {displayLines.Count} entries{GameConfig.NewsColorDefault}");
-        player.SendMessage("");
-        
-        await PromptForReturn(player);
-    }
-
-    private async Task DisplayPaginatedNews(Player player, List<string> newsLines, string categoryName)
-    {
-        int totalPages = (int)Math.Ceiling((double)newsLines.Count / PageSize);
-        int currentPage = 1;
-        
-        while (currentPage <= totalPages)
-        {
-            // Display current page
-            player.SendMessage($"{GameConfig.NewsColorTime}--- Page {currentPage} of {totalPages} ---{GameConfig.NewsColorDefault}");
-            player.SendMessage("");
-            
-            int startIndex = (currentPage - 1) * PageSize;
-            int endIndex = Math.Min(startIndex + PageSize, newsLines.Count);
-            
-            for (int i = startIndex; i < endIndex; i++)
-            {
-                player.SendMessage($"{GameConfig.NewsColorDefault}{newsLines[i]}{GameConfig.NewsColorDefault}");
-            }
-            
-            player.SendMessage("");
-            
-            // Show navigation options
-            if (currentPage < totalPages)
-            {
-                player.SendMessage($"{GameConfig.NewsColorHighlight}[ENTER] Next page, [Q] Return to menu: {GameConfig.NewsColorDefault}");
-                string input = await player.GetInput();
-                
-                if (string.IsNullOrWhiteSpace(input))
-                {
-                    currentPage++;
-                }
-                else if (input.Trim().ToUpper() == "Q")
-                {
-                    break;
-                }
-                else
-                {
-                    currentPage++;
-                }
-            }
-            else
-            {
-                // Last page
-                break;
-            }
-        }
-    }
-
-    private async Task PromptForReturn(Player player)
-    {
-        player.SendMessage($"{GameConfig.NewsColorHighlight}Press [ENTER] to return to news menu: {GameConfig.NewsColorDefault}");
-        await player.GetInput(); // Wait for user input
-        DisplayNewsMenu(player);
-    }
-
-    private void ReturnToMainStreet(Player player)
-    {
-        player.SendMessage($"{GameConfig.NewsColorDefault}Thank you for reading the Usurper Daily News!{GameConfig.NewsColorDefault}");
-        player.SendMessage("");
-        
-        // Return player to Main Street
-        var mainStreet = LocationManager.Instance.GetLocation(GameLocation.MainStreet);
-        if (mainStreet != null)
-        {
-            // Update player location string to main street identifier
-            player.CurrentLocation = mainStreet.LocationId.ToString().ToLower();
-
-            // Simply display the main street to the player
-            mainStreet.OnEnter(player);
-        }
-    }
-
-    public new string GetLocationDescription(Player player)
-    {
-        var description = new List<string>
-        {
-            $"{GameConfig.NewsColorDefault}You stand before the {GameConfig.NewsColorHighlight}Usurper Daily News{GameConfig.NewsColorDefault} stand.",
-            $"Fresh copies of various news categories are available here.",
-            $"The news keeper maintains up-to-date information about all happenings in the realm.",
-            ""
-        };
-
-        // Show news statistics
         try
         {
             var stats = _newsSystem.GetNewsStatistics();
@@ -329,29 +117,246 @@ public class NewsLocation : BaseLocation
             var todayBirth = stats.ContainsKey("Today_Birth") ? (int)stats["Today_Birth"] : 0;
             var todayHoly = stats.ContainsKey("Today_Holy") ? (int)stats["Today_Holy"] : 0;
 
-            description.Add($"{GameConfig.NewsColorTime}Today's News Summary:");
-            description.Add($"Daily: {todayGeneral} • Royal: {todayRoyal} • Marriage: {todayMarriage} • Birth: {todayBirth} • Holy: {todayHoly}{GameConfig.NewsColorDefault}");
-            description.Add("");
+            terminal.SetColor("darkgray");
+            terminal.WriteLine("─────────────────────────────────────────────────────────────────────");
+            terminal.SetColor("gray");
+            terminal.Write("Today's Headlines: ");
+            terminal.SetColor("cyan");
+            terminal.Write($"Daily:{todayGeneral} ");
+            terminal.Write($"Royal:{todayRoyal} ");
+            terminal.Write($"Marriage:{todayMarriage} ");
+            terminal.Write($"Birth:{todayBirth} ");
+            terminal.WriteLine($"Holy:{todayHoly}");
         }
-        catch (Exception ex)
+        catch
         {
-            GD.PrintErr($"Error getting news statistics: {ex.Message}");
+            // Silently ignore stats errors
         }
-
-        return string.Join("\n", description);
+        terminal.WriteLine("");
     }
 
-    public new List<string> GetAvailableCommands(Player player)
+    protected override async Task<string> GetUserChoice()
     {
-        return new List<string>
-        {
-            $"{GameConfig.NewsMenuDaily} - Read daily news",
-            $"{GameConfig.NewsMenuRoyal} - Read royal proclamations", 
-            $"{GameConfig.NewsMenuMarriage} - Read marriage news",
-            $"{GameConfig.NewsMenuBirth} - Read birth announcements",
-            $"{GameConfig.NewsMenuHoly} - Read holy news",
-            $"{GameConfig.NewsMenuYesterday} - Read yesterday's news",
-            $"{GameConfig.NewsMenuReturn} - Return to Main Street"
-        };
+        terminal.SetColor("bright_white");
+        return await terminal.GetInput("What would you like to read? ");
     }
-} 
+
+    protected override async Task<bool> ProcessChoice(string choice)
+    {
+        switch (choice.ToUpper().Trim())
+        {
+            case "D":
+                await DisplayDailyNews();
+                return false;
+            case "R":
+                await DisplayRoyalNews();
+                return false;
+            case "M":
+                await DisplayMarriageNews();
+                return false;
+            case "B":
+                await DisplayBirthNews();
+                return false;
+            case "H":
+                await DisplayHolyNews();
+                return false;
+            case "Y":
+                await DisplayYesterdayNews();
+                return false;
+            case "Q":
+            case "QUIT":
+            case "EXIT":
+            case "RETURN":
+                terminal.SetColor("cyan");
+                terminal.WriteLine("");
+                terminal.WriteLine("Thank you for reading the Usurper Daily News!");
+                await Task.Delay(1000);
+                // Just return true to exit the location loop - we were called directly from MainStreet
+                // so control will return there naturally without needing to throw LocationExitException
+                return true;
+            case "S":
+                await ShowStatus();
+                return false;
+            case "?":
+                // Re-display menu
+                return false;
+            default:
+                terminal.SetColor("red");
+                terminal.WriteLine($"Invalid choice: '{choice}'");
+                await Task.Delay(1000);
+                return false;
+        }
+    }
+
+    private async Task DisplayDailyNews()
+    {
+        var news = _newsSystem.ReadNews(GameConfig.NewsCategory.General, GameConfig.Ansi);
+        await DisplayNewsCategory("DAILY NEWS", news, "daily events");
+    }
+
+    private async Task DisplayRoyalNews()
+    {
+        var news = _newsSystem.ReadNews(GameConfig.NewsCategory.Royal, GameConfig.Ansi);
+        await DisplayNewsCategory("ROYAL PROCLAMATIONS", news, "royal news");
+    }
+
+    private async Task DisplayMarriageNews()
+    {
+        var news = _newsSystem.ReadNews(GameConfig.NewsCategory.Marriage, GameConfig.Ansi);
+        await DisplayNewsCategory("MARRIAGE NEWS", news, "marriage announcements");
+    }
+
+    private async Task DisplayBirthNews()
+    {
+        var news = _newsSystem.ReadNews(GameConfig.NewsCategory.Birth, GameConfig.Ansi);
+        await DisplayNewsCategory("BIRTH ANNOUNCEMENTS", news, "birth news");
+    }
+
+    private async Task DisplayHolyNews()
+    {
+        var news = _newsSystem.ReadNews(GameConfig.NewsCategory.Holy, GameConfig.Ansi);
+        await DisplayNewsCategory("HOLY NEWS", news, "divine events");
+    }
+
+    private async Task DisplayYesterdayNews()
+    {
+        var news = new List<string>();
+
+        try
+        {
+            // Read from yesterday's news files (Pascal YNEWS.ASC/ANS)
+            string yesterdayFile = GameConfig.Ansi ? GameConfig.YesterdayNewsAnsiFile : GameConfig.YesterdayNewsAsciiFile;
+
+            if (File.Exists(yesterdayFile))
+            {
+                var lines = File.ReadAllLines(yesterdayFile);
+                news.AddRange(lines);
+            }
+        }
+        catch
+        {
+            // Silently fail, will show "no news" message
+        }
+
+        await DisplayNewsCategory("YESTERDAY'S NEWS", news, "yesterday's events");
+    }
+
+    private async Task DisplayNewsCategory(string header, List<string> newsLines, string categoryName)
+    {
+        terminal.ClearScreen();
+        terminal.WriteLine("");
+
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine($"═══ {header} ═══");
+        terminal.WriteLine("");
+
+        if (newsLines == null || newsLines.Count == 0)
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine($"No {categoryName} available at this time.");
+            terminal.WriteLine("");
+            terminal.WriteLine("The news board is empty for this category.");
+            terminal.WriteLine("");
+            await terminal.PressAnyKey();
+            return;
+        }
+
+        // Filter out empty lines and header markers
+        var displayLines = new List<string>();
+        foreach (var line in newsLines)
+        {
+            if (!string.IsNullOrWhiteSpace(line) &&
+                !line.Contains("===") &&
+                !line.StartsWith("Initialized:"))
+            {
+                displayLines.Add(line);
+            }
+        }
+
+        if (displayLines.Count == 0)
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine($"No {categoryName} available at this time.");
+            terminal.WriteLine("");
+            await terminal.PressAnyKey();
+            return;
+        }
+
+        // Display with pagination if needed
+        if (displayLines.Count > PageSize)
+        {
+            await DisplayPaginatedNews(displayLines, categoryName);
+        }
+        else
+        {
+            // Display all news lines
+            terminal.SetColor("white");
+            foreach (string line in displayLines)
+            {
+                terminal.WriteLine(line);
+            }
+            terminal.WriteLine("");
+
+            terminal.SetColor("cyan");
+            terminal.WriteLine($"Total {categoryName}: {displayLines.Count} entries");
+            terminal.WriteLine("");
+            await terminal.PressAnyKey();
+        }
+    }
+
+    private async Task DisplayPaginatedNews(List<string> newsLines, string categoryName)
+    {
+        int totalPages = (int)Math.Ceiling((double)newsLines.Count / PageSize);
+        int currentPage = 1;
+
+        while (currentPage <= totalPages)
+        {
+            terminal.ClearScreen();
+            terminal.WriteLine("");
+
+            // Display current page header
+            terminal.SetColor("cyan");
+            terminal.WriteLine($"─── Page {currentPage} of {totalPages} ───");
+            terminal.WriteLine("");
+
+            int startIndex = (currentPage - 1) * PageSize;
+            int endIndex = Math.Min(startIndex + PageSize, newsLines.Count);
+
+            terminal.SetColor("white");
+            for (int i = startIndex; i < endIndex; i++)
+            {
+                terminal.WriteLine(newsLines[i]);
+            }
+            terminal.WriteLine("");
+
+            // Show navigation options
+            if (currentPage < totalPages)
+            {
+                terminal.SetColor("yellow");
+                terminal.Write("[ENTER] Next page, [Q] Return to menu: ");
+
+                string input = await terminal.GetInput("");
+
+                if (!string.IsNullOrWhiteSpace(input) && input.Trim().ToUpper() == "Q")
+                {
+                    break;
+                }
+                currentPage++;
+            }
+            else
+            {
+                // Last page
+                terminal.SetColor("cyan");
+                terminal.WriteLine($"Total {categoryName}: {newsLines.Count} entries");
+                terminal.WriteLine("");
+                await terminal.PressAnyKey();
+                break;
+            }
+        }
+    }
+
+    protected override string GetBreadcrumbPath()
+    {
+        return "Main Street → News Stand";
+    }
+}

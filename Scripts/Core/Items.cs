@@ -643,9 +643,335 @@ public class MagicEnhancement
     public CureType DiseaseImmunity { get; set; } // Disease protection
     public bool AntiMagic { get; set; }     // Blocks all magic
     public bool SpellReflection { get; set; } // Reflects spells back
-    
+
     public MagicEnhancement()
     {
         DiseaseImmunity = CureType.None;
     }
+}
+
+/// <summary>
+/// Modern equipment item with slot types, weapon handedness, and full stat bonuses
+/// Used by the new equipment system for armor pieces, weapons, and accessories
+/// </summary>
+public class Equipment
+{
+    // Identity
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+    public string Description { get; set; } = "";
+
+    // Classification
+    public EquipmentSlot Slot { get; set; } = EquipmentSlot.None;
+    public WeaponHandedness Handedness { get; set; } = WeaponHandedness.None;
+    public WeaponType WeaponType { get; set; } = WeaponType.None;
+    public ArmorType ArmorType { get; set; } = ArmorType.None;
+    public EquipmentRarity Rarity { get; set; } = EquipmentRarity.Common;
+
+    // Economics
+    public long Value { get; set; }         // Buy price
+    public long SellValue => Value / 2;     // Sell price (50%)
+
+    // Combat stats
+    public int WeaponPower { get; set; }    // Damage bonus (for weapons)
+    public int ArmorClass { get; set; }     // AC bonus (for armor)
+    public int ShieldBonus { get; set; }    // Block AC bonus (for shields)
+    public int BlockChance { get; set; }    // % chance to block (shields)
+
+    // Primary stat bonuses
+    public int StrengthBonus { get; set; }
+    public int DexterityBonus { get; set; }
+    public int ConstitutionBonus { get; set; }
+    public int IntelligenceBonus { get; set; }
+    public int WisdomBonus { get; set; }
+    public int CharismaBonus { get; set; }
+
+    // Secondary stat bonuses
+    public int MaxHPBonus { get; set; }
+    public int MaxManaBonus { get; set; }
+    public int DefenceBonus { get; set; }   // Flat defence bonus
+    public int StaminaBonus { get; set; }
+    public int AgilityBonus { get; set; }
+
+    // Special properties
+    public int CriticalChanceBonus { get; set; }    // % bonus to crit
+    public int CriticalDamageBonus { get; set; }    // % bonus to crit damage
+    public int MagicResistance { get; set; }        // % magic damage reduction
+    public int PoisonDamage { get; set; }           // Poison on hit
+    public int LifeSteal { get; set; }              // % damage as healing
+
+    // Restrictions
+    public int MinLevel { get; set; } = 1;
+    public int StrengthRequired { get; set; }
+    public bool RequiresGood { get; set; }          // Good alignment only
+    public bool RequiresEvil { get; set; }          // Evil alignment only
+    public List<CharacterClass> ClassRestrictions { get; set; } = new();
+
+    // Status
+    public bool IsCursed { get; set; }
+    public bool IsIdentified { get; set; } = true;
+    public bool IsUnique { get; set; }              // Only one can exist
+
+    /// <summary>
+    /// Create a new equipment item
+    /// </summary>
+    public Equipment() { }
+
+    /// <summary>
+    /// Create equipment with basic properties
+    /// </summary>
+    public static Equipment Create(int id, string name, EquipmentSlot slot, long value)
+    {
+        return new Equipment
+        {
+            Id = id,
+            Name = name,
+            Slot = slot,
+            Value = value
+        };
+    }
+
+    /// <summary>
+    /// Create a weapon
+    /// </summary>
+    public static Equipment CreateWeapon(int id, string name, WeaponHandedness handedness,
+        WeaponType weaponType, int power, long value, EquipmentRarity rarity = EquipmentRarity.Common)
+    {
+        return new Equipment
+        {
+            Id = id,
+            Name = name,
+            Slot = handedness == WeaponHandedness.OffHandOnly ? EquipmentSlot.OffHand : EquipmentSlot.MainHand,
+            Handedness = handedness,
+            WeaponType = weaponType,
+            WeaponPower = power,
+            Value = value,
+            Rarity = rarity
+        };
+    }
+
+    /// <summary>
+    /// Create a shield
+    /// </summary>
+    public static Equipment CreateShield(int id, string name, int shieldBonus, int blockChance,
+        long value, EquipmentRarity rarity = EquipmentRarity.Common)
+    {
+        return new Equipment
+        {
+            Id = id,
+            Name = name,
+            Slot = EquipmentSlot.OffHand,
+            Handedness = WeaponHandedness.OffHandOnly,
+            WeaponType = WeaponType.Shield,
+            ShieldBonus = shieldBonus,
+            BlockChance = blockChance,
+            Value = value,
+            Rarity = rarity
+        };
+    }
+
+    /// <summary>
+    /// Create armor for a specific slot
+    /// </summary>
+    public static Equipment CreateArmor(int id, string name, EquipmentSlot slot,
+        ArmorType armorType, int ac, long value, EquipmentRarity rarity = EquipmentRarity.Common)
+    {
+        return new Equipment
+        {
+            Id = id,
+            Name = name,
+            Slot = slot,
+            ArmorType = armorType,
+            ArmorClass = ac,
+            Value = value,
+            Rarity = rarity
+        };
+    }
+
+    /// <summary>
+    /// Create an accessory (ring, amulet)
+    /// </summary>
+    public static Equipment CreateAccessory(int id, string name, EquipmentSlot slot,
+        long value, EquipmentRarity rarity = EquipmentRarity.Common)
+    {
+        return new Equipment
+        {
+            Id = id,
+            Name = name,
+            Slot = slot,
+            Value = value,
+            Rarity = rarity
+        };
+    }
+
+    /// <summary>
+    /// Apply equipment bonuses to a character
+    /// </summary>
+    public void ApplyToCharacter(Character character)
+    {
+        // Combat stats
+        character.WeapPow += WeaponPower;
+        character.ArmPow += ArmorClass + ShieldBonus;
+
+        // Primary stats
+        character.Strength += StrengthBonus;
+        character.Dexterity += DexterityBonus;
+        character.Constitution += ConstitutionBonus;
+        character.Intelligence += IntelligenceBonus;
+        character.Wisdom += WisdomBonus;
+        character.Charisma += CharismaBonus;
+
+        // Secondary stats
+        character.MaxHP += MaxHPBonus;
+        character.MaxMana += MaxManaBonus;
+        character.Defence += DefenceBonus;
+        character.Stamina += StaminaBonus;
+        character.Agility += AgilityBonus;
+
+        // Keep HP/Mana within bounds
+        character.HP = Math.Min(character.HP, character.MaxHP);
+        character.Mana = Math.Min(character.Mana, character.MaxMana);
+    }
+
+    /// <summary>
+    /// Remove equipment bonuses from a character
+    /// </summary>
+    public void RemoveFromCharacter(Character character)
+    {
+        // Combat stats
+        character.WeapPow -= WeaponPower;
+        character.ArmPow -= ArmorClass + ShieldBonus;
+
+        // Primary stats
+        character.Strength -= StrengthBonus;
+        character.Dexterity -= DexterityBonus;
+        character.Constitution -= ConstitutionBonus;
+        character.Intelligence -= IntelligenceBonus;
+        character.Wisdom -= WisdomBonus;
+        character.Charisma -= CharismaBonus;
+
+        // Secondary stats
+        character.MaxHP -= MaxHPBonus;
+        character.MaxMana -= MaxManaBonus;
+        character.Defence -= DefenceBonus;
+        character.Stamina -= StaminaBonus;
+        character.Agility -= AgilityBonus;
+
+        // Keep HP/Mana within bounds
+        character.HP = Math.Min(character.HP, character.MaxHP);
+        character.Mana = Math.Min(character.Mana, character.MaxMana);
+    }
+
+    /// <summary>
+    /// Check if character meets requirements to equip this item
+    /// </summary>
+    public bool CanEquip(Character character, out string reason)
+    {
+        reason = "";
+
+        if (character.Level < MinLevel)
+        {
+            reason = $"Requires level {MinLevel}";
+            return false;
+        }
+
+        if (character.Strength < StrengthRequired)
+        {
+            reason = $"Requires {StrengthRequired} Strength";
+            return false;
+        }
+
+        if (RequiresGood && character.Chivalry <= character.Darkness)
+        {
+            reason = "Requires good alignment";
+            return false;
+        }
+
+        if (RequiresEvil && character.Darkness <= character.Chivalry)
+        {
+            reason = "Requires evil alignment";
+            return false;
+        }
+
+        if (ClassRestrictions.Count > 0 && !ClassRestrictions.Contains(character.Class))
+        {
+            reason = $"Cannot be used by {character.Class}";
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Get display string with stats
+    /// </summary>
+    public string GetDisplayString()
+    {
+        var stats = new List<string>();
+
+        if (WeaponPower > 0) stats.Add($"Pow: {WeaponPower}");
+        if (ArmorClass > 0) stats.Add($"AC: {ArmorClass}");
+        if (ShieldBonus > 0) stats.Add($"Block: +{ShieldBonus}");
+
+        if (StrengthBonus != 0) stats.Add($"Str: {StrengthBonus:+#;-#;0}");
+        if (DexterityBonus != 0) stats.Add($"Dex: {DexterityBonus:+#;-#;0}");
+        if (WisdomBonus != 0) stats.Add($"Wis: {WisdomBonus:+#;-#;0}");
+        if (MaxHPBonus != 0) stats.Add($"HP: {MaxHPBonus:+#;-#;0}");
+        if (MaxManaBonus != 0) stats.Add($"Mana: {MaxManaBonus:+#;-#;0}");
+
+        return stats.Count > 0 ? string.Join(", ", stats) : "No bonuses";
+    }
+
+    /// <summary>
+    /// Get color for rarity display
+    /// </summary>
+    public string GetRarityColor() => Rarity switch
+    {
+        EquipmentRarity.Common => "white",
+        EquipmentRarity.Uncommon => "green",
+        EquipmentRarity.Rare => "cyan",
+        EquipmentRarity.Epic => "magenta",
+        EquipmentRarity.Legendary => "yellow",
+        EquipmentRarity.Artifact => "bright_yellow",
+        _ => "white"
+    };
+
+    #region Fluent Setters (for builder pattern)
+
+    // Primary stat bonuses
+    public Equipment WithStrength(int bonus) { StrengthBonus = bonus; return this; }
+    public Equipment WithDexterity(int bonus) { DexterityBonus = bonus; return this; }
+    public Equipment WithConstitution(int bonus) { ConstitutionBonus = bonus; return this; }
+    public Equipment WithIntelligence(int bonus) { IntelligenceBonus = bonus; return this; }
+    public Equipment WithWisdom(int bonus) { WisdomBonus = bonus; return this; }
+    public Equipment WithCharisma(int bonus) { CharismaBonus = bonus; return this; }
+
+    // Secondary stat bonuses
+    public Equipment WithMaxHP(int bonus) { MaxHPBonus = bonus; return this; }
+    public Equipment WithMaxMana(int bonus) { MaxManaBonus = bonus; return this; }
+    public Equipment WithDefence(int bonus) { DefenceBonus = bonus; return this; }
+    public Equipment WithStamina(int bonus) { StaminaBonus = bonus; return this; }
+    public Equipment WithAgility(int bonus) { AgilityBonus = bonus; return this; }
+
+    // Special properties
+    public Equipment WithCritChance(int bonus) { CriticalChanceBonus = bonus; return this; }
+    public Equipment WithCritDamage(int bonus) { CriticalDamageBonus = bonus; return this; }
+    public Equipment WithMagicResist(int percent) { MagicResistance = percent; return this; }
+    public Equipment WithPoison(int damage) { PoisonDamage = damage; return this; }
+    public Equipment WithLifeSteal(int percent) { LifeSteal = percent; return this; }
+
+    // Requirements
+    public Equipment RequiresLevel(int level) { MinLevel = level; return this; }
+    public Equipment RequiresStr(int str) { StrengthRequired = str; return this; }
+    public Equipment RequiresGoodAlignment() { RequiresGood = true; return this; }
+    public Equipment RequiresEvilAlignment() { RequiresEvil = true; return this; }
+    public Equipment ForClasses(params CharacterClass[] classes) { ClassRestrictions.AddRange(classes); return this; }
+
+    // Status flags
+    public Equipment AsCursed() { IsCursed = true; return this; }
+    public Equipment AsUnique() { IsUnique = true; return this; }
+    public Equipment Unidentified() { IsIdentified = false; return this; }
+    public Equipment WithDescription(string desc) { Description = desc; return this; }
+
+    #endregion
 } 

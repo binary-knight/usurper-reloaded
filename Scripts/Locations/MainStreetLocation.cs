@@ -44,14 +44,14 @@ public class MainStreetLocation : BaseLocation
         {
             "Status",              // (S)tatus
             "Good Deeds",          // (G)ood Deeds
-            "Evil Deeds",          // (E)vil Deeds  
+            "Evil Deeds",          // (E)vil Deeds
             "News",                // (N)ews
             "List Characters",     // (L)ist Characters
             "Fame",                // (F)ame
             "Relations",           // (R)elations
-            "Suicide",             // (*) Suicide
+            "Inventory",           // (*) Inventory
             "Who is Online?",      // (Ctrl+W)
-            "Send Message",        // (Ctrl+T)  
+            "Send Message",        // (Ctrl+T)
             "Send Stuff"           // (Ctrl+S)
         };
     }
@@ -79,10 +79,50 @@ public class MainStreetLocation : BaseLocation
         // Main Street menu (Pascal-style layout)
         ShowMainStreetMenu();
         
+        // Check for level eligibility message
+        ShowLevelEligibilityMessage();
+
         // Status line
         ShowStatusLine();
     }
-    
+
+    /// <summary>
+    /// Shows a message if the player is eligible for a level raise
+    /// </summary>
+    private void ShowLevelEligibilityMessage()
+    {
+        if (currentPlayer.Level >= GameConfig.MaxLevel)
+            return;
+
+        long experienceNeeded = GetExperienceForLevel(currentPlayer.Level + 1);
+
+        if (currentPlayer.Experience >= experienceNeeded)
+        {
+            terminal.WriteLine("");
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+            terminal.SetColor("bright_green");
+            terminal.WriteLine("║     ★ You are eligible for a level raise! Visit your Master to advance! ★    ║");
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+            terminal.WriteLine("");
+        }
+    }
+
+    /// <summary>
+    /// Experience required to have the specified level (cumulative)
+    /// </summary>
+    private static long GetExperienceForLevel(int level)
+    {
+        if (level <= 1) return 0;
+        long exp = 0;
+        for (int i = 2; i <= level; i++)
+        {
+            exp += (long)(Math.Pow(i, 2.5) * 100);
+        }
+        return exp;
+    }
+
     /// <summary>
     /// Show the classic Main Street menu layout
     /// </summary>
@@ -211,6 +251,15 @@ public class MainStreetLocation : BaseLocation
         terminal.SetColor("darkgray");
         terminal.Write("[");
         terminal.SetColor("bright_magenta");
+        terminal.Write("V");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("isit Master ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_magenta");
         terminal.Write("C");
         terminal.SetColor("darkgray");
         terminal.Write("]");
@@ -325,8 +374,8 @@ public class MainStreetLocation : BaseLocation
                 
             case "N":
                 var newsLocation = new NewsLocation();
-                newsLocation.HandlePlayerEntry(currentPlayer as Player ?? new Player());
-                return true;
+                await newsLocation.EnterLocation(currentPlayer, terminal);
+                return false; // Stay in main street after returning from news
                 
             case "Z":
                 await NavigateToTeamCorner();
@@ -352,9 +401,9 @@ public class MainStreetLocation : BaseLocation
             case "R":
                 await ShowRelations();
                 return false;
-                
+
             case "*":
-                await AttemptSuicide();
+                await ShowInventory();
                 return false;
             
             case "9":
@@ -559,28 +608,7 @@ public class MainStreetLocation : BaseLocation
         terminal.WriteLine("");
         await terminal.PressAnyKey();
     }
-    
-    private async Task AttemptSuicide()
-    {
-        terminal.SetColor("red");
-        terminal.WriteLine("Are you sure you want to end your character's life?", "red");
-        var confirm = await terminal.GetInput("Type YES to confirm: ");
-        
-        if (confirm.ToUpper() == "YES")
-        {
-            terminal.WriteLine("Your character takes their own life...", "red");
-            currentPlayer.HP = 0;
-            await Task.Delay(2000);
-            terminal.WriteLine("You are dead. Game over.", "gray");
-            await Task.Delay(3000);
-        }
-        else
-        {
-            terminal.WriteLine("You decide life is worth living after all.", "green");
-            await Task.Delay(1500);
-        }
-    }
-    
+
     private async Task ShowWhoIsOnline()
     {
         terminal.ClearScreen();

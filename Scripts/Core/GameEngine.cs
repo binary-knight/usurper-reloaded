@@ -777,15 +777,20 @@ public partial class GameEngine : Node
             return;
         }
 
-        // Check if player is dead
+        // Check if player is dead - handle death and continue playing
         if (!currentPlayer.IsAlive)
         {
             await HandleDeath();
-            return;
+            // After death handling, player is resurrected - continue to game
+            // (HandleDeath sets HP > 0 and saves)
         }
 
         // Enter main game using location system
-        await locationManager.EnterLocation(GameLocation.MainStreet, currentPlayer);
+        // If player died and was resurrected, they'll start at the Inn
+        var startLocation = currentPlayer.Location > 0
+            ? (GameLocation)currentPlayer.Location
+            : GameLocation.MainStreet;
+        await locationManager.EnterLocation(startLocation, currentPlayer);
     }
     
     /// <summary>
@@ -899,14 +904,83 @@ public partial class GameEngine : Node
         player.ItemType = playerData.ItemTypes?.Length > 0
             ? playerData.ItemTypes.Select(i => (ObjType)i).ToList()
             : new List<ObjType>();
-        
+
+        // NEW: Restore equipment system
+        if (playerData.EquippedItems != null && playerData.EquippedItems.Count > 0)
+        {
+            player.EquippedItems = playerData.EquippedItems.ToDictionary(
+                kvp => (EquipmentSlot)kvp.Key,
+                kvp => kvp.Value
+            );
+        }
+
+        // Restore base stats
+        player.BaseStrength = playerData.BaseStrength > 0 ? playerData.BaseStrength : playerData.Strength;
+        player.BaseDexterity = playerData.BaseDexterity > 0 ? playerData.BaseDexterity : playerData.Dexterity;
+        player.BaseConstitution = playerData.BaseConstitution > 0 ? playerData.BaseConstitution : playerData.Constitution;
+        player.BaseIntelligence = playerData.BaseIntelligence > 0 ? playerData.BaseIntelligence : playerData.Intelligence;
+        player.BaseWisdom = playerData.BaseWisdom > 0 ? playerData.BaseWisdom : playerData.Wisdom;
+        player.BaseCharisma = playerData.BaseCharisma > 0 ? playerData.BaseCharisma : playerData.Charisma;
+        player.BaseMaxHP = playerData.BaseMaxHP > 0 ? playerData.BaseMaxHP : playerData.MaxHP;
+        player.BaseMaxMana = playerData.BaseMaxMana > 0 ? playerData.BaseMaxMana : playerData.MaxMana;
+        player.BaseDefence = playerData.BaseDefence > 0 ? playerData.BaseDefence : playerData.Defence;
+        player.BaseStamina = playerData.BaseStamina > 0 ? playerData.BaseStamina : playerData.Stamina;
+        player.BaseAgility = playerData.BaseAgility > 0 ? playerData.BaseAgility : playerData.Agility;
+
+        // If this is an old save without equipment data, initialize from WeapPow/ArmPow
+        if ((playerData.EquippedItems == null || playerData.EquippedItems.Count == 0)
+            && (playerData.WeapPow > 0 || playerData.ArmPow > 0))
+        {
+            // Migration: Find best matching equipment based on WeapPow/ArmPow
+            MigrateOldEquipmentToNew(player, playerData.WeapPow, playerData.ArmPow);
+        }
+
         // Parse location
         if (int.TryParse(playerData.CurrentLocation, out var locationId))
         {
             player.Location = locationId;
         }
-        
+
         return player;
+    }
+
+    /// <summary>
+    /// Migrate old WeapPow/ArmPow to new equipment system for old saves
+    /// </summary>
+    private void MigrateOldEquipmentToNew(Character player, long weapPow, long armPow)
+    {
+        // Find best matching weapon for WeapPow
+        if (weapPow > 0)
+        {
+            var weapons = EquipmentDatabase.GetWeaponsByHandedness(WeaponHandedness.OneHanded);
+            var bestWeapon = weapons
+                .Where(w => w.WeaponPower <= weapPow)
+                .OrderByDescending(w => w.WeaponPower)
+                .FirstOrDefault();
+
+            if (bestWeapon != null)
+            {
+                player.EquippedItems[EquipmentSlot.MainHand] = bestWeapon.Id;
+            }
+        }
+
+        // Find best matching armor for ArmPow
+        if (armPow > 0)
+        {
+            var armors = EquipmentDatabase.GetBySlot(EquipmentSlot.Body);
+            var bestArmor = armors
+                .Where(a => a.ArmorClass <= armPow)
+                .OrderByDescending(a => a.ArmorClass)
+                .FirstOrDefault();
+
+            if (bestArmor != null)
+            {
+                player.EquippedItems[EquipmentSlot.Body] = bestArmor.Id;
+            }
+        }
+
+        // Initialize base stats
+        player.InitializeBaseStats();
     }
     
     /// <summary>
@@ -1086,49 +1160,97 @@ public partial class GameEngine : Node
     
     /// <summary>
     /// Handle player death - based on death handling from Pascal
+    /// Player respawns at the Inn with penalties instead of being deleted
     /// </summary>
     private async Task HandleDeath()
     {
         terminal.ClearScreen();
         terminal.ShowANSIArt("DEATH");
-        terminal.SetColor("red");
-        terminal.WriteLine("You are DEAD!");
+        terminal.SetColor("bright_red");
+        terminal.WriteLine("═══════════════════════════════════════════════════════════════");
+        terminal.WriteLine("                        YOU HAVE DIED!                          ");
+        terminal.WriteLine("═══════════════════════════════════════════════════════════════");
         terminal.WriteLine("");
-        terminal.SetColor("white");
-        terminal.WriteLine("Your reign of terror has come to an end...");
+
+        terminal.SetColor("gray");
+        terminal.WriteLine("Your vision fades to black as death claims you...");
         terminal.WriteLine("");
-        
-        // Check resurrections
+        await Task.Delay(2000);
+
+        // Check if player has resurrections (from items/temple)
         if (currentPlayer.Resurrections > 0)
         {
-            terminal.WriteLine($"You have {currentPlayer.Resurrections} resurrections left.");
-            var resurrect = await terminal.GetInput("Do you want to resurrect? (Y/N): ");
-            
-            if (resurrect.ToUpper() == "Y")
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"You have {currentPlayer.Resurrections} resurrection(s) available!");
+            terminal.WriteLine("");
+            var resurrect = await terminal.GetInput("Use a resurrection to avoid penalties? (Y/N): ");
+
+            if (resurrect.ToUpper().StartsWith("Y"))
             {
                 currentPlayer.Resurrections--;
-                currentPlayer.HP = currentPlayer.MaxHP / 2;
-                currentPlayer.Gold /= 2; // Lose half gold
-                
-                terminal.WriteLine("You have been resurrected!", "green");
-                await Task.Delay(2000);
+                currentPlayer.HP = currentPlayer.MaxHP;
+                terminal.SetColor("bright_green");
+                terminal.WriteLine("");
+                terminal.WriteLine("Divine light surrounds you!");
+                terminal.WriteLine("You have been fully resurrected with no penalties!");
+                await Task.Delay(2500);
+
+                // Return to the Inn
+                currentPlayer.Location = (int)GameLocation.TheInn;
+                await SaveSystem.Instance.AutoSave(currentPlayer);
                 return;
             }
         }
-        
-        // Player chooses to stay dead or out of resurrections
-        terminal.WriteLine("Your adventure ends here...", "gray");
-        await Task.Delay(3000);
-        
-        // Add to hall of fame if high level
-        if (currentPlayer.Level >= 10)
-        {
-            // TODO: Add to fame file
-        }
-        
-        // Delete character or mark as dead
-        currentPlayer.Deleted = true;
-        SaveManager.SavePlayer(currentPlayer);
+
+        // Apply death penalties
+        terminal.SetColor("red");
+        terminal.WriteLine("Death Penalties Applied:");
+        terminal.WriteLine("─────────────────────────");
+
+        // Calculate penalties
+        long expLoss = currentPlayer.Experience / 10;  // Lose 10% experience
+        long goldLoss = currentPlayer.Gold / 4;        // Lose 25% gold on hand
+
+        // Apply penalties
+        currentPlayer.Experience = Math.Max(0, currentPlayer.Experience - expLoss);
+        currentPlayer.Gold = Math.Max(0, currentPlayer.Gold - goldLoss);
+
+        // Track death count
+        currentPlayer.MDefeats++;
+
+        terminal.SetColor("yellow");
+        if (expLoss > 0)
+            terminal.WriteLine($"  • Lost {expLoss:N0} experience points");
+        if (goldLoss > 0)
+            terminal.WriteLine($"  • Lost {goldLoss:N0} gold (dropped upon death)");
+        terminal.WriteLine($"  • Monster defeats: {currentPlayer.MDefeats}");
+        terminal.WriteLine("");
+
+        // Resurrect player at the Inn with half HP
+        currentPlayer.HP = Math.Max(1, currentPlayer.MaxHP / 2);
+        currentPlayer.Location = (int)GameLocation.TheInn;
+
+        // Clear any negative status effects
+        currentPlayer.Poison = 0;
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine("You wake up at the Inn, nursed back to health by the innkeeper.");
+        terminal.WriteLine($"Your wounds have partially healed. (HP: {currentPlayer.HP}/{currentPlayer.MaxHP})");
+        terminal.WriteLine("");
+
+        terminal.SetColor("gray");
+        terminal.WriteLine("\"You're lucky to be alive, friend. Rest up and try again.\"");
+        terminal.WriteLine("");
+
+        await terminal.PressAnyKey();
+
+        // Save the resurrected character
+        await SaveSystem.Instance.AutoSave(currentPlayer);
+
+        // Continue playing - don't mark as deleted!
+        terminal.SetColor("green");
+        terminal.WriteLine("Your adventure continues...");
+        await Task.Delay(1500);
     }
     
     /// <summary>

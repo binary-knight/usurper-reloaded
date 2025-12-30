@@ -147,7 +147,10 @@ namespace UsurperRemake.Systems
         private void SetNPCPersonality(NPC npc, string personality, string alignment)
         {
             // Create personality profile first
-            var profile = new PersonalityProfile();
+            var profile = new PersonalityProfile
+            {
+                Archetype = "commoner" // Default archetype, prevents null reference
+            };
 
             // Set personality traits based on personality type
             switch (personality.ToLower())

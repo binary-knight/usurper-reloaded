@@ -143,7 +143,235 @@ public class Character
     // Magical combat buffs
     public int MagicACBonus { get; set; } = 0;          // Flat AC bonus from spells like Shield/Prismatic Cage
     public int DamageAbsorptionPool { get; set; } = 0;  // Remaining damage Stoneskin can absorb
-    
+
+    // Cursed equipment flags
+    public bool WeaponCursed { get; set; } = false;     // Weapon is cursed
+    public bool ArmorCursed { get; set; } = false;      // Armor is cursed
+    public bool ShieldCursed { get; set; } = false;     // Shield is cursed
+
+    // NEW: Modern RPG Equipment System
+    // Dictionary mapping each slot to equipment ID (0 = empty)
+    public Dictionary<EquipmentSlot, int> EquippedItems { get; set; } = new();
+
+    // Base stats (without equipment bonuses) - for recalculation
+    public long BaseStrength { get; set; }
+    public long BaseDexterity { get; set; }
+    public long BaseConstitution { get; set; }
+    public long BaseIntelligence { get; set; }
+    public long BaseWisdom { get; set; }
+    public long BaseCharisma { get; set; }
+    public long BaseMaxHP { get; set; }
+    public long BaseMaxMana { get; set; }
+    public long BaseDefence { get; set; }
+    public long BaseStamina { get; set; }
+    public long BaseAgility { get; set; }
+
+    // Weapon configuration detection
+    public bool IsDualWielding =>
+        EquippedItems.TryGetValue(EquipmentSlot.MainHand, out var mainId) && mainId > 0 &&
+        EquippedItems.TryGetValue(EquipmentSlot.OffHand, out var offId) && offId > 0 &&
+        EquipmentDatabase.GetById(mainId)?.Handedness == WeaponHandedness.OneHanded &&
+        EquipmentDatabase.GetById(offId)?.Handedness == WeaponHandedness.OneHanded;
+
+    public bool HasShieldEquipped =>
+        EquippedItems.TryGetValue(EquipmentSlot.OffHand, out var offId) && offId > 0 &&
+        EquipmentDatabase.GetById(offId)?.WeaponType == WeaponType.Shield ||
+        EquipmentDatabase.GetById(offId)?.WeaponType == WeaponType.Buckler ||
+        EquipmentDatabase.GetById(offId)?.WeaponType == WeaponType.TowerShield;
+
+    public bool IsTwoHanding =>
+        EquippedItems.TryGetValue(EquipmentSlot.MainHand, out var mainId) && mainId > 0 &&
+        EquipmentDatabase.GetById(mainId)?.Handedness == WeaponHandedness.TwoHanded;
+
+    /// <summary>
+    /// Get the equipment in a specific slot
+    /// </summary>
+    public Equipment GetEquipment(EquipmentSlot slot)
+    {
+        if (EquippedItems.TryGetValue(slot, out var id) && id > 0)
+            return EquipmentDatabase.GetById(id);
+        return null;
+    }
+
+    /// <summary>
+    /// Equip an item to the appropriate slot
+    /// </summary>
+    public bool EquipItem(Equipment item, out string message)
+    {
+        message = "";
+
+        if (item == null)
+        {
+            message = "No item to equip";
+            return false;
+        }
+
+        // Check if character can equip this item
+        if (!item.CanEquip(this, out string reason))
+        {
+            message = reason;
+            return false;
+        }
+
+        // Handle two-handed weapons - must unequip off-hand
+        if (item.Handedness == WeaponHandedness.TwoHanded)
+        {
+            if (EquippedItems.TryGetValue(EquipmentSlot.OffHand, out var offId) && offId > 0)
+            {
+                UnequipSlot(EquipmentSlot.OffHand);
+                message = "Unequipped off-hand to use two-handed weapon. ";
+            }
+        }
+
+        // Handle shields/off-hand - must unequip if using 2H weapon
+        if (item.Slot == EquipmentSlot.OffHand && IsTwoHanding)
+        {
+            message = "Cannot equip off-hand item while using two-handed weapon";
+            return false;
+        }
+
+        // Unequip current item in slot if any
+        var slot = item.Slot;
+
+        // For weapons, determine the correct slot
+        if (item.Handedness == WeaponHandedness.OneHanded || item.Handedness == WeaponHandedness.TwoHanded)
+            slot = EquipmentSlot.MainHand;
+        else if (item.Handedness == WeaponHandedness.OffHandOnly)
+            slot = EquipmentSlot.OffHand;
+
+        UnequipSlot(slot);
+
+        // Equip the new item
+        EquippedItems[slot] = item.Id;
+
+        // Apply stats
+        item.ApplyToCharacter(this);
+
+        message += $"Equipped {item.Name}";
+        return true;
+    }
+
+    /// <summary>
+    /// Unequip item from a specific slot
+    /// </summary>
+    public Equipment UnequipSlot(EquipmentSlot slot)
+    {
+        if (!EquippedItems.TryGetValue(slot, out var id) || id == 0)
+            return null;
+
+        var item = EquipmentDatabase.GetById(id);
+        if (item != null)
+        {
+            // Check if cursed
+            if (item.IsCursed)
+                return null; // Can't unequip cursed items
+
+            // Remove stats
+            item.RemoveFromCharacter(this);
+        }
+
+        EquippedItems[slot] = 0;
+        return item;
+    }
+
+    /// <summary>
+    /// Recalculate all stats from base values plus equipment bonuses
+    /// </summary>
+    public void RecalculateStats()
+    {
+        // Start from base values
+        Strength = BaseStrength;
+        Dexterity = BaseDexterity;
+        Constitution = BaseConstitution;
+        Intelligence = BaseIntelligence;
+        Wisdom = BaseWisdom;
+        Charisma = BaseCharisma;
+        MaxHP = BaseMaxHP;
+        MaxMana = BaseMaxMana;
+        Defence = BaseDefence;
+        Stamina = BaseStamina;
+        Agility = BaseAgility;
+        WeapPow = 0;
+        ArmPow = 0;
+
+        // Add bonuses from all equipped items
+        foreach (var kvp in EquippedItems)
+        {
+            if (kvp.Value <= 0) continue;
+            var item = EquipmentDatabase.GetById(kvp.Value);
+            item?.ApplyToCharacter(this);
+        }
+
+        // Keep current HP/Mana within bounds
+        HP = Math.Min(HP, MaxHP);
+        Mana = Math.Min(Mana, MaxMana);
+    }
+
+    /// <summary>
+    /// Initialize base stats from current values (call when creating character or loading old save)
+    /// </summary>
+    public void InitializeBaseStats()
+    {
+        BaseStrength = Strength;
+        BaseDexterity = Dexterity;
+        BaseConstitution = Constitution;
+        BaseIntelligence = Intelligence;
+        BaseWisdom = Wisdom;
+        BaseCharisma = Charisma;
+        BaseMaxHP = MaxHP;
+        BaseMaxMana = MaxMana;
+        BaseDefence = Defence;
+        BaseStamina = Stamina;
+        BaseAgility = Agility;
+    }
+
+    /// <summary>
+    /// Get total equipment value (for sell price calculation)
+    /// </summary>
+    public long GetTotalEquipmentValue()
+    {
+        long total = 0;
+        foreach (var kvp in EquippedItems)
+        {
+            if (kvp.Value <= 0) continue;
+            var item = EquipmentDatabase.GetById(kvp.Value);
+            if (item != null) total += item.Value;
+        }
+        return total;
+    }
+
+    /// <summary>
+    /// Get equipment summary for display
+    /// </summary>
+    public string GetEquipmentSummary()
+    {
+        var lines = new List<string>();
+
+        void AddSlot(string label, EquipmentSlot slot)
+        {
+            var item = GetEquipment(slot);
+            lines.Add($"{label}: {item?.Name ?? "None"}");
+        }
+
+        AddSlot("Main Hand", EquipmentSlot.MainHand);
+        AddSlot("Off Hand", EquipmentSlot.OffHand);
+        AddSlot("Head", EquipmentSlot.Head);
+        AddSlot("Body", EquipmentSlot.Body);
+        AddSlot("Arms", EquipmentSlot.Arms);
+        AddSlot("Hands", EquipmentSlot.Hands);
+        AddSlot("Legs", EquipmentSlot.Legs);
+        AddSlot("Feet", EquipmentSlot.Feet);
+        AddSlot("Waist", EquipmentSlot.Waist);
+        AddSlot("Cloak", EquipmentSlot.Cloak);
+        AddSlot("Neck", EquipmentSlot.Neck);
+        AddSlot("Neck 2", EquipmentSlot.Neck2);
+        AddSlot("Face", EquipmentSlot.Face);
+        AddSlot("Left Ring", EquipmentSlot.LFinger);
+        AddSlot("Right Ring", EquipmentSlot.RFinger);
+
+        return string.Join("\n", lines);
+    }
+
     // Kill statistics
     public long MKills { get; set; }                // monster kills
     public long MDefeats { get; set; }              // monster defeats

@@ -479,7 +479,26 @@ namespace UsurperRemake.Systems
                 // Items and equipment
                 Items = player.Item?.ToArray() ?? new int[0],
                 ItemTypes = player.ItemType?.Select(t => (int)t).ToArray() ?? new int[0],
-                
+
+                // NEW: Modern RPG Equipment System
+                EquippedItems = player.EquippedItems?.ToDictionary(
+                    kvp => (int)kvp.Key,
+                    kvp => kvp.Value
+                ) ?? new Dictionary<int, int>(),
+
+                // Base stats
+                BaseStrength = player.BaseStrength,
+                BaseDexterity = player.BaseDexterity,
+                BaseConstitution = player.BaseConstitution,
+                BaseIntelligence = player.BaseIntelligence,
+                BaseWisdom = player.BaseWisdom,
+                BaseCharisma = player.BaseCharisma,
+                BaseMaxHP = player.BaseMaxHP,
+                BaseMaxMana = player.BaseMaxMana,
+                BaseDefence = player.BaseDefence,
+                BaseStamina = player.BaseStamina,
+                BaseAgility = player.BaseAgility,
+
                 // Social/Team
                 Team = player.Team,
                 TeamPassword = player.TeamPW,

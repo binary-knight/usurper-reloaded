@@ -1,427 +1,767 @@
-using UsurperRemake.Utils;
-using Godot;
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Threading.Tasks;
 
 /// <summary>
 /// The Golden Bow, Healing Hut - run by Jadu The Fat
-/// Based on HEALERC.PAS - provides disease healing and cursed item removal services
-/// This is a complete Pascal-compatible implementation maintaining all original mechanics
+/// Based on HEALERC.PAS - provides HP restoration, potion sales, disease healing,
+/// poison curing, and cursed item removal services
 /// </summary>
-public partial class HealerLocation : BaseLocation
+public class HealerLocation : BaseLocation
 {
-    private const string HealerName = GameConfig.DefaultHealerName;
-    private const string Manager = GameConfig.DefaultHealerManager;
-    
-    public new void _Ready()
+    private const string HealerName = "The Golden Bow, Healing Hut";
+    private const string Manager = "Jadu";
+
+    // Disease costs per level (from Pascal)
+    private const int BlindnessCostPerLevel = 5000;
+    private const int PlagueCostPerLevel = 6000;
+    private const int SmallpoxCostPerLevel = 7000;
+    private const int MeaslesCostPerLevel = 7500;
+    private const int LeprosyCostPerLevel = 8500;
+    private const int CursedItemCostPerLevel = 1000;
+
+    // Healing costs
+    private const int HealingPotionCost = 50;      // Cost per potion
+    private const int FullHealCostPerHP = 2;       // Cost per HP restored
+    private const int PoisonCureCostPerLevel = 500;
+
+    public HealerLocation() : base(
+        GameLocation.Healer,
+        "The Golden Bow",
+        "You enter the healing hut. The smell of herbs and incense fills the air."
+    ) { }
+
+    protected override void SetupLocation()
     {
-        base._Ready();
-        Name = "HealerLocation";
-        LocationId = GameLocation.Healer;
+        PossibleExits = new List<GameLocation>
+        {
+            GameLocation.MainStreet
+        };
     }
-    
-    protected new void ProcessPlayerInput(string input)
+
+    protected override void DisplayLocation()
     {
-        var choice = input.ToUpper().Trim();
-        
-        switch (choice)
+        terminal.ClearScreen();
+        terminal.WriteLine("");
+
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine($"-*- {HealerName} -*-");
+        terminal.WriteLine("");
+
+        terminal.SetColor("gray");
+        terminal.WriteLine($"{Manager} The Fat is sitting at his desk, reading a book.");
+        terminal.WriteLine("He is wearing a monks robe and a golden ring.");
+        terminal.WriteLine("");
+
+        ShowMenu();
+        ShowPlayerHealthStatus();
+    }
+
+    protected override async Task<bool> ProcessChoice(string choice)
+    {
+        switch (choice.ToUpper().Trim())
         {
             case "H":
-                ProcessDiseaseHealing();
-                break;
+                await HealHP();
+                return true;
+            case "F":
+                await FullHeal();
+                return true;
+            case "B":
+                await BuyPotions();
+                return true;
+            case "P":
+                await CurePoison();
+                return true;
             case "C":
-                ProcessCursedItemRemoval();
-                break;
+                await CureDisease();
+                return true;
+            case "D":
+                await RemoveCursedItem();
+                return true;
             case "S":
-                DisplayPlayerStatus();
-                break;
+                await DisplayPlayerStatus();
+                return true;
             case "R":
-                ReturnToMainStreet();
-                break;
+                await NavigateToLocation(GameLocation.MainStreet);
+                return true;
             case "?":
-                DisplayMenu(true);
-                break;
+                ShowFullMenu();
+                await terminal.PressAnyKey();
+                return true;
             default:
-                DisplayMessage("Invalid choice. Press ? for menu.", ConsoleColor.Red);
-                break;
+                terminal.WriteLine("Invalid choice. Press ? for menu.", "red");
+                await Task.Delay(1000);
+                return true;
         }
     }
-    
-    protected new void DisplayMenu(bool forceDisplay = false)
+
+    protected override async Task<string> GetUserChoice()
     {
-        terminal.Clear();
-        terminal.WriteLine("");
-        
-        // Main header matching Pascal format
-        DisplayMessage($"-*- {HealerName} -*-", ConsoleColor.Magenta);
-        terminal.WriteLine("");
-        
-        // Description of Jadu The Fat
-        DisplayMessage($"{Manager} is sitting at his desk, reading a book.", ConsoleColor.Gray);
-        DisplayMessage("He is wearing a monks robe and a golden ring.", ConsoleColor.Gray);
-        terminal.WriteLine("");
-        
-        // Menu options
-        DisplayMessage("(H)eal Disease", ConsoleColor.White);
-        DisplayMessage("(C)ursed item removal", ConsoleColor.White);
-        DisplayMessage("(S)tatus", ConsoleColor.White);
-        DisplayMessage("(R)eturn to street", ConsoleColor.White);
-        terminal.WriteLine("");
-        
-        var promptText = GameEngine.Instance.CurrentPlayer.Expert ? 
-            "Healing Hut (H,C,R,S,?) :" : 
+        var prompt = GetCurrentPlayer().Expert ?
+            "Healing Hut (H,F,B,P,C,D,S,R,?) :" :
             "Healing Hut (? for menu) :";
-        DisplayMessage(promptText, ConsoleColor.Yellow);
+
+        terminal.SetColor("yellow");
+        return await terminal.GetInput(prompt);
     }
-    
-    private void ProcessDiseaseHealing()
+
+    private void ShowMenu()
     {
-        var player = GameEngine.Instance.CurrentPlayer;
+        terminal.SetColor("cyan");
+        terminal.WriteLine("Services Available:");
+        terminal.SetColor("white");
+        terminal.WriteLine("(H)eal HP          (F)ull Heal        (B)uy Potions");
+        terminal.WriteLine("(P)oison Cure      (C)ure Disease     (D)ecurse Item");
+        terminal.WriteLine("(S)tatus           (R)eturn to street");
         terminal.WriteLine("");
+    }
+
+    private void ShowFullMenu()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine($"-*- {HealerName} - Services -*-");
         terminal.WriteLine("");
-        
-        // Healer's greeting
-        DisplayMessage("\"Alright, let's have a look at you!\"", ConsoleColor.Cyan);
-        DisplayMessage($", {Manager} says.", ConsoleColor.Gray);
+
+        var player = GetCurrentPlayer();
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine("═══ Healing Services ═══");
+        terminal.SetColor("white");
+        terminal.WriteLine($"(H)eal HP        - Restore some HP ({FullHealCostPerHP} gold per HP)");
+        terminal.WriteLine($"(F)ull Heal      - Restore all HP (costs vary)");
+        terminal.WriteLine($"(B)uy Potions    - Purchase healing potions ({HealingPotionCost} gold each)");
+        terminal.WriteLine($"(P)oison Cure    - Remove poison ({PoisonCureCostPerLevel * player.Level:N0} gold)");
         terminal.WriteLine("");
-        
-        // Check for diseases and display them
-        var diseases = GetPlayerDiseases(player);
-        
-        if (diseases.Count == 0)
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine("═══ Disease Treatment ═══");
+        terminal.SetColor("white");
+        terminal.WriteLine($"(C)ure Disease   - Cure afflictions (cost varies by disease)");
+        terminal.WriteLine("                   Blindness: " + (BlindnessCostPerLevel * player.Level).ToString("N0") + " gold");
+        terminal.WriteLine("                   Plague:    " + (PlagueCostPerLevel * player.Level).ToString("N0") + " gold");
+        terminal.WriteLine("                   Smallpox:  " + (SmallpoxCostPerLevel * player.Level).ToString("N0") + " gold");
+        terminal.WriteLine("                   Measles:   " + (MeaslesCostPerLevel * player.Level).ToString("N0") + " gold");
+        terminal.WriteLine("                   Leprosy:   " + (LeprosyCostPerLevel * player.Level).ToString("N0") + " gold");
+        terminal.WriteLine("");
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine("═══ Other Services ═══");
+        terminal.SetColor("white");
+        terminal.WriteLine($"(D)ecurse Item   - Remove curse from equipment ({CursedItemCostPerLevel * player.Level:N0} gold)");
+        terminal.WriteLine("(S)tatus         - View your current health status");
+        terminal.WriteLine("(R)eturn         - Return to Main Street");
+        terminal.WriteLine("");
+    }
+
+    private void ShowPlayerHealthStatus()
+    {
+        var player = GetCurrentPlayer();
+
+        terminal.SetColor("gray");
+        terminal.Write("HP: ");
+
+        var hpPercent = (float)player.HP / player.MaxHP;
+        if (hpPercent >= 0.7f)
+            terminal.SetColor("green");
+        else if (hpPercent >= 0.3f)
+            terminal.SetColor("yellow");
+        else
+            terminal.SetColor("red");
+
+        terminal.Write($"{player.HP}/{player.MaxHP}");
+
+        terminal.SetColor("gray");
+        terminal.Write("  Gold: ");
+        terminal.SetColor("yellow");
+        terminal.Write($"{player.Gold:N0}");
+
+        terminal.SetColor("gray");
+        terminal.Write("  Potions: ");
+        terminal.SetColor("green");
+        terminal.WriteLine($"{player.Healing}");
+
+        // Show afflictions
+        var afflictions = new List<string>();
+        if (player.Poisoned) afflictions.Add("Poisoned");
+        if (player.Blind) afflictions.Add("Blind");
+        if (player.Plague) afflictions.Add("Plague");
+        if (player.Smallpox) afflictions.Add("Smallpox");
+        if (player.Measles) afflictions.Add("Measles");
+        if (player.Leprosy) afflictions.Add("Leprosy");
+
+        if (afflictions.Count > 0)
         {
-            DisplayMessage("No diseases found!", ConsoleColor.Green);
-            terminal.WriteLine("");
-            DisplayMessage("You are wasting my time!", ConsoleColor.Cyan);
-            DisplayMessage($", {Manager} says and returns to his desk.", ConsoleColor.Gray);
-            terminal.WriteLine("");
-            DisplayMessage("Press Enter to continue...", ConsoleColor.Yellow);
-            GetInput();
+            terminal.SetColor("red");
+            terminal.WriteLine($"Afflictions: {string.Join(", ", afflictions)}");
+        }
+
+        terminal.WriteLine("");
+    }
+
+    /// <summary>
+    /// Heal some HP for gold
+    /// </summary>
+    private async Task HealHP()
+    {
+        var player = GetCurrentPlayer();
+
+        terminal.WriteLine("");
+
+        if (player.HP >= player.MaxHP)
+        {
+            terminal.WriteLine($"\"{player.Name2}, you are already at full health!\"", "cyan");
+            terminal.WriteLine($", {Manager} says with a shrug.", "gray");
+            await terminal.PressAnyKey();
             return;
         }
-        
-        // Display available diseases to cure
-        DisplayMessage("Affecting Diseases", ConsoleColor.Magenta);
-        DisplayMessage("------------------", ConsoleColor.Magenta);
-        
+
+        long hpNeeded = player.MaxHP - player.HP;
+        long maxCost = hpNeeded * FullHealCostPerHP;
+
+        terminal.WriteLine($"\"How much HP would you like restored?\"", "cyan");
+        terminal.WriteLine($", {Manager} asks.", "gray");
+        terminal.WriteLine("");
+        terminal.WriteLine($"You need {hpNeeded} HP to be fully healed (costs {maxCost:N0} gold).", "gray");
+        terminal.WriteLine($"Cost is {FullHealCostPerHP} gold per HP restored.", "gray");
+        terminal.WriteLine("");
+
+        var input = await terminal.GetInput("How much HP to restore (0 to cancel)? ");
+
+        if (!long.TryParse(input, out long hpToHeal) || hpToHeal <= 0)
+        {
+            terminal.WriteLine("\"Come back when you need healing.\"", "cyan");
+            await Task.Delay(1000);
+            return;
+        }
+
+        // Cap at what they need
+        if (hpToHeal > hpNeeded)
+            hpToHeal = hpNeeded;
+
+        long cost = hpToHeal * FullHealCostPerHP;
+
+        if (player.Gold < cost)
+        {
+            terminal.WriteLine("You can't afford that much healing!", "red");
+            terminal.WriteLine($"You can afford up to {player.Gold / FullHealCostPerHP} HP.", "yellow");
+            await terminal.PressAnyKey();
+            return;
+        }
+
+        // Perform healing
+        player.Gold -= cost;
+        player.HP += (int)hpToHeal;
+        if (player.HP > player.MaxHP) player.HP = player.MaxHP;
+
+        terminal.WriteLine("");
+        terminal.WriteLine($"{Manager} places his hands on your wounds...", "gray");
+        await Task.Delay(1000);
+        terminal.WriteLine("A warm light flows through you!", "bright_green");
+        terminal.WriteLine($"You are healed for {hpToHeal} HP!", "green");
+        terminal.WriteLine($"Cost: {cost:N0} gold", "yellow");
+
+        await terminal.PressAnyKey();
+    }
+
+    /// <summary>
+    /// Full heal - restore all HP
+    /// </summary>
+    private async Task FullHeal()
+    {
+        var player = GetCurrentPlayer();
+
+        terminal.WriteLine("");
+
+        if (player.HP >= player.MaxHP)
+        {
+            terminal.WriteLine($"\"You are already at full health, {player.Name2}!\"", "cyan");
+            await terminal.PressAnyKey();
+            return;
+        }
+
+        long hpNeeded = player.MaxHP - player.HP;
+        long cost = hpNeeded * FullHealCostPerHP;
+
+        terminal.WriteLine($"\"A full restoration will cost you {cost:N0} gold.\"", "cyan");
+        terminal.WriteLine($", {Manager} says, examining your wounds.", "gray");
+        terminal.WriteLine("");
+
+        var confirm = await terminal.GetInput("Proceed with full healing (Y/N)? ");
+
+        if (confirm.ToUpper() != "Y")
+        {
+            terminal.WriteLine("\"As you wish.\"", "cyan");
+            await Task.Delay(1000);
+            return;
+        }
+
+        if (player.Gold < cost)
+        {
+            terminal.WriteLine("You can't afford it!", "red");
+            await terminal.PressAnyKey();
+            return;
+        }
+
+        // Perform full heal
+        player.Gold -= cost;
+        player.HP = player.MaxHP;
+
+        terminal.WriteLine("");
+        terminal.WriteLine($"{Manager} begins the healing ritual...", "gray");
+        await Task.Delay(500);
+        terminal.Write("...", "gray");
+        await Task.Delay(500);
+        terminal.Write("...", "gray");
+        await Task.Delay(500);
+        terminal.WriteLine("...", "gray");
+        terminal.WriteLine("");
+        terminal.WriteLine("Divine light washes over you!", "bright_yellow");
+        terminal.WriteLine("You are completely healed!", "bright_green");
+        terminal.WriteLine($"HP restored to {player.HP}/{player.MaxHP}", "green");
+
+        await terminal.PressAnyKey();
+    }
+
+    /// <summary>
+    /// Buy healing potions
+    /// </summary>
+    private async Task BuyPotions()
+    {
+        var player = GetCurrentPlayer();
+
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"\"Healing potions are {HealingPotionCost} gold each.\"");
+        terminal.WriteLine($", {Manager} says, gesturing to his shelf of vials.", "gray");
+        terminal.WriteLine("");
+
+        long maxAfford = player.Gold / HealingPotionCost;
+
+        terminal.WriteLine($"You currently have {player.Healing} healing potions.", "gray");
+        terminal.WriteLine($"You can afford up to {maxAfford} potions.", "gray");
+        terminal.WriteLine("");
+
+        var input = await terminal.GetInput("How many potions to buy (0 to cancel)? ");
+
+        if (!int.TryParse(input, out int quantity) || quantity <= 0)
+        {
+            terminal.WriteLine("\"Come back when you need supplies.\"", "cyan");
+            await Task.Delay(1000);
+            return;
+        }
+
+        long cost = quantity * HealingPotionCost;
+
+        if (player.Gold < cost)
+        {
+            terminal.WriteLine("You can't afford that many!", "red");
+            await terminal.PressAnyKey();
+            return;
+        }
+
+        // Purchase potions
+        player.Gold -= cost;
+        player.Healing += quantity;
+
+        terminal.WriteLine("");
+        terminal.WriteLine($"{Manager} hands you {quantity} healing potion{(quantity > 1 ? "s" : "")}.", "gray");
+        terminal.WriteLine($"You now have {player.Healing} healing potions.", "green");
+        terminal.WriteLine($"Cost: {cost:N0} gold", "yellow");
+
+        await terminal.PressAnyKey();
+    }
+
+    /// <summary>
+    /// Cure poison
+    /// </summary>
+    private async Task CurePoison()
+    {
+        var player = GetCurrentPlayer();
+
+        terminal.WriteLine("");
+        terminal.WriteLine($"\"Let me check for poison in your blood...\"", "cyan");
+        terminal.WriteLine($", {Manager} says, examining you carefully.", "gray");
+        terminal.WriteLine("");
+
+        await Task.Delay(1000);
+
+        if (!player.Poisoned)
+        {
+            terminal.WriteLine("\"You are not poisoned! Your blood is clean.\"", "green");
+            await terminal.PressAnyKey();
+            return;
+        }
+
+        long cost = PoisonCureCostPerLevel * player.Level;
+
+        terminal.WriteLine($"\"Ah yes, I can see the venom coursing through your veins.\"", "cyan");
+        terminal.WriteLine($"\"To purge this poison will cost {cost:N0} gold.\"", "cyan");
+        terminal.WriteLine("");
+
+        var confirm = await terminal.GetInput("Cure the poison (Y/N)? ");
+
+        if (confirm.ToUpper() != "Y")
+        {
+            terminal.WriteLine("\"Be careful, the poison will continue to harm you!\"", "yellow");
+            await Task.Delay(1500);
+            return;
+        }
+
+        if (player.Gold < cost)
+        {
+            terminal.WriteLine("You can't afford the antidote!", "red");
+            await terminal.PressAnyKey();
+            return;
+        }
+
+        // Cure poison
+        player.Gold -= cost;
+        player.Poison = 0;
+
+        terminal.WriteLine("");
+        terminal.WriteLine($"{Manager} mixes a glowing green antidote...", "gray");
+        await Task.Delay(1000);
+        terminal.WriteLine("You drink the bitter mixture...", "gray");
+        await Task.Delay(1000);
+        terminal.WriteLine("The poison is purged from your body!", "bright_green");
+        terminal.WriteLine("You are no longer poisoned!", "green");
+
+        await terminal.PressAnyKey();
+    }
+
+    /// <summary>
+    /// Cure diseases - from Pascal HEALERC.PAS
+    /// </summary>
+    private async Task CureDisease()
+    {
+        var player = GetCurrentPlayer();
+
+        terminal.WriteLine("");
+        terminal.WriteLine($"\"Alright, let's have a look at you!\"", "cyan");
+        terminal.WriteLine($", {Manager} says.", "gray");
+        terminal.WriteLine("");
+
+        // Check for diseases
+        var diseases = new Dictionary<string, (string Name, long Cost, Action Cure)>();
+
+        if (player.Blind)
+            diseases["B"] = ("Blindness", BlindnessCostPerLevel * player.Level, () => player.Blind = false);
+        if (player.Plague)
+            diseases["P"] = ("Plague", PlagueCostPerLevel * player.Level, () => player.Plague = false);
+        if (player.Smallpox)
+            diseases["S"] = ("Smallpox", SmallpoxCostPerLevel * player.Level, () => player.Smallpox = false);
+        if (player.Measles)
+            diseases["M"] = ("Measles", MeaslesCostPerLevel * player.Level, () => player.Measles = false);
+        if (player.Leprosy)
+            diseases["L"] = ("Leprosy", LeprosyCostPerLevel * player.Level, () => player.Leprosy = false);
+
+        if (diseases.Count == 0)
+        {
+            terminal.WriteLine("No diseases found!", "green");
+            terminal.WriteLine("");
+            terminal.WriteLine($"\"You are wasting my time!\"", "cyan");
+            terminal.WriteLine($", {Manager} says and returns to his desk.", "gray");
+            await terminal.PressAnyKey();
+            return;
+        }
+
+        // Display diseases
+        terminal.SetColor("magenta");
+        terminal.WriteLine("Affecting Diseases");
+        terminal.WriteLine("------------------");
+
+        long totalCost = 0;
         foreach (var disease in diseases)
         {
-            DisplayMessage($"({disease.Key}){disease.Value.Name}", ConsoleColor.Red);
+            terminal.SetColor("red");
+            terminal.WriteLine($"({disease.Key}){disease.Value.Name} - {disease.Value.Cost:N0} gold");
+            totalCost += disease.Value.Cost;
         }
-        
+
         terminal.WriteLine("");
-        DisplayMessage("(C)ure all, or corresponding letter", ConsoleColor.White);
-        DisplayMessage(":", ConsoleColor.White);
-        
-        // Get cure choice
-        var choice = GetValidCureChoice(diseases);
-        if (string.IsNullOrEmpty(choice)) return;
-        
-        ProcessCureChoice(choice, diseases, player);
-    }
-    
-    private Dictionary<string, DiseaseInfo> GetPlayerDiseases(Character player)
-    {
-        var diseases = new Dictionary<string, DiseaseInfo>();
-        
-        if (player.Blind)
-            diseases["B"] = new DiseaseInfo("Blindness", GameConfig.BlindnessCostMultiplier);
-        if (player.Plague)
-            diseases["P"] = new DiseaseInfo("Plague", GameConfig.PlagueCostMultiplier);
-        if (player.Smallpox)
-            diseases["S"] = new DiseaseInfo("Smallpox", GameConfig.SmallpoxCostMultiplier);
-        if (player.Measles)
-            diseases["M"] = new DiseaseInfo("Measles", GameConfig.MeaslesCostMultiplier);
-        if (player.Leprosy)
-            diseases["L"] = new DiseaseInfo("Leprosy", GameConfig.LeprosyCostMultiplier);
-            
-        return diseases;
-    }
-    
-    private string GetValidCureChoice(Dictionary<string, DiseaseInfo> diseases)
-    {
-        while (true)
+        terminal.SetColor("white");
+        terminal.WriteLine($"(C)ure all diseases - {totalCost:N0} gold");
+        terminal.WriteLine("");
+
+        var choice = await terminal.GetInput("Choose disease to cure (or C for all, R to cancel): ");
+        choice = choice.ToUpper().Trim();
+
+        if (choice == "R" || string.IsNullOrEmpty(choice))
         {
-            var input = GetInput().ToUpper();
-            
-            if (input == "C") return "C";
-            if (diseases.ContainsKey(input)) return input;
-            
-            // Invalid choice for non-existent disease
-            DisplayMessage("Invalid choice.", ConsoleColor.Red);
+            terminal.WriteLine("\"Come back when you're ready for treatment.\"", "cyan");
+            await Task.Delay(1000);
+            return;
         }
-    }
-    
-    private void ProcessCureChoice(string choice, Dictionary<string, DiseaseInfo> diseases, Character player)
-    {
-        terminal.WriteLine("");
-        
+
         if (choice == "C")
         {
-            ProcessCureAll(diseases, player);
+            // Cure all
+            terminal.WriteLine("");
+            terminal.WriteLine($"\"A complete healing process will cost you {totalCost:N0} gold.\"", "cyan");
+            terminal.WriteLine($", {Manager} says.", "gray");
+
+            var confirm = await terminal.GetInput("Go ahead and pay (Y/N)? ");
+            if (confirm.ToUpper() != "Y")
+            {
+                return;
+            }
+
+            if (player.Gold < totalCost)
+            {
+                terminal.WriteLine("You can't afford it!", "red");
+                await terminal.PressAnyKey();
+                return;
+            }
+
+            player.Gold -= totalCost;
+            foreach (var disease in diseases.Values)
+            {
+                disease.Cure();
+            }
+
+            await ShowHealingSequence();
+        }
+        else if (diseases.ContainsKey(choice))
+        {
+            // Cure single disease
+            var disease = diseases[choice];
+
+            terminal.WriteLine("");
+            terminal.WriteLine($"\"For healing {disease.Name} I want {disease.Cost:N0} gold.\"", "cyan");
+            terminal.WriteLine($", {Manager} says.", "gray");
+
+            var confirm = await terminal.GetInput("Go ahead and pay (Y/N)? ");
+            if (confirm.ToUpper() != "Y")
+            {
+                return;
+            }
+
+            if (player.Gold < disease.Cost)
+            {
+                terminal.WriteLine("You can't afford it!", "red");
+                await terminal.PressAnyKey();
+                return;
+            }
+
+            player.Gold -= disease.Cost;
+            disease.Cure();
+
+            await ShowHealingSequence();
         }
         else
         {
-            ProcessSingleCure(choice, diseases[choice], player);
+            terminal.WriteLine("Invalid choice.", "red");
+            await Task.Delay(1000);
         }
     }
-    
-    private void ProcessSingleCure(string diseaseKey, DiseaseInfo disease, Character player)
+
+    /// <summary>
+    /// Pascal healing sequence with delays
+    /// </summary>
+    private async Task ShowHealingSequence()
     {
-        long cost = disease.CostMultiplier * player.Level;
-        
-        // Display cost
-        DisplayMessage($"For healing {disease.Name} I want ", ConsoleColor.Gray);
-        DisplayMessage($"{cost:N0}", ConsoleColor.Yellow);
-        DisplayMessage($" {GameConfig.MoneyType}, {Manager} says.", ConsoleColor.Gray);
         terminal.WriteLine("");
-        
-        if (!ConfirmPurchase("Go ahead and pay")) return;
-        
-        if (player.Gold < cost)
-        {
-            terminal.WriteLine("");
-            DisplayMessage("You can't afford it!", ConsoleColor.Red);
-            terminal.WriteLine("");
-            DisplayMessage("Press Enter to continue...", ConsoleColor.Yellow);
-            GetInput();
-            return;
-        }
-        
-        // Process the cure
-        terminal.WriteLine("");
-        player.Gold -= cost;
-        CureDisease(diseaseKey, player);
-        ProcessHealingSequence(player);
-    }
-    
-    private void ProcessCureAll(Dictionary<string, DiseaseInfo> diseases, Character player)
-    {
-        long totalCost = 0;
-        foreach (var disease in diseases.Values)
-        {
-            totalCost += disease.CostMultiplier * player.Level;
-        }
-        
-        DisplayMessage($"A complete healing process will cost you ", ConsoleColor.Gray);
-        DisplayMessage($"{totalCost:N0}", ConsoleColor.Yellow);
-        DisplayMessage($" {GameConfig.MoneyType}, {Manager} says.", ConsoleColor.Gray);
-        terminal.WriteLine("");
-        
-        if (!ConfirmPurchase("Go ahead and pay")) return;
-        
-        if (player.Gold < totalCost)
-        {
-            terminal.WriteLine("");
-            DisplayMessage("You can't afford it!", ConsoleColor.Red);
-            terminal.WriteLine("");
-            DisplayMessage("Press Enter to continue...", ConsoleColor.Yellow);
-            GetInput();
-            return;
-        }
-        
-        // Process cure all
-        terminal.WriteLine("");
-        player.Gold -= totalCost;
-        
-        // Cure all diseases
-        player.Blind = false;
-        player.Plague = false;
-        player.Smallpox = false;
-        player.Measles = false;
-        player.Leprosy = false;
-        
-        ProcessHealingSequence(player);
-    }
-    
-    private void CureDisease(string diseaseKey, Character player)
-    {
-        switch (diseaseKey)
-        {
-            case "B": player.Blind = false; break;
-            case "P": player.Plague = false; break;
-            case "S": player.Smallpox = false; break;
-            case "M": player.Measles = false; break;
-            case "L": player.Leprosy = false; break;
-        }
-    }
-    
-    private void ProcessHealingSequence(Character player)
-    {
-        // Pascal healing sequence with delays
-        DisplayMessage($"You give {Manager} the {GameConfig.MoneyType}. He tells you to lay down on a", ConsoleColor.Gray);
-        DisplayMessage("bed, in a room nearby.", ConsoleColor.Gray);
-        DisplayMessage("You soon fall asleep", ConsoleColor.Gray);
-        
-        // Animated dots
+        terminal.SetColor("gray");
+        terminal.WriteLine($"You give {Manager} the gold. He tells you to lay down on a");
+        terminal.WriteLine("bed, in a room nearby.");
+        terminal.Write("You soon fall asleep");
+
         for (int i = 0; i < 4; i++)
         {
-            System.Threading.Thread.Sleep(GameConfig.HealingDelayShort);
-            DisplayMessage("...", ConsoleColor.Gray);
+            await Task.Delay(800);
+            terminal.Write("...");
         }
-        
+
         terminal.WriteLine("");
-        DisplayMessage("When you wake up from your well earned sleep, you feel", ConsoleColor.Gray);
-        DisplayMessage("much stronger than before!", ConsoleColor.Gray);
-        DisplayMessage($"You walk out to {Manager}...", ConsoleColor.Gray);
-        
-        // News entry (simplified)
-        GenerateHealerNews(player);
-        
         terminal.WriteLine("");
-        DisplayMessage("Press Enter to continue...", ConsoleColor.Yellow);
-        GetInput();
+        terminal.WriteLine("When you wake up from your well earned sleep, you feel", "gray");
+        terminal.WriteLine("much stronger than before!", "green");
+        terminal.WriteLine($"You walk out to {Manager}...", "gray");
+
+        await terminal.PressAnyKey();
     }
-    
-    private void ProcessCursedItemRemoval()
+
+    /// <summary>
+    /// Remove cursed items
+    /// </summary>
+    private async Task RemoveCursedItem()
     {
-        var player = GameEngine.Instance.CurrentPlayer;
-        
+        var player = GetCurrentPlayer();
+
         terminal.WriteLine("");
+        terminal.WriteLine($"\"Alright, let's have a look at your equipment!\"", "cyan");
+        terminal.WriteLine($", {Manager} says.", "gray");
         terminal.WriteLine("");
-        DisplayMessage("Alright, let's have a look at you!", ConsoleColor.Cyan);
-        DisplayMessage($", {Manager} says.", ConsoleColor.Gray);
-        terminal.WriteLine("");
-        
-        var cursedItems = FindCursedItems(player);
-        
+
+        // Check equipped items for curses using the equipment slots
+        var cursedItems = new List<(string Name, string SlotName, Action RemoveAction)>();
+
+        // Check weapon (RHand slot)
+        if (player.RHand > 0 && player.WeaponCursed)
+        {
+            cursedItems.Add((player.WeaponName ?? "Weapon", "weapon", () =>
+            {
+                player.RHand = 0;
+                player.WeaponCursed = false;
+            }));
+        }
+        // Check armor (Body slot)
+        if (player.Body > 0 && player.ArmorCursed)
+        {
+            cursedItems.Add((player.ArmorName ?? "Armor", "armor", () =>
+            {
+                player.Body = 0;
+                player.ArmorCursed = false;
+            }));
+        }
+        // Check shield (Shield slot)
+        if (player.Shield > 0 && player.ShieldCursed)
+        {
+            cursedItems.Add(("Shield", "shield", () =>
+            {
+                player.Shield = 0;
+                player.ShieldCursed = false;
+            }));
+        }
+
         if (cursedItems.Count == 0)
         {
-            DisplayMessage("Your equipment is alright!", ConsoleColor.Cyan);
+            terminal.WriteLine($"\"Your equipment is alright!\"", "cyan");
+            terminal.WriteLine($"{Manager} nods approvingly.", "gray");
+            await terminal.PressAnyKey();
             return;
         }
-        
-        // Process each cursed item
-        foreach (var cursedItem in cursedItems)
+
+        long cost = CursedItemCostPerLevel * player.Level;
+
+        foreach (var item in cursedItems)
         {
-            ProcessCursedItemRemoval(cursedItem, player);
+            terminal.WriteLine($"Your {item.Name} is CURSED!", "red");
+            terminal.WriteLine($"\"It will cost {cost:N0} gold to remove the curse.\"", "cyan");
+            terminal.WriteLine("WARNING: The item will be destroyed in the process!", "yellow");
+            terminal.WriteLine("");
+
+            var confirm = await terminal.GetInput("Remove the curse (Y/N)? ");
+
+            if (confirm.ToUpper() == "Y")
+            {
+                if (player.Gold < cost)
+                {
+                    terminal.WriteLine("You can't afford it!", "red");
+                    continue;
+                }
+
+                player.Gold -= cost;
+
+                terminal.WriteLine("");
+                terminal.WriteLine($"{Manager} recites some strange spells...", "gray");
+                await Task.Delay(500);
+                terminal.Write("...", "gray");
+                await Task.Delay(500);
+                terminal.Write("...", "gray");
+                await Task.Delay(500);
+                terminal.WriteLine("...", "gray");
+                terminal.WriteLine("");
+                terminal.WriteLine("Suddenly!", "bright_yellow");
+                terminal.WriteLine($"The {item.Name} disintegrates!", "red");
+                terminal.WriteLine("");
+                terminal.WriteLine($"{Manager} smiles at you. You pay the old man for", "gray");
+                terminal.WriteLine("his well performed service.", "gray");
+
+                // Remove the cursed item
+                item.RemoveAction();
+            }
         }
+
+        await terminal.PressAnyKey();
     }
-    
-    private List<CursedItemInfo> FindCursedItems(Character player)
+
+    /// <summary>
+    /// Display full player status
+    /// </summary>
+    private async Task DisplayPlayerStatus()
     {
-        var cursedItems = new List<CursedItemInfo>();
-        
-        // Check all equipped items for cursed status
-        // This would need to be integrated with the actual item system
-        // For now, we'll simulate the Pascal behavior
-        
-        // TODO: Integrate with actual item system when cursed items are implemented
-        // For now, return empty list to match "Your equipment is alright!" message
-        
-        return cursedItems;
-    }
-    
-    private void ProcessCursedItemRemoval(CursedItemInfo cursedItem, Character player)
-    {
-        long cost = GameConfig.CursedItemRemovalMultiplier * player.Level;
-        
-        DisplayMessage($"Your {cursedItem.Name} is cursed.", ConsoleColor.Gray);
-        DisplayMessage($"For uncursing this item I want {cost:N0} {GameConfig.MoneyType}, {Manager} says.", ConsoleColor.Gray);
+        var player = GetCurrentPlayer();
+
+        terminal.ClearScreen();
+        terminal.SetColor("cyan");
+        terminal.WriteLine("═══════════════════════════════════════════");
+        terminal.WriteLine("             YOUR HEALTH STATUS            ");
+        terminal.WriteLine("═══════════════════════════════════════════");
         terminal.WriteLine("");
-        
-        if (!ConfirmPurchase("Go ahead and pay")) return;
-        
-        if (player.Gold < cost)
+
+        terminal.SetColor("white");
+        terminal.WriteLine($"Name:  {player.Name2}");
+        terminal.WriteLine($"Class: {player.Class}  Race: {player.Race}");
+        terminal.WriteLine($"Level: {player.Level}");
+        terminal.WriteLine("");
+
+        // HP Bar
+        terminal.Write("HP:    ");
+        var hpPercent = (float)player.HP / player.MaxHP;
+        if (hpPercent >= 0.7f) terminal.SetColor("green");
+        else if (hpPercent >= 0.3f) terminal.SetColor("yellow");
+        else terminal.SetColor("red");
+        terminal.Write($"{player.HP}/{player.MaxHP}");
+        terminal.SetColor("gray");
+        terminal.WriteLine($"  ({hpPercent * 100:F0}%)");
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine($"Gold:  {player.Gold:N0}");
+
+        terminal.SetColor("green");
+        terminal.WriteLine($"Healing Potions: {player.Healing}");
+        terminal.WriteLine("");
+
+        // Afflictions
+        terminal.SetColor("magenta");
+        terminal.WriteLine("Affecting Diseases:");
+        terminal.WriteLine("=-=-=-=-=-=-=-=-=-=");
+
+        bool hasAffliction = false;
+
+        if (player.Poisoned)
+        {
+            terminal.WriteLine("*POISONED* - Losing HP each day!", "red");
+            hasAffliction = true;
+        }
+        if (player.Blind)
+        {
+            terminal.WriteLine("*Blindness* - Reduced accuracy", "red");
+            hasAffliction = true;
+        }
+        if (player.Plague)
+        {
+            terminal.WriteLine("*Plague* - Severe stat penalties", "red");
+            hasAffliction = true;
+        }
+        if (player.Smallpox)
+        {
+            terminal.WriteLine("*Smallpox* - Weakened constitution", "red");
+            hasAffliction = true;
+        }
+        if (player.Measles)
+        {
+            terminal.WriteLine("*Measles* - Reduced abilities", "red");
+            hasAffliction = true;
+        }
+        if (player.Leprosy)
+        {
+            terminal.WriteLine("*Leprosy* - Severe debilitation", "red");
+            hasAffliction = true;
+        }
+
+        if (!hasAffliction)
         {
             terminal.WriteLine("");
-            DisplayMessage("You can't afford it!", ConsoleColor.Red);
-            return;
+            terminal.WriteLine("You are not infected!", "green");
+            terminal.WriteLine("Stay healthy!", "green");
         }
-        
-        // Remove curse - item disintegrates in Pascal
+
         terminal.WriteLine("");
-        DisplayMessage("Suddenly!", ConsoleColor.Yellow);
-        DisplayMessage($"the {cursedItem.Name} disintegrates!", ConsoleColor.Gray);
         terminal.WriteLine("");
-        DisplayMessage($"{Manager} smiles at you. You pay the old man for", ConsoleColor.Gray);
-        DisplayMessage("his well performed service.", ConsoleColor.Gray);
-        terminal.WriteLine("");
-        
-        player.Gold -= cost;
-        // TODO: Remove the actual cursed item from inventory
+        await terminal.PressAnyKey();
     }
-    
-    private void DisplayPlayerStatus()
-    {
-        var player = GameEngine.Instance.CurrentPlayer;
-        terminal.WriteLine("");
-        
-        DisplayMessage("═══ Your Status ═══", ConsoleColor.Cyan);
-        DisplayMessage($"Name: {player.DisplayName}", ConsoleColor.White);
-        DisplayMessage($"Level: {player.Level}", ConsoleColor.White);
-        DisplayMessage($"HP: {player.HP}/{player.MaxHP}", ConsoleColor.Red);
-        DisplayMessage($"Gold: {player.Gold:N0}", ConsoleColor.Yellow);
-        terminal.WriteLine("");
-        
-        // Disease status
-        DisplayMessage("Affecting Diseases:", ConsoleColor.Magenta);
-        DisplayMessage("=-=-=-=-=-=-=-=-=-=", ConsoleColor.Magenta);
-        
-        bool hasDisease = false;
-        if (player.Blind) { DisplayMessage("*Blindness*", ConsoleColor.Red); hasDisease = true; }
-        if (player.Plague) { DisplayMessage("*Plague*", ConsoleColor.Red); hasDisease = true; }
-        if (player.Smallpox) { DisplayMessage("*Smallpox*", ConsoleColor.Red); hasDisease = true; }
-        if (player.Measles) { DisplayMessage("*Measles*", ConsoleColor.Red); hasDisease = true; }
-        if (player.Leprosy) { DisplayMessage("*Leprosy*", ConsoleColor.Red); hasDisease = true; }
-        
-        if (!hasDisease)
-        {
-            terminal.WriteLine("");
-            DisplayMessage("You are not infected!", ConsoleColor.Green);
-            DisplayMessage("Stay healthy!", ConsoleColor.Green);
-        }
-        
-        terminal.WriteLine("");
-        terminal.WriteLine("");
-        DisplayMessage("Press Enter to continue...", ConsoleColor.Yellow);
-        GetInput();
-    }
-    
-    private bool ConfirmPurchase(string prompt)
-    {
-        DisplayMessage($"{prompt} (Y/N)? ", ConsoleColor.Yellow);
-        var response = GetInput().ToUpper();
-        return response == "Y" || response == "YES";
-    }
-    
-    private void GenerateHealerNews(Character player)
-    {
-        // Simple news generation matching Pascal format
-        // In a full implementation, this would integrate with the news system
-        GD.Print($"NEWS: {player.DisplayName} spent some time with {Manager}, the healer.");
-        GD.Print($"NEWS: {player.DisplayName} paid to get rid of some annoying diseases...");
-    }
-    
-    private void ReturnToMainStreet()
-    {
-        terminal.WriteLine("");
-        LocationManager.Instance.ChangeLocation("MainStreetLocation");
-    }
-    
-    // Helper classes
-    private class DiseaseInfo
-    {
-        public string Name { get; set; }
-        public int CostMultiplier { get; set; }
-        
-        public DiseaseInfo(string name, int costMultiplier)
-        {
-            Name = name;
-            CostMultiplier = costMultiplier;
-        }
-    }
-    
-    private class CursedItemInfo
-    {
-        public string Name { get; set; }
-        public int ItemId { get; set; }
-        
-        public CursedItemInfo(string name, int itemId)
-        {
-            Name = name;
-            ItemId = itemId;
-        }
-    }
-} 
+}

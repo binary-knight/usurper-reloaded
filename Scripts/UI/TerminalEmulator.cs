@@ -117,18 +117,27 @@ public partial class TerminalEmulator : Control
     }
 
     /// <summary>
-    /// Convert simplified [colorname]text[/] format to Godot BBCode [color=colorname]text[/color]
+    /// Convert simplified [colorname]text[/] format to Godot BBCode [color=#hex]text[/color]
     /// This allows combat messages to use simple color codes that work in both Godot and console modes
     /// </summary>
     private string ConvertSimplifiedColorToBBCode(string text)
     {
         if (string.IsNullOrEmpty(text)) return text;
 
-        // Replace [colorname] with [color=colorname]
+        // Replace [colorname] with [color=#hex] using actual hex values from ansiColors
         text = System.Text.RegularExpressions.Regex.Replace(
             text,
             @"\[([a-z_]+)\]",
-            "[color=$1]"
+            match =>
+            {
+                string colorName = match.Groups[1].Value;
+                if (ansiColors.TryGetValue(colorName, out Color color))
+                {
+                    return $"[color=#{color.ToHtml()}]";
+                }
+                // Fallback to white if color not found
+                return $"[color=#{ansiColors["white"].ToHtml()}]";
+            }
         );
 
         // Replace [/] with [/color]
