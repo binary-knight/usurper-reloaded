@@ -77,7 +77,7 @@ public class LocationManager
         locations[GameLocation.Master] = new UsurperRemake.Locations.LevelMasterLocation();
         locations[GameLocation.DarkAlley] = new UsurperRemake.Locations.DarkAlleyLocation();
         locations[GameLocation.AnchorRoad] = new AnchorRoadLocation();
-        locations[GameLocation.TeamCorner] = new PlaceholderLocation(GameLocation.TeamCorner, "Team Corner", "Where groups gather to plan their strategies.");
+        locations[GameLocation.TeamCorner] = new TeamCornerLocation();
         locations[GameLocation.Recruit] = new UsurperRemake.Locations.HallOfRecruitmentLocation();
         locations[GameLocation.Dormitory] = new UsurperRemake.Locations.DormitoryLocation();
         locations[GameLocation.Temple] = new TempleLocation(terminal, this, UsurperRemake.GodSystemSingleton.Instance);

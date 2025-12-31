@@ -1597,14 +1597,17 @@ public class DungeonLocation : BaseLocation
 
         if (int.TryParse(input, out int index) && index >= 1 && index <= teammates.Count)
         {
-            var npc = teammates[index - 1];
+            var member = teammates[index - 1];
             teammates.RemoveAt(index - 1);
 
-            // Move NPC back to town
-            npc.UpdateLocation("Main Street");
+            // Move NPC back to town (cast to NPC if applicable)
+            if (member is NPC npc)
+            {
+                npc.UpdateLocation("Main Street");
+            }
 
             terminal.SetColor("yellow");
-            terminal.WriteLine($"{npc.DisplayName} leaves the dungeon party and returns to town.");
+            terminal.WriteLine($"{member.DisplayName} leaves the dungeon party and returns to town.");
         }
         else
         {
