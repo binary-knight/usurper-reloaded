@@ -47,6 +47,7 @@ public class MainStreetLocation : BaseLocation
             "Good Deeds",          // (G)ood Deeds
             "Evil Deeds",          // (E)vil Deeds
             "News",                // (N)ews
+            "World Events",        // ($) World Events
             "List Characters",     // (L)ist Characters
             "Fame",                // (F)ame
             "Relations",           // (R)elations
@@ -307,6 +308,44 @@ public class MainStreetLocation : BaseLocation
         terminal.SetColor("white");
         terminal.WriteLine("ist Citizens");
 
+        // Row 6 - Combat & Social
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("red");
+        terminal.Write("U");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write(" Assault    ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("magenta");
+        terminal.Write("Z");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write(" Team Area  ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("magenta");
+        terminal.Write("R");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("elations");
+
+        // Row 7 - Shady Areas
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_red");
+        terminal.Write("Y");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("gray");
+        terminal.WriteLine(" Dark Alle(Y) - Shady district");
+
         terminal.WriteLine("");
         terminal.SetColor("bright_cyan");
         terminal.WriteLine("╚═════════════════════════════════════════════════════════════════════════════╝");
@@ -387,6 +426,10 @@ public class MainStreetLocation : BaseLocation
                 var newsLocation = new NewsLocation();
                 await newsLocation.EnterLocation(currentPlayer, terminal);
                 return false; // Stay in main street after returning from news
+
+            case "$":
+                await ShowWorldEvents();
+                return false;
                 
             case "Z":
                 await NavigateToTeamCorner();
@@ -433,7 +476,11 @@ public class MainStreetLocation : BaseLocation
             case "O":
                 await NavigateToLocation(GameLocation.Church);
                 return true;
-                
+
+            case "U":
+                await AttackSomeone();
+                return false;
+
             case "Y":
                 terminal.WriteLine("You head to the Dark Alley...", "gray");
                 await Task.Delay(1500);
@@ -873,7 +920,113 @@ public class MainStreetLocation : BaseLocation
         terminal.WriteLine("Item transfer system not yet implemented.", "gray");
         await Task.Delay(1500);
     }
-    
+
+    /// <summary>
+    /// Attack another character in the current location
+    /// </summary>
+    private async Task AttackSomeone()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_red");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║                          ATTACK SOMEONE                                      ║");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+
+        // Get NPCs in the area
+        var allNPCs = NPCSpawnSystem.Instance.ActiveNPCs ?? new List<NPC>();
+        var npcsInArea = allNPCs
+            .Where(n => n.IsAlive &&
+                       (n.CurrentLocation?.Equals("Main Street", StringComparison.OrdinalIgnoreCase) == true ||
+                        n.CurrentLocation?.Equals("MainStreet", StringComparison.OrdinalIgnoreCase) == true))
+            .Take(10)
+            .ToList();
+
+        // Add some random targets if no NPCs found
+        if (npcsInArea.Count == 0)
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("  There's no one around to attack right now.");
+            terminal.WriteLine("");
+            await terminal.PressAnyKey();
+            return;
+        }
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine("  Who do you want to attack?");
+        terminal.WriteLine("");
+
+        terminal.SetColor("white");
+        for (int i = 0; i < npcsInArea.Count; i++)
+        {
+            var npc = npcsInArea[i];
+            terminal.SetColor("cyan");
+            terminal.Write($"  [{i + 1}] ");
+            terminal.SetColor("white");
+            terminal.Write($"{npc.Name}");
+            terminal.SetColor("gray");
+            terminal.WriteLine($" - Level {npc.Level} {npc.Class}");
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("gray");
+        terminal.WriteLine("  [0] Cancel");
+        terminal.WriteLine("");
+
+        string choice = await terminal.GetInput("Attack who? ");
+
+        if (int.TryParse(choice, out int targetIndex) && targetIndex >= 1 && targetIndex <= npcsInArea.Count)
+        {
+            var target = npcsInArea[targetIndex - 1];
+
+            terminal.SetColor("red");
+            terminal.WriteLine($"\n  You approach {target.Name} with hostile intent!");
+            await Task.Delay(1000);
+
+            // Warn about consequences
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"\n  Warning: Attacking citizens increases your Darkness!");
+            terminal.WriteLine($"  Are you sure? (Y/N)");
+
+            string confirm = (await terminal.GetKeyInput()).ToUpperInvariant();
+
+            if (confirm == "Y")
+            {
+                // Attack!
+                var encounterResult = await StreetEncounterSystem.Instance.AttackCharacter(
+                    currentPlayer, target, terminal);
+
+                // Increase darkness for unprovoked attack
+                currentPlayer.Darkness += 15;
+
+                if (encounterResult.Victory)
+                {
+                    terminal.SetColor("green");
+                    terminal.WriteLine($"\n  You defeated {target.Name}!");
+                    currentPlayer.PKills++;
+                }
+                else
+                {
+                    terminal.SetColor("red");
+                    terminal.WriteLine($"\n  {target.Name} got the better of you...");
+                    currentPlayer.PDefeats++;
+                }
+            }
+            else
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine("\n  You decide against it.");
+            }
+        }
+        else
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("\n  You change your mind.");
+        }
+
+        await Task.Delay(1500);
+    }
+
     private async Task QuitGame()
     {
         terminal.SetColor("yellow");
@@ -1494,5 +1647,16 @@ public class MainStreetLocation : BaseLocation
         await MailSystem.ReadPlayerMail(currentPlayer.Name2, terminal);
         terminal.WriteLine("Press ENTER to return to Main Street.", "gray");
         await terminal.GetInput("");
+    }
+
+    /// <summary>
+    /// Show current world events affecting the realm
+    /// </summary>
+    private async Task ShowWorldEvents()
+    {
+        terminal.ClearScreen();
+        WorldEventSystem.Instance.DisplayWorldStatus(terminal);
+        terminal.WriteLine("");
+        await terminal.PressAnyKey("Press any key to continue...");
     }
 } 

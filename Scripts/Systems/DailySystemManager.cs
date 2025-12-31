@@ -432,100 +432,63 @@ public class DailySystemManager
     private async Task ProcessDailyEvents()
     {
         var terminal = GameEngine.Instance?.Terminal;
-        
-        // Daily news and events
-        var events = new[]
-        {
-            "The town crier announces the daily news.",
-            "Merchants restock their wares for the new day.",
-            "Guards begin their morning patrol routes.",
-            "The tavern keeper opens for another day of business.",
-            "Adventurers gather in the town square.",
-            "The sun rises over the kingdom.",
-            "Birds chirp as the day begins.",
-            "The church bells ring to mark the new day."
-        };
-        
-        if (terminal != null && GD.Randf() < 0.7f) // 70% chance for daily flavor text
-        {
-            var randomEvent = events[GD.RandRange(0, events.Length - 1)];
-            terminal.WriteLine($"Morning News: {randomEvent}", "cyan");
-            terminal.WriteLine("", "white");
-        }
-        
+
+        // Process World Event System - this handles all major events
+        await WorldEventSystem.Instance.ProcessDailyEvents(currentDay);
+
         // Special events based on day number
         if (currentDay % 7 == 0) // Weekly events
         {
             await ProcessWeeklyEvent();
         }
-        
+
         if (currentDay % 30 == 0) // Monthly events
         {
             await ProcessMonthlyEvent();
-        }
-        
-        // Check for random special events
-        if (GD.Randf() < 0.15f) // 15% chance
-        {
-            await ProcessRandomDailyEvent();
         }
     }
     
     private async Task ProcessWeeklyEvent()
     {
-        var terminal = GameEngine.Instance?.Terminal;
-        var weeklyEvents = new[]
+        // Force a festival or market event on weekly intervals
+        var worldEvents = WorldEventSystem.Instance;
+        var roll = GD.RandRange(0, 2);
+        switch (roll)
         {
-            "Market Day: All merchants have special deals!",
-            "Tournament Day: The arena hosts special competitions!",
-            "Festival Day: The town celebrates with reduced prices!",
-            "Guard Day: Extra security patrols the streets.",
-            "Scholar Day: The library offers wisdom to all seekers."
-        };
-        
-        var eventText = weeklyEvents[GD.RandRange(0, weeklyEvents.Length - 1)];
-        terminal?.WriteLine($"Weekly Event: {eventText}", "bright_magenta");
-        terminal?.WriteLine("", "white");
+            case 0:
+                worldEvents.ForceEvent(WorldEventSystem.EventType.TournamentDay, currentDay);
+                break;
+            case 1:
+                worldEvents.ForceEvent(WorldEventSystem.EventType.MerchantCaravan, currentDay);
+                break;
+            case 2:
+                worldEvents.ForceEvent(WorldEventSystem.EventType.HarvestFestival, currentDay);
+                break;
+        }
+        await Task.CompletedTask;
     }
-    
+
     private async Task ProcessMonthlyEvent()
     {
-        var terminal = GameEngine.Instance?.Terminal;
-        var monthlyEvents = new[]
+        // Force a major event on monthly intervals (usually king's decree or war-related)
+        var worldEvents = WorldEventSystem.Instance;
+        var roll = GD.RandRange(0, 3);
+        switch (roll)
         {
-            "Royal Decree: The king announces new policies!",
-            "Grand Festival: The entire kingdom celebrates!",
-            "Dungeon Awakening: Ancient evils stir in the depths!",
-            "Merchant Caravan: Exotic goods arrive from distant lands!",
-            "Mystical Convergence: Magic flows stronger today!"
-        };
-        
-        var eventText = monthlyEvents[GD.RandRange(0, monthlyEvents.Length - 1)];
-        terminal?.WriteLine($"MONTHLY EVENT: {eventText}", "bright_red");
-        terminal?.WriteLine("", "white");
-    }
-    
-    private async Task ProcessRandomDailyEvent()
-    {
-        var terminal = GameEngine.Instance?.Terminal;
-        var player = GameEngine.Instance?.CurrentPlayer;
-        
-        var randomEvents = new[]
-        {
-            "You find a small pouch of gold on the ground!",
-            "A mysterious stranger shares a healing potion with you!",
-            "You feel particularly energetic today!",
-            "A sage shares words of wisdom with you.",
-            "You have a moment of clarity about your goals."
-        };
-        
-        var randomEvent = randomEvents[GD.RandRange(0, randomEvents.Length - 1)];
-        terminal?.WriteLine($"Random Event: {randomEvent}", "bright_cyan");
-        
-        if (terminal != null)
-        {
-            await terminal.PressAnyKey("Press any key to continue...");
+            case 0:
+                worldEvents.ForceEvent(WorldEventSystem.EventType.KingFestivalDecree, currentDay);
+                break;
+            case 1:
+                worldEvents.ForceEvent(WorldEventSystem.EventType.KingBounty, currentDay);
+                break;
+            case 2:
+                worldEvents.ForceEvent(WorldEventSystem.EventType.GoldRush, currentDay);
+                break;
+            case 3:
+                worldEvents.ForceEvent(WorldEventSystem.EventType.AncientRelicFound, currentDay);
+                break;
         }
+        await Task.CompletedTask;
     }
     
     public string GetTimeStatus()

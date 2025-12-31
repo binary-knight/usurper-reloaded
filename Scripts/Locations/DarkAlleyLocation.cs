@@ -2,12 +2,14 @@ using Godot;
 using System;
 using System.Threading.Tasks;
 using UsurperRemake.Utils;
+using UsurperRemake.Systems;
 
 namespace UsurperRemake.Locations
 {
     /// <summary>
     /// Dark Alley – the shady district featuring black-market style services.
     /// Inspired by SHADY.PAS from the original Usurper.
+    /// Shady shops: Evil characters get discounts, good characters pay more.
     /// </summary>
     public class DarkAlleyLocation : BaseLocation
     {
@@ -19,6 +21,32 @@ namespace UsurperRemake.Locations
         protected override void SetupLocation()
         {
             PossibleExits.Add(GameLocation.MainStreet);
+        }
+
+        public override async Task EnterLocation(Character player, TerminalEmulator term)
+        {
+            // Check if Dark Alley is accessible due to world events (e.g., Martial Law)
+            var (accessible, reason) = WorldEventSystem.Instance.IsLocationAccessible("Dark Alley");
+            if (!accessible)
+            {
+                term.SetColor("bright_red");
+                term.WriteLine("");
+                term.WriteLine("═══════════════════════════════════════");
+                term.WriteLine("          ACCESS DENIED");
+                term.WriteLine("═══════════════════════════════════════");
+                term.WriteLine("");
+                term.SetColor("red");
+                term.WriteLine(reason);
+                term.WriteLine("");
+                term.SetColor("yellow");
+                term.WriteLine("Guards block the entrance to the Dark Alley.");
+                term.WriteLine("You must return when martial law is lifted.");
+                term.WriteLine("");
+                await term.PressAnyKey("Press any key to return...");
+                throw new LocationExitException(GameLocation.MainStreet);
+            }
+
+            await base.EnterLocation(player, term);
         }
 
         protected override async Task<bool> ProcessChoice(string choice)
@@ -68,6 +96,27 @@ namespace UsurperRemake.Locations
                                 "between crooked doorways.");
             terminal.WriteLine("");
 
+            // Show alignment reaction in shady area
+            var alignment = AlignmentSystem.Instance.GetAlignment(currentPlayer);
+            var (alignText, alignColor) = AlignmentSystem.Instance.GetAlignmentDisplay(currentPlayer);
+            var priceModifier = AlignmentSystem.Instance.GetPriceModifier(currentPlayer, isShadyShop: true);
+
+            if (alignment == AlignmentSystem.AlignmentType.Holy || alignment == AlignmentSystem.AlignmentType.Good)
+            {
+                terminal.SetColor("yellow");
+                terminal.WriteLine("The vendors eye you suspiciously. Your virtuous aura doesn't belong here.");
+                terminal.SetColor("red");
+                terminal.WriteLine($"  Prices are {(int)((priceModifier - 1.0f) * 100)}% higher for someone of {alignText} alignment.");
+            }
+            else if (alignment == AlignmentSystem.AlignmentType.Dark || alignment == AlignmentSystem.AlignmentType.Evil)
+            {
+                terminal.SetColor("bright_magenta");
+                terminal.WriteLine("The shady merchants nod in recognition. You're one of them.");
+                terminal.SetColor("bright_green");
+                terminal.WriteLine($"  You receive a {(int)((1.0f - priceModifier) * 100)}% discount as a fellow {alignText} soul.");
+            }
+            terminal.WriteLine("");
+
             terminal.SetColor("yellow");
             terminal.WriteLine("Shady establishments:");
             terminal.SetColor("green");
@@ -85,11 +134,22 @@ namespace UsurperRemake.Locations
 
         #region Individual shop handlers
 
+        /// <summary>
+        /// Get adjusted price for shady shop purchases (alignment + world events)
+        /// </summary>
+        private long GetAdjustedPrice(long basePrice)
+        {
+            var alignmentModifier = AlignmentSystem.Instance.GetPriceModifier(currentPlayer, isShadyShop: true);
+            var worldEventModifier = WorldEventSystem.Instance.GlobalPriceModifier;
+            return (long)(basePrice * alignmentModifier * worldEventModifier);
+        }
+
         private async Task VisitDrugPalace()
         {
             terminal.WriteLine("");
             terminal.WriteLine("You enter a smoky den lined with velvet curtains.", "white");
-            long price = GD.RandRange(250, 750);
+            long basePrice = GD.RandRange(250, 750);
+            long price = GetAdjustedPrice(basePrice);
             terminal.WriteLine($"A shady dealer offers a glittering packet for {price:N0} {GameConfig.MoneyType}.", "cyan");
             var ans = await terminal.GetInput("Buy it? (Y/N): ");
             if (ans.ToUpper() != "Y") return;
@@ -115,7 +175,7 @@ namespace UsurperRemake.Locations
         {
             terminal.WriteLine("");
             terminal.WriteLine("A muscular dwarf guards crates of suspicious vials.", "white");
-            const long price = 1000;
+            long price = GetAdjustedPrice(1000);
             terminal.WriteLine($"Bulk-up serum costs {price:N0} {GameConfig.MoneyType}.", "cyan");
             var ans = await terminal.GetInput("Inject? (Y/N): ");
             if (ans.ToUpper() != "Y") return;
@@ -140,7 +200,7 @@ namespace UsurperRemake.Locations
         {
             terminal.WriteLine("");
             terminal.WriteLine("A hooded cleric guides you to glowing orbs floating in a pool.", "white");
-            long price = currentPlayer.Level * 50 + 100;
+            long price = GetAdjustedPrice(currentPlayer.Level * 50 + 100);
             terminal.WriteLine($"Restoring vitality costs {price:N0} {GameConfig.MoneyType}.", "cyan");
             var ans = await terminal.GetInput("Pay? (Y/N): ");
             if (ans.ToUpper() != "Y") return;
@@ -163,7 +223,7 @@ namespace UsurperRemake.Locations
             terminal.WriteLine("");
             terminal.WriteLine("The infamous gnome Groggo grins widely behind a cluttered desk.", "white");
             terminal.WriteLine("\"I sell scrolls, charms, secrets – but nothing is cheap!\"", "yellow");
-            long price = 750;
+            long price = GetAdjustedPrice(750);
             terminal.WriteLine($"A basic identification scroll costs {price:N0} {GameConfig.MoneyType}.");
             var ans = await terminal.GetInput("Purchase? (Y/N): ");
             if (ans.ToUpper() != "Y") return;
@@ -183,7 +243,7 @@ namespace UsurperRemake.Locations
         {
             terminal.WriteLine("");
             terminal.WriteLine("Bob hands you a frothy mug that smells vaguely of goblin sweat.", "white");
-            const long price = 25;
+            long price = GetAdjustedPrice(25);
             if (currentPlayer.Gold < price)
             {
                 terminal.WriteLine("Bob laughs, \"Pay first, friend!\"", "red");
@@ -200,7 +260,7 @@ namespace UsurperRemake.Locations
         {
             terminal.WriteLine("");
             terminal.WriteLine("Shelves of bubbling concoctions line the walls.", "white");
-            long price = 300;
+            long price = GetAdjustedPrice(300);
             terminal.WriteLine($"A random experimental potion costs {price:N0} {GameConfig.MoneyType}.", "cyan");
             var ans = await terminal.GetInput("Buy? (Y/N): ");
             if (ans.ToUpper() != "Y") return;

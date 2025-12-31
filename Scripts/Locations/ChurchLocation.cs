@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Godot;
 using UsurperRemake.Utils;
+using UsurperRemake.Systems;
 
 namespace UsurperRemake.Locations
 {
@@ -10,27 +11,68 @@ namespace UsurperRemake.Locations
     /// Church of Good Deeds - Complete Pascal-compatible church system
     /// Based on GOODC.PAS with donations, blessings, healing, and marriage ceremonies
     /// Focuses on chivalry, good deeds, and moral alignment
+    /// Evil characters are denied entry by holy wards!
     /// </summary>
     public partial class ChurchLocation : BaseLocation
     {
         private bool refreshMenu = true;
-        
+
         // Church staff and configuration
         private readonly string bishopName;
         private readonly string priestName;
-        
+
         public ChurchLocation()
         {
             // The base class will provide TerminalEmulator instance when entering the location.
-            
+
             LocationName = "Church of Good Deeds";
             LocationId = GameLocation.Church;
             Description = "A peaceful sanctuary where the faithful come to seek salvation, perform good deeds, and find spiritual guidance.";
-            
+
             bishopName = GameConfig.DefaultBishopName ?? "Bishop Aurelius";
             priestName = GameConfig.DefaultPriestName ?? "Father Benedict";
-            
+
             SetupLocation();
+        }
+
+        /// <summary>
+        /// Override EnterLocation to check alignment before allowing entry
+        /// Evil characters are barred from the holy sanctuary!
+        /// </summary>
+        public override async Task EnterLocation(Character player, TerminalEmulator term)
+        {
+            var (canAccess, reason) = AlignmentSystem.Instance.CanAccessLocation(player, GameLocation.Church);
+
+            if (!canAccess)
+            {
+                term.ClearScreen();
+                term.SetColor("bright_red");
+                term.WriteLine("╔═══════════════════════════════════════════════════════════════════════════╗");
+                term.WriteLine("║                        ENTRY DENIED!                                     ║");
+                term.WriteLine("╚═══════════════════════════════════════════════════════════════════════════╝");
+                term.WriteLine("");
+                term.SetColor("red");
+                term.WriteLine(reason);
+                term.WriteLine("");
+                term.SetColor("gray");
+                term.WriteLine("The holy wards surrounding this sacred place repel those of dark alignment.");
+                term.WriteLine("Perhaps confession at a neutral shrine could help cleanse your soul...");
+                term.WriteLine("");
+                term.SetColor("yellow");
+                term.Write("Press any key to return to the street...");
+                await term.GetKeyInput();
+                throw new LocationExitException(GameLocation.MainStreet);
+            }
+
+            // If there's a warning but still allowed entry
+            if (!string.IsNullOrEmpty(reason))
+            {
+                term.SetColor("yellow");
+                term.WriteLine(reason);
+                await Task.Delay(1500);
+            }
+
+            await base.EnterLocation(player, term);
         }
         
         protected override void SetupLocation()

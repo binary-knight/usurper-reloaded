@@ -1,4 +1,5 @@
 using UsurperRemake.Utils;
+using UsurperRemake.Systems;
 using UsurperRemake;
 using Godot;
 using System;
@@ -95,6 +96,34 @@ public class ArmorShopLocation : BaseLocation
         terminal.Write(FormatNumber(currentPlayer.Gold));
         terminal.SetColor("white");
         terminal.WriteLine(" gold crowns.");
+
+        // Show alignment price modifier
+        var alignmentModifier = AlignmentSystem.Instance.GetPriceModifier(currentPlayer, isShadyShop: false);
+        if (alignmentModifier != 1.0f)
+        {
+            var (alignText, alignColor) = AlignmentSystem.Instance.GetAlignmentDisplay(currentPlayer);
+            terminal.SetColor(alignColor);
+            if (alignmentModifier < 1.0f)
+                terminal.WriteLine($"  Your {alignText} alignment grants you a {(int)((1.0f - alignmentModifier) * 100)}% discount!");
+            else
+                terminal.WriteLine($"  Your {alignText} alignment causes a {(int)((alignmentModifier - 1.0f) * 100)}% markup.");
+        }
+
+        // Show world event price modifier
+        var worldEventModifier = WorldEventSystem.Instance.GlobalPriceModifier;
+        if (Math.Abs(worldEventModifier - 1.0f) > 0.01f)
+        {
+            if (worldEventModifier < 1.0f)
+            {
+                terminal.SetColor("bright_green");
+                terminal.WriteLine($"  World Events: {(int)((1.0f - worldEventModifier) * 100)}% discount active!");
+            }
+            else
+            {
+                terminal.SetColor("red");
+                terminal.WriteLine($"  World Events: {(int)((worldEventModifier - 1.0f) * 100)}% price increase!");
+            }
+        }
         terminal.WriteLine("");
 
         // Show current equipment summary
@@ -426,11 +455,17 @@ public class ArmorShopLocation : BaseLocation
 
         var item = items[actualIndex];
 
-        if (currentPlayer.Gold < item.Value)
+        // Apply alignment and world event price modifiers
+        var alignmentModifier = AlignmentSystem.Instance.GetPriceModifier(currentPlayer, isShadyShop: false);
+        var worldEventModifier = WorldEventSystem.Instance.GlobalPriceModifier;
+        var totalModifier = alignmentModifier * worldEventModifier;
+        long adjustedPrice = (long)(item.Value * totalModifier);
+
+        if (currentPlayer.Gold < adjustedPrice)
         {
             terminal.WriteLine("");
             terminal.SetColor("red");
-            terminal.WriteLine($"You need {FormatNumber(item.Value)} gold but only have {FormatNumber(currentPlayer.Gold)}!");
+            terminal.WriteLine($"You need {FormatNumber(adjustedPrice)} gold but only have {FormatNumber(currentPlayer.Gold)}!");
             await Pause();
             return;
         }
@@ -458,8 +493,14 @@ public class ArmorShopLocation : BaseLocation
         terminal.SetColor("white");
         terminal.Write($"Buy {item.Name} for ");
         terminal.SetColor("yellow");
-        terminal.Write(FormatNumber(item.Value));
+        terminal.Write(FormatNumber(adjustedPrice));
         terminal.SetColor("white");
+        if (Math.Abs(totalModifier - 1.0f) > 0.01f)
+        {
+            terminal.SetColor("gray");
+            terminal.Write($" (was {FormatNumber(item.Value)})");
+            terminal.SetColor("white");
+        }
         terminal.Write(" gold? (Y/N): ");
 
         var confirm = await terminal.GetInput("");
@@ -469,7 +510,7 @@ public class ArmorShopLocation : BaseLocation
         }
 
         // Process purchase
-        currentPlayer.Gold -= item.Value;
+        currentPlayer.Gold -= adjustedPrice;
 
         // Equip the item (will auto-unequip old item)
         if (currentPlayer.EquipItem(item, out string message))
@@ -488,7 +529,7 @@ public class ArmorShopLocation : BaseLocation
             terminal.SetColor("red");
             terminal.WriteLine($"Failed to equip: {message}");
             // Refund
-            currentPlayer.Gold += item.Value;
+            currentPlayer.Gold += adjustedPrice;
         }
 
         await Pause();

@@ -254,17 +254,24 @@ namespace UsurperRemake.Systems
         private string GetRandomStartLocation()
         {
             // Place NPCs in various town locations with readable names
+            // These must match the GetNPCLocationString() mapping in BaseLocation.cs
             var locations = new[]
             {
                 "Main Street",
+                "Main Street",   // More NPCs on Main Street (high traffic)
                 "Market",
                 "Inn",
+                "Inn",           // More NPCs at the Inn
                 "Temple",
                 "Gym",
                 "Weapon Shop",
                 "Armor Shop",
+                "Magic Shop",
                 "Tavern",
-                "Castle"
+                "Tavern",        // More NPCs at Tavern
+                "Bank",
+                "Healer",
+                "Dark Alley"     // Some shady characters in the alley
             };
 
             return locations[random.Next(locations.Length)];

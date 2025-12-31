@@ -1,5 +1,6 @@
 using UsurperRemake.Utils;
 using UsurperRemake.Data;
+using UsurperRemake.Systems;
 using Godot;
 using System;
 using System.Collections.Generic;
@@ -165,8 +166,26 @@ public partial class CombatEngine
             // Display combat status at start of each round
             DisplayCombatStatus(monsters, player);
 
-            // Process status effects for player
-            player.ProcessStatusEffects();
+            // Process status effects for player and display messages
+            var statusMessages = player.ProcessStatusEffects();
+            if (statusMessages.Count > 0)
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine("─── Status Effects ───");
+                DisplayStatusEffectMessages(statusMessages);
+                terminal.WriteLine("");
+            }
+
+            // Process plague/disease damage from world events and character conditions
+            await ProcessPlagueDamage(player, result);
+
+            // Check if player died from status effects or plague
+            if (!player.IsAlive)
+            {
+                terminal.SetColor("bright_red");
+                terminal.WriteLine("You succumb to your wounds!");
+                break;
+            }
 
             // === PLAYER TURN ===
             if (player.IsAlive && monsters.Any(m => m.IsAlive))
@@ -1088,17 +1107,31 @@ public partial class CombatEngine
         terminal.WriteLine($"You have slain the {result.Monster.Name}!");
         terminal.WriteLine("");
         
-        // Calculate rewards (Pascal-compatible)
-        long expReward = result.Monster.GetExperienceReward();
-        long goldReward = result.Monster.GetGoldReward();
-        
+        // Calculate rewards (Pascal-compatible) with world event modifiers
+        long baseExpReward = result.Monster.GetExperienceReward();
+        long baseGoldReward = result.Monster.GetGoldReward();
+
+        // Apply world event modifiers
+        long expReward = WorldEventSystem.Instance.GetAdjustedXP(baseExpReward);
+        long goldReward = WorldEventSystem.Instance.GetAdjustedGold(baseGoldReward);
+
         result.Player.Experience += expReward;
         result.Player.Gold += goldReward;
         result.Player.MKills++;
-        
+
         terminal.SetColor("green");
         terminal.WriteLine($"You gain {expReward} experience!");
         terminal.WriteLine($"You find {goldReward} gold!");
+
+        // Show bonus from world events if any
+        if (expReward > baseExpReward || goldReward > baseGoldReward)
+        {
+            terminal.SetColor("bright_cyan");
+            if (expReward > baseExpReward)
+                terminal.WriteLine($"  (World event bonus: +{expReward - baseExpReward} XP)");
+            if (goldReward > baseGoldReward)
+                terminal.WriteLine($"  (World event bonus: +{goldReward - baseGoldReward} gold)");
+        }
         
         // Offer weapon pickup
         if (result.Monster.GrabWeap && !string.IsNullOrEmpty(result.Monster.Weapon))
@@ -1258,53 +1291,177 @@ public partial class CombatEngine
     // ==================== MULTI-MONSTER COMBAT HELPER METHODS ====================
 
     /// <summary>
-    /// Display current combat status with all monsters
+    /// Display current combat status with all monsters and status effects
     /// </summary>
     private void DisplayCombatStatus(List<Monster> monsters, Character player)
     {
         terminal.WriteLine("");
         terminal.SetColor("bright_cyan");
-        terminal.WriteLine("=== COMBAT STATUS ===");
-        terminal.WriteLine("");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║                    COMBAT STATUS                         ║");
+        terminal.WriteLine("╠══════════════════════════════════════════════════════════╣");
 
-        // Show all living monsters
+        // Show all living monsters with status effects
+        int monsterNum = 0;
         for (int i = 0; i < monsters.Count; i++)
         {
             var monster = monsters[i];
             if (!monster.IsAlive) continue;
+            monsterNum++;
 
             // Calculate HP bar
             double hpPercent = Math.Max(0, Math.Min(1.0, (double)monster.HP / monster.MaxHP));
-            int barLength = 10;
+            int barLength = 12;
             int filledBars = Math.Max(0, Math.Min(barLength, (int)(hpPercent * barLength)));
             int emptyBars = barLength - filledBars;
             string hpBar = new string('█', filledBars) + new string('░', emptyBars);
 
             terminal.SetColor("yellow");
-            terminal.Write($"[{i + 1}] ");
-            terminal.SetColor("white");
-            terminal.Write($"{monster.Name,-15} ");
+            terminal.Write($"║ [{i + 1}] ");
+            terminal.SetColor(monster.IsBoss ? "bright_red" : "white");
+            terminal.Write($"{monster.Name,-18} ");
             terminal.SetColor(hpPercent > 0.5 ? "green" : hpPercent > 0.25 ? "yellow" : "red");
-            terminal.WriteLine($"HP: {hpBar} {monster.HP}/{monster.MaxHP}");
+            terminal.Write($"{hpBar} ");
+            terminal.SetColor("white");
+            terminal.Write($"{monster.HP,5}/{monster.MaxHP,-5}");
+
+            // Show monster status effects
+            var monsterStatuses = GetMonsterStatusString(monster);
+            if (!string.IsNullOrEmpty(monsterStatuses))
+            {
+                terminal.SetColor("darkgray");
+                terminal.WriteLine($" {monsterStatuses}");
+            }
+            else
+            {
+                terminal.WriteLine("");
+            }
         }
 
-        terminal.WriteLine("");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╠══════════════════════════════════════════════════════════╣");
 
-        // Show player status
+        // Show player status with enhanced display
         double playerHpPercent = Math.Max(0, Math.Min(1.0, (double)player.HP / player.MaxHP));
-        int playerBarLength = 20;
-        int playerFilledBars = Math.Max(0, Math.Min(playerBarLength, (int)(playerHpPercent * playerBarLength)));
-        int playerEmptyBars = playerBarLength - playerFilledBars;
+        double playerMpPercent = player.MaxMana > 0 ? Math.Max(0, Math.Min(1.0, (double)player.Mana / player.MaxMana)) : 0;
+
+        int hpBarLen = 15;
+        int mpBarLen = 10;
+
+        int playerFilledBars = Math.Max(0, Math.Min(hpBarLen, (int)(playerHpPercent * hpBarLen)));
+        int playerEmptyBars = hpBarLen - playerFilledBars;
         string playerHpBar = new string('█', playerFilledBars) + new string('░', playerEmptyBars);
 
-        terminal.SetColor("bright_cyan");
-        terminal.Write($"{player.Name2 ?? player.Name1}: ");
-        terminal.SetColor(playerHpPercent > 0.5 ? "bright_green" : playerHpPercent > 0.25 ? "yellow" : "red");
-        terminal.WriteLine($"HP: {playerHpBar} {player.HP}/{player.MaxHP}");
+        int manaFilledBars = Math.Max(0, Math.Min(mpBarLen, (int)(playerMpPercent * mpBarLen)));
+        int manaEmptyBars = mpBarLen - manaFilledBars;
+        string manaBar = new string('█', manaFilledBars) + new string('░', manaEmptyBars);
 
-        terminal.SetColor("cyan");
-        terminal.WriteLine($"Mana: {player.Mana}/{player.MaxMana}  |  Potions: {player.Healing}/{player.MaxPotions}");
+        terminal.SetColor("bright_cyan");
+        terminal.Write($"║ ");
+        terminal.SetColor("bright_white");
+        terminal.Write($"{(player.Name2 ?? player.Name1),-18} ");
+
+        // HP bar
+        terminal.SetColor(playerHpPercent > 0.5 ? "bright_green" : playerHpPercent > 0.25 ? "yellow" : "bright_red");
+        terminal.Write($"HP:{playerHpBar} ");
+        terminal.SetColor("white");
+        terminal.Write($"{player.HP,5}/{player.MaxHP,-5}");
         terminal.WriteLine("");
+
+        // Mana and resources line
+        terminal.SetColor("bright_cyan");
+        terminal.Write($"║ ");
+        terminal.SetColor("bright_blue");
+        terminal.Write($"MP:{manaBar} ");
+        terminal.SetColor("cyan");
+        terminal.Write($"{player.Mana,4}/{player.MaxMana,-4}  ");
+        terminal.SetColor("bright_magenta");
+        terminal.Write($"Potions: ");
+        terminal.SetColor("white");
+        terminal.WriteLine($"{player.Healing}/{player.MaxPotions}");
+
+        // Status effects line for player
+        if (player.ActiveStatuses.Count > 0)
+        {
+            terminal.SetColor("bright_cyan");
+            terminal.Write($"║ ");
+            terminal.SetColor("gray");
+            terminal.Write("Status: ");
+            DisplayPlayerStatusEffects(player);
+            terminal.WriteLine("");
+        }
+
+        // Combat stats line
+        terminal.SetColor("bright_cyan");
+        terminal.Write($"║ ");
+        terminal.SetColor("gray");
+        terminal.Write($"ATK: ");
+        terminal.SetColor("bright_yellow");
+        terminal.Write($"{player.Strength + player.WeapPow,-5} ");
+        terminal.SetColor("gray");
+        terminal.Write($"DEF: ");
+        terminal.SetColor("bright_cyan");
+        terminal.Write($"{player.Defence + player.ArmPow + player.MagicACBonus,-5} ");
+
+        // Show damage absorption if active
+        if (player.DamageAbsorptionPool > 0)
+        {
+            terminal.SetColor("gray");
+            terminal.Write($"Shield: ");
+            terminal.SetColor("bright_magenta");
+            terminal.Write($"{player.DamageAbsorptionPool}");
+        }
+        terminal.WriteLine("");
+
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+    }
+
+    /// <summary>
+    /// Get status string for a monster
+    /// </summary>
+    private string GetMonsterStatusString(Monster monster)
+    {
+        var statuses = new List<string>();
+
+        if (monster.PoisonRounds > 0) statuses.Add($"PSN({monster.PoisonRounds})");
+        if (monster.StunRounds > 0) statuses.Add($"STN({monster.StunRounds})");
+        if (monster.WeakenRounds > 0) statuses.Add($"WEK({monster.WeakenRounds})");
+        if (monster.IsBoss) statuses.Add("[BOSS]");
+
+        return string.Join(" ", statuses);
+    }
+
+    /// <summary>
+    /// Display player status effects with colors
+    /// </summary>
+    private void DisplayPlayerStatusEffects(Character player)
+    {
+        bool first = true;
+        foreach (var kvp in player.ActiveStatuses)
+        {
+            if (!first) terminal.Write(" ");
+            first = false;
+
+            string color = kvp.Key.GetDisplayColor();
+            string shortName = kvp.Key.GetShortName();
+
+            terminal.SetColor(color);
+            terminal.Write($"{shortName}({kvp.Value})");
+        }
+    }
+
+    /// <summary>
+    /// Display and process status effect tick messages
+    /// </summary>
+    private void DisplayStatusEffectMessages(List<(string message, string color)> messages)
+    {
+        foreach (var (message, color) in messages)
+        {
+            terminal.SetColor(color);
+            terminal.WriteLine($"  » {message}");
+        }
     }
 
     /// <summary>
@@ -1411,11 +1568,27 @@ public partial class CombatEngine
     /// <summary>
     /// Apply damage to single monster and track if defeated
     /// </summary>
-    private async Task ApplySingleMonsterDamage(Monster target, long damage, CombatResult result, string damageSource = "attack")
+    private async Task ApplySingleMonsterDamage(Monster target, long damage, CombatResult result, string damageSource = "attack", Character attacker = null)
     {
         if (target == null || !target.IsAlive) return;
 
         long actualDamage = Math.Max(1, damage - target.ArmPow);
+
+        // Apply alignment bonus damage if attacker is provided
+        if (attacker != null)
+        {
+            var (bonusDamage, bonusDesc) = GetAlignmentBonusDamage(attacker, target, actualDamage);
+            if (bonusDamage > 0)
+            {
+                actualDamage += bonusDamage;
+            }
+            if (!string.IsNullOrEmpty(bonusDesc))
+            {
+                terminal.SetColor("bright_yellow");
+                terminal.WriteLine(bonusDesc);
+            }
+        }
+
         target.HP -= actualDamage;
 
         // Use new colored combat messages
@@ -1521,24 +1694,95 @@ public partial class CombatEngine
     /// </summary>
     private async Task<(CombatAction action, bool enableAutoCombat)> GetPlayerActionMultiMonster(Character player, List<Monster> monsters, CombatResult result)
     {
-        // Apply status ticks before player chooses action
-        player.ProcessStatusEffects();
-
         while (true)  // Loop until valid action is chosen
         {
+            // Check if player can act due to status effects
+            if (!player.CanAct())
+            {
+                var preventingStatus = player.ActiveStatuses.Keys.FirstOrDefault(s => s.PreventsAction());
+                terminal.SetColor("yellow");
+                terminal.WriteLine($"You are {preventingStatus.ToString().ToLower()} and cannot act!");
+                await Task.Delay(1500);
+                return (new CombatAction { Type = CombatActionType.None }, false);
+            }
+
             // Show action menu
             terminal.SetColor("bright_white");
-            terminal.WriteLine("Your turn! Choose an action:");
-            terminal.WriteLine("");
+            terminal.WriteLine("╔═══════════════════════════════════════╗");
+            terminal.WriteLine("║           CHOOSE YOUR ACTION          ║");
+            terminal.WriteLine("╠═══════════════════════════════════════╣");
 
+            // Basic actions
+            terminal.SetColor("bright_green");
+            terminal.Write("║ [A] ");
             terminal.SetColor("green");
-            terminal.WriteLine("[A] Attack");
-            terminal.WriteLine("[D] Defend");
-            terminal.WriteLine("[S] Cast Spell");
-            terminal.WriteLine("[I] Use Item (Potion)");
-            terminal.WriteLine("[R] Retreat");
+            terminal.WriteLine("Attack                             ║");
+
             terminal.SetColor("bright_cyan");
-            terminal.WriteLine("[AUTO] Auto-Combat (fast attack mode)");
+            terminal.Write("║ [D] ");
+            terminal.SetColor("cyan");
+            terminal.WriteLine("Defend (reduce damage 50%)         ║");
+
+            // Spell option (show mana if available)
+            bool canCastSpells = player.CanCastSpells() && player.Mana > 0;
+            if (canCastSpells)
+            {
+                terminal.SetColor("bright_blue");
+                terminal.Write("║ [S] ");
+                terminal.SetColor("blue");
+                terminal.WriteLine($"Cast Spell (Mana: {player.Mana}/{player.MaxMana})         ║");
+            }
+            else if (!player.CanCastSpells())
+            {
+                terminal.SetColor("darkgray");
+                terminal.WriteLine("║ [S] Cast Spell (SILENCED)              ║");
+            }
+            else
+            {
+                terminal.SetColor("darkgray");
+                terminal.WriteLine("║ [S] Cast Spell (No Mana)               ║");
+            }
+
+            // Item option (show potion count)
+            if (player.Healing > 0)
+            {
+                terminal.SetColor("bright_magenta");
+                terminal.Write("║ [I] ");
+                terminal.SetColor("magenta");
+                terminal.WriteLine($"Use Item (Potions: {player.Healing}/{player.MaxPotions})         ║");
+            }
+            else
+            {
+                terminal.SetColor("darkgray");
+                terminal.WriteLine("║ [I] Use Item (No Potions)              ║");
+            }
+
+            // Class-specific abilities
+            var classInfo = GetClassSpecificActions(player);
+            foreach (var (key, name, available) in classInfo)
+            {
+                if (available)
+                {
+                    terminal.SetColor("bright_yellow");
+                    terminal.Write($"║ [{key}] ");
+                    terminal.SetColor("yellow");
+                    terminal.WriteLine($"{name,-33}║");
+                }
+            }
+
+            // Retreat and auto
+            terminal.SetColor("yellow");
+            terminal.Write("║ [R] ");
+            terminal.SetColor("white");
+            terminal.WriteLine("Retreat (attempt to flee)          ║");
+
+            terminal.SetColor("bright_cyan");
+            terminal.Write("║ [AUTO] ");
+            terminal.SetColor("cyan");
+            terminal.WriteLine("Auto-Combat Mode                ║");
+
+            terminal.SetColor("bright_white");
+            terminal.WriteLine("╚═══════════════════════════════════════╝");
             terminal.WriteLine("");
 
             terminal.SetColor("white");
@@ -1618,6 +1862,19 @@ public partial class CombatEngine
                     action.TargetIndex = null; // Random target
                     return (action, true);
 
+                // Class-specific abilities (numbered 1-3)
+                case "1":
+                case "2":
+                case "3":
+                    var classAction = await HandleClassSpecificAction(player, input.Trim(), monsters);
+                    if (classAction.HasValue)
+                    {
+                        action.Type = classAction.Value.type;
+                        action.TargetIndex = classAction.Value.target;
+                        return (action, false);
+                    }
+                    continue; // Invalid or cancelled, show menu again
+
                 default:
                     terminal.WriteLine("Invalid action, please try again", "yellow");
                     await Task.Delay(1000);
@@ -1676,7 +1933,7 @@ public partial class CombatEngine
                         attackPower = (long)(attackPower * damageModifier);
 
                         long damage = Math.Max(1, attackPower);
-                        await ApplySingleMonsterDamage(target, damage, result, isOffHandAttack ? "off-hand strike" : "your attack");
+                        await ApplySingleMonsterDamage(target, damage, result, isOffHandAttack ? "off-hand strike" : "your attack", player);
                     }
                 }
                 break;
@@ -1720,7 +1977,276 @@ public partial class CombatEngine
                 }
                 await Task.Delay(1500);
                 break;
+
+            case CombatActionType.Backstab:
+                await ExecuteBackstabMultiMonster(player, monsters, action.TargetIndex, result);
+                break;
+
+            case CombatActionType.PowerAttack:
+                await ExecutePowerAttackMultiMonster(player, monsters, action.TargetIndex, result);
+                break;
+
+            case CombatActionType.PreciseStrike:
+                await ExecutePreciseStrikeMultiMonster(player, monsters, action.TargetIndex, result);
+                break;
+
+            case CombatActionType.Rage:
+                await ExecuteRageMultiMonster(player, result);
+                break;
+
+            case CombatActionType.Hide:
+                await ExecuteHideMultiMonster(player, result);
+                break;
+
+            case CombatActionType.SoulStrike:
+                await ExecuteSoulStrikeMultiMonster(player, monsters, action.TargetIndex, result);
+                break;
+
+            case CombatActionType.Smite:
+                await ExecuteSmiteMultiMonster(player, monsters, action.TargetIndex, result);
+                break;
+
+            case CombatActionType.RangedAttack:
+                await ExecuteRangedAttackMultiMonster(player, monsters, action.TargetIndex, result);
+                break;
+
+            case CombatActionType.Disarm:
+                await ExecuteDisarmMultiMonster(player, monsters, action.TargetIndex, result);
+                break;
+
+            case CombatActionType.Taunt:
+                await ExecuteTauntMultiMonster(player, monsters, action.TargetIndex, result);
+                break;
+
+            case CombatActionType.None:
+                // Player couldn't act (stunned, etc.) - already handled in GetPlayerActionMultiMonster
+                break;
         }
+    }
+
+    // ==================== CLASS-SPECIFIC ABILITY IMPLEMENTATIONS ====================
+
+    private async Task ExecuteBackstabMultiMonster(Character player, List<Monster> monsters, int? targetIndex, CombatResult result)
+    {
+        var target = targetIndex.HasValue ? monsters[targetIndex.Value] : GetRandomLivingMonster(monsters);
+        if (target == null || !target.IsAlive) return;
+
+        terminal.WriteLine("");
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine($"You slip into the shadows and strike at {target.Name}!");
+        await Task.Delay(500);
+
+        // Backstab: 3x damage, dexterity-based success
+        int successChance = Math.Min(95, 50 + (int)(player.Dexterity / 2));
+        if (random.Next(100) < successChance)
+        {
+            long backstabDamage = (player.Strength + player.WeapPow) * 3;
+            backstabDamage += random.Next(1, 20);
+
+            terminal.SetColor("bright_red");
+            terminal.WriteLine($"CRITICAL BACKSTAB! You deal {backstabDamage} damage!");
+
+            await ApplySingleMonsterDamage(target, backstabDamage, result, "backstab", player);
+        }
+        else
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("Your backstab attempt fails - the enemy noticed you!");
+            await Task.Delay(1000);
+        }
+    }
+
+    private async Task ExecutePowerAttackMultiMonster(Character player, List<Monster> monsters, int? targetIndex, CombatResult result)
+    {
+        var target = targetIndex.HasValue ? monsters[targetIndex.Value] : GetRandomLivingMonster(monsters);
+        if (target == null || !target.IsAlive) return;
+
+        terminal.WriteLine("");
+        terminal.SetColor("bright_red");
+        terminal.WriteLine($"You wind up for a powerful strike at {target.Name}!");
+        await Task.Delay(500);
+
+        // Power Attack: +50% damage
+        long powerDamage = (long)((player.Strength + player.WeapPow) * 1.5);
+        powerDamage += random.Next(5, 25);
+
+        terminal.SetColor("bright_red");
+        terminal.WriteLine($"POWER ATTACK! You deal {powerDamage} damage!");
+
+        await ApplySingleMonsterDamage(target, powerDamage, result, "power attack", player);
+    }
+
+    private async Task ExecutePreciseStrikeMultiMonster(Character player, List<Monster> monsters, int? targetIndex, CombatResult result)
+    {
+        var target = targetIndex.HasValue ? monsters[targetIndex.Value] : GetRandomLivingMonster(monsters);
+        if (target == null || !target.IsAlive) return;
+
+        terminal.WriteLine("");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine($"You carefully aim at {target.Name}'s weak point!");
+        await Task.Delay(500);
+
+        // Precise Strike: normal damage but ignores 50% armor
+        long damage = player.Strength + player.WeapPow + random.Next(1, 15);
+
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine($"PRECISE STRIKE! You deal {damage} damage (armor-piercing)!");
+
+        // Apply damage directly, bypassing some defense
+        long actualDamage = Math.Max(1, damage - (target.ArmPow / 2));
+        target.HP = Math.Max(0, target.HP - actualDamage);
+
+        terminal.SetColor("white");
+        terminal.WriteLine($"{target.Name} takes {actualDamage} damage!");
+
+        if (target.HP <= 0)
+        {
+            target.HP = 0;
+            var deathMessage = CombatMessages.GetDeathMessage(target.Name, target.MonsterColor);
+            terminal.WriteLine(deathMessage);
+            result.DefeatedMonsters.Add(target);
+        }
+        await Task.Delay(800);
+    }
+
+    private async Task ExecuteRageMultiMonster(Character player, CombatResult result)
+    {
+        terminal.WriteLine("");
+        terminal.SetColor("bright_red");
+        terminal.WriteLine("RAAAAAGE! You enter a berserker fury!");
+        terminal.WriteLine("Damage doubled, but defense reduced!");
+
+        player.IsRaging = true;
+        player.ApplyStatus(StatusEffect.Raging, 5); // Lasts 5 rounds
+
+        await Task.Delay(1500);
+    }
+
+    private async Task ExecuteHideMultiMonster(Character player, CombatResult result)
+    {
+        terminal.WriteLine("");
+
+        // Hide success based on dexterity
+        int hideChance = Math.Min(90, 40 + (int)(player.Dexterity / 2));
+        if (random.Next(100) < hideChance)
+        {
+            terminal.SetColor("darkgray");
+            terminal.WriteLine("You slip into the shadows, hidden from view...");
+            terminal.WriteLine("Your next attack will deal bonus damage!");
+
+            player.ApplyStatus(StatusEffect.Hidden, 2);
+        }
+        else
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("You try to hide but the enemies spot you!");
+        }
+
+        await Task.Delay(1000);
+    }
+
+    private async Task ExecuteSoulStrikeMultiMonster(Character player, List<Monster> monsters, int? targetIndex, CombatResult result)
+    {
+        var target = targetIndex.HasValue ? monsters[targetIndex.Value] : GetRandomLivingMonster(monsters);
+        if (target == null || !target.IsAlive) return;
+
+        terminal.WriteLine("");
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine($"You channel holy power against {target.Name}!");
+        await Task.Delay(500);
+
+        // Soul Strike: Chivalry-based holy damage
+        long holyDamage = (player.Chivalry / 10) + (player.Level * 5) + random.Next(10, 30);
+
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine($"SOUL STRIKE! Holy fire deals {holyDamage} damage!");
+
+        await ApplySingleMonsterDamage(target, holyDamage, result, "soul strike", player);
+    }
+
+    private async Task ExecuteSmiteMultiMonster(Character player, List<Monster> monsters, int? targetIndex, CombatResult result)
+    {
+        var target = targetIndex.HasValue ? monsters[targetIndex.Value] : GetRandomLivingMonster(monsters);
+        if (target == null || !target.IsAlive) return;
+
+        terminal.WriteLine("");
+        terminal.SetColor("bright_white");
+        terminal.WriteLine($"You call upon divine wrath against {target.Name}!");
+        await Task.Delay(500);
+
+        // Smite: 150% damage + level bonus
+        long smiteDamage = (long)((player.Strength + player.WeapPow) * 1.5) + player.Level;
+        smiteDamage += random.Next(10, 25);
+
+        terminal.SetColor("bright_white");
+        terminal.WriteLine($"SMITE! Divine power deals {smiteDamage} damage!");
+
+        await ApplySingleMonsterDamage(target, smiteDamage, result, "smite", player);
+    }
+
+    private async Task ExecuteRangedAttackMultiMonster(Character player, List<Monster> monsters, int? targetIndex, CombatResult result)
+    {
+        var target = targetIndex.HasValue ? monsters[targetIndex.Value] : GetRandomLivingMonster(monsters);
+        if (target == null || !target.IsAlive) return;
+
+        terminal.WriteLine("");
+        terminal.SetColor("green");
+        terminal.WriteLine($"You fire at {target.Name} from a distance!");
+        await Task.Delay(500);
+
+        // Ranged: Dexterity-based damage
+        long rangedDamage = (player.Dexterity / 2) + random.Next(5, 15);
+
+        terminal.SetColor("green");
+        terminal.WriteLine($"Your arrow strikes for {rangedDamage} damage!");
+
+        await ApplySingleMonsterDamage(target, rangedDamage, result, "ranged attack", player);
+    }
+
+    private async Task ExecuteDisarmMultiMonster(Character player, List<Monster> monsters, int? targetIndex, CombatResult result)
+    {
+        var target = targetIndex.HasValue ? monsters[targetIndex.Value] : GetRandomLivingMonster(monsters);
+        if (target == null || !target.IsAlive) return;
+
+        terminal.WriteLine("");
+        terminal.SetColor("yellow");
+        terminal.WriteLine($"You attempt to disarm {target.Name}!");
+        await Task.Delay(500);
+
+        // Disarm: Dexterity vs monster strength
+        int disarmChance = Math.Max(10, 50 + (int)(player.Dexterity - target.Strength) / 2);
+        if (random.Next(100) < disarmChance)
+        {
+            terminal.SetColor("bright_green");
+            terminal.WriteLine($"SUCCESS! {target.Name}'s weapon power is reduced!");
+            target.WeapPow = Math.Max(0, target.WeapPow - 5);
+        }
+        else
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine("Your disarm attempt fails!");
+        }
+
+        await Task.Delay(1000);
+    }
+
+    private async Task ExecuteTauntMultiMonster(Character player, List<Monster> monsters, int? targetIndex, CombatResult result)
+    {
+        var target = targetIndex.HasValue ? monsters[targetIndex.Value] : GetRandomLivingMonster(monsters);
+        if (target == null || !target.IsAlive) return;
+
+        terminal.WriteLine("");
+        terminal.SetColor("yellow");
+        terminal.WriteLine($"You taunt {target.Name} mercilessly!");
+        await Task.Delay(500);
+
+        // Taunt: Lower enemy defense
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine($"{target.Name} becomes enraged and lowers their guard!");
+        target.Defence = Math.Max(0, target.Defence - 3);
+        target.ArmPow = Math.Max(0, target.ArmPow - 2);
+
+        await Task.Delay(1000);
     }
 
     /// <summary>
@@ -1776,7 +2302,7 @@ public partial class CombatEngine
             {
                 // Calculate spell damage
                 long damage = spellInfo.Level * 50 + (player.Intelligence / 2);
-                await ApplySingleMonsterDamage(target, damage, result, spellInfo.Name);
+                await ApplySingleMonsterDamage(target, damage, result, spellInfo.Name, player);
             }
         }
     }
@@ -1802,12 +2328,12 @@ public partial class CombatEngine
             // Calculate teammate attack damage
             long attackPower = teammate.Strength + teammate.WeapPow + random.Next(1, 16);
 
-            // Apply weapon configuration damage modifier
+            // Apply weapon configuration damage modifier (includes alignment bonuses)
             double damageModifier = GetWeaponConfigDamageModifier(teammate);
             attackPower = (long)(attackPower * damageModifier);
 
             long damage = Math.Max(1, attackPower);
-            await ApplySingleMonsterDamage(weakestMonster, damage, result, $"{teammate.DisplayName}'s attack");
+            await ApplySingleMonsterDamage(weakestMonster, damage, result, $"{teammate.DisplayName}'s attack", teammate);
         }
     }
 
@@ -1851,17 +2377,31 @@ public partial class CombatEngine
             totalGold += goldReward;
         }
 
+        // Apply world event modifiers
+        long adjustedExp = WorldEventSystem.Instance.GetAdjustedXP(totalExp);
+        long adjustedGold = WorldEventSystem.Instance.GetAdjustedGold(totalGold);
+
         // Apply rewards
-        result.Player.Experience += totalExp;
-        result.Player.Gold += totalGold;
-        result.ExperienceGained = totalExp;
-        result.GoldGained = totalGold;
+        result.Player.Experience += adjustedExp;
+        result.Player.Gold += adjustedGold;
+        result.ExperienceGained = adjustedExp;
+        result.GoldGained = adjustedGold;
 
         // Display rewards
         terminal.SetColor("yellow");
         terminal.WriteLine($"Defeated {result.DefeatedMonsters.Count} monster(s)!");
-        terminal.WriteLine($"Experience gained: {totalExp}");
-        terminal.WriteLine($"Gold gained: {totalGold:N0}");
+        terminal.WriteLine($"Experience gained: {adjustedExp}");
+        terminal.WriteLine($"Gold gained: {adjustedGold:N0}");
+
+        // Show bonus from world events if any
+        if (adjustedExp > totalExp || adjustedGold > totalGold)
+        {
+            terminal.SetColor("bright_cyan");
+            if (adjustedExp > totalExp)
+                terminal.WriteLine($"  (World event bonus: +{adjustedExp - totalExp} XP)");
+            if (adjustedGold > totalGold)
+                terminal.WriteLine($"  (World event bonus: +{adjustedGold - totalGold} gold)");
+        }
         terminal.WriteLine("");
 
         await Task.Delay(2000);
@@ -1872,7 +2412,7 @@ public partial class CombatEngine
             await OfferMonkPotionPurchase(result.Player);
         }
 
-        result.CombatLog.Add($"Victory! Gained {totalExp} exp and {totalGold} gold from {result.DefeatedMonsters.Count} monsters");
+        result.CombatLog.Add($"Victory! Gained {adjustedExp} exp and {adjustedGold} gold from {result.DefeatedMonsters.Count} monsters");
     }
 
     /// <summary>
@@ -1898,11 +2438,25 @@ public partial class CombatEngine
             totalGold += goldReward;
         }
 
-        result.Player.Experience += totalExp;
-        result.Player.Gold += totalGold;
+        // Apply world event modifiers
+        long adjustedExp = WorldEventSystem.Instance.GetAdjustedXP(totalExp);
+        long adjustedGold = WorldEventSystem.Instance.GetAdjustedGold(totalGold);
 
-        terminal.WriteLine($"Experience gained: {totalExp}");
-        terminal.WriteLine($"Gold gained: {totalGold:N0}");
+        result.Player.Experience += adjustedExp;
+        result.Player.Gold += adjustedGold;
+
+        terminal.WriteLine($"Experience gained: {adjustedExp}");
+        terminal.WriteLine($"Gold gained: {adjustedGold:N0}");
+
+        // Show bonus from world events if any
+        if (adjustedExp > totalExp || adjustedGold > totalGold)
+        {
+            terminal.SetColor("bright_cyan");
+            if (adjustedExp > totalExp)
+                terminal.WriteLine($"  (World event bonus: +{adjustedExp - totalExp} XP)");
+            if (adjustedGold > totalGold)
+                terminal.WriteLine($"  (World event bonus: +{adjustedGold - totalGold} gold)");
+        }
         terminal.WriteLine("");
 
         await Task.Delay(2000);
@@ -2614,18 +3168,25 @@ public partial class CombatEngine
     /// Calculate attack damage modifier based on weapon configuration
     /// Two-Handed: +25% damage bonus
     /// Dual-Wield: Off-hand attack at 50% power (handled in attack count)
+    /// Also applies alignment-based attack modifiers
     /// </summary>
     private double GetWeaponConfigDamageModifier(Character attacker, bool isOffHandAttack = false)
     {
+        double modifier = 1.0;
+
         // Two-handed weapons get 25% damage bonus
         if (attacker.IsTwoHanding)
-            return 1.25;
+            modifier = 1.25;
 
         // Off-hand attacks in dual-wield do 50% damage
         if (isOffHandAttack && attacker.IsDualWielding)
-            return 0.50;
+            modifier = 0.50;
 
-        return 1.0;
+        // Apply alignment-based attack modifier
+        var (attackMod, _) = AlignmentSystem.Instance.GetCombatModifiers(attacker);
+        modifier *= attackMod;
+
+        return modifier;
     }
 
     /// <summary>
@@ -2633,16 +3194,73 @@ public partial class CombatEngine
     /// Two-Handed: -15% defense penalty (less defensive stance)
     /// Dual-Wield: -10% defense penalty (less focus on blocking)
     /// Shield: No penalty, plus chance for block
+    /// Also applies alignment-based defense modifiers
     /// </summary>
     private double GetWeaponConfigDefenseModifier(Character defender)
     {
+        double modifier = 1.0;
+
         if (defender.IsTwoHanding)
-            return 0.85; // 15% penalty
+            modifier = 0.85; // 15% penalty
+        else if (defender.IsDualWielding)
+            modifier = 0.90; // 10% penalty
 
-        if (defender.IsDualWielding)
-            return 0.90; // 10% penalty
+        // Apply alignment-based defense modifier
+        var (_, defenseMod) = AlignmentSystem.Instance.GetCombatModifiers(defender);
+        modifier *= defenseMod;
 
-        return 1.0;
+        return modifier;
+    }
+
+    /// <summary>
+    /// Get alignment-specific bonus damage against evil/undead creatures
+    /// Holy/Good characters deal extra damage vs evil, Evil characters drain life
+    /// </summary>
+    private (long bonusDamage, string description) GetAlignmentBonusDamage(Character attacker, Monster target, long baseDamage)
+    {
+        var alignment = AlignmentSystem.Instance.GetAlignment(attacker);
+        bool targetIsEvil = target.Level > 5 && (target.Name.Contains("Demon") || target.Name.Contains("Undead") ||
+                            target.Name.Contains("Vampire") || target.Name.Contains("Lich") ||
+                            target.Name.Contains("Devil") || target.Name.Contains("Skeleton") ||
+                            target.Name.Contains("Zombie") || target.Name.Contains("Ghost"));
+
+        switch (alignment)
+        {
+            case AlignmentSystem.AlignmentType.Holy:
+                if (targetIsEvil)
+                {
+                    // Holy Smite: +25% damage vs evil/undead
+                    long holyBonus = (long)(baseDamage * 0.25);
+                    return (holyBonus, "Holy power burns the darkness!");
+                }
+                break;
+
+            case AlignmentSystem.AlignmentType.Good:
+                if (targetIsEvil)
+                {
+                    // Righteous Fury: +10% damage vs evil
+                    long goodBonus = (long)(baseDamage * 0.10);
+                    return (goodBonus, "Righteous fury guides your strike!");
+                }
+                break;
+
+            case AlignmentSystem.AlignmentType.Evil:
+                // Soul Drain: 10% of damage dealt heals the attacker
+                long drainAmount = (long)(baseDamage * 0.10);
+                attacker.HP = Math.Min(attacker.MaxHP, attacker.HP + drainAmount);
+                return (0, $"Dark energy heals you for {drainAmount} HP!");
+
+            case AlignmentSystem.AlignmentType.Dark:
+                // Shadow Strike: Chance for fear effect (simulated as bonus damage)
+                if (random.Next(100) < 15)
+                {
+                    long fearBonus = (long)(baseDamage * 0.15);
+                    return (fearBonus, "Your dark presence terrifies the enemy!");
+                }
+                break;
+        }
+
+        return (0, null);
     }
 
     /// <summary>
@@ -2667,6 +3285,231 @@ public partial class CombatEngine
 
         return (false, 0);
     }
+
+    /// <summary>
+    /// Process plague and disease damage during combat
+    /// Affected by both WorldEventSystem plague outbreaks and character's personal disease status
+    /// </summary>
+    private async Task ProcessPlagueDamage(Character player, CombatResult result)
+    {
+        bool hasDisease = player.Plague || player.Smallpox || player.Measles || player.Leprosy;
+        bool worldPlague = WorldEventSystem.Instance.PlaguActive;
+
+        // No damage if no disease
+        if (!hasDisease && !worldPlague) return;
+
+        // Calculate damage based on disease type and world plague
+        long plagueDamage = 0;
+        string diseaseMessage = "";
+
+        if (player.Plague)
+        {
+            // Plague: 3-5% of max HP per round
+            plagueDamage += (long)(player.MaxHP * (0.03 + random.NextDouble() * 0.02));
+            diseaseMessage = "The plague ravages your body!";
+        }
+        else if (player.Leprosy)
+        {
+            // Leprosy: 2-3% of max HP per round
+            plagueDamage += (long)(player.MaxHP * (0.02 + random.NextDouble() * 0.01));
+            diseaseMessage = "Leprosy weakens your limbs!";
+        }
+        else if (player.Smallpox)
+        {
+            // Smallpox: 1-2% of max HP per round
+            plagueDamage += (long)(player.MaxHP * (0.01 + random.NextDouble() * 0.01));
+            diseaseMessage = "Smallpox saps your strength!";
+        }
+        else if (player.Measles)
+        {
+            // Measles: 1% of max HP per round
+            plagueDamage += (long)(player.MaxHP * 0.01);
+            diseaseMessage = "Measles makes you feverish!";
+        }
+
+        // World plague adds extra damage if active (even to healthy characters)
+        if (worldPlague && !hasDisease)
+        {
+            // Plague in the air: 1% chance to take minor damage per round
+            if (random.Next(100) < 10)
+            {
+                plagueDamage += (long)(player.MaxHP * 0.01);
+                diseaseMessage = "The plague in the air sickens you!";
+
+                // Small chance to contract the plague during combat
+                if (random.Next(100) < 5)
+                {
+                    player.Plague = true;
+                    terminal.SetColor("bright_red");
+                    terminal.WriteLine("You have contracted the plague!");
+                    await Task.Delay(1000);
+                }
+            }
+        }
+        else if (worldPlague && hasDisease)
+        {
+            // World plague amplifies personal disease damage by 25%
+            plagueDamage = (long)(plagueDamage * 1.25);
+        }
+
+        // Apply damage if any
+        if (plagueDamage > 0)
+        {
+            plagueDamage = Math.Max(1, plagueDamage);
+            player.HP = Math.Max(0, player.HP - plagueDamage);
+
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"  {diseaseMessage} (-{plagueDamage} HP)");
+            result.CombatLog.Add($"Disease damage: {plagueDamage}");
+        }
+
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Get class-specific combat actions available to the player
+    /// Returns list of (hotkey, display name, is available)
+    /// </summary>
+    private List<(string key, string name, bool available)> GetClassSpecificActions(Character player)
+    {
+        var actions = new List<(string, string, bool)>();
+
+        switch (player.Class)
+        {
+            case CharacterClass.Paladin:
+                actions.Add(("1", "Soul Strike (holy damage)", player.Chivalry > 0));
+                actions.Add(("2", "Smite (powerful attack)", true));
+                break;
+
+            case CharacterClass.Barbarian:
+                actions.Add(("1", "Rage (2x damage, -4 DEF)", !player.IsRaging));
+                actions.Add(("2", "Power Attack (+50% dmg)", true));
+                break;
+
+            case CharacterClass.Assassin:
+                actions.Add(("1", "Backstab (3x damage)", true));
+                actions.Add(("2", "Hide (stealth bonus)", !player.HasStatus(StatusEffect.Hidden)));
+                break;
+
+            case CharacterClass.Ranger:
+                actions.Add(("1", "Ranged Attack (DEX-based)", true));
+                actions.Add(("2", "Precise Strike (+25% acc)", true));
+                break;
+
+            case CharacterClass.Jester:
+                actions.Add(("1", "Taunt (confuse enemy)", true));
+                actions.Add(("2", "Distract (-enemy DEF)", true));
+                break;
+
+            case CharacterClass.Warrior:
+                actions.Add(("1", "Power Attack (+50% dmg)", true));
+                actions.Add(("2", "Disarm (remove weapon)", true));
+                actions.Add(("3", "Taunt (lower enemy DEF)", true));
+                break;
+        }
+
+        return actions;
+    }
+
+    /// <summary>
+    /// Handle class-specific action input
+    /// Returns the action type and target index if valid, null if invalid
+    /// </summary>
+    private async Task<(CombatActionType type, int? target)?> HandleClassSpecificAction(Character player, string key, List<Monster> monsters)
+    {
+        CombatActionType? actionType = null;
+        bool needsTarget = true;
+
+        switch (player.Class)
+        {
+            case CharacterClass.Paladin:
+                if (key == "1" && player.Chivalry > 0)
+                {
+                    actionType = CombatActionType.SoulStrike;
+                }
+                else if (key == "2")
+                {
+                    actionType = CombatActionType.Smite;
+                }
+                break;
+
+            case CharacterClass.Barbarian:
+                if (key == "1" && !player.IsRaging)
+                {
+                    actionType = CombatActionType.Rage;
+                    needsTarget = false; // Rage is self-buff
+                }
+                else if (key == "2")
+                {
+                    actionType = CombatActionType.PowerAttack;
+                }
+                break;
+
+            case CharacterClass.Assassin:
+                if (key == "1")
+                {
+                    actionType = CombatActionType.Backstab;
+                }
+                else if (key == "2" && !player.HasStatus(StatusEffect.Hidden))
+                {
+                    actionType = CombatActionType.Hide;
+                    needsTarget = false; // Hide is self-buff
+                }
+                break;
+
+            case CharacterClass.Ranger:
+                if (key == "1")
+                {
+                    actionType = CombatActionType.RangedAttack;
+                }
+                else if (key == "2")
+                {
+                    actionType = CombatActionType.PreciseStrike;
+                }
+                break;
+
+            case CharacterClass.Jester:
+                if (key == "1")
+                {
+                    actionType = CombatActionType.Taunt;
+                }
+                else if (key == "2")
+                {
+                    actionType = CombatActionType.Disarm; // Using Disarm as "Distract"
+                }
+                break;
+
+            case CharacterClass.Warrior:
+                if (key == "1")
+                {
+                    actionType = CombatActionType.PowerAttack;
+                }
+                else if (key == "2")
+                {
+                    actionType = CombatActionType.Disarm;
+                }
+                else if (key == "3")
+                {
+                    actionType = CombatActionType.Taunt;
+                }
+                break;
+        }
+
+        if (!actionType.HasValue)
+        {
+            terminal.WriteLine("That ability is not available to your class!", "yellow");
+            await Task.Delay(1000);
+            return null;
+        }
+
+        int? targetIndex = null;
+        if (needsTarget)
+        {
+            targetIndex = await GetTargetSelection(monsters, allowRandom: true);
+        }
+
+        return (actionType.Value, targetIndex);
+    }
 }
 
 /// <summary>
@@ -2674,6 +3517,7 @@ public partial class CombatEngine
 /// </summary>
 public enum CombatActionType
 {
+    None,           // No action (stunned, etc.)
     Attack,
     Defend,
     Heal,

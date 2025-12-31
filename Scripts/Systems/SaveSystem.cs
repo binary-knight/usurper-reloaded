@@ -708,8 +708,60 @@ namespace UsurperRemake.Systems
         
         private List<WorldEventData> SerializeActiveEvents()
         {
-            // This would serialize active world events
-            return new List<WorldEventData>();
+            var eventDataList = new List<WorldEventData>();
+            var activeEvents = WorldEventSystem.Instance.GetActiveEvents();
+
+            foreach (var evt in activeEvents)
+            {
+                var eventData = new WorldEventData
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Type = evt.Type.ToString(),
+                    Title = evt.Title,
+                    Description = evt.Description,
+                    StartTime = DateTime.Now.AddDays(-evt.StartDay),
+                    EndTime = DateTime.Now.AddDays(evt.DaysRemaining),
+                    Parameters = new Dictionary<string, object>
+                    {
+                        ["DaysRemaining"] = evt.DaysRemaining,
+                        ["StartDay"] = evt.StartDay
+                    }
+                };
+
+                // Add effect parameters
+                foreach (var effect in evt.Effects)
+                {
+                    eventData.Parameters[$"Effect_{effect.Key}"] = effect.Value;
+                }
+
+                eventDataList.Add(eventData);
+            }
+
+            // Also save global modifier state
+            if (eventDataList.Count > 0 || WorldEventSystem.Instance.PlaguActive ||
+                WorldEventSystem.Instance.WarActive || WorldEventSystem.Instance.FestivalActive)
+            {
+                var stateData = new WorldEventData
+                {
+                    Id = "GLOBAL_STATE",
+                    Type = "GlobalState",
+                    Title = "World State",
+                    Description = WorldEventSystem.Instance.CurrentKingDecree,
+                    Parameters = new Dictionary<string, object>
+                    {
+                        ["PlaguActive"] = WorldEventSystem.Instance.PlaguActive,
+                        ["WarActive"] = WorldEventSystem.Instance.WarActive,
+                        ["FestivalActive"] = WorldEventSystem.Instance.FestivalActive,
+                        ["GlobalPriceModifier"] = WorldEventSystem.Instance.GlobalPriceModifier,
+                        ["GlobalXPModifier"] = WorldEventSystem.Instance.GlobalXPModifier,
+                        ["GlobalGoldModifier"] = WorldEventSystem.Instance.GlobalGoldModifier,
+                        ["GlobalStatModifier"] = WorldEventSystem.Instance.GlobalStatModifier
+                    }
+                };
+                eventDataList.Add(stateData);
+            }
+
+            return eventDataList;
         }
         
         private Dictionary<string, ShopInventoryData> SerializeShopInventories()

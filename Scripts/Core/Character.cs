@@ -523,43 +523,267 @@ public class Character
     /// <summary>
     /// Tick status durations and apply per-round effects (poison damage, etc.).
     /// Should be called once per combat round.
+    /// Returns a list of status effect messages to display.
     /// </summary>
-    public void ProcessStatusEffects()
+    public List<(string message, string color)> ProcessStatusEffects()
     {
-        if (ActiveStatuses.Count == 0) return;
+        var messages = new List<(string message, string color)>();
+        if (ActiveStatuses.Count == 0) return messages;
 
         var toRemove = new List<StatusEffect>();
         var rnd = new Random();
 
         foreach (var kvp in ActiveStatuses.ToList())
         {
+            int dmg = 0;
             switch (kvp.Key)
             {
                 case StatusEffect.Poisoned:
-                    var dmg = rnd.Next(1, 5); // 1d4
+                    dmg = rnd.Next(1, 5); // 1d4
                     HP = Math.Max(0, HP - dmg);
+                    messages.Add(($"{DisplayName} takes {dmg} poison damage!", "green"));
+                    break;
+
+                case StatusEffect.Bleeding:
+                    dmg = rnd.Next(1, 7); // 1d6
+                    HP = Math.Max(0, HP - dmg);
+                    messages.Add(($"{DisplayName} bleeds for {dmg} damage!", "red"));
+                    break;
+
+                case StatusEffect.Burning:
+                    dmg = rnd.Next(2, 9); // 2d4
+                    HP = Math.Max(0, HP - dmg);
+                    messages.Add(($"{DisplayName} burns for {dmg} fire damage!", "bright_red"));
+                    break;
+
+                case StatusEffect.Frozen:
+                    dmg = rnd.Next(1, 4); // 1d3
+                    HP = Math.Max(0, HP - dmg);
+                    messages.Add(($"{DisplayName} takes {dmg} cold damage from the frost!", "bright_cyan"));
+                    break;
+
+                case StatusEffect.Cursed:
+                    dmg = rnd.Next(1, 3); // 1d2
+                    HP = Math.Max(0, HP - dmg);
+                    messages.Add(($"{DisplayName} suffers {dmg} curse damage!", "magenta"));
+                    break;
+
+                case StatusEffect.Diseased:
+                    HP = Math.Max(0, HP - 1);
+                    messages.Add(($"{DisplayName} suffers from disease! (-1 HP)", "yellow"));
+                    break;
+
+                case StatusEffect.Regenerating:
+                    var heal = rnd.Next(1, 7); // 1d6
+                    HP = Math.Min(HP + heal, MaxHP);
+                    messages.Add(($"{DisplayName} regenerates {heal} HP!", "bright_green"));
+                    break;
+
+                case StatusEffect.Reflecting:
+                    // Handled during damage calculation, just remind
+                    break;
+
+                case StatusEffect.Lifesteal:
+                    // Handled during damage calculation
                     break;
             }
 
-            ActiveStatuses[kvp.Key] = kvp.Value - 1;
-            if (ActiveStatuses[kvp.Key] <= 0)
-                toRemove.Add(kvp.Key);
+            // Decrement duration (some effects like Stoneskin don't expire by time)
+            if (kvp.Key != StatusEffect.Stoneskin && kvp.Key != StatusEffect.Shielded)
+            {
+                ActiveStatuses[kvp.Key] = kvp.Value - 1;
+                if (ActiveStatuses[kvp.Key] <= 0)
+                    toRemove.Add(kvp.Key);
+            }
         }
 
         foreach (var s in toRemove)
         {
             ActiveStatuses.Remove(s);
+            string effectName = s.GetShortName();
+
             switch (s)
             {
                 case StatusEffect.Blessed:
                 case StatusEffect.Defending:
+                case StatusEffect.Protected:
                     MagicACBonus = 0;
+                    messages.Add(($"{DisplayName}'s {effectName} effect fades.", "gray"));
+                    break;
+                case StatusEffect.Stoneskin:
+                    DamageAbsorptionPool = 0;
+                    messages.Add(($"{DisplayName}'s stoneskin crumbles away.", "gray"));
+                    break;
+                case StatusEffect.Raging:
+                    IsRaging = false;
+                    messages.Add(($"{DisplayName}'s rage subsides.", "gray"));
+                    break;
+                case StatusEffect.Haste:
+                    messages.Add(($"{DisplayName} slows to normal speed.", "gray"));
+                    break;
+                case StatusEffect.Slow:
+                    messages.Add(($"{DisplayName} can move normally again.", "gray"));
+                    break;
+                case StatusEffect.Stunned:
+                case StatusEffect.Paralyzed:
+                    messages.Add(($"{DisplayName} recovers and can act again!", "white"));
+                    break;
+                case StatusEffect.Silenced:
+                    messages.Add(($"{DisplayName} can cast spells again.", "bright_cyan"));
+                    break;
+                case StatusEffect.Blinded:
+                    messages.Add(($"{DisplayName}'s vision clears.", "white"));
+                    break;
+                case StatusEffect.Sleeping:
+                    messages.Add(($"{DisplayName} wakes up!", "white"));
+                    break;
+                case StatusEffect.Poisoned:
+                case StatusEffect.Bleeding:
+                case StatusEffect.Burning:
+                case StatusEffect.Frozen:
+                case StatusEffect.Cursed:
+                case StatusEffect.Diseased:
+                    messages.Add(($"{DisplayName} is no longer {s.ToString().ToLower()}.", "gray"));
+                    break;
+                default:
+                    messages.Add(($"{DisplayName}'s {effectName} wears off.", "gray"));
+                    break;
+            }
+        }
+
+        return messages;
+    }
+
+    /// <summary>
+    /// Check if the character can take actions this turn
+    /// </summary>
+    public bool CanAct()
+    {
+        foreach (var status in ActiveStatuses.Keys)
+        {
+            if (status.PreventsAction())
+                return false;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Check if the character can cast spells
+    /// </summary>
+    public bool CanCastSpells()
+    {
+        foreach (var status in ActiveStatuses.Keys)
+        {
+            if (status.PreventsSpellcasting())
+                return false;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Get accuracy modifier from status effects
+    /// </summary>
+    public float GetAccuracyModifier()
+    {
+        float modifier = 1.0f;
+        if (HasStatus(StatusEffect.Blinded)) modifier *= 0.5f;
+        if (HasStatus(StatusEffect.PowerStance)) modifier *= 0.75f;
+        if (HasStatus(StatusEffect.Frozen)) modifier *= 0.75f;
+        return modifier;
+    }
+
+    /// <summary>
+    /// Get damage dealt modifier from status effects
+    /// </summary>
+    public float GetDamageDealtModifier()
+    {
+        float modifier = 1.0f;
+        if (HasStatus(StatusEffect.Raging) || IsRaging) modifier *= 2.0f;
+        if (HasStatus(StatusEffect.PowerStance)) modifier *= 1.5f;
+        if (HasStatus(StatusEffect.Berserk)) modifier *= 1.5f;
+        if (HasStatus(StatusEffect.Exhausted)) modifier *= 0.75f;
+        if (HasStatus(StatusEffect.Empowered)) modifier *= 1.5f; // For spells
+        if (HasStatus(StatusEffect.Hidden)) modifier *= 1.5f; // Stealth bonus
+        return modifier;
+    }
+
+    /// <summary>
+    /// Get damage taken modifier from status effects
+    /// </summary>
+    public float GetDamageTakenModifier()
+    {
+        float modifier = 1.0f;
+        if (HasStatus(StatusEffect.Defending)) modifier *= 0.5f;
+        if (HasStatus(StatusEffect.Vulnerable)) modifier *= 1.25f;
+        if (HasStatus(StatusEffect.Invulnerable)) modifier = 0f;
+        return modifier;
+    }
+
+    /// <summary>
+    /// Get number of attacks this round based on status effects
+    /// </summary>
+    public int GetAttackCountModifier(int baseAttacks)
+    {
+        int attacks = baseAttacks;
+        if (HasStatus(StatusEffect.Haste)) attacks *= 2;
+        if (HasStatus(StatusEffect.Slow)) attacks = Math.Max(1, attacks / 2);
+        if (HasStatus(StatusEffect.Frozen)) attacks = Math.Max(1, attacks / 2);
+        return attacks;
+    }
+
+    /// <summary>
+    /// Remove a status effect
+    /// </summary>
+    public void RemoveStatus(StatusEffect effect)
+    {
+        if (ActiveStatuses.ContainsKey(effect))
+        {
+            ActiveStatuses.Remove(effect);
+
+            // Clean up associated state
+            switch (effect)
+            {
+                case StatusEffect.Raging:
+                    IsRaging = false;
                     break;
                 case StatusEffect.Stoneskin:
                     DamageAbsorptionPool = 0;
                     break;
+                case StatusEffect.Blessed:
+                case StatusEffect.Defending:
+                case StatusEffect.Protected:
+                    MagicACBonus = 0;
+                    break;
             }
         }
+    }
+
+    /// <summary>
+    /// Clear all status effects (e.g., after combat)
+    /// </summary>
+    public void ClearAllStatuses()
+    {
+        ActiveStatuses.Clear();
+        IsRaging = false;
+        IsDefending = false;
+        DamageAbsorptionPool = 0;
+        MagicACBonus = 0;
+    }
+
+    /// <summary>
+    /// Get a formatted string of active status effects for display
+    /// </summary>
+    public string GetStatusDisplayString()
+    {
+        if (ActiveStatuses.Count == 0) return "";
+
+        var parts = new List<string>();
+        foreach (var kvp in ActiveStatuses)
+        {
+            string shortName = kvp.Key.GetShortName();
+            parts.Add($"{shortName}({kvp.Value})");
+        }
+        return string.Join(" ", parts);
     }
     
     // Constructor to initialize lists

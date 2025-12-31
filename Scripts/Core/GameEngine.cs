@@ -170,22 +170,204 @@ public partial class GameEngine : Node
     public async Task PeriodicUpdate()
     {
         var now = DateTime.Now;
-        
+
         // Only run periodic checks every 30 seconds
         if (now - lastPeriodicCheck < TimeSpan.FromSeconds(30))
             return;
-            
+
         lastPeriodicCheck = now;
-        
+
         // Check for daily reset
         await dailyManager.CheckDailyReset();
-        
+
         // Update world simulation
         worldSimulator?.SimulateStep();
-        
-        // Process NPC behaviors
-        // Note: EnhancedNPCSystem doesn't have an Instance property
-        // This would need to be handled differently in a full implementation
+
+        // Process NPC behaviors and maintenance
+        await RunNPCMaintenanceCycle();
+    }
+
+    /// <summary>
+    /// Run NPC maintenance cycle - handles NPC movement, activities, and world events
+    /// </summary>
+    private async Task RunNPCMaintenanceCycle()
+    {
+        var npcs = NPCSpawnSystem.Instance.ActiveNPCs;
+        if (npcs == null || npcs.Count == 0) return;
+
+        var random = new Random();
+
+        // Process each living NPC
+        foreach (var npc in npcs.Where(n => n.IsAlive).ToList())
+        {
+            // 20% chance to move to a different location
+            if (random.Next(5) == 0)
+            {
+                MoveNPCToRandomLocation(npc, random);
+            }
+
+            // Process NPC activities (shopping, healing, etc.)
+            await ProcessNPCActivity(npc, random);
+
+            // Small chance for NPC to generate news
+            if (random.Next(20) == 0)
+            {
+                GenerateNPCNews(npc, random);
+            }
+        }
+
+        // Process NPC leveling (rare)
+        if (random.Next(10) == 0)
+        {
+            ProcessNPCLeveling(npcs, random);
+        }
+    }
+
+    /// <summary>
+    /// Move an NPC to a random location in town
+    /// </summary>
+    private void MoveNPCToRandomLocation(NPC npc, Random random)
+    {
+        var locations = new[]
+        {
+            "Main Street", "Market", "Inn", "Temple", "Gym",
+            "Weapon Shop", "Armor Shop", "Magic Shop", "Tavern",
+            "Bank", "Healer", "Dark Alley"
+        };
+
+        var newLocation = locations[random.Next(locations.Length)];
+
+        // Don't log every move - too spammy
+        npc.CurrentLocation = newLocation;
+    }
+
+    /// <summary>
+    /// Process NPC activity based on their current situation
+    /// </summary>
+    private async Task ProcessNPCActivity(NPC npc, Random random)
+    {
+        // Heal if injured
+        if (npc.HP < npc.MaxHP && random.Next(3) == 0)
+        {
+            long healAmount = Math.Min(npc.MaxHP / 10, npc.MaxHP - npc.HP);
+            npc.HP += (int)healAmount;
+        }
+
+        // Restore mana
+        if (npc.Mana < npc.MaxMana && random.Next(2) == 0)
+        {
+            long manaAmount = Math.Min(npc.MaxMana / 5, npc.MaxMana - npc.Mana);
+            npc.Mana += (int)manaAmount;
+        }
+
+        // Shopping (if at shop and has gold)
+        if (npc.Gold > 500 && random.Next(10) == 0)
+        {
+            // Buy equipment upgrade
+            if (npc.CurrentLocation == "Weapon Shop")
+            {
+                int cost = random.Next(100, 500);
+                if (npc.Gold >= cost)
+                {
+                    npc.Gold -= cost;
+                    npc.WeapPow += random.Next(1, 5);
+                }
+            }
+            else if (npc.CurrentLocation == "Armor Shop")
+            {
+                int cost = random.Next(100, 400);
+                if (npc.Gold >= cost)
+                {
+                    npc.Gold -= cost;
+                    npc.ArmPow += random.Next(1, 4);
+                }
+            }
+        }
+
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Generate news about NPC activities
+    /// </summary>
+    private void GenerateNPCNews(NPC npc, Random random)
+    {
+        var newsSystem = NewsSystem.Instance;
+        if (newsSystem == null) return;
+
+        var newsItems = new List<string>();
+
+        // Alignment-based news
+        if (npc.Darkness > npc.Chivalry + 200)
+        {
+            newsItems.Add($"{npc.Name2} was seen lurking in the shadows");
+            newsItems.Add($"{npc.Name2} threatened a merchant");
+            newsItems.Add($"Guards are watching {npc.Name2} closely");
+        }
+        else if (npc.Chivalry > npc.Darkness + 200)
+        {
+            newsItems.Add($"{npc.Name2} helped a lost child find their parents");
+            newsItems.Add($"{npc.Name2} donated gold to the temple");
+            newsItems.Add($"{npc.Name2} protected a merchant from thieves");
+        }
+        else
+        {
+            newsItems.Add($"{npc.Name2} was seen at the {npc.CurrentLocation}");
+            newsItems.Add($"{npc.Name2} is looking for adventure partners");
+        }
+
+        // Class-based news
+        switch (npc.Class)
+        {
+            case CharacterClass.Warrior:
+            case CharacterClass.Barbarian:
+                newsItems.Add($"{npc.Name2} challenged someone to a duel");
+                break;
+            case CharacterClass.Magician:
+            case CharacterClass.Sage:
+                newsItems.Add($"{npc.Name2} was seen studying ancient tomes");
+                break;
+            case CharacterClass.Assassin:
+                newsItems.Add($"Rumors swirl about {npc.Name2}'s latest target");
+                break;
+        }
+
+        if (newsItems.Count > 0)
+        {
+            var headline = newsItems[random.Next(newsItems.Count)];
+            newsSystem.Newsy(true, headline);
+        }
+    }
+
+    /// <summary>
+    /// Process NPC leveling based on their activities
+    /// </summary>
+    private void ProcessNPCLeveling(List<NPC> npcs, Random random)
+    {
+        // Pick a random NPC to level up
+        var eligibleNPCs = npcs.Where(n => n.IsAlive && n.Level < 50).ToList();
+        if (eligibleNPCs.Count == 0) return;
+
+        var luckyNPC = eligibleNPCs[random.Next(eligibleNPCs.Count)];
+
+        // Level up!
+        luckyNPC.Level++;
+        luckyNPC.Experience += luckyNPC.Level * 1000;
+
+        // Boost stats
+        luckyNPC.MaxHP += random.Next(10, 30);
+        luckyNPC.HP = luckyNPC.MaxHP;
+        luckyNPC.Strength += random.Next(1, 3);
+        luckyNPC.Defence += random.Next(1, 2);
+        luckyNPC.WeapPow += random.Next(1, 3);
+        luckyNPC.ArmPow += random.Next(1, 2);
+
+        // Generate news about the level up
+        var newsSystem = NewsSystem.Instance;
+        if (newsSystem != null)
+        {
+            newsSystem.Newsy(true, $"{luckyNPC.Name2} has reached level {luckyNPC.Level}!");
+        }
     }
     
     /// <summary>
@@ -988,19 +1170,27 @@ public partial class GameEngine : Node
     /// </summary>
     private async Task RestoreWorldState(WorldStateData worldState)
     {
+        if (worldState == null)
+        {
+            GD.Print("[GameEngine] No world state to restore");
+            return;
+        }
+
         // Restore economic state
         // This would integrate with bank and economy systems
-        
+
         // Restore political state
         if (!string.IsNullOrEmpty(worldState.CurrentRuler))
         {
             // Set current ruler if applicable
         }
-        
-        // Restore active world events
-        // This would integrate with world event system
-        
-        GD.Print($"World state restored: {worldState.ActiveEvents.Count} active events");
+
+        // Restore active world events from save data
+        var currentDay = dailyManager?.CurrentDay ?? 1;
+        WorldEventSystem.Instance.RestoreFromSaveData(worldState.ActiveEvents, currentDay);
+
+        GD.Print($"[GameEngine] World state restored: {worldState.ActiveEvents?.Count ?? 0} active events");
+        await Task.CompletedTask;
     }
     
     /// <summary>

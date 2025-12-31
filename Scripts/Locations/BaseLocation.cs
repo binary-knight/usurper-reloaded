@@ -64,6 +64,20 @@ public abstract class BaseLocation
     {
         bool exitLocation = false;
 
+        // Check for random encounter when first entering location
+        if (ShouldCheckForEncounters())
+        {
+            var encounterResult = await StreetEncounterSystem.Instance.CheckForEncounter(
+                currentPlayer, LocationId, terminal);
+
+            if (encounterResult.EncounterOccurred)
+            {
+                // If player died in encounter, exit
+                if (!currentPlayer.IsAlive)
+                    return;
+            }
+        }
+
         while (!exitLocation && currentPlayer.IsAlive) // No turn limit - continuous gameplay
         {
             // Autosave BEFORE displaying location (save stable state)
@@ -97,6 +111,25 @@ public abstract class BaseLocation
     }
 
     /// <summary>
+    /// Check if this location should have random encounters
+    /// </summary>
+    protected virtual bool ShouldCheckForEncounters()
+    {
+        // Most locations have encounters; override in safe locations
+        return LocationId switch
+        {
+            GameLocation.Home => false,           // Safe zone
+            GameLocation.Bank => false,           // Guards present, very safe
+            GameLocation.Church => false,         // Sacred ground
+            GameLocation.Temple => false,         // Sacred ground
+            GameLocation.Dungeons => false,       // Has own encounter system
+            GameLocation.Prison => false,         // Special handling
+            GameLocation.Master => false,         // Level master's sanctum
+            _ => true                             // Other locations have encounters
+        };
+    }
+
+    /// <summary>
     /// Run a tick of world simulation (NPCs act, world events, etc.)
     /// </summary>
     private async Task RunWorldSimulationTick()
@@ -106,6 +139,12 @@ public abstract class BaseLocation
         if (gameEngine != null)
         {
             await gameEngine.PeriodicUpdate();
+        }
+
+        // Check for alignment-based random events (5% chance per tick)
+        if (currentPlayer != null && terminal != null)
+        {
+            await AlignmentSystem.Instance.CheckAlignmentEvent(currentPlayer, terminal);
         }
     }
     
@@ -145,23 +184,179 @@ public abstract class BaseLocation
     }
     
     /// <summary>
-    /// Show NPCs in this location
+    /// Map GameLocation enum to NPC location strings
+    /// </summary>
+    protected virtual string GetNPCLocationString()
+    {
+        return LocationId switch
+        {
+            GameLocation.MainStreet => "Main Street",
+            GameLocation.TheInn => "Inn",
+            GameLocation.Church => "Temple",
+            GameLocation.WeaponShop => "Weapon Shop",
+            GameLocation.ArmorShop => "Armor Shop",
+            GameLocation.MagicShop => "Magic Shop",
+            GameLocation.Marketplace => "Market",
+            GameLocation.Steroids => "Gym",
+            GameLocation.DarkAlley => "Dark Alley",
+            GameLocation.Orbs => "Tavern",
+            GameLocation.BobsBeer => "Tavern",
+            GameLocation.Bank => "Bank",
+            GameLocation.Healer => "Healer",
+            GameLocation.Dungeons => "Dungeon",
+            _ => Name
+        };
+    }
+
+    /// <summary>
+    /// Get NPCs currently at this location from NPCSpawnSystem
+    /// </summary>
+    protected virtual List<NPC> GetLiveNPCsAtLocation()
+    {
+        var locationString = GetNPCLocationString();
+        var allNPCs = NPCSpawnSystem.Instance.ActiveNPCs ?? new List<NPC>();
+
+        return allNPCs
+            .Where(npc => npc.IsAlive &&
+                   npc.CurrentLocation?.Equals(locationString, StringComparison.OrdinalIgnoreCase) == true)
+            .ToList();
+    }
+
+    private static Random _npcRandom = new Random();
+
+    /// <summary>
+    /// Get a random shout/action for an NPC based on their personality
+    /// </summary>
+    protected virtual string GetNPCShout(NPC npc)
+    {
+        var shouts = new List<string>();
+
+        // Personality-based shouts
+        if (npc.Darkness > npc.Chivalry)
+        {
+            // Evil NPCs
+            shouts.AddRange(new[] {
+                "glares at you menacingly",
+                "mutters a curse under their breath",
+                "eyes your gold pouch hungrily",
+                "spits on the ground as you pass",
+                "sharpens a dagger while watching you",
+                "laughs coldly",
+                "sneers at the weak",
+            });
+        }
+        else if (npc.Chivalry > 500)
+        {
+            // Good NPCs
+            shouts.AddRange(new[] {
+                "nods respectfully",
+                "offers a friendly wave",
+                "shares news of their latest adventures",
+                "mentions a rumor they heard",
+                "practices sword forms gracefully",
+                "hums a cheerful tune",
+                "smiles warmly",
+            });
+        }
+        else
+        {
+            // Neutral NPCs
+            shouts.AddRange(new[] {
+                "goes about their business",
+                "seems lost in thought",
+                "examines some merchandise",
+                "chats with a merchant",
+                "stretches after a long journey",
+                "counts their gold coins",
+                "yawns lazily",
+            });
+        }
+
+        // Class-based shouts
+        switch (npc.Class)
+        {
+            case CharacterClass.Warrior:
+            case CharacterClass.Barbarian:
+                shouts.Add("flexes their muscles");
+                shouts.Add("polishes their weapon");
+                break;
+            case CharacterClass.Magician:
+            case CharacterClass.Sage:
+                shouts.Add("reads from an ancient tome");
+                shouts.Add("mutters arcane words");
+                break;
+            case CharacterClass.Cleric:
+            case CharacterClass.Paladin:
+                shouts.Add("offers a blessing");
+                shouts.Add("prays quietly");
+                break;
+            case CharacterClass.Assassin:
+                shouts.Add("watches from the shadows");
+                shouts.Add("tests the edge of a blade");
+                break;
+        }
+
+        return shouts[_npcRandom.Next(shouts.Count)];
+    }
+
+    /// <summary>
+    /// Get alignment display string
+    /// </summary>
+    protected virtual string GetAlignmentDisplay(NPC npc)
+    {
+        if (npc.Darkness > npc.Chivalry + 300) return "(Evil)";
+        if (npc.Chivalry > npc.Darkness + 300) return "(Good)";
+        return "(Neutral)";
+    }
+
+    /// <summary>
+    /// Show NPCs in this location - dynamically fetched from NPCSpawnSystem
     /// </summary>
     protected virtual void ShowNPCsInLocation()
     {
-        if (LocationNPCs.Count > 0)
+        // Get live NPCs from the spawn system
+        var liveNPCs = GetLiveNPCsAtLocation();
+
+        // Also include any static LocationNPCs (special NPCs like shopkeepers)
+        var allNPCs = new List<NPC>(LocationNPCs);
+        foreach (var npc in liveNPCs)
+        {
+            if (!allNPCs.Any(n => n.Name2 == npc.Name2))
+                allNPCs.Add(npc);
+        }
+
+        if (allNPCs.Count > 0)
         {
             terminal.SetColor("bright_cyan");
             terminal.WriteLine("People here:");
-            
-            foreach (var npc in LocationNPCs)
+
+            foreach (var npc in allNPCs.Take(8)) // Limit display to 8 NPCs
             {
-                if (npc.IsAvailable && npc.CanInteract)
+                if (npc.IsAlive)
                 {
-                    terminal.SetColor("cyan");
-                    terminal.WriteLine($"  {npc.GetDisplayInfo()}");
+                    // Color based on alignment
+                    if (npc.Darkness > npc.Chivalry + 200)
+                        terminal.SetColor("red");
+                    else if (npc.Chivalry > npc.Darkness + 200)
+                        terminal.SetColor("bright_green");
+                    else
+                        terminal.SetColor("cyan");
+
+                    var alignment = GetAlignmentDisplay(npc);
+                    var classStr = npc.Class.ToString();
+                    var shout = GetNPCShout(npc);
+
+                    // Show NPC with their current action/shout
+                    terminal.WriteLine($"  {npc.Name2} the Lv{npc.Level} {classStr} {alignment} - {shout}");
                 }
             }
+
+            if (allNPCs.Count > 8)
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine($"  ... and {allNPCs.Count - 8} others");
+            }
+
             terminal.WriteLine("");
         }
     }
@@ -819,14 +1014,53 @@ public abstract class BaseLocation
         // Alignment & Reputation
         terminal.SetColor("yellow");
         terminal.WriteLine("═══ ALIGNMENT & REPUTATION ═══");
+
+        // Get alignment info from AlignmentSystem
+        var (alignText, alignColor) = AlignmentSystem.Instance.GetAlignmentDisplay(currentPlayer);
+
+        terminal.SetColor("white");
+        terminal.Write("Alignment: ");
+        terminal.SetColor(alignColor);
+        terminal.WriteLine(alignText);
+
         terminal.SetColor("white");
         terminal.Write("Chivalry: ");
         terminal.SetColor("bright_green");
-        terminal.Write($"{currentPlayer.Chivalry}");
+        terminal.Write($"{currentPlayer.Chivalry}/1000");
         terminal.SetColor("white");
         terminal.Write("  |  Darkness: ");
         terminal.SetColor("red");
-        terminal.WriteLine($"{currentPlayer.Darkness}");
+        terminal.WriteLine($"{currentPlayer.Darkness}/1000");
+
+        // Show alignment bar
+        terminal.SetColor("gray");
+        terminal.Write("  Holy ");
+        terminal.SetColor("bright_green");
+        int chivBars = (int)Math.Min(10, currentPlayer.Chivalry / 100);
+        int darkBars = (int)Math.Min(10, currentPlayer.Darkness / 100);
+        terminal.Write(new string('█', chivBars));
+        terminal.SetColor("darkgray");
+        terminal.Write(new string('░', 10 - chivBars));
+        terminal.Write(" | ");
+        terminal.SetColor("red");
+        terminal.Write(new string('█', darkBars));
+        terminal.SetColor("darkgray");
+        terminal.Write(new string('░', 10 - darkBars));
+        terminal.WriteLine(" Evil");
+
+        // Show alignment abilities
+        var abilities = AlignmentSystem.Instance.GetAlignmentAbilities(currentPlayer);
+        if (abilities.Count > 0)
+        {
+            terminal.SetColor("cyan");
+            terminal.WriteLine("  Alignment Abilities:");
+            terminal.SetColor("white");
+            foreach (var ability in abilities)
+            {
+                terminal.WriteLine($"    • {ability}");
+            }
+        }
+        terminal.WriteLine("");
 
         terminal.SetColor("white");
         terminal.Write("Loyalty: ");
