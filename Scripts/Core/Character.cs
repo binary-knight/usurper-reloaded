@@ -43,7 +43,10 @@ public class Character
     public bool CTurf { get; set; }                 // is team in control of town
     public int GnollP { get; set; }                 // gnoll poison, temporary
     public int Mental { get; set; }                 // mental health
-    public int Addict { get; set; }                 // drug addiction
+    public int Addict { get; set; }                 // drug addiction level (0-100)
+    public int SteroidDays { get; set; }            // days remaining on steroids
+    public int DrugEffectDays { get; set; }         // days remaining on drug effects
+    public DrugType ActiveDrug { get; set; }        // currently active drug type
     public bool WellWish { get; set; }              // has visited wishing well
     public int Height { get; set; }                 // height
     public int Weight { get; set; }                 // weight
@@ -413,7 +416,9 @@ public class Character
     public byte Wrestlings { get; set; }            // wrestling matches left
     public byte DrinksLeft { get; set; }            // drinks left today
     public byte DaysInPrison { get; set; }          // days left in prison
-    
+    public bool CellDoorOpen { get; set; }            // has someone unlocked the cell door (rescued)?
+    public string RescuedBy { get; set; } = "";       // name of the rescuer
+
     // New for version 0.18+
     public byte UmanBearTries { get; set; }         // bear taming attempts
     public byte Massage { get; set; }               // massages today
@@ -827,8 +832,10 @@ public class Character
     // Status properties
     public bool Poisoned => Poison > 0;
     public int PoisonLevel => Poison;
-    public bool OnSteroids => false; // TODO: Implement steroid system
-    public int DrugDays => 0; // TODO: Implement drug system
+    public bool OnSteroids => SteroidDays > 0;
+    public int DrugDays => DrugEffectDays;
+    public bool OnDrugs => DrugEffectDays > 0 && ActiveDrug != DrugType.None;
+    public bool IsAddicted => Addict >= 25; // Addiction threshold
     
     // Social properties
     public string TeamName => Team;
@@ -1006,4 +1013,217 @@ public enum Cures
     Smallpox,
     Measles,
     Leprosy
+}
+
+/// <summary>
+/// Drug types available in the game - affects stats temporarily
+/// </summary>
+public enum DrugType
+{
+    None = 0,
+
+    // Strength enhancers
+    Steroids = 1,           // +Str, +Damage, risk of addiction
+    BerserkerRage = 2,      // +Str, +Attack, -Defense, short duration
+
+    // Speed enhancers
+    Haste = 10,             // +Agi, +Attacks, -HP drain
+    QuickSilver = 11,       // +Dex, +Crit chance
+
+    // Magic enhancers
+    ManaBoost = 20,         // +Mana, +Spell power
+    ThirdEye = 21,          // +Wis, +Magic resist
+
+    // Defensive
+    Ironhide = 30,          // +Con, +Defense, -Agi
+    Stoneskin = 31,         // +Armor, -Speed
+
+    // Risky/Addictive
+    DarkEssence = 40,       // +All stats briefly, high addiction, crashes hard
+    DemonBlood = 41         // +Damage, +Darkness, very addictive
+}
+
+/// <summary>
+/// Drug system helper - calculates drug effects and manages addiction
+/// </summary>
+public static class DrugSystem
+{
+    private static Random _random = new();
+
+    /// <summary>
+    /// Apply a drug to a character
+    /// </summary>
+    public static (bool success, string message) UseDrug(Character character, DrugType drug, int potency = 1)
+    {
+        if (character.OnDrugs && character.ActiveDrug != DrugType.None)
+        {
+            return (false, "You're already under the influence of another substance!");
+        }
+
+        character.ActiveDrug = drug;
+
+        // Duration based on drug type and potency
+        character.DrugEffectDays = drug switch
+        {
+            DrugType.Steroids => 3 + potency,
+            DrugType.BerserkerRage => 1,
+            DrugType.Haste => 2 + potency,
+            DrugType.QuickSilver => 2 + potency,
+            DrugType.ManaBoost => 3 + potency,
+            DrugType.ThirdEye => 3 + potency,
+            DrugType.Ironhide => 2 + potency,
+            DrugType.Stoneskin => 2 + potency,
+            DrugType.DarkEssence => 1,
+            DrugType.DemonBlood => 2,
+            _ => 1
+        };
+
+        // Steroids use separate tracking
+        if (drug == DrugType.Steroids)
+        {
+            character.SteroidDays = character.DrugEffectDays;
+        }
+
+        // Addiction risk
+        int addictionRisk = GetAddictionRisk(drug);
+        if (_random.Next(100) < addictionRisk)
+        {
+            character.Addict = Math.Min(100, character.Addict + _random.Next(5, 15));
+        }
+
+        return (true, $"You take the {drug}. You feel its effects coursing through you!");
+    }
+
+    /// <summary>
+    /// Get stat bonuses from active drug
+    /// </summary>
+    public static DrugEffects GetDrugEffects(Character character)
+    {
+        if (!character.OnDrugs) return new DrugEffects();
+
+        return character.ActiveDrug switch
+        {
+            DrugType.Steroids => new DrugEffects { StrengthBonus = 20, DamageBonus = 15 },
+            DrugType.BerserkerRage => new DrugEffects { StrengthBonus = 30, AttackBonus = 25, DefensePenalty = 20 },
+            DrugType.Haste => new DrugEffects { AgilityBonus = 25, ExtraAttacks = 1, HPDrain = 5 },
+            DrugType.QuickSilver => new DrugEffects { DexterityBonus = 20, CritBonus = 15 },
+            DrugType.ManaBoost => new DrugEffects { ManaBonus = 50, SpellPowerBonus = 20 },
+            DrugType.ThirdEye => new DrugEffects { WisdomBonus = 15, MagicResistBonus = 25 },
+            DrugType.Ironhide => new DrugEffects { ConstitutionBonus = 25, DefenseBonus = 20, AgilityPenalty = 10 },
+            DrugType.Stoneskin => new DrugEffects { ArmorBonus = 30, SpeedPenalty = 15 },
+            DrugType.DarkEssence => new DrugEffects { StrengthBonus = 15, AgilityBonus = 15, DexterityBonus = 15, ManaBonus = 25 },
+            DrugType.DemonBlood => new DrugEffects { DamageBonus = 25, DarknessBonus = 10 },
+            _ => new DrugEffects()
+        };
+    }
+
+    /// <summary>
+    /// Process daily drug effects (withdrawal, duration reduction)
+    /// </summary>
+    public static string ProcessDailyDrugEffects(Character character)
+    {
+        var messages = new List<string>();
+
+        // Reduce drug duration
+        if (character.DrugEffectDays > 0)
+        {
+            character.DrugEffectDays--;
+            if (character.DrugEffectDays == 0)
+            {
+                messages.Add($"The effects of {character.ActiveDrug} have worn off.");
+                character.ActiveDrug = DrugType.None;
+
+                // Crash effects for some drugs
+                if (character.ActiveDrug == DrugType.DarkEssence)
+                {
+                    character.HP = Math.Max(1, character.HP - character.MaxHP / 4);
+                    messages.Add("You crash hard from the Dark Essence. Your body aches.");
+                }
+            }
+        }
+
+        // Reduce steroid duration
+        if (character.SteroidDays > 0)
+        {
+            character.SteroidDays--;
+        }
+
+        // Withdrawal effects for addicts
+        if (character.IsAddicted && !character.OnDrugs)
+        {
+            int withdrawalSeverity = character.Addict / 25; // 1-4 severity
+
+            // Stat penalties during withdrawal
+            character.Strength = Math.Max(1, character.Strength - withdrawalSeverity);
+            character.Agility = Math.Max(1, character.Agility - withdrawalSeverity);
+
+            if (withdrawalSeverity >= 2)
+            {
+                messages.Add("Your hands shake... you crave your next fix.");
+            }
+            if (withdrawalSeverity >= 3)
+            {
+                messages.Add("The withdrawal is agonizing. Your body screams for drugs.");
+            }
+
+            // Slow addiction recovery if clean
+            if (_random.Next(100) < 20)
+            {
+                character.Addict = Math.Max(0, character.Addict - 1);
+            }
+        }
+
+        return string.Join(" ", messages);
+    }
+
+    /// <summary>
+    /// Get addiction risk percentage for a drug
+    /// </summary>
+    private static int GetAddictionRisk(DrugType drug)
+    {
+        return drug switch
+        {
+            DrugType.Steroids => 15,
+            DrugType.BerserkerRage => 10,
+            DrugType.Haste => 5,
+            DrugType.QuickSilver => 5,
+            DrugType.ManaBoost => 3,
+            DrugType.ThirdEye => 3,
+            DrugType.Ironhide => 5,
+            DrugType.Stoneskin => 3,
+            DrugType.DarkEssence => 40,
+            DrugType.DemonBlood => 50,
+            _ => 0
+        };
+    }
+}
+
+/// <summary>
+/// Stat effects from drugs
+/// </summary>
+public class DrugEffects
+{
+    public int StrengthBonus { get; set; }
+    public int AgilityBonus { get; set; }
+    public int DexterityBonus { get; set; }
+    public int ConstitutionBonus { get; set; }
+    public int WisdomBonus { get; set; }
+    public int DamageBonus { get; set; }
+    public int AttackBonus { get; set; }
+    public int DefenseBonus { get; set; }
+    public int ArmorBonus { get; set; }
+    public int ManaBonus { get; set; }
+    public int SpellPowerBonus { get; set; }
+    public int CritBonus { get; set; }
+    public int MagicResistBonus { get; set; }
+    public int ExtraAttacks { get; set; }
+
+    // Penalties
+    public int DefensePenalty { get; set; }
+    public int AgilityPenalty { get; set; }
+    public int SpeedPenalty { get; set; }
+    public int HPDrain { get; set; }
+
+    // Special
+    public int DarknessBonus { get; set; }
 } 

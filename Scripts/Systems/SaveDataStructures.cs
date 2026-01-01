@@ -65,6 +65,9 @@ namespace UsurperRemake.Systems
         public string CurrentLocation { get; set; } = "";
         public int TurnsRemaining { get; set; }
         public int DaysInPrison { get; set; }
+        public bool CellDoorOpen { get; set; }  // Has been rescued
+        public string RescuedBy { get; set; } = "";  // Name of rescuer
+        public int PrisonEscapes { get; set; }  // Escape attempts remaining
         
         // Daily limits
         public int Fights { get; set; }
@@ -108,6 +111,9 @@ namespace UsurperRemake.Systems
         public int Poison { get; set; }
         public int GnollP { get; set; }  // Gnoll poison (temporary)
         public int Addict { get; set; }  // Drug addiction level
+        public int SteroidDays { get; set; }  // Days remaining on steroids
+        public int DrugEffectDays { get; set; }  // Days remaining on drug effects
+        public int ActiveDrug { get; set; }  // Currently active drug type (DrugType enum)
         public int Mercy { get; set; }   // Mercy counter
 
         // Disease status
@@ -181,19 +187,22 @@ namespace UsurperRemake.Systems
         // Economic state
         public int BankInterestRate { get; set; }
         public int TownPotValue { get; set; }
-        
+
         // Political state
         public string? CurrentRuler { get; set; }
-        
+
         // World events
         public List<WorldEventData> ActiveEvents { get; set; } = new();
-        
+
+        // Active quests
+        public List<QuestData> ActiveQuests { get; set; } = new();
+
         // Shop inventories
         public Dictionary<string, ShopInventoryData> ShopInventories { get; set; } = new();
-        
+
         // News and history
         public List<NewsEntryData> RecentNews { get; set; } = new();
-        
+
         // God system state
         public Dictionary<string, GodStateData> GodStates { get; set; } = new();
     }
@@ -225,19 +234,58 @@ namespace UsurperRemake.Systems
     }
 
     /// <summary>
-    /// Quest data for save system
+    /// Quest data for save system - matches Quest class structure
     /// </summary>
     public class QuestData
     {
         public string Id { get; set; } = "";
         public string Title { get; set; } = "";
-        public string Description { get; set; } = "";
+        public string Initiator { get; set; } = "";
+        public string Comment { get; set; } = "";
         public QuestStatus Status { get; set; }
         public DateTime StartTime { get; set; }
-        public DateTime? CompletionTime { get; set; }
-        public Dictionary<string, object> Progress { get; set; } = new();
-        public List<string> Objectives { get; set; } = new();
-        public Dictionary<string, bool> CompletedObjectives { get; set; } = new();
+        public int QuestType { get; set; }
+        public int QuestTarget { get; set; }
+        public int Difficulty { get; set; }
+        public string Occupier { get; set; } = "";
+        public int OccupiedDays { get; set; }
+        public int DaysToComplete { get; set; }
+        public int MinLevel { get; set; }
+        public int MaxLevel { get; set; }
+        public int Reward { get; set; }
+        public int RewardType { get; set; }
+        public int Penalty { get; set; }
+        public int PenaltyType { get; set; }
+        public string OfferedTo { get; set; } = "";
+        public bool Forced { get; set; }
+        public List<QuestObjectiveData> Objectives { get; set; } = new();
+        public List<QuestMonsterData> Monsters { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Quest objective data for save system
+    /// </summary>
+    public class QuestObjectiveData
+    {
+        public string Id { get; set; } = "";
+        public string Description { get; set; } = "";
+        public int ObjectiveType { get; set; }
+        public string TargetId { get; set; } = "";
+        public string TargetName { get; set; } = "";
+        public int RequiredProgress { get; set; }
+        public int CurrentProgress { get; set; }
+        public bool IsOptional { get; set; }
+        public int BonusReward { get; set; }
+    }
+
+    /// <summary>
+    /// Quest monster data for save system
+    /// </summary>
+    public class QuestMonsterData
+    {
+        public int MonsterType { get; set; }
+        public int Count { get; set; }
+        public string MonsterName { get; set; } = "";
     }
 
     /// <summary>

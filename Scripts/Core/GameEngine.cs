@@ -84,10 +84,10 @@ public partial class GameEngine : Node
     {
         InitializeGame();
 
-        // Show splash screen
+        // Show splash screen (the colorful USURPER REBORN title)
         await UsurperRemake.UI.SplashScreen.Show(terminal);
 
-        ShowTitleScreen();
+        // Go directly to main menu (skip the redundant title screen)
         await MainMenu();
     }
 
@@ -378,8 +378,7 @@ public partial class GameEngine : Node
         terminal.ClearScreen();
         terminal.ShowANSIArt("USURPER");
         terminal.SetColor("bright_yellow");
-        terminal.WriteLine("USURPER - The Dungeon of Death");
-        terminal.WriteLine("Reborn Edition");
+        terminal.WriteLine("USURPER REBORN - The Dungeon of Death");
         terminal.WriteLine("");
         terminal.SetColor("gray");
         terminal.WriteLine("1993 - Original by Jakob Dangarden");
@@ -404,7 +403,7 @@ public partial class GameEngine : Node
             terminal.SetColor("bright_red");
             terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
             terminal.SetColor("bright_yellow");
-            terminal.WriteLine("║               USURPER RELOADED - The Dungeon of Death                       ║");
+            terminal.WriteLine("║                USURPER REBORN - The Dungeon of Death                        ║");
             terminal.SetColor("bright_red");
             terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
             terminal.WriteLine("");
@@ -836,7 +835,7 @@ public partial class GameEngine : Node
     /// </summary>
     private string GetUserDataPath()
     {
-        var appName = "UsurperReloaded";
+        var appName = "UsurperReborn";
 
         if (System.Environment.OSVersion.Platform == PlatformID.Win32NT)
         {
@@ -1018,7 +1017,10 @@ public partial class GameEngine : Node
             // Game state
             TurnsRemaining = playerData.TurnsRemaining,
             DaysInPrison = (byte)playerData.DaysInPrison,
-            
+            CellDoorOpen = playerData.CellDoorOpen,
+            RescuedBy = playerData.RescuedBy ?? "",
+            PrisonEscapes = (byte)playerData.PrisonEscapes,
+
             // Daily limits
             Fights = playerData.Fights,
             PFights = playerData.PFights,
@@ -1034,6 +1036,9 @@ public partial class GameEngine : Node
             Poison = playerData.Poison,
             GnollP = playerData.GnollP,
             Addict = playerData.Addict,
+            SteroidDays = playerData.SteroidDays,
+            DrugEffectDays = playerData.DrugEffectDays,
+            ActiveDrug = (DrugType)playerData.ActiveDrug,
             Mercy = playerData.Mercy,
 
             // Disease status
@@ -1189,7 +1194,13 @@ public partial class GameEngine : Node
         var currentDay = dailyManager?.CurrentDay ?? 1;
         WorldEventSystem.Instance.RestoreFromSaveData(worldState.ActiveEvents, currentDay);
 
-        GD.Print($"[GameEngine] World state restored: {worldState.ActiveEvents?.Count ?? 0} active events");
+        // Restore active quests from save data
+        if (worldState.ActiveQuests != null && worldState.ActiveQuests.Count > 0)
+        {
+            QuestSystem.RestoreFromSaveData(worldState.ActiveQuests);
+        }
+
+        GD.Print($"[GameEngine] World state restored: {worldState.ActiveEvents?.Count ?? 0} active events, {worldState.ActiveQuests?.Count ?? 0} quests");
         await Task.CompletedTask;
     }
     

@@ -172,19 +172,8 @@ public static class CharacterDataManager
 }
 #endregion
 
-#region Quest stub helpers
-public partial class Quest
-{
-    // Basic compatibility helpers – full logic lives elsewhere.
-    public QuestClaimResult CanPlayerClaim(Character p) => QuestClaimResult.CanClaim;
-
-    // These fields are referenced by QuestSystem but were not part of the core Quest model yet.
-    public string OfferedTo { get; set; } = string.Empty;
-    public bool Forced { get; set; } = false;
-    public long Penalty => 0;
-    public int PenaltyType => 0;
-}
-#endregion
+// Quest stub helpers - REMOVED: Now fully implemented in Quest.cs
+// Properties OfferedTo, Forced, Penalty, PenaltyType and method CanPlayerClaim moved to Quest.cs
 
 #region CombatEngine helper
 public partial class CombatEngine

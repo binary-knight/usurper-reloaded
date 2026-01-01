@@ -1,5 +1,6 @@
 using UsurperRemake;
 using UsurperRemake.Utils;
+using UsurperRemake.Systems;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -154,8 +155,29 @@ public partial class MagicShopLocation : BaseLocation
         
         // Player gold display
         DisplayMessage($"(You have {player.Gold:N0} gold coins)", "gray");
+
+        // Show alignment price modifier
+        var alignmentModifier = AlignmentSystem.Instance.GetPriceModifier(player, isShadyShop: false);
+        if (alignmentModifier != 1.0f)
+        {
+            var (alignText, alignColor) = AlignmentSystem.Instance.GetAlignmentDisplay(player);
+            if (alignmentModifier < 1.0f)
+                DisplayMessage($"  Your {alignText} alignment grants you a {(int)((1.0f - alignmentModifier) * 100)}% discount!", alignColor);
+            else
+                DisplayMessage($"  Your {alignText} alignment causes a {(int)((alignmentModifier - 1.0f) * 100)}% markup.", alignColor);
+        }
+
+        // Show world event price modifier
+        var worldEventModifier = WorldEventSystem.Instance.GlobalPriceModifier;
+        if (Math.Abs(worldEventModifier - 1.0f) > 0.01f)
+        {
+            if (worldEventModifier < 1.0f)
+                DisplayMessage($"  World Events: {(int)((1.0f - worldEventModifier) * 100)}% discount active!", "bright_green");
+            else
+                DisplayMessage($"  World Events: {(int)((worldEventModifier - 1.0f) * 100)}% price increase!", "red");
+        }
         DisplayMessage("");
-        
+
         // Menu options
         DisplayMessage("(R)eturn to street          (L)ist Items", "gray");
         DisplayMessage("(I)dentify item             (B)uy Item", "gray");
@@ -274,11 +296,16 @@ public partial class MagicShopLocation : BaseLocation
         DisplayMessage("");
         DisplayMessage("Enter Item # to buy: ", "yellow", false);
         string input = Console.ReadLine();
-        
+
         if (int.TryParse(input, out int itemNumber) && itemNumber > 0 && itemNumber <= _magicInventory.Count)
         {
             var item = _magicInventory[itemNumber - 1];
-            
+
+            // Calculate adjusted price with alignment and world event modifiers
+            var alignmentModifier = AlignmentSystem.Instance.GetPriceModifier(player, isShadyShop: false);
+            var worldEventModifier = WorldEventSystem.Instance.GlobalPriceModifier;
+            long adjustedPrice = (long)(item.Value * alignmentModifier * worldEventModifier);
+
             // Check restrictions
             if (item.OnlyForGood && player.Chivalry < 1 && player.Darkness > 0)
             {
@@ -290,22 +317,27 @@ public partial class MagicShopLocation : BaseLocation
                 DisplayMessage("This item is enchanted and can be used by evil characters only.", "red");
                 DisplayMessage("You can buy it, but not use it!", "red");
             }
-            
+
             if (item.StrengthRequired > player.Strength)
             {
                 DisplayMessage("This item is too heavy for you to use!", "red");
             }
-            
+
             // Check class restrictions (if any)
             // TODO: Implement class restrictions when needed
-            
-            DisplayMessage($"Buy the {item.Name} for {item.Value:N0} gold? (Y/N): ", "yellow", false);
+
+            // Show price with discount/markup if applicable
+            var totalModifier = alignmentModifier * worldEventModifier;
+            if (Math.Abs(totalModifier - 1.0f) > 0.01f)
+                DisplayMessage($"Buy the {item.Name} for {adjustedPrice:N0} gold (was {item.Value:N0})? (Y/N): ", "yellow", false);
+            else
+                DisplayMessage($"Buy the {item.Name} for {adjustedPrice:N0} gold? (Y/N): ", "yellow", false);
             var confirm = Console.ReadKey().KeyChar.ToString().ToUpper();
             DisplayMessage("");
-            
+
             if (confirm == "Y")
             {
-                if (player.Gold < item.Value)
+                if (player.Gold < adjustedPrice)
                 {
                     DisplayMessage("You don't have enough gold!", "red");
                 }
@@ -315,7 +347,7 @@ public partial class MagicShopLocation : BaseLocation
                 }
                 else
                 {
-                    player.Gold -= item.Value;
+                    player.Gold -= adjustedPrice;
                     player.Inventory.Add(item.Clone());
                     
                     DisplayMessage("Done!", "green");

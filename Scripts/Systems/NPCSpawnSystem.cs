@@ -328,5 +328,64 @@ namespace UsurperRemake.Systems
             npcsInitialized = false;
             GD.Print("[NPCSpawn] NPCs reset");
         }
+
+        /// <summary>
+        /// Get all NPCs currently in prison
+        /// </summary>
+        public List<NPC> GetPrisoners()
+        {
+            return spawnedNPCs.Where(npc => npc.DaysInPrison > 0).ToList();
+        }
+
+        /// <summary>
+        /// Find a prisoner by partial name match
+        /// </summary>
+        public NPC? FindPrisoner(string searchName)
+        {
+            if (string.IsNullOrWhiteSpace(searchName)) return null;
+
+            return spawnedNPCs.FirstOrDefault(npc =>
+                npc.DaysInPrison > 0 &&
+                npc.Name2.Contains(searchName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// Imprison an NPC for a number of days
+        /// </summary>
+        public void ImprisonNPC(NPC npc, int days)
+        {
+            if (npc == null) return;
+            npc.DaysInPrison = (byte)Math.Min(255, days);
+            npc.CellDoorOpen = false;
+            npc.RescuedBy = "";
+            npc.CurrentLocation = "Prison";
+            GD.Print($"[NPCSpawn] {npc.Name2} imprisoned for {days} days");
+        }
+
+        /// <summary>
+        /// Release an NPC from prison
+        /// </summary>
+        public void ReleaseNPC(NPC npc, string rescuerName = "")
+        {
+            if (npc == null) return;
+            npc.DaysInPrison = 0;
+            npc.CellDoorOpen = false;
+            npc.RescuedBy = rescuerName;
+            npc.HP = npc.MaxHP;
+            npc.CurrentLocation = "Main Street";
+            GD.Print($"[NPCSpawn] {npc.Name2} released from prison" +
+                (string.IsNullOrEmpty(rescuerName) ? "" : $" by {rescuerName}"));
+        }
+
+        /// <summary>
+        /// Mark an NPC's cell door as open (rescued)
+        /// </summary>
+        public void OpenCellDoor(NPC npc, string rescuerName)
+        {
+            if (npc == null) return;
+            npc.CellDoorOpen = true;
+            npc.RescuedBy = rescuerName;
+            GD.Print($"[NPCSpawn] Cell door opened for {npc.Name2} by {rescuerName}");
+        }
     }
 }

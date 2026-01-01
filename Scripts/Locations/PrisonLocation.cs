@@ -115,19 +115,37 @@ public partial class PrisonLocation : BaseLocation
         // In Pascal, this checks if onliner.location == onloc_prisonerop
         // For this implementation, we'll check if player has been rescued
         // This would be set by another player breaking them out
-        return false; // TODO: Implement rescue mechanism
+        await Task.CompletedTask;
+        return player.CellDoorOpen;
     }
     
     private async Task HandleCellDoorOpen(Character player)
     {
         await terminal.WriteLineAsync();
+        await terminal.WriteColorLineAsync("The cell door swings open!", TerminalEmulator.ColorGreen);
+        await terminal.WriteLineAsync();
+
+        if (!string.IsNullOrEmpty(player.RescuedBy))
+        {
+            await terminal.WriteColorAsync(player.RescuedBy, TerminalEmulator.ColorCyan);
+            await terminal.WriteLineAsync(" broke you out of prison!");
+            await terminal.WriteLineAsync("You owe them your freedom!");
+        }
+        else
+        {
+            await terminal.WriteLineAsync("Someone has unlocked your cell!");
+        }
+
+        await terminal.WriteLineAsync();
         await terminal.WriteLineAsync("You walk out of your cell.");
-        await terminal.WriteLineAsync("You are free!");
-        
+        await terminal.WriteColorLineAsync("You are FREE!", TerminalEmulator.ColorGreen);
+
         // Reset player state
         player.HP = player.MaxHP;
         player.DaysInPrison = 0;
-        
+        player.CellDoorOpen = false;
+        player.RescuedBy = "";
+
         // Return to dormitory
         await Task.Delay(GameConfig.PrisonCellOpenDelay);
     }
@@ -458,10 +476,17 @@ public partial class PrisonLocation : BaseLocation
     private async Task<List<Character>> GetOtherPrisoners(Character currentPlayer)
     {
         var prisoners = new List<Character>();
-        
-        // TODO: This would query the actual player/NPC database
-        // For now, return empty list as placeholder
-        
+        await Task.CompletedTask;
+
+        // Get NPC prisoners from the NPCSpawnSystem
+        var npcPrisoners = UsurperRemake.Systems.NPCSpawnSystem.Instance.GetPrisoners();
+        foreach (var npc in npcPrisoners)
+        {
+            prisoners.Add(npc);
+        }
+
+        // Could also add player prisoners here if multiplayer is enabled
+
         return prisoners;
     }
     

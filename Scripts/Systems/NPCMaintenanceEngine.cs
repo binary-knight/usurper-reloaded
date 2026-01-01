@@ -403,18 +403,233 @@ public class NPCMaintenanceEngine : Node
     }
     
     /// <summary>
-    /// Additional advanced gang management stubs – full logic TBD
+    /// Process gang territory control and disputes
+    /// Gangs can control locations in town, earning income and influence
     /// </summary>
     private async Task ProcessGangTerritories(List<NPC> npcs)
     {
-        // Placeholder: future implementation will evaluate gang turfs and takeover mechanics
+        // Get all gangs with their members
+        var gangs = npcs
+            .Where(n => !string.IsNullOrEmpty(n.Team) && n.IsAlive)
+            .GroupBy(n => n.Team)
+            .Where(g => g.Count() >= 2) // At least 2 members to be a real gang
+            .ToList();
+
+        // Territory locations that can be controlled
+        var territories = new[] { "Dark Alley", "Tavern", "Market", "Docks", "Slums", "Warehouse District" };
+
+        foreach (var gang in gangs)
+        {
+            var gangName = gang.Key;
+            var members = gang.ToList();
+            var gangPower = CalculateGangPower(members);
+
+            // Check each territory for control disputes
+            foreach (var territory in territories)
+            {
+                var currentController = GetTerritoryController(territory);
+
+                if (currentController == gangName)
+                {
+                    // Gang already controls this territory - collect income
+                    var income = CalculateTerritoryIncome(territory, gangPower);
+                    DistributeGangIncome(members, income);
+                }
+                else if (string.IsNullOrEmpty(currentController) && random.Next(100) < 20)
+                {
+                    // Unclaimed territory - attempt takeover
+                    if (gangPower > 50) // Minimum power threshold
+                    {
+                        SetTerritoryController(territory, gangName);
+                        GenerateGangNews($"{gangName} has taken control of the {territory}!");
+                    }
+                }
+                else if (!string.IsNullOrEmpty(currentController) && random.Next(100) < 5)
+                {
+                    // Challenge existing controller
+                    var defenderPower = CalculateGangPowerByName(currentController, npcs);
+
+                    if (gangPower > defenderPower * 1.2) // Need 20% advantage
+                    {
+                        SetTerritoryController(territory, gangName);
+                        GenerateGangNews($"{gangName} has seized the {territory} from {currentController}!");
+                    }
+                }
+            }
+        }
+
         await Task.CompletedTask;
     }
-    
+
+    /// <summary>
+    /// Process gang loyalty shifts, defections, and betrayals
+    /// NPCs may leave gangs or switch allegiances based on various factors
+    /// </summary>
     private async Task ProcessGangLoyalty(List<NPC> npcs)
     {
-        // Placeholder: compute loyalty shifts, defections, betrayals
+        foreach (var npc in npcs.Where(n => !string.IsNullOrEmpty(n.Team) && n.IsAlive))
+        {
+            var loyalty = CalculateNPCLoyalty(npc);
+
+            // Very low loyalty - potential defection
+            if (loyalty < 20 && random.Next(100) < 30)
+            {
+                var oldGang = npc.Team;
+
+                // Find a better gang to join, or go solo
+                var betterGang = FindBetterGang(npc, npcs);
+
+                if (betterGang != null)
+                {
+                    npc.Team = betterGang;
+                    GenerateGangNews($"{npc.DisplayName} has defected from {oldGang} to {betterGang}!");
+                }
+                else
+                {
+                    npc.Team = "";
+                    GenerateGangNews($"{npc.DisplayName} has left {oldGang} and gone independent.");
+                }
+            }
+            // Low loyalty - reduced contribution
+            else if (loyalty < 40)
+            {
+                // NPC contributes less to gang activities
+                npc.Memory?.AddMemory("Feeling disloyal to gang", "gang", DateTime.Now);
+            }
+            // High loyalty - potential recruitment
+            else if (loyalty > 80 && random.Next(100) < 10)
+            {
+                // Try to recruit a solo NPC
+                var recruit = npcs.FirstOrDefault(n =>
+                    string.IsNullOrEmpty(n.Team) &&
+                    n.IsAlive &&
+                    n.Level >= npc.Level - 3 &&
+                    n.Level <= npc.Level + 3);
+
+                if (recruit != null && random.Next(100) < 40)
+                {
+                    recruit.Team = npc.Team;
+                    GenerateGangNews($"{npc.DisplayName} recruited {recruit.DisplayName} into {npc.Team}!");
+                }
+            }
+        }
+
         await Task.CompletedTask;
+    }
+
+    // Gang system helper methods
+    private int CalculateGangPower(List<NPC> members)
+    {
+        return members.Sum(m => m.Level * 10 + (int)m.Strength + (int)m.Gold / 100);
+    }
+
+    private int CalculateGangPowerByName(string gangName, List<NPC> allNpcs)
+    {
+        var members = allNpcs.Where(n => n.Team == gangName && n.IsAlive).ToList();
+        return CalculateGangPower(members);
+    }
+
+    private int CalculateNPCLoyalty(NPC npc)
+    {
+        // Base loyalty from personality
+        int loyalty = 50;
+
+        if (npc.Brain?.Personality != null)
+        {
+            loyalty += (int)(npc.Brain.Personality.Loyalty * 30);
+            loyalty -= (int)(npc.Brain.Personality.Greed * 20);
+            loyalty += (int)(npc.Brain.Personality.Aggression * 10); // Loyal fighters
+        }
+
+        // Modifier from gold (rich NPCs may want more)
+        if (npc.Gold > 10000)
+            loyalty -= 10;
+
+        // Modifier from level (high level = more independent)
+        if (npc.Level > 15)
+            loyalty -= npc.Level - 15;
+
+        return Math.Clamp(loyalty, 0, 100);
+    }
+
+    private string? FindBetterGang(NPC npc, List<NPC> allNpcs)
+    {
+        var gangs = allNpcs
+            .Where(n => !string.IsNullOrEmpty(n.Team) && n.Team != npc.Team && n.IsAlive)
+            .GroupBy(n => n.Team)
+            .Where(g => g.Count() >= 2);
+
+        foreach (var gang in gangs)
+        {
+            var gangPower = CalculateGangPower(gang.ToList());
+            var currentGangPower = CalculateGangPowerByName(npc.Team, allNpcs);
+
+            // Switch if new gang is significantly stronger
+            if (gangPower > currentGangPower * 1.5)
+                return gang.Key;
+        }
+
+        return null;
+    }
+
+    // Territory management (simple in-memory for now)
+    private static readonly Dictionary<string, string> _territoryControllers = new();
+
+    private string GetTerritoryController(string territory)
+    {
+        return _territoryControllers.TryGetValue(territory, out var controller) ? controller : "";
+    }
+
+    private void SetTerritoryController(string territory, string gangName)
+    {
+        _territoryControllers[territory] = gangName;
+    }
+
+    private int CalculateTerritoryIncome(string territory, int gangPower)
+    {
+        // Base income per territory type
+        int baseIncome = territory switch
+        {
+            "Dark Alley" => 50,
+            "Tavern" => 100,
+            "Market" => 200,
+            "Docks" => 150,
+            "Slums" => 30,
+            "Warehouse District" => 120,
+            _ => 50
+        };
+
+        // Scale with gang power
+        return baseIncome + (gangPower / 10);
+    }
+
+    private void DistributeGangIncome(List<NPC> members, int income)
+    {
+        if (members.Count == 0) return;
+
+        // Leader gets more
+        var leader = members.FirstOrDefault(m => m.CTurf) ?? members.OrderByDescending(m => m.Level).First();
+        var leaderShare = income / 3;
+        leader.Gold += leaderShare;
+
+        // Rest split among members
+        var memberShare = (income - leaderShare) / Math.Max(1, members.Count - 1);
+        foreach (var member in members.Where(m => m != leader))
+        {
+            member.Gold += memberShare;
+        }
+    }
+
+    private void GenerateGangNews(string message)
+    {
+        try
+        {
+            NewsSystem.Instance?.Newsy(true, message);
+        }
+        catch
+        {
+            // News system may not be initialized
+        }
     }
     
     #endregion

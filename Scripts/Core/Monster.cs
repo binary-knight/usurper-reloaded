@@ -85,6 +85,14 @@ public class Monster
     public int StunRounds { get; set; } = 0;
     public int WeakenRounds { get; set; } = 0;
 
+    // Conversion/Charm effects
+    public bool Fled { get; set; } = false;           // Monster has fled from combat
+    public bool IsFriendly { get; set; } = false;     // Monster is temporarily friendly (pacified/charmed)
+    public bool IsConverted { get; set; } = false;    // Monster is fully converted to fight for player
+
+    // Monster classification
+    public MonsterClass MonsterClass { get; set; } = MonsterClass.Normal;
+
     // Enhanced monster family system properties
     public string FamilyName { get; set; } = "";            // Monster family (Goblinoid, Undead, etc.)
     public string TierName { get; set; } = "";              // Tier name (Goblin, Hobgoblin, etc.)
@@ -553,4 +561,21 @@ public enum MonsterActionType
     Defend,
     Flee,
     Death
+}
+
+/// <summary>
+/// Monster classification for type-specific mechanics
+/// </summary>
+public enum MonsterClass
+{
+    Normal = 0,         // Standard creatures (goblins, orcs, etc.)
+    Beast = 1,          // Animals and beasts
+    Undead = 2,         // Zombies, skeletons, vampires
+    Demon = 3,          // Demons and devils
+    Elemental = 4,      // Fire/Ice/Earth/Air elementals
+    Dragon = 5,         // Dragons and dragonkin
+    Humanoid = 6,       // Human-like creatures
+    Construct = 7,      // Golems, animated objects
+    Plant = 8,          // Plant creatures
+    Aberration = 9      // Bizarre otherworldly creatures
 } 

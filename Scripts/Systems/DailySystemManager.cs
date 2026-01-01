@@ -436,6 +436,16 @@ public class DailySystemManager
         // Process World Event System - this handles all major events
         await WorldEventSystem.Instance.ProcessDailyEvents(currentDay);
 
+        // Process Quest System daily maintenance (quest expiration, failure processing)
+        QuestSystem.ProcessDailyQuestMaintenance();
+
+        // Refresh bounty board with new quests if needed
+        var player = GameEngine.Instance?.CurrentPlayer;
+        if (player != null)
+        {
+            QuestSystem.RefreshBountyBoard(player.Level);
+        }
+
         // Special events based on day number
         if (currentDay % 7 == 0) // Weekly events
         {

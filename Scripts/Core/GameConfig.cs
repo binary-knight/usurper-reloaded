@@ -812,6 +812,7 @@ Barbarian - Savage fighters, incredible strength
     public const int MaxQuestMonsters = 10;                // Maximum monsters per quest (global_maxmon)
     public const int MaxActiveQuests = 5;                  // Maximum active quests per player
     public const int MaxCompletedQuests = 3;               // Maximum quest completions per day
+    public const int MaxQuestsPerDay = 3;                  // Maximum quests claimable per day
     
     // Quest Creation Limits (Pascal royal quest limits)
     public const int QuestMaxNewQuests = 5;              // Daily new quest limit for kings

@@ -254,10 +254,17 @@ public partial class PrisonWalkLocation : BaseLocation
     private async Task<List<Character>> GetAllPrisoners()
     {
         var prisoners = new List<Character>();
-        
-        // TODO: This would query the actual player/NPC database for characters with DaysInPrison > 0
-        // For now, return empty list as placeholder
-        
+        await Task.CompletedTask;
+
+        // Get NPC prisoners from the NPCSpawnSystem
+        var npcPrisoners = UsurperRemake.Systems.NPCSpawnSystem.Instance.GetPrisoners();
+        foreach (var npc in npcPrisoners)
+        {
+            prisoners.Add(npc);
+        }
+
+        // Could also add player prisoners here if multiplayer is enabled
+
         return prisoners;
     }
     
@@ -347,8 +354,17 @@ public partial class PrisonWalkLocation : BaseLocation
     
     private async Task<Character> FindPrisoner(string searchName)
     {
-        // TODO: Search through player and NPC databases for matching prisoner
-        // For now, return null (no prisoners found)
+        await Task.CompletedTask;
+
+        // First search NPC prisoners
+        var npcPrisoner = UsurperRemake.Systems.NPCSpawnSystem.Instance.FindPrisoner(searchName);
+        if (npcPrisoner != null)
+        {
+            return npcPrisoner;
+        }
+
+        // Could also search player prisoners here if multiplayer is enabled
+
         return null;
     }
     
@@ -391,46 +407,191 @@ public partial class PrisonWalkLocation : BaseLocation
     
     private async Task<List<Character>> GatherPrisonGuards()
     {
+        await Task.CompletedTask;
         var guards = new List<Character>();
-        
-        // TODO: Implement gathering of royal guards for combat
-        // This would check the king's guard roster and create opponents
-        // For now, return empty list
-        
+        var random = new System.Random();
+
+        // Number of guards based on player level (1-4 guards)
+        int guardCount = Math.Max(1, Math.Min(4, random.Next(1, 3) + (GameEngine.Instance.CurrentPlayer?.Level ?? 1) / 5));
+
+        for (int i = 0; i < guardCount; i++)
+        {
+            var guard = new Character
+            {
+                Name1 = GetGuardName(i),
+                Name2 = GetGuardName(i),
+                Class = CharacterClass.Warrior,
+                Race = CharacterRace.Human,
+                Level = Math.Max(1, (GameEngine.Instance.CurrentPlayer?.Level ?? 1) - random.Next(-2, 3)),
+                AI = CharacterAI.Computer
+            };
+
+            // Scale stats based on level
+            guard.Strength = 15 + guard.Level * 4;
+            guard.Defence = 15 + guard.Level * 3;
+            guard.Stamina = 12 + guard.Level * 3;
+            guard.Agility = 10 + guard.Level * 2;
+            guard.HP = 50 + guard.Level * 25;
+            guard.MaxHP = guard.HP;
+            guard.WeapPow = 5 + guard.Level * 3;
+            guard.ArmPow = 3 + guard.Level * 2;
+
+            guards.Add(guard);
+        }
+
         return guards;
+    }
+
+    private string GetGuardName(int index)
+    {
+        var guardNames = new[]
+        {
+            "Royal Guard",
+            "Prison Warden",
+            "Iron Fist Guard",
+            "Dungeon Keeper",
+            "Jailer",
+            "Tower Guard",
+            "Cell Block Guardian",
+            "Sheriff's Deputy"
+        };
+        return guardNames[index % guardNames.Length];
     }
     
     private async Task<bool> BattlePrisonGuards(Character player, List<Character> guards)
     {
         await terminal.WriteLineAsync("=== PRISON GUARD BATTLE ===");
-        await terminal.WriteLineAsync("You must fight the prison guards to free the prisoner!");
+        await terminal.WriteLineAsync("You must defeat all guards to free the prisoner!");
         await terminal.WriteLineAsync();
-        
-        // TODO: Implement actual combat system integration
-        // For now, simulate with random chance
+
         var random = new System.Random();
-        bool playerWins = random.Next(2) == 1; // 50% chance
-        
-        if (playerWins)
+        int guardsRemaining = guards.Count;
+        long playerStartHP = player.HP;
+        bool playerFled = false;
+
+        foreach (var guard in guards)
         {
-            await terminal.WriteColorLineAsync("You defeat the prison guards!", TerminalEmulator.ColorGreen);
+            await terminal.WriteLineAsync();
+            await terminal.WriteColorAsync($">>> {guard.Name2}", TerminalEmulator.ColorYellow);
+            await terminal.WriteLineAsync($" (Level {guard.Level}, HP: {guard.HP}) attacks!");
+            await terminal.WriteLineAsync();
+
+            // Combat loop with this guard
+            while (guard.HP > 0 && player.HP > 0)
+            {
+                // Player attacks first
+                int playerDamage = CalculateDamage(player, guard, random);
+                guard.HP = Math.Max(0, guard.HP - playerDamage);
+
+                await terminal.WriteAsync($"You strike for ");
+                await terminal.WriteColorAsync($"{playerDamage}", TerminalEmulator.ColorGreen);
+                await terminal.WriteLineAsync($" damage! (Guard HP: {guard.HP})");
+
+                if (guard.HP <= 0)
+                {
+                    guardsRemaining--;
+                    await terminal.WriteColorLineAsync($"{guard.Name2} is defeated!", TerminalEmulator.ColorGreen);
+                    break;
+                }
+
+                // Guard counter-attacks
+                int guardDamage = CalculateDamage(guard, player, random);
+                player.HP = Math.Max(0, player.HP - guardDamage);
+
+                await terminal.WriteAsync($"{guard.Name2} strikes back for ");
+                await terminal.WriteColorAsync($"{guardDamage}", TerminalEmulator.ColorRed);
+                await terminal.WriteLineAsync($" damage! (Your HP: {player.HP}/{player.MaxHP})");
+
+                if (player.HP <= 0)
+                {
+                    await terminal.WriteLineAsync();
+                    await terminal.WriteColorLineAsync("You have been knocked unconscious!", TerminalEmulator.ColorRed);
+                    break;
+                }
+
+                // Option to flee if taking heavy damage
+                if (player.HP < player.MaxHP / 3 && guard.HP > guard.MaxHP / 4)
+                {
+                    bool flee = await terminal.ConfirmAsync("Attempt to flee", false);
+                    if (flee)
+                    {
+                        // 40% chance to escape
+                        if (random.Next(100) < 40 + player.Agility / 5)
+                        {
+                            await terminal.WriteColorLineAsync("You manage to escape!", TerminalEmulator.ColorYellow);
+                            playerFled = true;
+                            break;
+                        }
+                        else
+                        {
+                            await terminal.WriteColorLineAsync("You couldn't escape!", TerminalEmulator.ColorRed);
+                        }
+                    }
+                }
+
+                await Task.Delay(300);
+            }
+
+            if (player.HP <= 0 || playerFled)
+            {
+                break;
+            }
+
+            await Task.Delay(500);
+        }
+
+        await terminal.WriteLineAsync();
+
+        if (player.HP > 0 && guardsRemaining == 0 && !playerFled)
+        {
+            await terminal.WriteColorLineAsync("VICTORY! All guards have been defeated!", TerminalEmulator.ColorGreen);
+            await terminal.WriteLineAsync($"You took {playerStartHP - player.HP} damage during the fight.");
+
+            // Award experience for defeating guards
+            long expGained = guards.Sum(g => g.Level * 50);
+            player.Experience += expGained;
+            await terminal.WriteLineAsync($"You gained {expGained} experience!");
+
             return true;
         }
         else
         {
-            await terminal.WriteColorLineAsync("The prison guards overpower you!", TerminalEmulator.ColorRed);
-            
-            // Check if player surrenders
-            bool surrender = await terminal.ConfirmAsync("Surrender to avoid injury", true);
-            
-            if (surrender)
+            if (playerFled)
             {
-                await terminal.WriteColorLineAsync("YOU COWARD!", TerminalEmulator.ColorRed);
-                await terminal.WriteColorLineAsync("You are dragged to a Cell where you await your sentence.", TerminalEmulator.ColorRed);
+                await terminal.WriteColorLineAsync("You fled the scene! The alarm is raised!", TerminalEmulator.ColorYellow);
             }
-            
+            else
+            {
+                await terminal.WriteColorLineAsync("The prison guards have captured you!", TerminalEmulator.ColorRed);
+
+                bool surrender = await terminal.ConfirmAsync("Surrender peacefully", true);
+
+                if (surrender)
+                {
+                    await terminal.WriteColorLineAsync("YOU COWARD!", TerminalEmulator.ColorRed);
+                }
+                else
+                {
+                    await terminal.WriteColorLineAsync("The guards beat you unconscious!", TerminalEmulator.ColorRed);
+                }
+            }
+
             return false;
         }
+    }
+
+    private int CalculateDamage(Character attacker, Character defender, System.Random random)
+    {
+        // Basic damage formula
+        int baseDamage = (int)(attacker.Strength / 3 + attacker.WeapPow);
+        int variance = Math.Max(1, baseDamage / 3);
+        int damage = baseDamage + random.Next(-variance, variance + 1);
+
+        // Apply defense reduction
+        int defense = (int)(defender.Defence / 4 + defender.ArmPow / 2);
+        damage = Math.Max(1, damage - defense / 2);
+
+        return damage;
     }
     
     private async Task FreePrisonerSuccessfully(Character player, Character prisoner)
@@ -438,19 +599,35 @@ public partial class PrisonWalkLocation : BaseLocation
         await terminal.WriteLineAsync();
         await terminal.WriteColorLineAsync("SUCCESS! The prisoner has been freed!", TerminalEmulator.ColorGreen);
         await terminal.WriteLineAsync();
-        
-        // Free the prisoner
-        prisoner.DaysInPrison = 0;
-        prisoner.HP = prisoner.MaxHP; // Restore health
-        
-        // TODO: Save prisoner data
-        // TODO: Add news entry about escape
-        // TODO: Inform king about escape
-        // TODO: Send mail to freed prisoner
-        
-        await terminal.WriteLineAsync($"{prisoner.DisplayName} is now free!");
-        await terminal.WriteLineAsync("The prisoner thanks you and disappears into the night.");
-        
+
+        // If prisoner is an NPC, use the NPCSpawnSystem
+        if (prisoner is NPC npcPrisoner)
+        {
+            UsurperRemake.Systems.NPCSpawnSystem.Instance.ReleaseNPC(npcPrisoner, player.DisplayName);
+        }
+        else
+        {
+            // For player prisoners, set the cell door open flag
+            prisoner.CellDoorOpen = true;
+            prisoner.RescuedBy = player.DisplayName;
+        }
+
+        await terminal.WriteColorAsync(prisoner.DisplayName, TerminalEmulator.ColorCyan);
+        await terminal.WriteLineAsync(" is now free!");
+        await terminal.WriteLineAsync();
+
+        // Increase chivalry for the heroic rescue
+        long chivalryGain = 50 + prisoner.Level * 10;
+        player.Chivalry += chivalryGain;
+        await terminal.WriteLineAsync($"Your heroic act increases your Chivalry by {chivalryGain}!");
+
+        await terminal.WriteLineAsync();
+        await terminal.WriteLineAsync("The prisoner thanks you profusely and disappears into the night.");
+        await terminal.WriteLineAsync("\"I won't forget this! You have made a friend today!\"");
+
+        // Add to player's known allies (if applicable)
+        // This could trigger future events where the freed prisoner helps the player
+
         await Task.Delay(2000);
     }
     
@@ -459,19 +636,41 @@ public partial class PrisonWalkLocation : BaseLocation
         await terminal.WriteLineAsync();
         await terminal.WriteColorLineAsync("PRISON BREAK FAILED!", TerminalEmulator.ColorRed);
         await terminal.WriteLineAsync();
-        
+
+        // Calculate sentence based on severity
+        int baseSentence = GameConfig.DefaultPrisonSentence + GameConfig.PrisonBreakPenalty;
+        int extraDays = prisoner.Level / 2; // Higher level prisoners have more security
+        int totalSentence = Math.Min(255, baseSentence + extraDays);
+
         // Player gets imprisoned
-        player.DaysInPrison = (byte)(GameConfig.DefaultPrisonSentence + GameConfig.PrisonBreakPenalty);
-        player.HP = 0; // Beaten up by guards
-        
-        await terminal.WriteLineAsync("You are beaten unconscious and thrown into a cell!");
-        await terminal.WriteLineAsync($"You are sentenced to {player.DaysInPrison} days in prison.");
+        player.DaysInPrison = (byte)totalSentence;
+        player.PrisonEscapes = 1; // Start with 1 escape attempt
+        player.CellDoorOpen = false;
+        player.RescuedBy = "";
+
+        // Set HP to 1 (badly beaten but not dead)
+        player.HP = 1;
+
+        await terminal.WriteLineAsync("You are beaten by the guards and thrown into a cell!");
+        await terminal.WriteLineAsync($"You are sentenced to {player.DaysInPrison} days in prison!");
         await terminal.WriteLineAsync();
-        
-        // TODO: Add news entry about failed prison break
-        // TODO: Inform other players
-        
+
+        // Lose some gold as a fine
+        long fine = Math.Min(player.Gold, 100 + player.Level * 25);
+        if (fine > 0)
+        {
+            player.Gold -= fine;
+            await terminal.WriteLineAsync($"The crown confiscates {fine:N0} gold as a fine!");
+        }
+
+        // Darkness increases for criminal activity
+        player.Darkness += 25;
+        await terminal.WriteColorLineAsync("Your Darkness increases from your criminal behavior.", TerminalEmulator.ColorMagenta);
+
+        await terminal.WriteLineAsync();
         await terminal.WriteLineAsync("You will wake up in your cell tomorrow...");
+        await terminal.WriteLineAsync("Maybe next time, plan your escape better!");
+
         await Task.Delay(2000);
     }
     

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using UsurperRemake.Systems;
 
 /// <summary>
 /// The Golden Bow, Healing Hut - run by Jadu The Fat
@@ -24,6 +25,16 @@ public class HealerLocation : BaseLocation
     private const int HealingPotionCost = 50;      // Cost per potion
     private const int FullHealCostPerHP = 2;       // Cost per HP restored
     private const int PoisonCureCostPerLevel = 500;
+
+    /// <summary>
+    /// Get adjusted price with alignment and world event modifiers
+    /// </summary>
+    private long GetAdjustedPrice(long basePrice, Character player)
+    {
+        var alignmentModifier = AlignmentSystem.Instance.GetPriceModifier(player, isShadyShop: false);
+        var worldEventModifier = WorldEventSystem.Instance.GlobalPriceModifier;
+        return (long)(basePrice * alignmentModifier * worldEventModifier);
+    }
 
     public HealerLocation() : base(
         GameLocation.Healer,
@@ -108,6 +119,37 @@ public class HealerLocation : BaseLocation
 
     private void ShowMenu()
     {
+        var player = GetCurrentPlayer();
+
+        // Show alignment price modifier
+        var alignmentModifier = AlignmentSystem.Instance.GetPriceModifier(player, isShadyShop: false);
+        if (alignmentModifier != 1.0f)
+        {
+            var (alignText, alignColor) = AlignmentSystem.Instance.GetAlignmentDisplay(player);
+            terminal.SetColor(alignColor);
+            if (alignmentModifier < 1.0f)
+                terminal.WriteLine($"  Your {alignText} alignment grants you a {(int)((1.0f - alignmentModifier) * 100)}% discount!");
+            else
+                terminal.WriteLine($"  Your {alignText} alignment causes a {(int)((alignmentModifier - 1.0f) * 100)}% markup.");
+        }
+
+        // Show world event price modifier
+        var worldEventModifier = WorldEventSystem.Instance.GlobalPriceModifier;
+        if (Math.Abs(worldEventModifier - 1.0f) > 0.01f)
+        {
+            if (worldEventModifier < 1.0f)
+            {
+                terminal.SetColor("bright_green");
+                terminal.WriteLine($"  World Events: {(int)((1.0f - worldEventModifier) * 100)}% discount active!");
+            }
+            else
+            {
+                terminal.SetColor("red");
+                terminal.WriteLine($"  World Events: {(int)((worldEventModifier - 1.0f) * 100)}% price increase!");
+            }
+        }
+        terminal.WriteLine("");
+
         terminal.SetColor("cyan");
         terminal.WriteLine("Services Available:");
         terminal.SetColor("white");

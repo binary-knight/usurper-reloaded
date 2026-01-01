@@ -1,6 +1,7 @@
 using UsurperRemake.Utils;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 /// <summary>
@@ -32,9 +33,20 @@ public partial class Quest
     // Quest Rewards
     public byte Reward { get; set; } = 0;
     public QuestRewardType RewardType { get; set; }
-    
+
+    // Quest Penalties (for failure)
+    public byte Penalty { get; set; } = 0;
+    public QuestRewardType PenaltyType { get; set; } = QuestRewardType.Nothing;
+
+    // Quest Offering (for targeted quests)
+    public string OfferedTo { get; set; } = "";
+    public bool Forced { get; set; } = false;
+
     // Display title used in mails / UI (not part of original Pascal structure but referenced by systems)
     public string Title { get; set; } = "(unnamed quest)";
+
+    // Objective Tracking (for modern quest progress)
+    public List<QuestObjective> Objectives { get; set; } = new();
     
     // Quest Monsters
     public List<QuestMonster> Monsters { get; set; } = new();
@@ -79,6 +91,12 @@ public partial class Quest
             QuestTarget.Seduce => "Seduction Mission",
             QuestTarget.ClaimTown => "Claim Territory",
             QuestTarget.GangWar => "Gang War Participation",
+            QuestTarget.ClearBoss => "Dungeon Boss Hunt",
+            QuestTarget.FindArtifact => "Artifact Recovery",
+            QuestTarget.ReachFloor => "Dungeon Expedition",
+            QuestTarget.ClearFloor => "Dungeon Sweep",
+            QuestTarget.RescueNPC => "Rescue Mission",
+            QuestTarget.SurviveDungeon => "Survival Challenge",
             _ => "Unknown Mission"
         };
     }
@@ -131,8 +149,79 @@ public partial class Quest
     {
         var status = IsActive ? $"Claimed by {Occupier}" : "Available";
         var timeInfo = IsActive ? $"{DaysRemaining} days left" : $"{DaysToComplete} days to complete";
-        
+
         return $"{GetTargetDescription()} | {GetDifficultyString()} | {GetRewardDescription()} | {status} | {timeInfo}";
+    }
+
+    /// <summary>
+    /// Check if a player can claim this quest (Pascal: Quest claim validation)
+    /// </summary>
+    public QuestClaimResult CanPlayerClaim(Character player)
+    {
+        // Quest already deleted
+        if (Deleted) return QuestClaimResult.QuestDeleted;
+
+        // Quest already claimed by someone
+        if (!string.IsNullOrEmpty(Occupier)) return QuestClaimResult.AlreadyClaimed;
+
+        // Royals cannot take quests (they create them)
+        if (player.King) return QuestClaimResult.RoyalsNotAllowed;
+
+        // Cannot take your own quest
+        if (Initiator == player.Name2) return QuestClaimResult.OwnQuest;
+
+        // Level requirements
+        if (player.Level < MinLevel) return QuestClaimResult.LevelTooLow;
+        if (player.Level > MaxLevel) return QuestClaimResult.LevelTooHigh;
+
+        // Daily limit check
+        if (player.RoyQuestsToday >= GameConfig.MaxQuestsPerDay) return QuestClaimResult.DailyLimitReached;
+
+        // If quest is offered to specific player, only they can claim (unless forced)
+        if (!string.IsNullOrEmpty(OfferedTo) && OfferedTo != player.Name2 && !Forced)
+        {
+            return QuestClaimResult.AlreadyClaimed; // Reuse this result for "not offered to you"
+        }
+
+        return QuestClaimResult.CanClaim;
+    }
+
+    /// <summary>
+    /// Get objective completion progress as percentage
+    /// </summary>
+    public float GetObjectiveProgress()
+    {
+        if (Objectives == null || Objectives.Count == 0) return 0f;
+
+        int completed = Objectives.Count(o => o.IsComplete);
+        return (float)completed / Objectives.Count;
+    }
+
+    /// <summary>
+    /// Check if all objectives are complete
+    /// </summary>
+    public bool AreAllObjectivesComplete()
+    {
+        if (Objectives == null || Objectives.Count == 0) return true;
+        return Objectives.All(o => o.IsComplete);
+    }
+
+    /// <summary>
+    /// Update progress on a specific objective type
+    /// </summary>
+    public void UpdateObjectiveProgress(QuestObjectiveType type, int amount = 1, string targetId = "")
+    {
+        foreach (var objective in Objectives.Where(o => o.ObjectiveType == type && !o.IsComplete))
+        {
+            // If targetId is specified, only update matching objectives
+            if (!string.IsNullOrEmpty(targetId) && objective.TargetId != targetId) continue;
+
+            objective.CurrentProgress += amount;
+            if (objective.CurrentProgress >= objective.RequiredProgress)
+            {
+                objective.CurrentProgress = objective.RequiredProgress;
+            }
+        }
     }
 
     /// <summary>
@@ -182,15 +271,24 @@ public enum QuestType
 }
 
 /// <summary>
-/// Quest Targets - Pascal QuestTargets enumeration  
+/// Quest Targets - Pascal QuestTargets enumeration with dungeon extensions
 /// </summary>
 public enum QuestTarget
 {
+    // Original Pascal quest types
     Monster = 0,
     Assassin = 1,
     Seduce = 2,
     ClaimTown = 3,
-    GangWar = 4
+    GangWar = 4,
+
+    // Dungeon-specific quest types
+    ClearBoss = 10,             // Kill a specific dungeon boss
+    FindArtifact = 11,          // Find and retrieve an artifact from dungeon
+    ReachFloor = 12,            // Reach a specific floor in the dungeon
+    ClearFloor = 13,            // Clear all monsters on a dungeon floor
+    RescueNPC = 14,             // Rescue an NPC trapped in the dungeon
+    SurviveDungeon = 15         // Survive X floors without returning to town
 }
 
 /// <summary>
@@ -219,4 +317,80 @@ public enum QuestClaimResult
     LevelTooLow = 5,                                             // Player level too low
     LevelTooHigh = 6,                                            // Player level too high
     DailyLimitReached = 7                                        // Daily quest limit reached
+}
+
+/// <summary>
+/// Quest Objective Types - What kind of progress is being tracked
+/// </summary>
+public enum QuestObjectiveType
+{
+    // Combat objectives
+    KillMonsters = 0,           // Kill X monsters of any type
+    KillSpecificMonster = 1,    // Kill X of a specific monster type
+    KillBoss = 2,               // Kill a specific boss monster
+
+    // Dungeon objectives
+    ReachDungeonFloor = 10,     // Reach floor X in a dungeon
+    ClearDungeonFloor = 11,     // Clear all monsters on floor X
+    FindArtifact = 12,          // Find a specific artifact in dungeon
+    ExploreRooms = 13,          // Explore X rooms in dungeon
+
+    // Collection objectives
+    CollectGold = 20,           // Collect X gold
+    CollectItems = 21,          // Collect X items
+    CollectPotions = 22,        // Collect X potions
+
+    // Social objectives
+    TalkToNPC = 30,             // Talk to a specific NPC
+    DeliverItem = 31,           // Deliver item to NPC
+    Assassinate = 32,           // Assassinate target player
+    Seduce = 33,                // Seduce target player
+
+    // Exploration objectives
+    VisitLocation = 40,         // Visit a specific location
+    SurviveDays = 41            // Survive X days with quest active
+}
+
+/// <summary>
+/// Quest Objective - Trackable progress for quest completion
+/// </summary>
+public class QuestObjective
+{
+    public string Id { get; set; } = "";
+    public string Description { get; set; } = "";
+    public QuestObjectiveType ObjectiveType { get; set; }
+    public string TargetId { get; set; } = "";          // Monster type, NPC name, location, etc.
+    public string TargetName { get; set; } = "";        // Display name for target
+    public int RequiredProgress { get; set; } = 1;      // How many needed
+    public int CurrentProgress { get; set; } = 0;       // Current count
+    public bool IsOptional { get; set; } = false;       // Optional bonus objectives
+    public int BonusReward { get; set; } = 0;           // Extra reward for optional objectives
+
+    public bool IsComplete => CurrentProgress >= RequiredProgress;
+    public float ProgressPercent => RequiredProgress > 0 ? (float)CurrentProgress / RequiredProgress : 0f;
+
+    public QuestObjective()
+    {
+        Id = $"OBJ{DateTime.Now:HHmmss}{new Random().Next(100, 999)}";
+    }
+
+    public QuestObjective(QuestObjectiveType type, string description, int required, string targetId = "", string targetName = "")
+    {
+        Id = $"OBJ{DateTime.Now:HHmmss}{new Random().Next(100, 999)}";
+        ObjectiveType = type;
+        Description = description;
+        RequiredProgress = required;
+        TargetId = targetId;
+        TargetName = targetName;
+    }
+
+    /// <summary>
+    /// Get display string for objective status
+    /// </summary>
+    public string GetDisplayString()
+    {
+        var status = IsComplete ? "[COMPLETE]" : $"[{CurrentProgress}/{RequiredProgress}]";
+        var optional = IsOptional ? " (Optional)" : "";
+        return $"{status} {Description}{optional}";
+    }
 } 

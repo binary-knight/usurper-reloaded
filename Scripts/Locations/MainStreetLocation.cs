@@ -524,7 +524,14 @@ public class MainStreetLocation : BaseLocation
             case "!M":
                 await ShowMail();
                 return false;
-                
+
+            // Secret dev menu - hidden command
+            case "DEV":
+            case "CHEATER":
+            case "DEVMENU":
+                await EnterDevMenu();
+                return false;
+
             default:
                 terminal.WriteLine("Invalid choice! Type ? for help.", "red");
                 await Task.Delay(1500);
@@ -1658,5 +1665,21 @@ public class MainStreetLocation : BaseLocation
         WorldEventSystem.Instance.DisplayWorldStatus(terminal);
         terminal.WriteLine("");
         await terminal.PressAnyKey("Press any key to continue...");
+    }
+
+    /// <summary>
+    /// Enter the secret developer menu for testing
+    /// </summary>
+    private async Task EnterDevMenu()
+    {
+        terminal.SetColor("dark_magenta");
+        terminal.WriteLine("");
+        terminal.WriteLine("  You notice a strange shimmer in the air...");
+        await Task.Delay(500);
+        terminal.WriteLine("  Reality seems to bend around you...");
+        await Task.Delay(500);
+
+        var devMenu = new DevMenuLocation();
+        await devMenu.EnterLocation(currentPlayer, terminal);
     }
 } 

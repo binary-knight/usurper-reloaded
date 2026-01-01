@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 namespace UsurperRemake.UI
 {
     /// <summary>
-    /// Displays the USURPER RELOADED ASCII art splash screen
+    /// Displays the USURPER REBORN ASCII art splash screen
     /// </summary>
     public static class SplashScreen
     {
@@ -26,11 +26,11 @@ namespace UsurperRemake.UI
                 "███    ██    ██      ██ ██    ██ ██   ██ ██      ██      ██   ██           ███",
                 "███     ██████  ███████  ██████  ██   ██ ██      ███████ ██   ██           ███",
                 "███                                                                          ███",
-                "███           ██████  ███████ ██       ██████   █████  ██████  ███████     ███",
-                "███           ██   ██ ██      ██      ██    ██ ██   ██ ██   ██ ██          ███",
-                "███           ██████  █████   ██      ██    ██ ███████ ██   ██ █████       ███",
-                "███           ██   ██ ██      ██      ██    ██ ██   ██ ██   ██ ██          ███",
-                "███           ██   ██ ███████ ███████  ██████  ██   ██ ██████  ███████     ███",
+                "███           ██████  ███████ ██████   ██████  ██████  ███    ██           ███",
+                "███           ██   ██ ██      ██   ██ ██    ██ ██   ██ ████   ██           ███",
+                "███           ██████  █████   ██████  ██    ██ ██████  ██ ██  ██           ███",
+                "███           ██   ██ ██      ██   ██ ██    ██ ██   ██ ██  ██ ██           ███",
+                "███           ██   ██ ███████ ██████   ██████  ██   ██ ██   ████           ███",
                 "███                                                                          ███",
                 "████████████████████████████████████████████████████████████████████████████████",
                 "███                                                                          ███",
@@ -49,7 +49,7 @@ namespace UsurperRemake.UI
                 var line = lines[i];
 
                 // Color scheme based on line content
-                if (line.Contains("USURPER") || line.Contains("RELOADED"))
+                if (line.Contains("USURPER") || line.Contains("REBORN"))
                 {
                     terminal.SetColor("bright_red");
                 }

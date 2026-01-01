@@ -1106,7 +1106,12 @@ public partial class CombatEngine
         terminal.SetColor("bright_green");
         terminal.WriteLine($"You have slain the {result.Monster.Name}!");
         terminal.WriteLine("");
-        
+
+        // Update quest progress for monster kill
+        bool isBoss = result.Monster.Level >= 10 || result.Monster.Name.Contains("Boss") ||
+                      result.Monster.Name.Contains("Chief") || result.Monster.Name.Contains("Lord");
+        QuestSystem.OnMonsterKilled(result.Player, result.Monster.Name, isBoss);
+
         // Calculate rewards (Pascal-compatible) with world event modifiers
         long baseExpReward = result.Monster.GetExperienceReward();
         long baseGoldReward = result.Monster.GetGoldReward();
@@ -1118,6 +1123,9 @@ public partial class CombatEngine
         result.Player.Experience += expReward;
         result.Player.Gold += goldReward;
         result.Player.MKills++;
+
+        // Track gold collection for quests
+        QuestSystem.OnGoldCollected(result.Player, goldReward);
 
         terminal.SetColor("green");
         terminal.WriteLine($"You gain {expReward} experience!");
@@ -2358,6 +2366,11 @@ public partial class CombatEngine
 
         foreach (var monster in result.DefeatedMonsters)
         {
+            // Update quest progress for each monster killed
+            bool isBoss = monster.Level >= 10 || monster.Name.Contains("Boss") ||
+                          monster.Name.Contains("Chief") || monster.Name.Contains("Lord");
+            QuestSystem.OnMonsterKilled(result.Player, monster.Name, isBoss);
+
             // Calculate exp reward based on level difference
             long baseExp = monster.Experience;
             long levelDiff = monster.Level - result.Player.Level;
@@ -2386,6 +2399,9 @@ public partial class CombatEngine
         result.Player.Gold += adjustedGold;
         result.ExperienceGained = adjustedExp;
         result.GoldGained = adjustedGold;
+
+        // Track gold collection for quests
+        QuestSystem.OnGoldCollected(result.Player, adjustedGold);
 
         // Display rewards
         terminal.SetColor("yellow");
@@ -2468,25 +2484,285 @@ public partial class CombatEngine
     }
 
     /// <summary>
-    /// Handle player death
+    /// Handle player death with resurrection options
     /// </summary>
     private async Task HandlePlayerDeath(CombatResult result)
     {
         terminal.SetColor("red");
-        terminal.WriteLine("You have been slain!");
-        terminal.WriteLine("Darkness...");
-        
+        terminal.WriteLine("╔════════════════════════════════════════╗");
+        terminal.WriteLine("║          YOU HAVE BEEN SLAIN!          ║");
+        terminal.WriteLine("╚════════════════════════════════════════╝");
+        terminal.WriteLine("");
+        terminal.WriteLine("Darkness envelops you...");
+        terminal.WriteLine("Your vision fades to black...");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
         result.Player.HP = 0;
         result.Player.MDefeats++;
-        
-        // Handle resurrections (from Pascal)
-        if (result.Player.Resurrections > 0)
-        {
-            terminal.WriteLine($"You have {result.Player.Resurrections} resurrections remaining.", "yellow");
-            // TODO: Implement resurrection choice
-        }
-        
         result.CombatLog.Add($"Player killed by {result.Monster?.Name ?? "opponent"}");
+
+        // Present resurrection options
+        var resurrectionResult = await PresentResurrectionChoices(result);
+
+        if (resurrectionResult.WasResurrected)
+        {
+            result.Player.HP = resurrectionResult.RestoredHP;
+            result.Outcome = CombatOutcome.PlayerEscaped; // Continue as escaped rather than died
+            terminal.SetColor("green");
+            terminal.WriteLine("");
+            terminal.WriteLine("You gasp as life flows back into your body!");
+            terminal.WriteLine($"You have been resurrected with {result.Player.HP} HP!");
+            terminal.WriteLine("");
+            result.CombatLog.Add($"Player resurrected via {resurrectionResult.Method}");
+        }
+        else
+        {
+            // True death - apply penalties
+            await ApplyDeathPenalties(result);
+        }
+    }
+
+    /// <summary>
+    /// Present resurrection choices to the player
+    /// </summary>
+    private async Task<ResurrectionResult> PresentResurrectionChoices(CombatResult result)
+    {
+        var player = result.Player;
+        var choices = new List<ResurrectionChoice>();
+
+        // Option 1: Divine Intervention (if has resurrections)
+        if (player.Resurrections > 0)
+        {
+            choices.Add(new ResurrectionChoice
+            {
+                Name = "Divine Intervention",
+                Description = $"Call upon the gods for resurrection ({player.Resurrections} remaining)",
+                Cost = 0,
+                HPRestored = (int)(player.MaxHP * 0.5), // 50% HP
+                Method = "Divine Intervention",
+                UsesResurrection = true,
+                RequiresGold = false
+            });
+        }
+
+        // Option 2: Temple Resurrection (costs gold)
+        long templeCost = 500 + (player.Level * 100);
+        if (player.Gold >= templeCost || player.BankGold >= templeCost)
+        {
+            choices.Add(new ResurrectionChoice
+            {
+                Name = "Temple Resurrection",
+                Description = $"Pay the temple {templeCost:N0} gold for resurrection",
+                Cost = templeCost,
+                HPRestored = (int)(player.MaxHP * 0.75), // 75% HP
+                Method = "Temple Resurrection",
+                UsesResurrection = false,
+                RequiresGold = true
+            });
+        }
+
+        // Option 3: Deal with Death (if high enough level and has darkness)
+        if (player.Level >= 5 && player.Darkness >= 100)
+        {
+            choices.Add(new ResurrectionChoice
+            {
+                Name = "Deal with Death",
+                Description = "Bargain with the reaper (costs Darkness, permanent stat loss)",
+                Cost = 0,
+                HPRestored = (int)(player.MaxHP * 0.25), // 25% HP
+                Method = "Dark Bargain",
+                UsesResurrection = false,
+                RequiresGold = false,
+                IsDarkBargain = true
+            });
+        }
+
+        // Option 4: Accept Death
+        choices.Add(new ResurrectionChoice
+        {
+            Name = "Accept Your Fate",
+            Description = "Accept death and face the consequences",
+            Cost = 0,
+            HPRestored = 0,
+            Method = "Death Accepted",
+            UsesResurrection = false,
+            AcceptsDeath = true
+        });
+
+        // Present choices
+        terminal.SetColor("yellow");
+        terminal.WriteLine("╔════════════════════════════════════════╗");
+        terminal.WriteLine("║         THE VEIL BETWEEN WORLDS        ║");
+        terminal.WriteLine("╚════════════════════════════════════════╝");
+        terminal.WriteLine("");
+        terminal.WriteLine("You stand at the threshold between life and death.");
+        terminal.WriteLine("Choose your path:");
+        terminal.WriteLine("");
+
+        for (int i = 0; i < choices.Count; i++)
+        {
+            var choice = choices[i];
+            terminal.SetColor("cyan");
+            terminal.WriteLine($"[{i + 1}] {choice.Name}");
+            terminal.SetColor("white");
+            terminal.WriteLine($"    {choice.Description}");
+            terminal.WriteLine("");
+        }
+
+        terminal.SetColor("yellow");
+        terminal.Write("Your choice: ");
+
+        // Get player choice
+        int selectedIndex = -1;
+        while (selectedIndex < 0 || selectedIndex >= choices.Count)
+        {
+            var input = await terminal.GetCharAsync();
+            if (int.TryParse(input.ToString(), out int num) && num >= 1 && num <= choices.Count)
+            {
+                selectedIndex = num - 1;
+            }
+        }
+
+        terminal.WriteLine((selectedIndex + 1).ToString());
+        terminal.WriteLine("");
+
+        var selectedChoice = choices[selectedIndex];
+
+        // Handle the choice
+        if (selectedChoice.AcceptsDeath)
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine("You accept your fate...");
+            terminal.WriteLine("The darkness claims you.");
+            return new ResurrectionResult { WasResurrected = false };
+        }
+
+        if (selectedChoice.UsesResurrection)
+        {
+            player.Resurrections--;
+            player.ResurrectionsUsed++;
+            player.LastResurrection = DateTime.Now;
+            terminal.SetColor("white");
+            terminal.WriteLine("A brilliant light pierces the darkness!");
+            terminal.WriteLine("The gods have heard your prayers!");
+        }
+        else if (selectedChoice.RequiresGold)
+        {
+            // Deduct gold from bank first, then cash
+            if (player.BankGold >= selectedChoice.Cost)
+            {
+                player.BankGold -= selectedChoice.Cost;
+            }
+            else
+            {
+                player.Gold -= selectedChoice.Cost;
+            }
+            terminal.SetColor("white");
+            terminal.WriteLine("Temple priests chant sacred words...");
+            terminal.WriteLine("Their magic pulls your soul back from the void!");
+        }
+        else if (selectedChoice.IsDarkBargain)
+        {
+            // Dark bargain - costs darkness and a permanent stat reduction
+            player.Darkness -= 50;
+            var random = new Random();
+            int statLoss = 1 + random.Next(3);
+
+            // Reduce a random stat permanently
+            switch (random.Next(6))
+            {
+                case 0: player.Strength = Math.Max(1, player.Strength - statLoss); break;
+                case 1: player.Defence = Math.Max(1, player.Defence - statLoss); break;
+                case 2: player.Stamina = Math.Max(1, player.Stamina - statLoss); break;
+                case 3: player.Agility = Math.Max(1, player.Agility - statLoss); break;
+                case 4: player.Charisma = Math.Max(1, player.Charisma - statLoss); break;
+                case 5: player.MaxHP = Math.Max(10, player.MaxHP - (statLoss * 5)); break;
+            }
+
+            terminal.SetColor("magenta");
+            terminal.WriteLine("You feel a cold presence...");
+            terminal.WriteLine("\"Very well, mortal. But this bargain has a price...\"");
+            terminal.WriteLine($"You feel yourself grow weaker... (-{statLoss} to a random stat)");
+        }
+
+        return new ResurrectionResult
+        {
+            WasResurrected = true,
+            RestoredHP = selectedChoice.HPRestored,
+            Method = selectedChoice.Method
+        };
+    }
+
+    /// <summary>
+    /// Apply death penalties when player truly dies
+    /// </summary>
+    private async Task ApplyDeathPenalties(CombatResult result)
+    {
+        var player = result.Player;
+        var random = new Random();
+
+        terminal.SetColor("red");
+        terminal.WriteLine("");
+        terminal.WriteLine("Death claims you...");
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        // Experience loss (10-20%)
+        long expLoss = (long)(player.Experience * (0.1 + random.NextDouble() * 0.1));
+        player.Experience = Math.Max(0, player.Experience - expLoss);
+        terminal.WriteLine($"You lose {expLoss:N0} experience points!");
+
+        // Gold loss (drop 50-75%)
+        long goldLoss = (long)(player.Gold * (0.5 + random.NextDouble() * 0.25));
+        player.Gold = Math.Max(0, player.Gold - goldLoss);
+        if (goldLoss > 0)
+        {
+            terminal.WriteLine($"You drop {goldLoss:N0} gold!");
+        }
+
+        // Small chance to lose an item
+        if (player.Item != null && player.Item.Count > 0 && random.Next(100) < 20)
+        {
+            int itemIndex = random.Next(player.Item.Count);
+            player.Item.RemoveAt(itemIndex);
+            if (player.ItemType != null && player.ItemType.Count > itemIndex)
+            {
+                player.ItemType.RemoveAt(itemIndex);
+            }
+            terminal.WriteLine("An item slips from your grasp as you fall!");
+        }
+
+        terminal.WriteLine("");
+        terminal.WriteLine("You will resurrect at the temple with 1 HP...");
+        player.HP = 1; // Resurrect with 1 HP at temple
+        player.Mana = 0; // No mana
+    }
+
+    /// <summary>
+    /// Resurrection choice data structure
+    /// </summary>
+    private class ResurrectionChoice
+    {
+        public string Name { get; set; } = "";
+        public string Description { get; set; } = "";
+        public long Cost { get; set; }
+        public int HPRestored { get; set; }
+        public string Method { get; set; } = "";
+        public bool UsesResurrection { get; set; }
+        public bool RequiresGold { get; set; }
+        public bool IsDarkBargain { get; set; }
+        public bool AcceptsDeath { get; set; }
+    }
+
+    /// <summary>
+    /// Resurrection result
+    /// </summary>
+    private class ResurrectionResult
+    {
+        public bool WasResurrected { get; set; }
+        public int RestoredHP { get; set; }
+        public string Method { get; set; } = "";
     }
     
     /// <summary>
@@ -2526,11 +2802,127 @@ public partial class CombatEngine
         await terminal.PressAnyKey();
     }
     
-    // Placeholder methods for additional features
+    /// <summary>
+    /// Fight to Death (Berserker) mode - all-out offense, no defense, no mercy
+    /// Player attacks continuously with doubled damage until one side dies
+    /// Cannot flee, cannot heal, cannot surrender
+    /// </summary>
     private async Task ExecuteFightToDeath(Character player, Monster monster, CombatResult result)
     {
-        terminal.WriteLine("You enter a berserker rage!", "red");
-        // TODO: Implement fight to death mechanics
+        terminal.SetColor("bright_red");
+        terminal.WriteLine("╔════════════════════════════════════════╗");
+        terminal.WriteLine("║     YOU ENTER A BERSERKER RAGE!        ║");
+        terminal.WriteLine("╚════════════════════════════════════════╝");
+        terminal.SetColor("red");
+        terminal.WriteLine("Your eyes turn red with fury! No retreat, no mercy!");
+        terminal.WriteLine("You will fight until death - yours or theirs!");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        // Set berserker status
+        player.IsRaging = true;
+        result.CombatLog.Add("Player enters berserker rage - Fight to Death!");
+
+        int round = 0;
+        while (player.HP > 0 && monster.HP > 0)
+        {
+            round++;
+            terminal.SetColor("red");
+            terminal.WriteLine($"═══ RAGE ROUND {round} ═══");
+
+            // Player attacks with berserker fury (doubled damage, more attacks)
+            int rageAttacks = Math.Max(2, GetAttackCount(player) + 1); // At least 2 attacks, +1 bonus
+
+            for (int i = 0; i < rageAttacks && monster.HP > 0; i++)
+            {
+                // Berserker attack - base damage * 2, ignore defense partially
+                long berserkerPower = player.Strength * 2 + player.WeapPow * 2 + random.Next(1, 31);
+
+                // Apply drug effects (stacks with rage)
+                var drugEffects = DrugSystem.GetDrugEffects(player);
+                if (drugEffects.DamageBonus > 0)
+                    berserkerPower = (long)(berserkerPower * (1.0 + drugEffects.DamageBonus / 100.0));
+
+                // Monster takes reduced defense in berserker attack (player's fury overwhelms)
+                long monsterDef = monster.GetDefensePower() / 2;
+                long damage = Math.Max(5, berserkerPower - monsterDef);
+
+                // Critical rage hits (25% chance for triple damage)
+                if (random.Next(100) < 25)
+                {
+                    damage *= 3;
+                    terminal.SetColor("bright_yellow");
+                    terminal.WriteLine($"  CRITICAL FURY! You strike {monster.Name} for {damage} damage!");
+                }
+                else
+                {
+                    terminal.SetColor("bright_red");
+                    terminal.WriteLine($"  You savagely attack {monster.Name} for {damage} damage!");
+                }
+
+                monster.HP -= damage;
+                result.TotalDamageDealt += damage;
+
+                if (monster.HP <= 0)
+                {
+                    terminal.SetColor("bright_green");
+                    terminal.WriteLine("");
+                    terminal.WriteLine($"You tear {monster.Name} apart in your fury!");
+                    terminal.WriteLine("The blood rage subsides as your enemy falls...");
+                    result.Victory = true;
+                    result.MonsterKilled = true;
+                    break;
+                }
+            }
+
+            if (monster.HP <= 0) break;
+
+            // Monster counterattack - hits harder against undefended berserker
+            terminal.SetColor("dark_red");
+            terminal.WriteLine("");
+            long monsterAttack = monster.GetAttackPower() + random.Next(1, 16);
+
+            // Berserker has NO defense (ignored in rage)
+            long playerDef = random.Next(1, 11); // Minimal defense from pure luck
+            long monsterDamage = Math.Max(3, monsterAttack - playerDef);
+
+            // Monster gets bonus damage vs berserker (50% more)
+            monsterDamage = (long)(monsterDamage * 1.5);
+
+            terminal.WriteLine($"  {monster.Name} strikes your undefended body for {monsterDamage} damage!");
+            player.HP -= monsterDamage;
+            result.TotalDamageTaken += monsterDamage;
+
+            // Show HP status
+            terminal.SetColor("gray");
+            terminal.WriteLine($"  Your HP: {player.HP}/{player.MaxHP} | {monster.Name} HP: {monster.HP}/{monster.MaxHP}");
+
+            if (player.HP <= 0)
+            {
+                terminal.SetColor("dark_red");
+                terminal.WriteLine("");
+                terminal.WriteLine("Your berserker rage was not enough...");
+                terminal.WriteLine("You fall in glorious battle!");
+                result.Victory = false;
+                result.PlayerDied = true;
+                break;
+            }
+
+            await Task.Delay(600);
+        }
+
+        // End berserker state
+        player.IsRaging = false;
+
+        // HP drain after rage (exhaustion)
+        if (player.HP > 0)
+        {
+            long exhaustion = Math.Min(player.HP - 1, player.MaxHP / 10);
+            player.HP -= exhaustion;
+            terminal.SetColor("gray");
+            terminal.WriteLine($"The rage subsides, leaving you exhausted. (-{exhaustion} HP)");
+        }
+
         await Task.Delay(1000);
     }
     
@@ -2906,7 +3298,58 @@ public partial class CombatEngine
                 if (target != null)
                 {
                     terminal.WriteLine($"{target.Name} is touched by divine light!", "white");
-                    // TODO: Implement conversion effect (monster may flee or become friendly)
+
+                    // Calculate conversion chance based on caster's Charisma and monster's level
+                    int conversionChance = 30 + (int)(caster.Charisma / 5) - (target.Level * 2);
+                    conversionChance = Math.Clamp(conversionChance, 5, 85); // 5-85% range
+
+                    // Undead and demons are harder to convert
+                    if (target.MonsterClass == MonsterClass.Undead || target.MonsterClass == MonsterClass.Demon)
+                    {
+                        conversionChance /= 2;
+                        terminal.WriteLine("The unholy creature resists the divine light!", "dark_red");
+                    }
+
+                    if (random.Next(100) < conversionChance)
+                    {
+                        // Conversion success - determine effect
+                        int effectRoll = random.Next(100);
+
+                        if (effectRoll < 40)
+                        {
+                            // Monster flees in fear/awe
+                            terminal.SetColor("bright_cyan");
+                            terminal.WriteLine($"{target.Name} sees the error of its ways and flees!");
+                            target.HP = 0; // Effectively removed from combat
+                            target.Fled = true;
+                        }
+                        else if (effectRoll < 70)
+                        {
+                            // Monster becomes pacified (won't attack for several rounds)
+                            terminal.SetColor("bright_green");
+                            terminal.WriteLine($"{target.Name} is pacified by the holy light!");
+                            terminal.WriteLine("It gazes at you with newfound respect...");
+                            target.StunRounds = 3 + random.Next(1, 4); // Stunned (won't attack) for 3-6 rounds
+                            target.IsFriendly = true; // Mark as temporarily friendly
+                        }
+                        else
+                        {
+                            // Monster joins your side temporarily
+                            terminal.SetColor("bright_yellow");
+                            terminal.WriteLine($"{target.Name} is converted to your cause!");
+                            terminal.WriteLine("It will fight by your side for this battle!");
+                            target.IsFriendly = true;
+                            target.IsConverted = true;
+                            // Note: Combat system needs to handle converted monsters attacking other enemies
+                        }
+                    }
+                    else
+                    {
+                        // Conversion failed
+                        terminal.SetColor("gray");
+                        terminal.WriteLine($"{target.Name} resists the conversion attempt!");
+                        terminal.WriteLine("The creature's will is too strong...");
+                    }
                 }
                 break;
                 
@@ -3153,6 +3596,14 @@ public partial class CombatEngine
         if (attacker.IsDualWielding)
             attacks += 1;
 
+        // Drug-based extra attacks (e.g., Haste drug)
+        var drugEffects = DrugSystem.GetDrugEffects(attacker);
+        attacks += drugEffects.ExtraAttacks;
+
+        // Speed penalty from drugs
+        if (drugEffects.SpeedPenalty > 15)
+            attacks = Math.Max(1, attacks - 1);
+
         // Haste doubles attacks
         if (attacker.HasStatus(StatusEffect.Haste))
             attacks *= 2;
@@ -3186,6 +3637,15 @@ public partial class CombatEngine
         var (attackMod, _) = AlignmentSystem.Instance.GetCombatModifiers(attacker);
         modifier *= attackMod;
 
+        // Apply drug effects
+        var drugEffects = DrugSystem.GetDrugEffects(attacker);
+        if (drugEffects.DamageBonus > 0)
+            modifier *= 1.0 + (drugEffects.DamageBonus / 100.0);
+        if (drugEffects.StrengthBonus > 0)
+            modifier *= 1.0 + (drugEffects.StrengthBonus / 200.0); // Half effect for strength
+        if (drugEffects.AttackBonus > 0)
+            modifier *= 1.0 + (drugEffects.AttackBonus / 100.0);
+
         return modifier;
     }
 
@@ -3208,6 +3668,15 @@ public partial class CombatEngine
         // Apply alignment-based defense modifier
         var (_, defenseMod) = AlignmentSystem.Instance.GetCombatModifiers(defender);
         modifier *= defenseMod;
+
+        // Apply drug effects
+        var drugEffects = DrugSystem.GetDrugEffects(defender);
+        if (drugEffects.DefenseBonus > 0)
+            modifier *= 1.0 + (drugEffects.DefenseBonus / 100.0);
+        if (drugEffects.ArmorBonus > 0)
+            modifier *= 1.0 + (drugEffects.ArmorBonus / 100.0);
+        if (drugEffects.DefensePenalty > 0)
+            modifier *= 1.0 - (drugEffects.DefensePenalty / 100.0);
 
         return modifier;
     }
@@ -3585,6 +4054,15 @@ public class CombatResult
     public long ExperienceGained { get; set; }
     public long GoldGained { get; set; }
     public List<string> ItemsFound { get; set; } = new();
+
+    // Damage tracking for berserker mode
+    public long TotalDamageDealt { get; set; }
+    public long TotalDamageTaken { get; set; }
+
+    // Simple outcome flags
+    public bool Victory { get; set; }
+    public bool MonsterKilled { get; set; }
+    public bool PlayerDied { get; set; }
 }
 
 /// <summary>

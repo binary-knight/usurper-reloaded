@@ -467,7 +467,10 @@ namespace UsurperRemake.Systems
                 CurrentLocation = player.Location.ToString(),
                 TurnsRemaining = player.TurnsRemaining,
                 DaysInPrison = player.DaysInPrison,
-                
+                CellDoorOpen = player.CellDoorOpen,
+                RescuedBy = player.RescuedBy ?? "",
+                PrisonEscapes = player.PrisonEscapes,
+
                 // Daily limits
                 Fights = player.Fights,
                 PFights = player.PFights,
@@ -513,6 +516,9 @@ namespace UsurperRemake.Systems
                 Poison = player.Poison,
                 GnollP = player.GnollP,
                 Addict = player.Addict,
+                SteroidDays = player.SteroidDays,
+                DrugEffectDays = player.DrugEffectDays,
+                ActiveDrug = (int)player.ActiveDrug,
                 Mercy = player.Mercy,
 
                 // Disease status
@@ -615,20 +621,23 @@ namespace UsurperRemake.Systems
                 // Economic state
                 BankInterestRate = GameConfig.DefaultBankInterest,
                 TownPotValue = GameConfig.DefaultTownPot,
-                
+
                 // Political state
-                CurrentRuler = GameEngine.Instance?.CurrentPlayer?.King == true ? 
+                CurrentRuler = GameEngine.Instance?.CurrentPlayer?.King == true ?
                               GameEngine.Instance.CurrentPlayer.Name2 : null,
-                
+
                 // World events
                 ActiveEvents = SerializeActiveEvents(),
-                
+
+                // Active quests
+                ActiveQuests = SerializeActiveQuests(GameEngine.Instance?.CurrentPlayer),
+
                 // Shop inventories
                 ShopInventories = SerializeShopInventories(),
-                
+
                 // News and history
                 RecentNews = SerializeRecentNews(),
-                
+
                 // God system state
                 GodStates = SerializeGodStates()
             };
@@ -654,8 +663,73 @@ namespace UsurperRemake.Systems
         
         private List<QuestData> SerializeActiveQuests(Character player)
         {
-            // This would integrate with the quest system
-            return new List<QuestData>();
+            var questDataList = new List<QuestData>();
+
+            // Get all active quests from the quest system
+            var allQuests = QuestSystem.GetAllQuests(includeCompleted: false);
+
+            foreach (var quest in allQuests)
+            {
+                var questData = new QuestData
+                {
+                    Id = quest.Id,
+                    Title = quest.Title,
+                    Initiator = quest.Initiator,
+                    Comment = quest.Comment,
+                    Status = quest.Deleted ? QuestStatus.Completed :
+                             string.IsNullOrEmpty(quest.Occupier) ? QuestStatus.Active : QuestStatus.Active,
+                    StartTime = quest.Date,
+                    QuestType = (int)quest.QuestType,
+                    QuestTarget = (int)quest.QuestTarget,
+                    Difficulty = quest.Difficulty,
+                    Occupier = quest.Occupier,
+                    OccupiedDays = quest.OccupiedDays,
+                    DaysToComplete = quest.DaysToComplete,
+                    MinLevel = quest.MinLevel,
+                    MaxLevel = quest.MaxLevel,
+                    Reward = quest.Reward,
+                    RewardType = (int)quest.RewardType,
+                    Penalty = quest.Penalty,
+                    PenaltyType = (int)quest.PenaltyType,
+                    OfferedTo = quest.OfferedTo,
+                    Forced = quest.Forced,
+                    Objectives = new List<QuestObjectiveData>(),
+                    Monsters = new List<QuestMonsterData>()
+                };
+
+                // Serialize objectives
+                foreach (var objective in quest.Objectives)
+                {
+                    questData.Objectives.Add(new QuestObjectiveData
+                    {
+                        Id = objective.Id,
+                        Description = objective.Description,
+                        ObjectiveType = (int)objective.ObjectiveType,
+                        TargetId = objective.TargetId,
+                        TargetName = objective.TargetName,
+                        RequiredProgress = objective.RequiredProgress,
+                        CurrentProgress = objective.CurrentProgress,
+                        IsOptional = objective.IsOptional,
+                        BonusReward = objective.BonusReward
+                    });
+                }
+
+                // Serialize monsters
+                foreach (var monster in quest.Monsters)
+                {
+                    questData.Monsters.Add(new QuestMonsterData
+                    {
+                        MonsterType = monster.MonsterType,
+                        Count = monster.Count,
+                        MonsterName = monster.MonsterName
+                    });
+                }
+
+                questDataList.Add(questData);
+            }
+
+            GD.Print($"[SaveSystem] Serialized {questDataList.Count} active quests");
+            return questDataList;
         }
         
         private PersonalityData? SerializePersonality(PersonalityProfile? profile)

@@ -1275,6 +1275,13 @@ public class DungeonLocation : BaseLocation
         hasRestThisFloor = false;
         consecutiveMonsterRooms = 0;
 
+        // Update quest progress for reaching this floor
+        var player = GetCurrentPlayer();
+        if (player != null)
+        {
+            QuestSystem.OnDungeonFloorReached(player, currentDungeonLevel);
+        }
+
         // Start in entrance room
         currentFloor.CurrentRoomId = currentFloor.EntranceRoomId;
         var entranceRoom = currentFloor.GetCurrentRoom();
@@ -2963,13 +2970,20 @@ public class DungeonLocation : BaseLocation
     // Placeholder methods for features to implement
     private async Task DescendDeeper()
     {
-        var playerLevel = GetCurrentPlayer()?.Level ?? 1;
+        var player = GetCurrentPlayer();
+        var playerLevel = player?.Level ?? 1;
         int deepestAllowed = Math.Min(maxDungeonLevel, playerLevel + 10);
 
         if (currentDungeonLevel < deepestAllowed)
         {
             currentDungeonLevel++;
             terminal.WriteLine($"You descend to dungeon level {currentDungeonLevel}.", "yellow");
+
+            // Update quest progress for reaching this floor
+            if (player != null)
+            {
+                QuestSystem.OnDungeonFloorReached(player, currentDungeonLevel);
+            }
         }
         else
         {
