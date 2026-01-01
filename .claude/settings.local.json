@@ -18,7 +18,8 @@
       "Bash(git commit -m \"$\\(cat <<''EOF''\nSave system overhaul, silent maintenance, 50 NPCs, and multi-monster combat planning\n\nSave System Fixes:\n- Fixed critical bug where healing potions weren''t saving\n- Added 30+ missing save fields \\(potions, weapons, armor, diseases, appearance, status effects, team data, flavor text\\)\n- Complete state preservation now includes all character data\n\nSilent Maintenance:\n- Maintenance system now runs completely in background\n- No more intrusive terminal messages during gameplay\n- Daily bonuses and world simulation process silently\n\n50 Classic NPCs:\n- Created ClassicNPCs.cs with 50 Usurper-style NPCs\n- Created NPCSpawnSystem.cs for NPC creation and management\n- NPCs have unique personalities, alignments, stats, equipment, and AI brains\n- Distributed across town locations \\(max 5 per location\\)\n- 10 Warriors, 10 Mages, 10 Thieves, 8 Paladins/Clerics, 6 Monks/Rangers, 6 Mercenaries\n\nMulti-Monster Combat \\(Planning\\):\n- Created comprehensive implementation plan for simultaneous multi-monster combat\n- Dungeons will spawn groups of 1-5 monsters fighting together\n- Individual HP tracking, AoE damage splitting, target selection\n- Monk encounters only after defeating entire group\n\nTechnical:\n- Fixed namespace ambiguity issues \\(global::ObjType\\)\n- Corrected invalid class/race names \\(Halfling→Hobbit, etc.\\)\n- Fixed NPCBrain constructor signatures\n- Updated location tracking to use CurrentLocation strings\n- Build succeeds with 0 errors\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(del nul)",
       "Bash(git push:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(Select-String -Pattern \"error\")"
     ]
   }
 }

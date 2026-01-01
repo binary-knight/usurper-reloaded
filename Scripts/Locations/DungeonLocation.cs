@@ -1,5 +1,6 @@
 using UsurperRemake.Utils;
 using UsurperRemake.Systems;
+using UsurperRemake.Data;
 using Godot;
 using System;
 using System.Collections.Generic;
@@ -40,20 +41,28 @@ public class DungeonLocation : BaseLocation
     protected override void SetupLocation()
     {
         base.SetupLocation();
+        // Note: currentDungeonLevel is initialized in EnterLocation() when we have the actual player
+    }
 
-        var playerLevel = GetCurrentPlayer()?.Level ?? 1;
+    public override async Task EnterLocation(Character player, TerminalEmulator term)
+    {
+        // Initialize dungeon level based on the actual player entering
+        var playerLevel = player?.Level ?? 1;
         currentDungeonLevel = Math.Max(1, playerLevel);
 
         if (currentDungeonLevel > maxDungeonLevel)
             currentDungeonLevel = maxDungeonLevel;
 
-        // Generate initial floor if we don't have one
+        // Generate floor for this player's level
         if (currentFloor == null || currentFloor.Level != currentDungeonLevel)
         {
             currentFloor = DungeonGenerator.GenerateFloor(currentDungeonLevel);
             roomsExploredThisFloor = 0;
             hasRestThisFloor = false;
         }
+
+        // Call base to enter the location loop
+        await base.EnterLocation(player, term);
     }
     
     protected override void DisplayLocation()
@@ -1025,6 +1034,18 @@ public class DungeonLocation : BaseLocation
                 break;
             case DungeonEventType.MysteryEvent:
                 await MysteryEventEncounter();
+                break;
+            case DungeonEventType.Riddle:
+                await RiddleGateEncounter();
+                break;
+            case DungeonEventType.LoreDiscovery:
+                await LoreLibraryEncounter();
+                break;
+            case DungeonEventType.MemoryFlash:
+                await MemoryFragmentEncounter();
+                break;
+            case DungeonEventType.SecretBoss:
+                await SecretBossEncounter();
                 break;
             default:
                 await RandomDungeonEvent();
@@ -3834,7 +3855,7 @@ public class DungeonLocation : BaseLocation
     }
 
     /// <summary>
-    /// Rest spot encounter
+    /// Rest spot encounter - now triggers dream sequences via AmnesiaSystem
     /// </summary>
     private async Task RestSpotEncounter()
     {
@@ -3864,6 +3885,16 @@ public class DungeonLocation : BaseLocation
             }
 
             hasRestThisFloor = true;
+
+            // Trigger dream sequences through the Amnesia System
+            // Dreams reveal the player's forgotten past as a fragment of Manwe
+            await Task.Delay(1500);
+            terminal.WriteLine("");
+            terminal.SetColor("gray");
+            terminal.WriteLine("You close your eyes...");
+            await Task.Delay(1000);
+
+            await AmnesiaSystem.Instance.OnPlayerRest(terminal, player);
         }
         else
         {
@@ -3871,7 +3902,7 @@ public class DungeonLocation : BaseLocation
             terminal.WriteLine("The sanctuary offers no additional benefit.");
         }
 
-        await Task.Delay(2500);
+        await Task.Delay(1500);
         await terminal.PressAnyKey();
     }
 
@@ -3956,7 +3987,361 @@ public class DungeonLocation : BaseLocation
             case 5: await WoundedManEncounter(); break;
         }
     }
-    
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // OCEAN PHILOSOPHY ROOM ENCOUNTERS
+    // These rooms reveal the Wave/Ocean truth through gameplay
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Lore Library encounter - find Wave Fragments and Ocean Philosophy
+    /// </summary>
+    private async Task LoreLibraryEncounter()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("dark_cyan");
+        terminal.WriteLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        terminal.WriteLine("              ANCIENT LORE LIBRARY");
+        terminal.WriteLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        terminal.WriteLine("");
+
+        var player = GetCurrentPlayer();
+        var ocean = OceanPhilosophySystem.Instance;
+
+        terminal.SetColor("white");
+        terminal.WriteLine("Dust motes dance in pale light from an unknown source.");
+        terminal.WriteLine("Ancient tomes line walls that stretch beyond sight.");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        // Determine which fragment to reveal based on awakening level
+        var availableFragments = OceanPhilosophySystem.FragmentData
+            .Where(f => !ocean.CollectedFragments.Contains(f.Key))
+            .Where(f => f.Value.RequiredAwakening <= ocean.AwakeningLevel + 2)
+            .ToList();
+
+        if (availableFragments.Count > 0)
+        {
+            var fragment = availableFragments[dungeonRandom.Next(availableFragments.Count)];
+            var fragmentData = fragment.Value;
+
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine("A tome floats down from the shelves, opening before you...");
+            terminal.WriteLine("");
+            await Task.Delay(1000);
+
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"  \"{fragmentData.Title}\"");
+            terminal.WriteLine("");
+            terminal.SetColor("cyan");
+
+            // Display the lore text with dramatic pacing
+            var words = fragmentData.Text.Split(' ');
+            string currentLine = "  ";
+            foreach (var word in words)
+            {
+                if (currentLine.Length + word.Length > 60)
+                {
+                    terminal.WriteLine(currentLine);
+                    currentLine = "  " + word + " ";
+                }
+                else
+                {
+                    currentLine += word + " ";
+                }
+            }
+            if (currentLine.Trim().Length > 0)
+                terminal.WriteLine(currentLine);
+
+            terminal.WriteLine("");
+            await Task.Delay(2000);
+
+            // Collect the fragment
+            ocean.CollectFragment(fragment.Key);
+
+            terminal.SetColor("bright_magenta");
+            terminal.WriteLine("The words burn into your memory...");
+            terminal.WriteLine($"(Wave Fragment collected: {fragmentData.Title})");
+
+            // Grant awakening progress
+            if (fragmentData.RequiredAwakening >= 5)
+            {
+                terminal.WriteLine("");
+                terminal.SetColor("magenta");
+                terminal.WriteLine("Something stirs in the depths of your consciousness...");
+            }
+        }
+        else
+        {
+            // All fragments collected - give ambient wisdom instead
+            terminal.SetColor("gray");
+            terminal.WriteLine("You browse the ancient texts, but find nothing new.");
+            terminal.WriteLine("The knowledge here already lives within you.");
+
+            if (ocean.AwakeningLevel >= 5)
+            {
+                terminal.WriteLine("");
+                terminal.SetColor("bright_cyan");
+                terminal.WriteLine("...or perhaps it always did.");
+            }
+        }
+
+        terminal.WriteLine("");
+        await terminal.PressAnyKey();
+    }
+
+    /// <summary>
+    /// Memory Fragment encounter - trigger Amnesia System memory recovery
+    /// </summary>
+    private async Task MemoryFragmentEncounter()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("magenta");
+        terminal.WriteLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        terminal.WriteLine("              MEMORY CHAMBER");
+        terminal.WriteLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        terminal.WriteLine("");
+
+        var player = GetCurrentPlayer();
+        var amnesia = AmnesiaSystem.Instance;
+
+        terminal.SetColor("white");
+        terminal.WriteLine("The walls here are mirrors, but they don't show your reflection.");
+        terminal.WriteLine("They show... someone else. Someone familiar.");
+        terminal.WriteLine("");
+        await Task.Delay(2000);
+
+        // Check for floor-based memory triggers
+        if (currentDungeonLevel >= 10 && currentDungeonLevel < 25)
+        {
+            amnesia.CheckMemoryTrigger(TriggerType.DungeonFloor10, player);
+        }
+        else if (currentDungeonLevel >= 25 && currentDungeonLevel < 50)
+        {
+            amnesia.CheckMemoryTrigger(TriggerType.DungeonFloor25, player);
+        }
+        else if (currentDungeonLevel >= 50 && currentDungeonLevel < 75)
+        {
+            amnesia.CheckMemoryTrigger(TriggerType.DungeonFloor50, player);
+        }
+        else if (currentDungeonLevel >= 75)
+        {
+            amnesia.CheckMemoryTrigger(TriggerType.DungeonFloor75, player);
+        }
+
+        // Display a recovered memory if available
+        var newMemory = AmnesiaSystem.MemoryData
+            .Where(m => amnesia.RecoveredMemories.Contains(m.Key))
+            .OrderByDescending(m => m.Value.RequiredLevel)
+            .FirstOrDefault();
+
+        if (newMemory.Value != null)
+        {
+            terminal.SetColor("bright_magenta");
+            terminal.WriteLine($"A memory surfaces: \"{newMemory.Value.Title}\"");
+            terminal.WriteLine("");
+
+            terminal.SetColor("magenta");
+            foreach (var line in newMemory.Value.Lines)
+            {
+                terminal.WriteLine($"  {line}");
+                await Task.Delay(1200);
+            }
+
+            terminal.WriteLine("");
+            terminal.SetColor("gray");
+            terminal.WriteLine("The vision fades, but the feeling remains.");
+        }
+        else
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("The mirrors show fragments of a life not quite your own.");
+            terminal.WriteLine("You sense there is more to remember, but not here. Not yet.");
+        }
+
+        terminal.WriteLine("");
+        await terminal.PressAnyKey();
+    }
+
+    /// <summary>
+    /// Riddle Gate encounter - use RiddleDatabase for puzzle challenge
+    /// </summary>
+    private async Task RiddleGateEncounter()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("yellow");
+        terminal.WriteLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        terminal.WriteLine("              THE RIDDLE GATE");
+        terminal.WriteLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        terminal.WriteLine("");
+
+        var player = GetCurrentPlayer();
+        var ocean = OceanPhilosophySystem.Instance;
+
+        terminal.SetColor("white");
+        terminal.WriteLine("A massive stone door blocks your path.");
+        terminal.WriteLine("Carved into its surface: a face, ancient and knowing.");
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("The stone lips move: 'Answer my riddle to pass.'");
+        terminal.WriteLine("");
+        await Task.Delay(500);
+
+        // Get appropriate riddle based on level
+        int difficulty = Math.Min(5, currentDungeonLevel / 20 + 1);
+
+        // Use Ocean Philosophy riddle at high awakening levels
+        Riddle riddle;
+        if (ocean.AwakeningLevel >= 4 && dungeonRandom.Next(100) < 40)
+        {
+            riddle = RiddleDatabase.Instance.GetOceanPhilosophyRiddle();
+        }
+        else
+        {
+            riddle = RiddleDatabase.Instance.GetRandomRiddle(difficulty);
+        }
+
+        // Present the riddle
+        var result = await RiddleDatabase.Instance.PresentRiddle(riddle, player, terminal);
+
+        terminal.ClearScreen();
+        if (result.Solved)
+        {
+            terminal.SetColor("green");
+            terminal.WriteLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            terminal.WriteLine("              RIDDLE SOLVED");
+            terminal.WriteLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            terminal.WriteLine("");
+            terminal.WriteLine("The stone face smiles. 'Wisdom opens all doors.'");
+            terminal.WriteLine("The gate rumbles open.");
+            terminal.WriteLine("");
+
+            // Reward based on riddle difficulty
+            int xpReward = riddle.Difficulty * 100 * currentDungeonLevel;
+            player.Experience += xpReward;
+            terminal.WriteLine($"You gain {xpReward} experience!", "cyan");
+
+            // Ocean philosophy riddles grant awakening insight
+            if (riddle.IsOceanPhilosophy)
+            {
+                ocean.GainInsight(20);
+                terminal.WriteLine("The riddle's deeper meaning resonates within you...", "magenta");
+            }
+        }
+        else
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            terminal.WriteLine("              RIDDLE FAILED");
+            terminal.WriteLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            terminal.WriteLine("");
+            terminal.WriteLine("'Foolish mortal. There is a price for failure.'");
+            terminal.WriteLine("");
+
+            // Trigger combat with a guardian
+            terminal.SetColor("bright_red");
+            terminal.WriteLine("The gate guardian manifests to punish your ignorance!");
+            await Task.Delay(1500);
+
+            // Create a riddle guardian monster and fight
+            var guardian = CreateRiddleGuardian();
+            var combatEngine = new CombatEngine(terminal);
+            await combatEngine.PlayerVsMonster(player, guardian, teammates);
+        }
+
+        terminal.WriteLine("");
+        await terminal.PressAnyKey();
+    }
+
+    /// <summary>
+    /// Create a riddle guardian monster
+    /// </summary>
+    private Monster CreateRiddleGuardian()
+    {
+        int level = currentDungeonLevel + 5;
+        return Monster.CreateMonster(
+            level,
+            "Riddle Guardian",
+            level * 50,
+            level * 8,
+            level * 4,
+            "Your ignorance shall be your doom!",
+            false,
+            true, // Can cast spells
+            "Stone Fist",
+            "Ancient Stone",
+            false, // canHurt
+            false, // isUndead
+            level * 30,  // armpow
+            level * 20,  // weappow
+            level * 5    // gold
+        );
+    }
+
+    /// <summary>
+    /// Secret Boss encounter - epic hidden bosses with deep lore
+    /// </summary>
+    private async Task SecretBossEncounter()
+    {
+        var player = GetCurrentPlayer();
+        var bossMgr = SecretBossManager.Instance;
+
+        // Check if there's a secret boss for this floor
+        var bossType = bossMgr.GetBossForFloor(currentDungeonLevel);
+
+        if (bossType == null)
+        {
+            // No boss for this floor - give atmospheric message instead
+            terminal.ClearScreen();
+            terminal.SetColor("dark_magenta");
+            terminal.WriteLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            terminal.WriteLine("              HIDDEN CHAMBER");
+            terminal.WriteLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            terminal.WriteLine("");
+            terminal.SetColor("gray");
+            terminal.WriteLine("You sense great power once resided here.");
+            terminal.WriteLine("But whatever dwelt in this place... has moved on.");
+            terminal.WriteLine("");
+            terminal.WriteLine("Perhaps deeper in the dungeon, you will find what you seek.");
+            await terminal.PressAnyKey();
+            return;
+        }
+
+        // Encounter the secret boss (displays intro and dialogue)
+        var encounterResult = await bossMgr.EncounterBoss(bossType.Value, player, terminal);
+
+        if (!encounterResult.Encountered)
+            return;
+
+        // Create the boss monster for actual combat
+        var bossMonster = bossMgr.CreateBossMonster(bossType.Value, player.Level);
+
+        // Engage in combat with the secret boss
+        var combatEngine = new CombatEngine(terminal);
+        await combatEngine.PlayerVsMonster(player, bossMonster, teammates);
+
+        // Check if player won (player is still alive and boss is dead)
+        if (player.HP > 0 && bossMonster.HP <= 0)
+        {
+            // Player won - handle victory through the SecretBossManager
+            await bossMgr.HandleVictory(bossType.Value, player, terminal);
+
+            // Additional memory trigger for secret boss defeat
+            var bossData = bossMgr.GetBoss(bossType.Value);
+            if (bossData?.TriggersMemoryFlash == true)
+            {
+                await Task.Delay(1000);
+                terminal.ClearScreen();
+                terminal.SetColor("bright_magenta");
+                terminal.WriteLine("As the battle ends, something breaks open in your mind...");
+                await Task.Delay(1500);
+                AmnesiaSystem.Instance.CheckMemoryTrigger(TriggerType.SecretBossDefeated, player);
+            }
+        }
+    }
+
     private async Task QuitToDungeon()
     {
         await NavigateToLocation(GameLocation.MainStreet);
