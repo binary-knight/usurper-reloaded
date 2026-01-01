@@ -547,7 +547,21 @@ public abstract class BaseLocation
         terminal.SetColor("darkgray");
         terminal.Write("]");
         terminal.SetColor("white");
-        terminal.Write("Help");
+        terminal.Write("Help  ");
+
+        // Show Talk option if NPCs are present
+        var npcsHere = GetLiveNPCsAtLocation();
+        if (npcsHere.Count > 0)
+        {
+            terminal.SetColor("darkgray");
+            terminal.Write("[");
+            terminal.SetColor("bright_green");
+            terminal.Write("P");
+            terminal.SetColor("darkgray");
+            terminal.Write("]");
+            terminal.SetColor("white");
+            terminal.Write($"eople ({npcsHere.Count})");
+        }
 
         terminal.WriteLine("");
         terminal.WriteLine("");
@@ -610,6 +624,10 @@ public abstract class BaseLocation
                     await NavigateToLocation(GameLocation.MainStreet);
                     return true;
                 }
+                break;
+            case "P":
+            case "TALK":
+                await TalkToNPC();
                 break;
             default:
                 terminal.SetColor("red");
@@ -675,6 +693,446 @@ public abstract class BaseLocation
     {
         var inventorySystem = new InventorySystem(terminal, currentPlayer);
         await inventorySystem.ShowInventory();
+    }
+
+    /// <summary>
+    /// Talk to an NPC at the current location
+    /// </summary>
+    protected virtual async Task TalkToNPC()
+    {
+        var npcsHere = GetLiveNPCsAtLocation();
+
+        // Also include any static LocationNPCs (special NPCs like shopkeepers)
+        var allNPCs = new List<NPC>(LocationNPCs);
+        foreach (var npc in npcsHere)
+        {
+            if (!allNPCs.Any(n => n.Name2 == npc.Name2))
+                allNPCs.Add(npc);
+        }
+
+        if (allNPCs.Count == 0)
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("There's no one here to talk to.");
+            await Task.Delay(1500);
+            return;
+        }
+
+        terminal.ClearScreen();
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║                            PEOPLE NEARBY                                     ║");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine("  Who would you like to talk to?");
+        terminal.WriteLine("");
+
+        // List NPCs with numbers
+        for (int i = 0; i < Math.Min(allNPCs.Count, 10); i++)
+        {
+            var npc = allNPCs[i];
+
+            // Color based on alignment
+            string color;
+            if (npc.Darkness > npc.Chivalry + 200)
+                color = "red";
+            else if (npc.Chivalry > npc.Darkness + 200)
+                color = "bright_green";
+            else
+                color = "white";
+
+            terminal.SetColor("cyan");
+            terminal.Write($"  [{i + 1}] ");
+            terminal.SetColor(color);
+            terminal.Write($"{npc.Name2}");
+            terminal.SetColor("gray");
+            terminal.WriteLine($" - Level {npc.Level} {npc.Class} ({GetAlignmentDisplay(npc)})");
+        }
+
+        if (allNPCs.Count > 10)
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine($"  ... and {allNPCs.Count - 10} others");
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("gray");
+        terminal.WriteLine("  [0] Never mind");
+        terminal.WriteLine("");
+
+        string choice = await terminal.GetInput("Talk to who? ");
+
+        if (int.TryParse(choice, out int targetIndex) && targetIndex >= 1 && targetIndex <= Math.Min(allNPCs.Count, 10))
+        {
+            var npc = allNPCs[targetIndex - 1];
+            await InteractWithNPC(npc);
+        }
+        else if (choice != "0")
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("You decide not to talk to anyone.");
+            await Task.Delay(1000);
+        }
+    }
+
+    /// <summary>
+    /// Have a conversation with an NPC
+    /// </summary>
+    protected virtual async Task InteractWithNPC(NPC npc)
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine($"║  Talking to: {npc.Name2,-60}  ║");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+
+        // Show NPC info
+        terminal.SetColor("gray");
+        terminal.WriteLine($"  Level {npc.Level} {npc.Race} {npc.Class}");
+        terminal.WriteLine($"  {GetAlignmentDisplay(npc)}");
+        terminal.WriteLine("");
+
+        // Get NPC's greeting
+        string greeting = npc.GetGreeting(currentPlayer);
+        terminal.SetColor("yellow");
+        terminal.WriteLine($"  {npc.Name2} says:");
+        terminal.SetColor("white");
+        terminal.WriteLine($"  \"{greeting}\"");
+        terminal.WriteLine("");
+
+        // Show interaction options
+        terminal.SetColor("cyan");
+        terminal.WriteLine("  What do you want to do?");
+        terminal.WriteLine("");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("  [");
+        terminal.SetColor("bright_green");
+        terminal.Write("1");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine(" Chat with them");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("  [");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("2");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine(" Ask about rumors");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("  [");
+        terminal.SetColor("bright_cyan");
+        terminal.Write("3");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine(" Ask about the dungeons");
+
+        // Only show challenge option if they're a fighter type
+        if (npc.Level > 0 && npc.IsAlive)
+        {
+            terminal.SetColor("darkgray");
+            terminal.Write("  [");
+            terminal.SetColor("bright_red");
+            terminal.Write("4");
+            terminal.SetColor("darkgray");
+            terminal.Write("]");
+            terminal.SetColor("white");
+            terminal.WriteLine(" Challenge to a duel");
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("gray");
+        terminal.WriteLine("  [0] Walk away");
+        terminal.WriteLine("");
+
+        string action = await terminal.GetInput("Your choice: ");
+
+        switch (action)
+        {
+            case "1":
+                await ChatWithNPC(npc);
+                break;
+            case "2":
+                await AskForRumors(npc);
+                break;
+            case "3":
+                await AskAboutDungeons(npc);
+                break;
+            case "4":
+                if (npc.Level > 0 && npc.IsAlive)
+                {
+                    await ChallengeNPC(npc);
+                }
+                break;
+            default:
+                terminal.SetColor("gray");
+                terminal.WriteLine($"  You nod to {npc.Name2} and walk away.");
+                await Task.Delay(1000);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Have a casual chat with an NPC
+    /// </summary>
+    private async Task ChatWithNPC(NPC npc)
+    {
+        terminal.WriteLine("");
+
+        // Generate contextual chat based on NPC personality and relationship
+        var chatLines = GenerateNPCChat(npc);
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine($"  {npc.Name2} says:");
+        terminal.SetColor("white");
+
+        foreach (var line in chatLines)
+        {
+            terminal.WriteLine($"  \"{line}\"");
+            await Task.Delay(500);
+        }
+
+        // Small relationship boost for friendly chat
+        RelationshipSystem.UpdateRelationship(currentPlayer, npc, 1, 1, false, false);
+
+        terminal.WriteLine("");
+        await terminal.PressAnyKey();
+    }
+
+    /// <summary>
+    /// Generate contextual chat lines based on NPC personality
+    /// </summary>
+    private string[] GenerateNPCChat(NPC npc)
+    {
+        var random = new Random();
+        var chatOptions = new List<string[]>();
+
+        // Class-specific chat
+        switch (npc.Class)
+        {
+            case CharacterClass.Warrior:
+                chatOptions.Add(new[] { "These dungeons test even the mightiest warriors.", "Keep your blade sharp and your wits sharper." });
+                chatOptions.Add(new[] { "I've seen too many cocky fighters fall to overconfidence.", "Respect the dungeon, and it might let you live." });
+                break;
+            case CharacterClass.Magician:
+                chatOptions.Add(new[] { "The arcane energies here are... unsettling.", "Something ancient stirs in the depths." });
+                chatOptions.Add(new[] { "Magic is a tool, not a crutch.", "The wise mage knows when NOT to cast." });
+                break;
+            case CharacterClass.Cleric:
+                chatOptions.Add(new[] { "May the gods watch over your journey.", "Even in darkness, faith is a light." });
+                chatOptions.Add(new[] { "The temple offers healing, but true strength comes from within.", "Pray, but keep your mace ready." });
+                break;
+            case CharacterClass.Assassin:
+                chatOptions.Add(new[] { "*glances around nervously*", "Keep your voice down. Walls have ears." });
+                chatOptions.Add(new[] { "The shadows hold many secrets.", "Sometimes the unseen blade is the deadliest." });
+                break;
+            default:
+                chatOptions.Add(new[] { "Times are strange in these parts.", "Stay safe out there, friend." });
+                chatOptions.Add(new[] { "Have you heard about the dungeons?", "They say great treasure lies below... and great danger." });
+                break;
+        }
+
+        // Alignment-specific additions
+        if (npc.Darkness > npc.Chivalry + 500)
+        {
+            chatOptions.Add(new[] { "*smirks darkly*", "Power comes to those who take it.", "The weak exist to serve the strong." });
+        }
+        else if (npc.Chivalry > npc.Darkness + 500)
+        {
+            chatOptions.Add(new[] { "Honor and courage guide my path.", "We must protect those who cannot protect themselves." });
+        }
+
+        return chatOptions[random.Next(chatOptions.Count)];
+    }
+
+    /// <summary>
+    /// Ask NPC for rumors
+    /// </summary>
+    private async Task AskForRumors(NPC npc)
+    {
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"  You ask {npc.Name2} if they've heard any interesting rumors...");
+        terminal.WriteLine("");
+
+        var random = new Random();
+        var rumors = GetRumors();
+        var selectedRumor = rumors[random.Next(rumors.Length)];
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine($"  {npc.Name2} leans in and whispers:");
+        terminal.SetColor("white");
+        terminal.WriteLine($"  \"{selectedRumor}\"");
+
+        terminal.WriteLine("");
+        await terminal.PressAnyKey();
+    }
+
+    /// <summary>
+    /// Get list of rumors NPCs can share
+    /// </summary>
+    private string[] GetRumors()
+    {
+        return new[]
+        {
+            "They say seven ancient seals lie hidden in the dungeon depths...",
+            "The old gods stir in their prisons. Dark times are coming.",
+            "A mysterious stranger has been seen around town. Trust no one.",
+            "The king grows paranoid. He sees enemies everywhere.",
+            "Deep in the dungeon, there's a creature that guards untold riches.",
+            "Some adventurers never return from the lower levels. Choose your depth wisely.",
+            "I've heard whispers of a hidden shop in the Dark Alley...",
+            "The temple priests know more than they let on about the old gods.",
+            "There's talk of a secret passage in the castle. But I've said too much.",
+            "A wave returns to the ocean... whatever that means. Cryptic nonsense if you ask me.",
+            "They say Manwe himself cursed these dungeons. But that's just a story... right?",
+            "The healers can cure almost anything, for a price.",
+            "Team up with others if you want to survive the deeper levels.",
+            "I've heard there's a way to save Veloura... if you have the courage to try.",
+            "Some NPCs carry powerful items. Defeat them in a duel and claim their gear!"
+        };
+    }
+
+    /// <summary>
+    /// Ask NPC about dungeons
+    /// </summary>
+    private async Task AskAboutDungeons(NPC npc)
+    {
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"  You ask {npc.Name2} about the dungeons...");
+        terminal.WriteLine("");
+
+        // Give advice based on NPC's level/experience
+        terminal.SetColor("yellow");
+        terminal.WriteLine($"  {npc.Name2} says:");
+        terminal.SetColor("white");
+
+        if (npc.Level > currentPlayer.Level + 10)
+        {
+            terminal.WriteLine($"  \"You're brave to ask, but you're not ready for the depths I've seen.\"");
+            terminal.WriteLine($"  \"Get stronger first. Level {currentPlayer.Level} won't cut it down there.\"");
+        }
+        else if (npc.Level > currentPlayer.Level)
+        {
+            terminal.WriteLine($"  \"The upper levels should be manageable for you.\"");
+            terminal.WriteLine($"  \"Watch out for floor {Math.Min(npc.Level, 10)} though - things get nasty there.\"");
+        }
+        else
+        {
+            terminal.WriteLine($"  \"Ha! You asking ME for dungeon advice?\"");
+            terminal.WriteLine($"  \"You look more experienced than I am. Good luck down there.\"");
+        }
+
+        terminal.WriteLine("");
+        await terminal.PressAnyKey();
+    }
+
+    /// <summary>
+    /// Challenge NPC to a duel
+    /// </summary>
+    private async Task ChallengeNPC(NPC npc)
+    {
+        terminal.WriteLine("");
+        terminal.SetColor("bright_red");
+        terminal.WriteLine($"  You challenge {npc.Name2} to a duel!");
+        terminal.WriteLine("");
+
+        // Check if NPC accepts
+        bool accepts = ShouldNPCAcceptDuel(npc);
+
+        if (!accepts)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"  {npc.Name2} says:");
+            terminal.SetColor("white");
+
+            if (npc.Level > currentPlayer.Level + 5)
+            {
+                terminal.WriteLine($"  \"You're not worth my time, weakling. Come back when you're stronger.\"");
+            }
+            else if (npc.Level < currentPlayer.Level - 5)
+            {
+                terminal.WriteLine($"  \"I know when I'm outmatched. Maybe another time.\"");
+            }
+            else
+            {
+                terminal.WriteLine($"  \"Not today, friend. I've got other things to do.\"");
+            }
+
+            await Task.Delay(2000);
+            return;
+        }
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine($"  {npc.Name2} accepts your challenge!");
+        terminal.WriteLine("");
+
+        terminal.SetColor("white");
+        terminal.WriteLine("  \"Let's settle this honorably!\"");
+        terminal.WriteLine("");
+
+        await Task.Delay(1500);
+
+        // Initiate combat through StreetEncounterSystem
+        var result = await StreetEncounterSystem.Instance.AttackCharacter(currentPlayer, npc, terminal);
+
+        if (result.Victory)
+        {
+            terminal.SetColor("bright_green");
+            terminal.WriteLine($"\n  You defeated {npc.Name2} in honorable combat!");
+            currentPlayer.PKills++;
+
+            // Small reputation boost for honorable duel
+            currentPlayer.Chivalry += 5;
+        }
+        else
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine($"\n  {npc.Name2} got the better of you...");
+            currentPlayer.PDefeats++;
+        }
+
+        await Task.Delay(2000);
+    }
+
+    /// <summary>
+    /// Determine if NPC should accept a duel challenge
+    /// </summary>
+    private bool ShouldNPCAcceptDuel(NPC npc)
+    {
+        var random = new Random();
+
+        // Level difference affects acceptance
+        int levelDiff = npc.Level - currentPlayer.Level;
+
+        // Very high level NPCs don't bother with weak players
+        if (levelDiff > 10) return random.Next(100) < 10;  // 10% chance
+
+        // Very low level NPCs are scared
+        if (levelDiff < -10) return random.Next(100) < 20; // 20% chance
+
+        // Similar level - personality matters
+        if (npc.Darkness > npc.Chivalry)
+        {
+            return random.Next(100) < 70; // Evil NPCs like fights
+        }
+        else if (npc.Chivalry > npc.Darkness + 500)
+        {
+            return random.Next(100) < 40; // Honorable NPCs prefer peace
+        }
+
+        return random.Next(100) < 50; // 50-50 otherwise
     }
 
     /// <summary>

@@ -252,6 +252,101 @@ namespace UsurperRemake.Systems
                 case ConditionType.HasMadeChoice:
                     return story.HasMadeChoice(condition.StringValue ?? "");
 
+                // Companion system conditions
+                case ConditionType.HasCompanion:
+                    if (Enum.TryParse<CompanionId>(condition.StringValue, out var compId))
+                        return CompanionSystem.Instance.IsCompanionRecruited(compId);
+                    return false;
+
+                case ConditionType.CompanionAlive:
+                    if (Enum.TryParse<CompanionId>(condition.StringValue, out var aliveCompId))
+                        return CompanionSystem.Instance.IsCompanionAlive(aliveCompId);
+                    return false;
+
+                case ConditionType.CompanionDead:
+                    if (Enum.TryParse<CompanionId>(condition.StringValue, out var deadCompId))
+                        return !CompanionSystem.Instance.IsCompanionAlive(deadCompId) &&
+                               CompanionSystem.Instance.IsCompanionRecruited(deadCompId);
+                    return false;
+
+                case ConditionType.CompanionLoyaltyAbove:
+                    if (Enum.TryParse<CompanionId>(condition.StringValue, out var loyalCompId))
+                    {
+                        var comp = CompanionSystem.Instance.GetCompanion(loyalCompId);
+                        return comp != null && comp.LoyaltyLevel > condition.IntValue;
+                    }
+                    return false;
+
+                case ConditionType.CompanionTrustAbove:
+                    if (Enum.TryParse<CompanionId>(condition.StringValue, out var trustCompId))
+                    {
+                        var comp = CompanionSystem.Instance.GetCompanion(trustCompId);
+                        return comp != null && comp.TrustLevel > condition.IntValue;
+                    }
+                    return false;
+
+                case ConditionType.RomanceLevelAbove:
+                    if (Enum.TryParse<CompanionId>(condition.StringValue, out var romCompId))
+                    {
+                        var comp = CompanionSystem.Instance.GetCompanion(romCompId);
+                        return comp != null && comp.RomanceLevel > condition.IntValue;
+                    }
+                    return false;
+
+                case ConditionType.HasActiveCompanion:
+                    return CompanionSystem.Instance.GetActiveCompanions().Any();
+
+                // Grief system conditions
+                case ConditionType.HasGriefStatus:
+                    return GriefSystem.Instance.IsGrieving;
+
+                case ConditionType.GriefStageIs:
+                    if (Enum.TryParse<GriefStage>(condition.StringValue, out var griefStage))
+                        return GriefSystem.Instance.CurrentStage == griefStage;
+                    return false;
+
+                case ConditionType.CompletedGriefCycle:
+                    return GriefSystem.Instance.HasCompletedGriefCycle;
+
+                // Betrayal conditions
+                case ConditionType.BetrayedBy:
+                    return BetrayalSystem.Instance.HasBetrayed(condition.StringValue ?? "");
+
+                case ConditionType.ForgaveBetrayer:
+                    return story.HasStoryFlag($"forgave_{condition.StringValue}");
+
+                case ConditionType.HasPendingBetrayal:
+                    return BetrayalSystem.Instance.HasPendingBetrayal(condition.StringValue ?? "");
+
+                // Ocean Philosophy conditions
+                case ConditionType.AwakeningLevelAbove:
+                    return OceanPhilosophySystem.Instance.AwakeningLevel > condition.IntValue;
+
+                case ConditionType.HasWaveFragment:
+                    if (Enum.TryParse<WaveFragment>(condition.StringValue, out var fragment))
+                        return OceanPhilosophySystem.Instance.CollectedFragments.Contains(fragment);
+                    return false;
+
+                case ConditionType.HasOceanInsight:
+                    return OceanPhilosophySystem.Instance.Insights.Count >= condition.IntValue;
+
+                case ConditionType.ExperiencedMoment:
+                    if (Enum.TryParse<AwakeningMoment>(condition.StringValue, out var moment))
+                        return OceanPhilosophySystem.Instance.ExperiencedMoments.Contains(moment);
+                    return false;
+
+                // Amnesia conditions
+                case ConditionType.HasMemoryFragment:
+                    if (Enum.TryParse<MemoryFragment>(condition.StringValue, out var memFragment))
+                        return AmnesiaSystem.Instance.RecoveredMemories.Contains(memFragment);
+                    return false;
+
+                case ConditionType.MemoryRecoveryAbove:
+                    return (AmnesiaSystem.Instance.GetRecoveryProgress() * 100) > condition.IntValue;
+
+                case ConditionType.TruthRevealed:
+                    return AmnesiaSystem.Instance.TruthRevealed;
+
                 default:
                     return true;
             }
@@ -362,6 +457,85 @@ namespace UsurperRemake.Systems
 
                 case EffectType.TriggerEvent:
                     story.TriggerEvent(effect.StringValue ?? "", effect.StringValue2 ?? "");
+                    break;
+
+                // Companion effects
+                case EffectType.ModifyCompanionLoyalty:
+                    if (Enum.TryParse<CompanionId>(effect.StringValue, out var loyalCompId))
+                    {
+                        CompanionSystem.Instance.ModifyLoyalty(loyalCompId, effect.IntValue, "dialogue choice");
+                        terminal?.WriteLine(effect.IntValue > 0
+                            ? $"({effect.StringValue}'s loyalty increased)"
+                            : $"({effect.StringValue}'s loyalty decreased)", "cyan");
+                    }
+                    break;
+
+                case EffectType.ModifyCompanionTrust:
+                    if (Enum.TryParse<CompanionId>(effect.StringValue, out var trustCompId))
+                    {
+                        CompanionSystem.Instance.ModifyTrust(trustCompId, effect.IntValue);
+                        terminal?.WriteLine(effect.IntValue > 0
+                            ? $"({effect.StringValue}'s trust increased)"
+                            : $"({effect.StringValue}'s trust decreased)", "cyan");
+                    }
+                    break;
+
+                case EffectType.AdvanceRomance:
+                    if (Enum.TryParse<CompanionId>(effect.StringValue, out var romCompId))
+                    {
+                        CompanionSystem.Instance.AdvanceRomance(romCompId);
+                        terminal?.WriteLine($"(Your relationship with {effect.StringValue} deepens)", "magenta");
+                    }
+                    break;
+
+                case EffectType.TriggerCompanionDeath:
+                    CompanionSystem.Instance.TriggerCompanionDeathByParadox(effect.StringValue ?? "");
+                    break;
+
+                // Betrayal effects
+                case EffectType.AddBetrayalPoints:
+                    BetrayalSystem.Instance.AddBetrayalPoints(effect.StringValue ?? "", effect.IntValue, "dialogue interaction");
+                    break;
+
+                case EffectType.ReduceBetrayalPoints:
+                    BetrayalSystem.Instance.ReduceBetrayalPoints(effect.StringValue ?? "", effect.IntValue, "act of kindness");
+                    break;
+
+                case EffectType.TriggerBetrayal:
+                    // This would need terminal for async display
+                    story.SetStoryFlag($"betrayal_triggered_{effect.StringValue}", true);
+                    break;
+
+                // Ocean Philosophy effects
+                case EffectType.GainOceanInsight:
+                    OceanPhilosophySystem.Instance.GainInsight(effect.IntValue);
+                    terminal?.WriteLine("(A deeper understanding settles within you)", "bright_cyan");
+                    break;
+
+                case EffectType.CollectWaveFragment:
+                    if (Enum.TryParse<WaveFragment>(effect.StringValue, out var waveFragment))
+                    {
+                        OceanPhilosophySystem.Instance.CollectFragment(waveFragment);
+                        terminal?.WriteLine("(You have collected a Wave Fragment)", "cyan");
+                    }
+                    break;
+
+                case EffectType.TriggerAwakeningMoment:
+                    if (Enum.TryParse<AwakeningMoment>(effect.StringValue, out var awakeningMoment))
+                    {
+                        OceanPhilosophySystem.Instance.ExperienceMoment(awakeningMoment);
+                        terminal?.WriteLine("(Something profound shifts in your understanding)", "bright_cyan");
+                    }
+                    break;
+
+                // Amnesia effects
+                case EffectType.RevealMemory:
+                    AmnesiaSystem.Instance.RevealMajorMemory(effect.StringValue ?? "");
+                    terminal?.WriteLine("(A memory surfaces from the depths...)", "cyan");
+                    break;
+
+                case EffectType.TriggerDream:
+                    story.SetStoryFlag($"dream_pending_{effect.StringValue}", true);
                     break;
             }
         }
@@ -1631,7 +1805,37 @@ namespace UsurperRemake.Systems
         HasArtifact,
         ChapterAtLeast,
         CycleAbove,
-        HasMadeChoice
+        HasMadeChoice,
+
+        // Companion system conditions
+        HasCompanion,              // StringValue = companion name
+        CompanionAlive,            // StringValue = companion name
+        CompanionDead,             // StringValue = companion name
+        CompanionLoyaltyAbove,     // StringValue = companion, IntValue = threshold
+        CompanionTrustAbove,       // StringValue = companion, IntValue = threshold
+        RomanceLevelAbove,         // StringValue = companion, IntValue = threshold
+        HasActiveCompanion,        // Any companion active
+
+        // Grief system conditions
+        HasGriefStatus,            // Currently in grief
+        GriefStageIs,              // StringValue = stage name (Denial, Anger, etc.)
+        CompletedGriefCycle,       // Reached Acceptance stage
+
+        // Betrayal system conditions
+        BetrayedBy,                // StringValue = NPC id
+        ForgaveBetrayer,           // StringValue = NPC id
+        HasPendingBetrayal,        // Any betrayal pending
+
+        // Ocean Philosophy conditions
+        AwakeningLevelAbove,       // IntValue = threshold
+        HasWaveFragment,           // StringValue = fragment name
+        HasOceanInsight,           // IntValue = minimum insight count
+        ExperiencedMoment,         // StringValue = AwakeningMoment name
+
+        // Amnesia conditions
+        HasMemoryFragment,         // StringValue = fragment name
+        MemoryRecoveryAbove,       // IntValue = percentage (0-100)
+        TruthRevealed              // Final revelation occurred
     }
 
     public enum EffectType
@@ -1649,7 +1853,27 @@ namespace UsurperRemake.Systems
         RecordChoice,
         AdvanceChapter,
         UnlockArtifact,
-        TriggerEvent
+        TriggerEvent,
+
+        // Companion effects
+        ModifyCompanionLoyalty,    // StringValue = companion, IntValue = amount
+        ModifyCompanionTrust,      // StringValue = companion, IntValue = amount
+        AdvanceRomance,            // StringValue = companion
+        TriggerCompanionDeath,     // StringValue = companion
+
+        // Betrayal effects
+        AddBetrayalPoints,         // StringValue = NPC id, IntValue = points
+        ReduceBetrayalPoints,      // StringValue = NPC id, IntValue = points
+        TriggerBetrayal,           // StringValue = NPC id
+
+        // Ocean Philosophy effects
+        GainOceanInsight,          // IntValue = points
+        CollectWaveFragment,       // StringValue = fragment name
+        TriggerAwakeningMoment,    // StringValue = moment name
+
+        // Amnesia effects
+        RevealMemory,              // StringValue = memory key
+        TriggerDream               // StringValue = dream sequence
     }
 
     #endregion

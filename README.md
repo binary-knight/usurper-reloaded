@@ -1,68 +1,111 @@
-﻿# Usurper Reloaded
+# Usurper Reborn
 
-** FREE AND OPEN SOURCE SOFTWARE - GPL v2 Licensed**
+**FREE AND OPEN SOURCE SOFTWARE - GPL v2 Licensed**
 
-A faithful recreation of the classic 1993 BBS door game "Usurper" by Jakob Dangarden, enhanced with revolutionary NPC AI systems while maintaining 100% Pascal source compatibility.
+A faithful recreation of the classic 1993 BBS door game "Usurper" by Jakob Dangarden, transformed with revolutionary AI systems, deep narrative systems, and philosophical storytelling while maintaining 100% Pascal source compatibility.
 
 ## About
 
-Usurper Reloaded brings the brutal medieval world of the original BBS classic to modern platforms. Every formula, every stat, every quirk from the original Pascal source has been meticulously preserved, while adding sophisticated AI systems that make the world feel truly alive.
+Usurper Reborn brings the brutal medieval world of the original BBS classic to modern platforms. Every formula, every stat, every quirk from the original Pascal source has been meticulously preserved—and then we added layers upon layers of new content.
 
-**Original Creator**: Jakob Dangarden (1993)  
-**Source Preservation**: Rick Parrish, Daniel Zingaro  
-**Modern Recreation**: Built with Godot 4.4+ and C#  
+What began as a faithful port has evolved into something more: a game that explores themes of **memory, identity, loss, and transcendence** through the lens of a Buddhist-inspired philosophy: *"You are not a wave fighting the ocean. You ARE the ocean, dreaming of being a wave."*
+
+**Original Creator**: Jakob Dangarden (1993)
+**Source Preservation**: Rick Parrish, Daniel Zingaro
+**Modern Recreation**: Built with Godot 4.4+ and C#
 **License**: GNU General Public License v2 (GPL v2)
 
-## Current Status & Implemented Features (Alpha - Active Development)
+## The Story
 
-Progress has moved from "bare foundations" to a **play-testable alpha** with continuous development.
+You wake in a dormitory with no memory of who you are. A letter in your own handwriting warns you:
 
-### Core Engine
-* Godot 4.4+ Mono build with DOS-style terminal interface
-* Full data layer – `Character`, `Player`, `NPC`, `Item`, `Monster`, `Quest` and comprehensive `GameConfig`
-* **Persistent Turn System** - Counts upward from 0, drives world simulation every 5 turns
-* **Modern Save System** - Autosaves with rotation (keeps 5 most recent), manual saves, comprehensive state preservation
+> *"The gods are broken. Corrupted. There are SEVEN SEALS hidden in the dungeons below. Collect them. Break the cycle. End the suffering. Trust no one. Especially not the Stranger. And remember this: You are not what you think you are. You never were."*
 
-### Playable Locations (30 location files)
-* **Main Street, Inn, Bank, Weapon Shop, Armor Shop, Magic Shop, Advanced Magic Shop, Healer, Temple**
-* **Church, Dark Alley, Level Master, Marketplace, Anchor Road, Hall of Recruitment, Dormitory**
-* **Castle, Prison, Love Corner, Team Corner, News, Quest Hall, Royal Quest, God World**
-* **Dungeon** - 50+ level system with groups of 1-5 monsters (regular encounters) and rare boss fights
-* **Home, Gym, Prison Walk** - Additional specialized locations
+The letter crumbles to dust. But the words burn in your mind.
 
-### Combat & Magic Systems
-* **Advanced Combat Engine** - 6 combat modes (Attack, Defend, Power Attack, Precise Strike, Rage, Smite)
-* **37 Combat Spells** - Complete spell system across 3 classes (Cleric, Magician, Sage)
-* **Status Effects** - Blur, Stoneskin, Haste, damage absorption, AC bonuses
-* **Group Combat** - Fight through groups of 1-5 monsters in dungeon encounters
-* **Dynamic Difficulty** - Monster strength scales with dungeon level, balanced for winnable fights
+**Your Journey:**
+- Explore the town of Dorashire and its many locations
+- Descend into dungeons that grow darker and more dangerous
+- Encounter the Old Gods—some imprisoned, some corrupted, all remembering
+- Collect the Seven Seals to unlock the truth
+- Discover what you really are... and what the "cycle" truly means
 
-### NPC Renaissance
-* **50 Classic NPCs** - Original Usurper-style characters with classic names and personalities
-* **Enhanced NPC AI**: personality-driven brains, goal system, memory & emotions
-* **Continuous World Simulation** - NPCs act every 5 player turns, wander, trade, fight and socialize
-* **Relationship System** - NPCs remember interactions and build relationships
-* **Diverse Cast**: Fighters, Mages, Thieves, Paladins, Clerics, Sages, Rangers, and Mercenaries
+## Features
 
-### Systems & Tooling
-* **Complete Save/Load** - Comprehensive state preservation including potions, equipment, stats, diseases, and character details
-* **Silent Maintenance** - Background world processing without intrusive messages
-* **Hall of Recruitment** - Hire and bribe NPCs into your team
-* **Dormitory** - Full rest and recovery mechanics
-* **Trading Board** - Marketplace trading system
-* **Dark Alley** - Shady services and black market
-* **Level Master** - Level advancement services
-* **Church** - Donations, blessings, healing, marriages, confessions
-* **Colorized Menus** - Fully colorized interface throughout all locations
-* Robust JSON loaders, comprehensive test suite, and CI/CD builds
+### Core Gameplay (Pascal Compatible)
+- **Classic BBS Dungeon Crawler** - 50+ dungeon levels with original Pascal combat formulas
+- **10 Races, 11 Classes** - All original options preserved (Human, Elf, Dwarf, Hobbit, Half-Elf, Orc, Gnome, Troll, Gnoll, Mutant + Warrior, Magician, Assassin, Paladin, Ranger, Cleric, Barbarian, Bard, Jester, Alchemist, Sage)
+- **Turn-Based Combat** - Attack, Defend, Power Attack, Precise Strike, Rage, Smite
+- **37 Combat Spells** - Complete magic system across Cleric, Magician, and Sage classes
+- **Persistent World** - NPCs act, trade, fight, and die even when you're not playing
 
-### Still Missing (major milestones)
-* Mail system, message system, item transfer between players
-* Team management features, gossip system completion
-* Castle politics (throne challenge, prison management, royal quests)
-* Child/marriage system completion
-* Tournament system
-* Multiplayer/node support for BBS-style gameplay
+### The Ocean Philosophy System (NEW)
+A subtle narrative layer that tracks your awakening to deeper truths:
+- **7 Awakening Levels** - From ignorance to full enlightenment
+- **Wave Fragments** - Cryptic lore pieces scattered throughout dungeons
+- **Ocean Insights** - Revelations triggered by key story events
+- **Memory Flashes** - Dreams that hint at your forgotten past
+
+### The Amnesia System (NEW)
+Your forgotten past holds the key to everything:
+- **Memory Fragments** - Recovered through dreams, dungeon exploration, and god encounters
+- **The Truth** - You are more than you appear... but what?
+- **NG+ Integration** - Each cycle, you remember a little more
+
+### Companion System (NEW)
+Recruit allies who travel, fight, and **can die permanently**:
+- **4 Unique Companions** - Lyris (tragic love interest), Aldric (loyal shield), Mira (broken healer), Vex (doomed trickster)
+- **Relationship Building** - Trust, loyalty, and romance levels
+- **Personal Quests** - Each companion has their own story
+- **Permanent Death** - When they die, they stay dead. This makes grief real.
+
+### Grief System (NEW)
+Death has consequences. When companions fall:
+- **5 Grief Stages** - Denial, Anger, Bargaining, Depression, Acceptance
+- **Mechanical Effects** - Stats change based on grief stage
+- **World Reactions** - NPCs respond to your mourning
+- **Bargaining Failures** - No resurrection. No tricks. Death is final.
+
+### The Seven Seals (NEW)
+Hidden throughout the dungeon depths:
+- **7 Ancient Seals** - Each reveals part of the truth
+- **Old God Connections** - Finding seals awakens imprisoned deities
+- **Multiple Endings** - Your choices and seals determine your fate
+
+### The Old Gods (NEW)
+Six forgotten deities, each with their own tragedy:
+- **Veloura** - Goddess of sorrow, trapped in eternal grief
+- **Thorgrim** - God of war, broken by endless battle
+- **Maelketh** - God of shadows, consumed by darkness
+- **Noctura** - The Stranger, mysterious and dangerous
+- **Aurelion** - God of light, blinded by his own radiance
+- **Terravok** - God of earth, sleeping in stone
+- **Manwe** - The Creator, and the key to everything
+
+### Enhanced Dungeon System (NEW)
+- **15-25 Rooms Per Floor** - Expanded from original 6-16
+- **Secret Rooms** - Hidden chambers with rare treasures
+- **Puzzle Rooms** - Logic, riddles, and environmental challenges
+- **Lore Libraries** - Discover Wave/Ocean philosophy fragments
+- **Meditation Chambers** - Rest and gain Ocean insights
+- **Secret Bosses** - The First Wave, The Forgotten Eighth, Echo of Self, The Ocean Speaks
+
+### Multiple Endings (NEW)
+Your journey can end in many ways:
+- **Conqueror Ending** - Embrace darkness and rule
+- **Savior Ending** - Choose light and sacrifice
+- **Defiant Ending** - Reject all gods
+- **True Ending** - Achieve balance and remember what you are
+- **Secret Ending** - For those who truly understand... dissolution
+
+### 50+ Living NPCs
+- **Classic Usurper NPCs** - Warriors, Mages, Thieves, Paladins, and more
+- **AI-Driven Behavior** - Personality, goals, memories, emotions
+- **World Simulation** - NPCs wander, trade, fight, form relationships
+- **Talk System** - Chat, ask for rumors, learn about dungeons, challenge to duels
+
+### 30+ Playable Locations
+Main Street, Inn, Bank, Weapon Shop, Armor Shop, Magic Shop, Healer, Temple, Church, Dark Alley, Level Master, Marketplace, Anchor Road, Hall of Recruitment, Dormitory, Castle, Prison, Love Corner, Team Corner, News, Quest Hall, God World, Dungeons, Home, Gym, Prison Walk, and more.
 
 ## Getting Started
 
@@ -88,232 +131,101 @@ godot project.godot
 
 ### Building Standalone Executables
 
-#### Build for Windows
+#### Windows
 ```bash
-dotnet publish usurper-reloaded.csproj -c Release -r win-x64 -o publish/windows \
-  -p:PublishSingleFile=true -p:SelfContained=true -p:InvariantGlobalization=true
+dotnet publish usurper-reloaded.csproj -c Release -o publish
 ```
 
-#### Build for Linux
+#### Linux
 ```bash
 dotnet publish usurper-reloaded.csproj -c Release -r linux-x64 -o publish/linux \
-  -p:PublishSingleFile=true -p:SelfContained=true -p:InvariantGlobalization=true
+  -p:PublishSingleFile=true -p:SelfContained=true
 ```
 
-#### Build for macOS
+#### macOS
 ```bash
 dotnet publish usurper-reloaded.csproj -c Release -r osx-x64 -o publish/mac \
-  -p:PublishSingleFile=true -p:SelfContained=true -p:InvariantGlobalization=true
+  -p:PublishSingleFile=true -p:SelfContained=true
 ```
-
-### Automated Builds
-The project includes GitHub Actions CI/CD pipeline (`.github/workflows/ci-cd.yml`):
-- **Continuous Integration**: Builds and tests on every push to `main` or `develop`
-- **Multi-Platform Builds**: Automatically builds Windows, Linux, and macOS executables
-- **GPL Compliance**: Includes source code archive and license files with every build
-- **Steam Preparation**: Generates Steam depot structure for releases
-- **Artifacts**: Download built executables from the Actions tab on GitHub
-
-## Roadmap
-
-### **Early Access Launch Requirements** (Current Focus)
-
-**CRITICAL BLOCKERS - Must Complete Before Early Access:**
-
-#### Core Location Implementations
-- [X] **Church** - Currently placeholder, needs healing/blessing mechanics
-- [X] **Marketplace** - Currently placeholder, needs trading system
-- [X] **Level Master** - Currently placeholder, needs level advancement
-- [X] **Dark Alley** - Currently placeholder, needs shady dealings/black market
-- [X] **Anchor Road** - Currently placeholder, needs challenge system (still need to implement challenge features when other subsystems are built)
-- [X] **Hall of Recruitment** - Currently placeholder, needs NPC hiring
-- [X] **Dormitory** - Currently placeholder, needs rest/recovery mechanics
-- [X] **Your Home** - Currently placeholder, needs personal dwelling features
-- [X] **Outside Prison** - Currently placeholder, needs prison break mechanics
-
-#### Major System Gaps
-- [ ] **Mail System** - "not yet implemented" throughout prison, main street
-- [ ] **Message System** - Player-to-player communication missing
-- [ ] **Item Transfer** - Player-to-player item trading missing
-- [ ] **Team Management** - Many "not yet implemented" features in Team Corner
-- [X] **Combat Spells** - COMPLETE! 37 spells across 3 classes (Cleric, Magician, Sage) fully integrated
-- [ ] **Combat Items** - "Item usage not yet implemented"
-- [ ] **Gossip System** - Love Corner gossip features incomplete
-- [ ] **Child System** - Child examination and interaction incomplete
-- [ ] **News Archive** - News system has placeholder archive functionality
-
-#### Castle/Royal System Gaps
-- [ ] **Throne Challenge** - "not yet implemented" combat system
-- [ ] **Prison Management** - "not yet implemented" for royal functions
-- [ ] **Royal Mail** - "not yet implemented"
-- [ ] **Court Magician** - "not yet implemented"
-- [ ] **Royal Quests** - "not yet implemented"
-- [ ] **Royal Orphanage** - "not yet implemented" management
-- [ ] **Tax Policy** - "not yet implemented"
-- [ ] **Guard Management** - "not yet implemented"
-
-#### Prison System Gaps  
-- [ ] **Rescue Mechanism** - Prison rescue returns false stub
-- [ ] **Prison Break Combat** - "not yet implemented"
-- [ ] **Prisoner Database** - Currently returns empty placeholder lists
-- [ ] **Online Player Tracking** - "not yet implemented"
-
-#### Shop/Economy Issues
-- [ ] **Magic Shop Class Restrictions** - TODO: implement when needed
-- [ ] **Item Equipping System** - TODO: implement in magic shop
-- [ ] **Cursed Item Removal** - TODO: integrate with actual item system
-- [ ] **Item Identification** - Placeholder 33% random chance logic
-
-#### Technical Infrastructure
-* [X] **NPC AI Loops** – Enhanced brains & behaviour engine now live
-* [X] **World Simulation** – `WorldSimulator` ticks every minute, moves NPCs & processes social/combat events
-* [ ] **Relationship Persistence** – Save/load friendships, marriages, enmities
-* [ ] **Quest Completion** – Resolve quests and save progress across sessions
-* [ ] **Tournament System** – Automated combat events with rankings
-
-**ESTIMATED WORK REMAINING: 1-2 months of core development**
-
-#### Already Complete
-- [x] Core game systems (combat, locations, NPCs) - *Basic framework*
-- [x] Save/load functionality - *Comprehensive system implemented*
-- [x] Terminal emulator and UI framework
-- [x] Character creation and basic progression
-- [x] Basic location navigation
-- [x] Fundamental combat engine (needs spell/item integration)
-- [x] Bank, Inn, Healer, Temple, Weapon Shop, Magic Shop basics
-- [x] Prison system framework (needs completion)
-
-#### Post-Early Access
-- [ ] Steam integration and achievements
-- [ ] Initial balancing based on player feedback  
-- [ ] Bug fixes and stability improvements
-- [ ] Audio and enhanced ANSI art
-
-### **Phase 1: Enhanced Single Player** (Post-Launch)
-- [ ] **Nemesis System**: NPCs who defeat you become legendary
-- [ ] **Seasonal Events**: Weather and holidays affect gameplay
-- [ ] **Legendary Artifacts**: Unique items with rich histories
-- [ ] **Expanded Dungeon**: Levels 51-100 with new challenges
-- [ ] **Prestige Classes**: Post-level 100 advancement paths
-
-### **Phase 2: Quality of Life** 
-- [ ] **NPC Journal**: Track your history with every character
-- [ ] **Achievement System**: Steam achievements for epic feats
-- [ ] **Mod Support**: Allow custom content creation
-- [ ] **Multiple Save Slots**: Manage different characters
-- [ ] **Difficulty Options**: From "Classic Brutal" to "Modern Casual"
-
-### **Phase 3: Multiplayer** 
-- [ ] **Private Servers**: Host games for 5-10 friends
-- [ ] **Asynchronous Play**: Classic BBS-style daily turns
-- [ ] **Official Servers**: Persistent worlds with 20-50 players
-- [ ] **Spectator Mode**: Watch epic battles unfold
-- [ ] **Cross-platform Play**: Steam, mobile, and web
-
-### **Phase 4: Content Expansion**
-- [ ] **New Locations**: Thieves Guild, Wizard Tower, Harbor District
-- [ ] **Sea Travel**: Ships, pirates, and island exploration
-- [ ] **Political System**: Elections, coups, and diplomacy
-- [ ] **Crafting System**: Create unique items and potions
-- [ ] **Pet System**: Companions that fight alongside you
-
-### **Long-term Vision**
-- [ ] **Mobile Version**: Full game on iOS/Android
-- [ ] **Steam Workshop**: Share characters, stories, and mods
-- [ ] **Usurper 2**: Sequel with expanded world and graphics
-- [ ] **VR Mode**: Experience the dungeon in virtual reality
-
-## Development
-
-### Project Structure
-```
-usurper-reloaded/
-├── Scripts/           # C# game logic
-│   ├── Core/         # Game engine and systems
-│   ├── Locations/    # All 23 game locations
-│   ├── AI/          # NPC AI systems
-│   └── UI/          # Terminal and interface
-├── Scenes/           # Godot scene files
-├── Data/            # Game data (items, NPCs, etc.)
-├── Tests/           # Comprehensive test suite
-└── .github/         # CI/CD workflows
-```
-
-### Testing
-The project includes extensive testing to ensure Pascal compatibility:
-```bash
-# Build and run tests (if test project is set up)
-dotnet build Tests/Tests.csproj
-dotnet test Tests/Tests.csproj
-
-# Note: Test suite is comprehensive with 300+ test cases
-# covering combat, character progression, save/load, and Pascal formula accuracy
-```
-
-## Contributing
-
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-### Areas We Need Help
-- Balance testing and feedback
-- ANSI art creation
-- Sound effects and music
-- Localization to other languages
-- Documentation improvements
 
 ## Technical Details
 
-- **Engine**: Godot 4.4+ with C# (.NET 6.0)
-- **Lines of Code**: 50,000+ across 126+ C# files
+- **Engine**: Godot 4.4+ with C# (.NET 6.0+)
+- **Lines of Code**: 100,000+ across 150+ C# files
 - **Pascal Compatibility**: 100% formula accuracy from original source
-- **Test Coverage**: 300+ test cases
+- **New Systems**: 20+ major systems added (Companions, Grief, Ocean Philosophy, Seals, Old Gods, etc.)
 - **Platforms**: Windows, Linux, macOS
 - **Architecture**: Single-player with persistent turn-based world simulation
 - **Save System**: JSON-based with autosave rotation and manual saves
 
+### Project Structure
+```
+usurper-reborn/
+├── Scripts/
+│   ├── Core/           # Character, NPC, Item, Monster, GameEngine
+│   ├── Systems/        # 40+ game systems
+│   │   ├── OceanPhilosophySystem.cs
+│   │   ├── AmnesiaSystem.cs
+│   │   ├── CompanionSystem.cs
+│   │   ├── GriefSystem.cs
+│   │   ├── SevenSealsSystem.cs
+│   │   ├── StoryProgressionSystem.cs
+│   │   ├── PuzzleSystem.cs
+│   │   ├── EndingsSystem.cs
+│   │   └── ... (many more)
+│   ├── Locations/      # 30+ game locations
+│   ├── AI/             # NPC AI systems (Brain, Memory, Goals, Emotions)
+│   ├── Data/           # Game data (NPCs, Equipment, Monsters, Old Gods)
+│   └── UI/             # Terminal emulator interface
+├── Scenes/             # Godot scene files
+├── Data/               # JSON game data
+└── .github/            # CI/CD workflows
+```
+
+## What's Still In Development
+
+### Missing from Original Usurper
+- Mail system and player messaging
+- Team management features
+- Castle politics (throne challenges, royal functions)
+- Tournament system
+- Multiplayer/BBS-style node support
+
+### Future Enhancements
+- Betray system implementation
+- Moral paradox encounters
+- Companion personal quest completions
+- Full Cycle/NG+ mechanics
+- Audio and enhanced ANSI art
+
 ## License & Your Rights
 
-**Usurper Reloaded is FREE SOFTWARE licensed under GPL v2**
+**Usurper Reborn is FREE SOFTWARE licensed under GPL v2**
 
 ### Your Rights
-- ✅ **Use** - Run the game for any purpose (personal, commercial, educational)
-- ✅ **Study** - Examine and learn from the complete source code
-- ✅ **Share** - Distribute copies to anyone, anywhere
-- ✅ **Modify** - Change the game and distribute your improvements
-- ✅ **Commercial Use** - Even sell your own versions (under GPL v2)
+- **Use** - Run the game for any purpose
+- **Study** - Examine the complete source code
+- **Share** - Distribute copies to anyone
+- **Modify** - Change the game and distribute improvements
+- **Commercial Use** - Even sell your versions (under GPL v2)
 
-### Source Code Access
-- **Complete source code** included with every download
-- **GitHub Repository**: https://github.com/binary-knight/usurper-reloaded
-- **Build Scripts**: All tools and build processes included
-- **No Hidden Code**: Everything needed to build and modify the game
-
-### GPL v2 Compliance
-All releases include:
-- `LICENSE` - Complete GPL v2 license text
-- `GPL_NOTICE.txt` - Your rights and freedoms
-- `usurper-reloaded-source.zip` - Complete source code archive
-- Full source code available on GitHub
-
-**This is truly FREE software - you own it completely!**
-
-### Legal Details
-**Original Game**: © 1993 Jakob Dangarden  
-**Pascal Preservation**: Rick Parrish, Daniel Zingaro (GPL License)  
-**This Remake**: GPL v2 Licensed - Free for all to use and modify
-
-See `LICENSE` file for complete GPL v2 terms and conditions.
+### Source Code
+- Complete source included with every download
+- GitHub: https://github.com/binary-knight/usurper-reloaded
+- All build tools and scripts included
 
 ## Acknowledgments
 
-- **Jakob Dangarden**: For creating the original masterpiece
+- **Jakob Dangarden**: For creating the original 1993 masterpiece
 - **Rick Parrish**: For preserving the Pascal source code
-- **Daniel Zingaro**: For tremendous help with the Paspal source code
-- **BBS Community**: For keeping the spirit alive
-- **Contributors**: Everyone who has helped test and improve
+- **Daniel Zingaro**: For tremendous help with the Pascal source
+- **The BBS Community**: For keeping the spirit of door games alive
+- **All Contributors**: Everyone who has tested, improved, and believed
 
 ---
 
-*"In the realm of Usurper, death is not the end—it's just another beginning. Will you rise to claim the throne, or will your bones join the countless others in the dungeon depths?"*
+*"You are not a wave fighting the ocean. You ARE the ocean, dreaming of being a wave."*
 
-**Status**: Preparing for Steam Early Access 
+*In the realm of Usurper, death is not the end—it's just another beginning. The cycle continues until you remember. Will you find the Seven Seals? Will you discover what you truly are? Will you finally... wake up?*
+
+**Status**: Active Development - Play-testable Alpha

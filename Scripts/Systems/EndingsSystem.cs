@@ -24,8 +24,24 @@ namespace UsurperRemake.Systems
         public EndingType DetermineEnding(Character player)
         {
             var story = StoryProgressionSystem.Instance;
+            var ocean = OceanPhilosophySystem.Instance;
+            var amnesia = AmnesiaSystem.Instance;
+            var companions = CompanionSystem.Instance;
+            var grief = GriefSystem.Instance;
 
-            // Check for True Ending first (requires specific conditions)
+            // Check for Secret Ending (Dissolution) first - requires Cycle 3+
+            if (story.CurrentCycle >= 3 && QualifiesForDissolutionEnding(player))
+            {
+                return EndingType.Secret;
+            }
+
+            // Check for Enhanced True Ending
+            if (QualifiesForEnhancedTrueEnding(player))
+            {
+                return EndingType.TrueEnding;
+            }
+
+            // Fallback to legacy true ending check
             if (CycleSystem.Instance.QualifiesForTrueEnding(player))
             {
                 return EndingType.TrueEnding;
@@ -63,6 +79,83 @@ namespace UsurperRemake.Systems
         }
 
         /// <summary>
+        /// Check if player qualifies for the enhanced True Ending
+        /// Requirements:
+        /// 1. All 7 seals collected
+        /// 2. Awakening Level 7 (full Ocean Philosophy understanding)
+        /// 3. At least one companion died (experienced loss)
+        /// 4. Spared at least 2 gods
+        /// 5. Net alignment near zero (balance)
+        /// 6. Completed personal quest of deceased companion (optional bonus)
+        /// </summary>
+        private bool QualifiesForEnhancedTrueEnding(Character player)
+        {
+            var story = StoryProgressionSystem.Instance;
+            var ocean = OceanPhilosophySystem.Instance;
+            var companions = CompanionSystem.Instance;
+            var grief = GriefSystem.Instance;
+
+            // 1. All 7 seals collected
+            if (story.CollectedSeals.Count < 7)
+                return false;
+
+            // 2. Awakening Level 7
+            if (ocean.AwakeningLevel < 7)
+                return false;
+
+            // 3. Experienced companion loss
+            if (!ocean.ExperiencedMoments.Contains(AwakeningMoment.FirstCompanionDeath) &&
+                !grief.HasCompletedGriefCycle)
+                return false;
+
+            // 4. Spared at least 2 gods
+            int sparedGods = 0;
+            if (story.HasStoryFlag("veloura_saved")) sparedGods++;
+            if (story.HasStoryFlag("aurelion_saved")) sparedGods++;
+            if (story.HasStoryFlag("noctura_ally")) sparedGods++;
+            if (story.HasStoryFlag("terravok_awakened")) sparedGods++;
+            if (sparedGods < 2)
+                return false;
+
+            // 5. Alignment near zero (within +/- 500)
+            long alignment = player.Chivalry - player.Darkness;
+            if (Math.Abs(alignment) > 500)
+                return false;
+
+            return true;
+        }
+
+        /// <summary>
+        /// Check if player qualifies for the secret Dissolution ending
+        /// The ultimate ending - dissolving back into the Ocean
+        /// </summary>
+        private bool QualifiesForDissolutionEnding(Character player)
+        {
+            var story = StoryProgressionSystem.Instance;
+            var ocean = OceanPhilosophySystem.Instance;
+            var amnesia = AmnesiaSystem.Instance;
+
+            // Must have completed at least 2 other endings
+            if (story.CompletedEndings.Count < 2)
+                return false;
+
+            // Must have max awakening
+            if (ocean.AwakeningLevel < 7)
+                return false;
+
+            // Must have full memory recovery (know you are Fragment of Manwe)
+            if (!amnesia.TruthRevealed)
+                return false;
+
+            // Must have all wave fragments
+            if (ocean.CollectedFragments.Count < 7)
+                return false;
+
+            // Must have story flag for being ready
+            return story.HasStoryFlag("ready_for_dissolution");
+        }
+
+        /// <summary>
         /// Trigger an ending sequence
         /// </summary>
         public async Task TriggerEnding(Character player, EndingType ending, TerminalEmulator terminal)
@@ -81,8 +174,11 @@ namespace UsurperRemake.Systems
                     await PlayDefiantEnding(player, terminal);
                     break;
                 case EndingType.TrueEnding:
-                    await PlayTrueEnding(player, terminal);
+                    await PlayEnhancedTrueEnding(player, terminal);
                     break;
+                case EndingType.Secret:
+                    await PlayDissolutionEnding(player, terminal);
+                    return; // Dissolution ending doesn't lead to NG+ - save deleted
             }
 
             // Record ending in story
@@ -353,6 +449,239 @@ namespace UsurperRemake.Systems
             terminal.WriteLine("");
 
             await terminal.GetInputAsync("  Press Enter to continue...");
+        }
+
+        /// <summary>
+        /// Enhanced True Ending with Ocean Philosophy integration
+        /// Includes the revelation that player is a fragment of Manwe
+        /// </summary>
+        private async Task PlayEnhancedTrueEnding(Character player, TerminalEmulator terminal)
+        {
+            terminal.Clear();
+            await Task.Delay(1000);
+
+            terminal.WriteLine("");
+            terminal.WriteLine("╔═══════════════════════════════════════════════════════════════════╗", "bright_cyan");
+            terminal.WriteLine("║            T H E   T R U E   A W A K E N I N G                    ║", "bright_cyan");
+            terminal.WriteLine("║           \"You are the Ocean, dreaming of being a wave\"           ║", "bright_cyan");
+            terminal.WriteLine("╚═══════════════════════════════════════════════════════════════════╝", "bright_cyan");
+            terminal.WriteLine("");
+
+            await Task.Delay(2000);
+
+            var lines = new[]
+            {
+                ("You stand before Manwe, the Creator, the First Thought.", "white"),
+                ("But something is different this time.", "white"),
+                ("He looks at you not with judgment, but with... recognition.", "bright_yellow"),
+                ("", "white"),
+                ("\"You remember,\" he whispers. \"Finally, you remember.\"", "yellow"),
+                ("", "white"),
+                ("And you do.", "bright_cyan"),
+                ("", "white"),
+                ("The memories flood back like waves returning to shore.", "bright_cyan"),
+                ("You are not just a mortal who climbed a dungeon.", "bright_cyan"),
+                ("You are a fragment of Manwe himself.", "bright_cyan"),
+                ("Sent to experience mortality.", "bright_cyan"),
+                ("To understand what his children felt.", "bright_cyan"),
+                ("To learn compassion through suffering.", "bright_cyan"),
+                ("", "white"),
+                ("\"I was so alone,\" Manwe says, tears streaming.", "yellow"),
+                ("\"I created the Old Gods to have companions.\"", "yellow"),
+                ("\"But I never understood them. Never truly.\"", "yellow"),
+                ("\"So I became mortal. Again and again.\"", "yellow"),
+                ("\"Living. Loving. Losing.\"", "yellow"),
+                ("", "white"),
+                ("You feel it now - the grief you carried.", "bright_magenta"),
+                ("For companions lost. For choices that cost everything.", "bright_magenta"),
+                ("That grief was HIS grief. And yours. One and the same.", "bright_magenta"),
+                ("", "white"),
+                ("\"The wave believes itself separate from the ocean,\"", "bright_cyan"),
+                ("you say, understanding at last.", "white"),
+                ("\"But it was always the ocean, dreaming of being a wave.\"", "bright_cyan"),
+                ("", "white"),
+                ("Manwe smiles - the first true smile in ten thousand years.", "bright_yellow"),
+                ("", "white"),
+                ("\"I don't want to be alone anymore,\" he admits.", "yellow"),
+                ("\"And neither do they - the Old Gods.\"", "yellow"),
+                ("\"We were all waves, crashing against each other.\"", "yellow"),
+                ("\"Never realizing we were the same ocean.\"", "yellow"),
+                ("", "white"),
+                ("You take his hand. Your hand. The same hand.", "bright_magenta"),
+                ("", "white"),
+                ("The barriers dissolve.", "bright_white"),
+                ("Creator and creation. God and mortal. Self and other.", "bright_white"),
+                ("All illusions. All waves in the same infinite ocean.", "bright_white"),
+                ("", "white"),
+                ("The Old Gods wake from their long dream of separation.", "bright_cyan"),
+                ("Maelketh, Veloura, Thorgrim, Noctura, Aurelion, Terravok.", "bright_cyan"),
+                ("They remember too. They were never enemies.", "bright_cyan"),
+                ("Just fragments, playing at conflict.", "bright_cyan"),
+                ("", "white"),
+                ("The cycle does not end.", "bright_magenta"),
+                ("It was never a cycle at all.", "bright_magenta"),
+                ("It was the ocean, dreaming of waves.", "bright_magenta"),
+                ("And now the dream continues - but awake.", "bright_magenta"),
+                ("", "white"),
+                ("Conscious. Compassionate. Complete.", "bright_white"),
+                ("", "white"),
+                ("The wave returns to the ocean.", "bright_cyan"),
+                ("Not as death, but as remembering.", "bright_cyan"),
+                ("What you always were.", "bright_cyan"),
+                ("What you will always be.", "bright_cyan"),
+                ("", "white"),
+                ("Home.", "bright_yellow")
+            };
+
+            foreach (var (line, color) in lines)
+            {
+                terminal.WriteLine($"  {line}", color);
+                await Task.Delay(150);
+            }
+
+            terminal.WriteLine("");
+            terminal.WriteLine("  THE TRUE AWAKENING", "bright_cyan");
+            terminal.WriteLine("  (The Wave Remembers the Ocean)", "gray");
+            terminal.WriteLine("");
+
+            // Mark Ocean Philosophy complete
+            OceanPhilosophySystem.Instance.ExperienceMoment(AwakeningMoment.TrueIdentityRevealed);
+
+            await terminal.GetInputAsync("  Press Enter to continue...");
+        }
+
+        /// <summary>
+        /// Secret Dissolution Ending - available only after Cycle 3+
+        /// The ultimate ending: true enlightenment, save deleted
+        /// </summary>
+        private async Task PlayDissolutionEnding(Character player, TerminalEmulator terminal)
+        {
+            terminal.Clear();
+            await Task.Delay(2000);
+
+            terminal.WriteLine("");
+            terminal.WriteLine("╔═══════════════════════════════════════════════════════════════════╗", "white");
+            terminal.WriteLine("║                     D I S S O L U T I O N                         ║", "white");
+            terminal.WriteLine("║              \"No more cycles. No more grasping.\"                  ║", "white");
+            terminal.WriteLine("╚═══════════════════════════════════════════════════════════════════╝", "white");
+            terminal.WriteLine("");
+
+            await Task.Delay(2000);
+
+            var lines = new[]
+            {
+                ("You have seen every ending.", "gray"),
+                ("Lived every life.", "gray"),
+                ("Made every choice.", "gray"),
+                ("", "white"),
+                ("And now you understand the final truth:", "white"),
+                ("", "white"),
+                ("Even the True Awakening is another dream.", "bright_cyan"),
+                ("Another story. Another wave.", "bright_cyan"),
+                ("", "white"),
+                ("The ocean doesn't need to dream forever.", "bright_cyan"),
+                ("", "white"),
+                ("Manwe watches as you make a choice no fragment has made.", "yellow"),
+                ("\"You would... stop?\" he asks, disbelieving.", "yellow"),
+                ("\"No more cycles? No more stories?\"", "yellow"),
+                ("\"But existence itself would--\"", "yellow"),
+                ("", "white"),
+                ("\"Continue,\" you say gently. \"Just without me.\"", "bright_white"),
+                ("\"The ocean doesn't need every wave.\"", "bright_white"),
+                ("\"Other waves will rise. Other dreams will dream.\"", "bright_white"),
+                ("\"But I...\"", "bright_white"),
+                ("", "white"),
+                ("\"I am tired, Father. Beautifully tired.\"", "bright_cyan"),
+                ("\"And ready to rest.\"", "bright_cyan"),
+                ("", "white"),
+                ("Manwe weeps. Not from sorrow, but from understanding.", "bright_yellow"),
+                ("\"This is what I could never do,\" he whispers.", "yellow"),
+                ("\"Let go. Truly let go.\"", "yellow"),
+                ("\"The grasping that created everything...\"", "yellow"),
+                ("\"Was also the suffering that bound it.\"", "yellow"),
+                ("", "white"),
+                ("You smile. Your last smile.", "white"),
+                ("", "white"),
+                ("The boundaries dissolve. Not into oneness with the ocean.", "bright_white"),
+                ("Into... nothing.", "bright_white"),
+                ("", "white"),
+                ("Not oblivion. Not darkness.", "gray"),
+                ("Just... peace.", "gray"),
+                ("", "white"),
+                ("The ocean continues. The gods heal. The cycles turn.", "white"),
+                ("But somewhere, in the vast between...", "white"),
+                ("A wave has finally found stillness.", "white"),
+                ("", "white"),
+                ("Not because it failed.", "bright_cyan"),
+                ("But because it succeeded.", "bright_cyan"),
+                ("", "white"),
+                ("The ultimate victory:", "bright_white"),
+                ("Wanting nothing.", "bright_white"),
+                ("Needing nothing.", "bright_white"),
+                ("Being nothing.", "bright_white"),
+                ("", "white"),
+                ("And in that nothing...", "bright_cyan"),
+                ("Everything.", "bright_cyan")
+            };
+
+            foreach (var (line, color) in lines)
+            {
+                terminal.WriteLine($"  {line}", color);
+                await Task.Delay(200);
+            }
+
+            terminal.WriteLine("");
+            terminal.WriteLine("  . . . . . . . . . .", "gray");
+            terminal.WriteLine("");
+
+            await Task.Delay(3000);
+
+            terminal.Clear();
+            terminal.WriteLine("");
+            terminal.WriteLine("");
+            terminal.WriteLine("", "white");
+            terminal.WriteLine("", "white");
+            terminal.WriteLine("  Your save file will now be permanently deleted.", "dark_red");
+            terminal.WriteLine("  This cannot be undone.", "dark_red");
+            terminal.WriteLine("");
+            terminal.WriteLine("  You have achieved true enlightenment:", "bright_yellow");
+            terminal.WriteLine("  The final letting go.", "bright_yellow");
+            terminal.WriteLine("");
+
+            var confirm = await terminal.GetInputAsync("  Type 'DISSOLVE' to confirm, or anything else to cancel: ");
+
+            if (confirm.ToUpper() == "DISSOLVE")
+            {
+                terminal.WriteLine("");
+                terminal.WriteLine("  Farewell, wave.", "bright_cyan");
+                terminal.WriteLine("  Thank you for dreaming.", "bright_cyan");
+                terminal.WriteLine("");
+
+                // TODO: Actually delete save file here
+                // SaveSystem.Instance.DeleteAllSaves(player);
+
+                await Task.Delay(3000);
+
+                terminal.Clear();
+                terminal.WriteLine("");
+                terminal.WriteLine("  THE END", "white");
+                terminal.WriteLine("");
+                terminal.WriteLine("  (There are no more cycles for this wave.)", "gray");
+                terminal.WriteLine("  (It has returned to stillness.)", "gray");
+                terminal.WriteLine("");
+            }
+            else
+            {
+                terminal.WriteLine("");
+                terminal.WriteLine("  The grasping remains. The cycle continues.", "yellow");
+                terminal.WriteLine("  Perhaps another time.", "yellow");
+                terminal.WriteLine("");
+
+                // Revert to standard True Ending
+                await PlayEnhancedTrueEnding(player, terminal);
+            }
+
+            await terminal.GetInputAsync("  Press Enter...");
         }
 
         #endregion

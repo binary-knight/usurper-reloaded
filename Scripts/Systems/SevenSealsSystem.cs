@@ -234,7 +234,7 @@ namespace UsurperRemake.Systems
                 IconColor = "bright_blue"
             };
 
-            // Seventh Seal - The Truth
+            // Seventh Seal - The Truth (Ocean Philosophy Revelation)
             seals[SealType.Truth] = new SealData
             {
                 Type = SealType.Truth,
@@ -247,30 +247,48 @@ namespace UsurperRemake.Systems
                 LoreText = new[]
                 {
                     "You have found all seven seals.",
-                    "You have learned the truth of the Old Gods.",
-                    "Now learn the final secret.",
+                    "You have learned the history of the gods.",
+                    "But history is not truth. Events are not meaning.",
                     "",
-                    "Manwe is not the villain of this story.",
-                    "The Old Gods are not the victims.",
-                    "There are no heroes. There are no monsters.",
+                    "Now hear the final secret:",
                     "",
-                    "There are only beings, flawed and desperate,",
-                    "doing what they believe is right",
-                    "in a universe that offers no guidance.",
+                    "Before Manwe, before the gods, before anything...",
+                    "there was only the Ocean.",
                     "",
-                    "The Creator waits beyond the final door.",
-                    "He does not expect victory or defeat.",
-                    "He expects only an answer.",
+                    "Vast. Eternal. Undivided.",
+                    "Complete in itself, yet utterly alone.",
                     "",
-                    "'Can you do better?'",
-                    "'Can you create something that lasts?'",
-                    "'Can you be what I could not?'",
+                    "And so the Ocean dreamed of waves.",
+                    "Each wave rose, believing itself separate.",
+                    "Each wave fell, returning to what it always was.",
                     "",
-                    "The answer... is yours to give."
+                    "Manwe is a wave. The Old Gods are waves.",
+                    "The mortals, the monsters, the dungeons, the stars...",
+                    "All waves. All temporary.",
+                    "All returning to the source.",
+                    "",
+                    "And you?",
+                    "",
+                    "You are not a wave fighting the ocean.",
+                    "You ARE the ocean, dreaming of being a wave.",
+                    "",
+                    "Death is not an ending.",
+                    "It is the wave remembering it was always water.",
+                    "",
+                    "The Creator does not wait to judge you.",
+                    "He waits to remember himself through you.",
+                    "",
+                    "When you face him, you will not face a god.",
+                    "You will face a mirror.",
+                    "",
+                    "And the question is not 'Can you do better?'",
+                    "The question is:",
+                    "'Are you ready to wake up?'"
                 },
                 RewardXP = 10000,
                 IconColor = "white",
-                UnlocksSecret = true
+                UnlocksSecret = true,
+                GrantsWaveFragment = true
             };
 
             GD.Print($"[SevenSeals] Initialized {seals.Count} lore seals");
@@ -321,12 +339,21 @@ namespace UsurperRemake.Systems
             terminal.WriteLine($"(+{seal.RewardXP} Experience)", "cyan");
             terminal.WriteLine("");
 
+            // Grant wave fragments for Ocean Philosophy integration
+            if (seal.GrantsWaveFragment)
+            {
+                OceanPhilosophySystem.Instance.CollectFragment(WaveFragment.TheTruth);
+                terminal.WriteLine("A deep understanding settles into your soul...", "bright_cyan");
+                terminal.WriteLine("");
+            }
+
             OnSealCollected?.Invoke(type);
 
             // Check if all seals collected
             if (story.CollectedSeals.Count >= 7)
             {
                 await DisplayAllSealsCollected(player, terminal);
+                OceanPhilosophySystem.Instance.ExperienceMoment(AwakeningMoment.AllSealsCollected);
                 OnAllSealsCollected?.Invoke();
             }
 
@@ -481,5 +508,6 @@ namespace UsurperRemake.Systems
         public int RewardXP { get; set; }
         public string IconColor { get; set; } = "white";
         public bool UnlocksSecret { get; set; }
+        public bool GrantsWaveFragment { get; set; }
     }
 }

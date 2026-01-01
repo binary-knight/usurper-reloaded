@@ -901,9 +901,9 @@ public partial class GameEngine : Node
         {
             return; // Player cancelled creation
         }
-        
+
         currentPlayer = (Character)newCharacter;
-        
+
         // Save the new game
         var success = await SaveSystem.Instance.SaveGame(playerName, currentPlayer);
         if (success)
@@ -914,9 +914,23 @@ public partial class GameEngine : Node
         {
             terminal.WriteLine("Warning: Failed to save game!", "red");
         }
-        
+
         await Task.Delay(1500);
-        
+
+        // Play the opening story sequence
+        // This establishes the mystery, the goal, and hooks the player
+        var openingSystem = OpeningStorySystem.Instance;
+        if (StoryProgressionSystem.Instance.CurrentCycle > 1)
+        {
+            // NG+ has a different opening that acknowledges the cycle
+            await openingSystem.PlayNewGamePlusOpening(currentPlayer, terminal);
+        }
+        else
+        {
+            // First playthrough - full opening sequence
+            await openingSystem.PlayOpeningSequence(currentPlayer, terminal);
+        }
+
         // Enter the game world
         await EnterGameWorld();
     }

@@ -423,6 +423,48 @@ namespace UsurperRemake.Systems
         }
 
         /// <summary>
+        /// Get a list of current cycle bonuses for display purposes
+        /// </summary>
+        public List<string> GetCurrentCycleBonuses()
+        {
+            var bonuses = new List<string>();
+            var story = StoryProgressionSystem.Instance;
+            int cycle = story.CurrentCycle;
+
+            if (cycle <= 1)
+                return bonuses; // No bonuses on first cycle
+
+            // Calculate base bonuses
+            int strBonus = 5 * (cycle - 1);
+            int defBonus = 5 * (cycle - 1);
+            int staBonus = 5 * (cycle - 1);
+            int goldBonus = 500 * (cycle - 1);
+            float expMult = 1.0f + (0.1f * (cycle - 1));
+
+            bonuses.Add($"+{strBonus} Strength from past cycles");
+            bonuses.Add($"+{defBonus} Defence from past cycles");
+            bonuses.Add($"+{staBonus} Stamina from past cycles");
+            bonuses.Add($"+{goldBonus} Starting Gold");
+            bonuses.Add($"+{(expMult - 1) * 100:0}% Experience gain");
+
+            // Check for special bonuses from endings
+            if (story.HasStoryFlag("keeps_artifact_knowledge") || story.HasStoryFlag("knows_artifact_locations"))
+            {
+                bonuses.Add("Artifact locations are revealed");
+            }
+            if (story.HasStoryFlag("has_ancient_key"))
+            {
+                bonuses.Add("You begin with the Ancient Iron Key");
+            }
+            if (story.CompletedEndings.Contains(EndingType.TrueEnding))
+            {
+                bonuses.Add("The Ocean remembers you...");
+            }
+
+            return bonuses;
+        }
+
+        /// <summary>
         /// Check if player qualifies for true ending
         /// </summary>
         public bool QualifiesForTrueEnding(Character player)

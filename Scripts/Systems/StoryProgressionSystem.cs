@@ -39,6 +39,9 @@ namespace UsurperRemake.Systems
         public HashSet<EndingType> CompletedEndings { get; private set; } = new();
         public List<string> CycleCarryoverItems { get; private set; } = new();
 
+        // Game day tracking (for companion/grief systems)
+        public int CurrentGameDay { get; set; } = 1;
+
         // Story event log
         public List<StoryEvent> EventLog { get; private set; } = new();
 
@@ -457,6 +460,7 @@ namespace UsurperRemake.Systems
             CurrentChapter = StoryChapter.Awakening;
             CurrentAct = StoryAct.Act1_TheNewcomer;
             StoryFlags = 0;
+            CurrentGameDay = 1; // Reset game day counter
             MajorChoices.Clear();
             CollectedArtifacts.Clear();
             StringStoryFlags.Clear();

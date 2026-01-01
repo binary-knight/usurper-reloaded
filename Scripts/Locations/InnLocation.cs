@@ -567,9 +567,9 @@ public class InnLocation : BaseLocation
     }
 
     /// <summary>
-    /// Interactive menu for NPC interaction
+    /// Interactive menu for NPC interaction (Inn-specific override)
     /// </summary>
-    private async Task InteractWithNPC(NPC npc)
+    protected override async Task InteractWithNPC(NPC npc)
     {
         bool continueInteraction = true;
 

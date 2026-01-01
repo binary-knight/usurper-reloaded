@@ -24,9 +24,10 @@ namespace UsurperRemake.Systems
                 DangerLevel = CalculateDangerLevel(level)
             };
 
-            // Determine floor size based on level
-            int roomCount = 6 + (level / 10); // 6-16 rooms
-            roomCount = Math.Min(roomCount, 16);
+            // Determine floor size based on level - EXPANDED for epic dungeons
+            // Base 15 rooms, scaling up to 25 for deeper levels
+            int roomCount = 15 + (level / 8);
+            roomCount = Math.Clamp(roomCount, 15, 25);
 
             // Generate rooms
             GenerateRooms(floor, roomCount);
@@ -70,21 +71,101 @@ namespace UsurperRemake.Systems
 
         private static void GenerateRooms(DungeonFloor floor, int count)
         {
-            var roomTypes = new List<RoomType>
+            // Standard room types (weighted for variety)
+            var standardRoomTypes = new List<RoomType>
             {
-                RoomType.Corridor, RoomType.Corridor, // More corridors
-                RoomType.Chamber, RoomType.Chamber, RoomType.Chamber,
-                RoomType.Hall,
-                RoomType.Alcove, RoomType.Alcove,
+                RoomType.Corridor, RoomType.Corridor, RoomType.Corridor,
+                RoomType.Chamber, RoomType.Chamber, RoomType.Chamber, RoomType.Chamber,
+                RoomType.Hall, RoomType.Hall,
+                RoomType.Alcove, RoomType.Alcove, RoomType.Alcove,
                 RoomType.Shrine,
-                RoomType.Crypt
+                RoomType.Crypt, RoomType.Crypt
             };
+
+            // Special room types (appear less frequently)
+            var specialRoomTypes = new List<RoomType>
+            {
+                RoomType.PuzzleRoom,
+                RoomType.RiddleGate,
+                RoomType.LoreLibrary,
+                RoomType.MeditationChamber,
+                RoomType.TrapGauntlet,
+                RoomType.ArenaRoom
+            };
+
+            // Calculate special room distribution based on floor level
+            int puzzleRooms = 1 + (floor.Level / 20);       // 1-5 puzzle rooms
+            int secretRooms = 1 + (floor.Level / 25);       // 1-4 secret rooms
+            int loreRooms = floor.Level >= 15 ? 1 : 0;      // Lore rooms after level 15
+            int meditationRooms = floor.Level >= 10 ? 1 : 0; // Meditation after level 10
+            int memoryRooms = floor.Level >= 20 && floor.Level % 15 == 0 ? 1 : 0; // Memory fragments on specific floors
+
+            // Generate standard rooms first
+            int standardCount = count - puzzleRooms - secretRooms - loreRooms - meditationRooms - memoryRooms;
+            standardCount = Math.Max(standardCount, count / 2); // At least half are standard
 
             for (int i = 0; i < count; i++)
             {
-                var roomType = roomTypes[random.Next(roomTypes.Count)];
+                RoomType roomType;
+
+                if (i == 0)
+                {
+                    // First room is always entrance-friendly
+                    roomType = RoomType.Hall;
+                }
+                else if (i == count - 1)
+                {
+                    // Last room is boss antechamber leading to boss
+                    roomType = RoomType.BossAntechamber;
+                }
+                else if (i < standardCount)
+                {
+                    roomType = standardRoomTypes[random.Next(standardRoomTypes.Count)];
+                }
+                else
+                {
+                    // Distribute special rooms
+                    int specialIndex = i - standardCount;
+                    if (specialIndex < puzzleRooms)
+                        roomType = random.NextDouble() < 0.5 ? RoomType.PuzzleRoom : RoomType.RiddleGate;
+                    else if (specialIndex < puzzleRooms + secretRooms)
+                        roomType = RoomType.SecretVault;
+                    else if (specialIndex < puzzleRooms + secretRooms + loreRooms)
+                        roomType = RoomType.LoreLibrary;
+                    else if (specialIndex < puzzleRooms + secretRooms + loreRooms + meditationRooms)
+                        roomType = RoomType.MeditationChamber;
+                    else if (specialIndex < puzzleRooms + secretRooms + loreRooms + meditationRooms + memoryRooms)
+                        roomType = RoomType.MemoryFragment;
+                    else
+                        roomType = specialRoomTypes[random.Next(specialRoomTypes.Count)];
+                }
+
                 var room = CreateRoom(floor.Theme, roomType, i, floor.Level);
                 floor.Rooms.Add(room);
+            }
+
+            // Shuffle rooms (except first and last) for randomness
+            var middleRooms = floor.Rooms.Skip(1).Take(floor.Rooms.Count - 2).ToList();
+            for (int i = middleRooms.Count - 1; i > 0; i--)
+            {
+                int j = random.Next(i + 1);
+                var temp = middleRooms[i];
+                middleRooms[i] = middleRooms[j];
+                middleRooms[j] = temp;
+            }
+
+            // Reconstruct with shuffled middle
+            var first = floor.Rooms[0];
+            var last = floor.Rooms[floor.Rooms.Count - 1];
+            floor.Rooms.Clear();
+            floor.Rooms.Add(first);
+            floor.Rooms.AddRange(middleRooms);
+            floor.Rooms.Add(last);
+
+            // Re-assign IDs after shuffle
+            for (int i = 0; i < floor.Rooms.Count; i++)
+            {
+                floor.Rooms[i].Id = $"room_{i}";
             }
         }
 
@@ -261,6 +342,26 @@ namespace UsurperRemake.Systems
                     "You're not sure you're still you."
                 ),
 
+                // ═══════════════════════════════════════════════════════════════
+                // NEW SPECIAL ROOM TYPES (theme-agnostic with thematic variations)
+                // ═══════════════════════════════════════════════════════════════
+
+                // Puzzle Rooms
+                (_, RoomType.PuzzleRoom) => GetPuzzleRoomFlavor(theme, level),
+                (_, RoomType.RiddleGate) => GetRiddleGateFlavor(theme),
+                (_, RoomType.SecretVault) => GetSecretVaultFlavor(theme),
+                (_, RoomType.LoreLibrary) => GetLoreLibraryFlavor(theme),
+                (_, RoomType.MeditationChamber) => GetMeditationChamberFlavor(theme),
+                (_, RoomType.BossAntechamber) => GetBossAntechamberFlavor(theme),
+                (_, RoomType.TrapGauntlet) => GetTrapGauntletFlavor(theme),
+                (_, RoomType.ArenaRoom) => GetArenaRoomFlavor(theme),
+                (_, RoomType.MerchantDen) => (
+                    "Wanderer's Haven",
+                    "A hidden alcove where a merchant has set up shop, seemingly unbothered by the dangers.",
+                    "Exotic goods glitter in the lamplight. How does he survive down here?"
+                ),
+                (_, RoomType.MemoryFragment) => GetMemoryFragmentFlavor(theme),
+
                 // Default fallback
                 _ => (
                     $"{type} ({theme})",
@@ -269,6 +370,238 @@ namespace UsurperRemake.Systems
                 )
             };
         }
+
+        #region Special Room Flavor Methods
+
+        private static (string name, string desc, string atmosphere) GetPuzzleRoomFlavor(DungeonTheme theme, int level)
+        {
+            return theme switch
+            {
+                DungeonTheme.Catacombs => (
+                    "Chamber of Bones",
+                    "Skeletal arms protrude from the walls, each holding a lever. The sequence matters.",
+                    "A cryptic inscription reads: 'The dead remember the order of their passing.'"
+                ),
+                DungeonTheme.AncientRuins => (
+                    "Hall of Glyphs",
+                    "Glowing symbols cover every surface. Some respond to touch, others to sound.",
+                    "The air hums with dormant magic, waiting to be awakened... or angered."
+                ),
+                DungeonTheme.Caverns => (
+                    "Crystal Resonance Chamber",
+                    "Massive crystals of different colors stand in a circle. They hum when approached.",
+                    "Strike them in the right order, and perhaps the way forward will reveal itself."
+                ),
+                DungeonTheme.DemonLair => (
+                    "Trial of Pain",
+                    "Five altars, each demanding a different sacrifice. Blood, tears, fear, hope, and truth.",
+                    "The demons value cleverness as much as suffering."
+                ),
+                _ => (
+                    "Puzzle Chamber",
+                    "An ancient mechanism dominates the room, its purpose unclear but clearly important.",
+                    "Something here must be solved before you can proceed."
+                )
+            };
+        }
+
+        private static (string name, string desc, string atmosphere) GetRiddleGateFlavor(DungeonTheme theme)
+        {
+            return theme switch
+            {
+                DungeonTheme.Catacombs => (
+                    "Guardian's Gate",
+                    "A spectral figure blocks the passage, its empty eyes regarding you with ancient intelligence.",
+                    "'Answer my riddle, or join the dead who failed before you.'"
+                ),
+                DungeonTheme.AncientRuins => (
+                    "Sphinx's Threshold",
+                    "A stone face carved into the door speaks with a voice like grinding rocks.",
+                    "'Wisdom is the key that opens all doors. Prove yours.'"
+                ),
+                DungeonTheme.AbyssalVoid => (
+                    "The Questioning Dark",
+                    "The darkness itself forms a face, asking questions that cut to the core of existence.",
+                    "'What are you, wave, but water that has forgotten itself?'"
+                ),
+                _ => (
+                    "Riddle Gate",
+                    "A mystical barrier blocks your path. An ancient voice demands you answer its challenge.",
+                    "Fail, and there will be consequences..."
+                )
+            };
+        }
+
+        private static (string name, string desc, string atmosphere) GetSecretVaultFlavor(DungeonTheme theme)
+        {
+            return theme switch
+            {
+                DungeonTheme.Catacombs => (
+                    "Hidden Ossuary",
+                    "Behind a false wall lies a chamber filled with treasures buried with the dead.",
+                    "The previous owners no longer need these things. Probably."
+                ),
+                DungeonTheme.AncientRuins => (
+                    "Sealed Treasury",
+                    "A vault that has remained hidden for millennia, its seals now broken by your discovery.",
+                    "Artifacts of immense power rest on pedestals of pure gold."
+                ),
+                DungeonTheme.DemonLair => (
+                    "Forbidden Hoard",
+                    "A demon's personal collection of cursed artifacts and stolen souls.",
+                    "Every item here has a terrible price. Worth paying?"
+                ),
+                _ => (
+                    "Secret Vault",
+                    "A hidden chamber filled with treasures that someone went to great lengths to conceal.",
+                    "The air is thick with the smell of gold and ancient secrets."
+                )
+            };
+        }
+
+        private static (string name, string desc, string atmosphere) GetLoreLibraryFlavor(DungeonTheme theme)
+        {
+            return theme switch
+            {
+                DungeonTheme.AncientRuins => (
+                    "Archive of the First Age",
+                    "Crystalline tablets line the walls, each containing memories from before the gods fell.",
+                    "The knowledge here predates Manwe's sorrow. Handle it carefully."
+                ),
+                DungeonTheme.AbyssalVoid => (
+                    "Library of Unwritten Truths",
+                    "Books float in the void, their pages filled with words that haven't been thought yet.",
+                    "One tome catches your eye: 'What the Wave Forgot.'"
+                ),
+                _ => (
+                    "Fragment Repository",
+                    "Ancient texts and carved stones preserve knowledge from a forgotten age.",
+                    "Here lie pieces of truth that the world has tried to forget."
+                )
+            };
+        }
+
+        private static (string name, string desc, string atmosphere) GetMeditationChamberFlavor(DungeonTheme theme)
+        {
+            return theme switch
+            {
+                DungeonTheme.Caverns => (
+                    "Pool of Stillness",
+                    "An underground spring feeds a perfectly calm pool. The silence here is absolute.",
+                    "Sit. Breathe. The water remembers what you have forgotten."
+                ),
+                DungeonTheme.AncientRuins => (
+                    "Sanctuary of the Old Ways",
+                    "A meditation circle surrounded by faded murals of gods in harmony.",
+                    "Before the corruption, the gods would rest here. Their peace lingers."
+                ),
+                DungeonTheme.AbyssalVoid => (
+                    "Eye of the Storm",
+                    "A bubble of calm exists here, surrounded by the chaos of the void.",
+                    "In the center of madness, you find surprising clarity."
+                ),
+                _ => (
+                    "Meditation Chamber",
+                    "A peaceful alcove where weary souls can find rest and insight.",
+                    "The walls seem to absorb your troubles. Rest here. Dream."
+                )
+            };
+        }
+
+        private static (string name, string desc, string atmosphere) GetBossAntechamberFlavor(DungeonTheme theme)
+        {
+            return theme switch
+            {
+                DungeonTheme.Catacombs => (
+                    "Threshold of the Bone King",
+                    "Skulls of a thousand warriors line the walls, their empty gazes fixed on the door ahead.",
+                    "Turn back now, or add your skull to the collection."
+                ),
+                DungeonTheme.DemonLair => (
+                    "Gates of Torment",
+                    "The screaming grows louder. The walls pulse with trapped souls.",
+                    "Beyond this door, something ancient and terrible awaits."
+                ),
+                DungeonTheme.AbyssalVoid => (
+                    "Edge of Understanding",
+                    "Reality thins here. Through the door, you sense... yourself?",
+                    "The greatest enemy is the one you cannot escape."
+                ),
+                _ => (
+                    "Boss Antechamber",
+                    "The air grows heavy. Power radiates from beyond the door ahead.",
+                    "Prepare yourself. There is no turning back."
+                )
+            };
+        }
+
+        private static (string name, string desc, string atmosphere) GetTrapGauntletFlavor(DungeonTheme theme)
+        {
+            return theme switch
+            {
+                DungeonTheme.AncientRuins => (
+                    "Corridor of Trials",
+                    "The ancients protected their treasures well. Pressure plates, darts, and worse await.",
+                    "Tread carefully. The builders were paranoid for good reason."
+                ),
+                DungeonTheme.DemonLair => (
+                    "Passage of Suffering",
+                    "Every step brings new pain. The demons designed this as entertainment.",
+                    "Your screams will echo forever in these halls."
+                ),
+                _ => (
+                    "Trap Gauntlet",
+                    "A long corridor filled with obvious traps. And probably some not-so-obvious ones.",
+                    "Speed and caution - you'll need both."
+                )
+            };
+        }
+
+        private static (string name, string desc, string atmosphere) GetArenaRoomFlavor(DungeonTheme theme)
+        {
+            return theme switch
+            {
+                DungeonTheme.DemonLair => (
+                    "Blood Arena",
+                    "A fighting pit surrounded by demonic spectators frozen in time, waiting for combat.",
+                    "Fight, and they will watch. Die, and they will feast."
+                ),
+                DungeonTheme.Caverns => (
+                    "Natural Amphitheater",
+                    "The cave opens into a circular arena. Bones of previous combatants litter the floor.",
+                    "Something here enjoys watching fights. Something large."
+                ),
+                _ => (
+                    "Combat Arena",
+                    "A circular chamber clearly designed for battle. Multiple opponents await.",
+                    "Survive the gauntlet, and the way forward opens."
+                )
+            };
+        }
+
+        private static (string name, string desc, string atmosphere) GetMemoryFragmentFlavor(DungeonTheme theme)
+        {
+            return theme switch
+            {
+                DungeonTheme.AbyssalVoid => (
+                    "Echo of Self",
+                    "A mirror that doesn't show your reflection. It shows someone else. Someone... familiar.",
+                    "You have been here before. You have been everywhere before."
+                ),
+                DungeonTheme.AncientRuins => (
+                    "Chamber of Remembrance",
+                    "Faded murals depict your face. But these are thousands of years old.",
+                    "The amnesia cracks. Something wants to be remembered."
+                ),
+                _ => (
+                    "Memory Fragment",
+                    "This place triggers something deep in your mind. You've seen this before.",
+                    "Close your eyes. Let it come back to you..."
+                )
+            };
+        }
+
+        #endregion
 
         private static List<RoomFeature> GenerateRoomFeatures(DungeonTheme theme, RoomType type)
         {
@@ -452,12 +785,214 @@ namespace UsurperRemake.Systems
                 floor.TreasureRoomId = treasureRoom.Id;
             }
 
-            // Add stairs down
-            var stairsRoom = floor.Rooms.FirstOrDefault(r => !r.IsBossRoom && r != treasureRoom);
+            // Add stairs down (placed in middle-ish area, not too easy to find)
+            int stairsIndex = random.Next(floor.Rooms.Count / 3, (floor.Rooms.Count * 2) / 3);
+            var stairsRoom = floor.Rooms[stairsIndex];
+            if (stairsRoom.IsBossRoom || stairsRoom == treasureRoom)
+            {
+                stairsRoom = floor.Rooms.FirstOrDefault(r => !r.IsBossRoom && r != treasureRoom);
+            }
             if (stairsRoom != null)
             {
                 stairsRoom.HasStairsDown = true;
                 floor.StairsDownRoomId = stairsRoom.Id;
+            }
+
+            // Create secret rooms with hidden exits (10% of connections)
+            CreateSecretConnections(floor);
+
+            // Set up special room properties based on type
+            ConfigureSpecialRoomTypes(floor);
+
+            // Place lore fragments in lore libraries
+            PlaceLoreFragments(floor);
+
+            // Potentially place a secret boss on certain floors
+            PlaceSecretBoss(floor);
+        }
+
+        private static void CreateSecretConnections(DungeonFloor floor)
+        {
+            // Find all SecretVault rooms and make their entrances hidden
+            foreach (var room in floor.Rooms.Where(r => r.Type == RoomType.SecretVault))
+            {
+                room.IsSecretRoom = true;
+
+                // Find any exits leading TO this room and mark them hidden
+                foreach (var otherRoom in floor.Rooms)
+                {
+                    foreach (var exit in otherRoom.Exits.Values)
+                    {
+                        if (exit.TargetRoomId == room.Id)
+                        {
+                            exit.IsHidden = true;
+                            exit.IsRevealed = false;
+                            exit.Description = "A faint draft suggests a hidden passage...";
+                        }
+                    }
+                }
+            }
+
+            // Additionally, 10% of random connections become hidden passages
+            int hiddenCount = Math.Max(1, floor.Rooms.Count / 10);
+            var eligibleRooms = floor.Rooms
+                .Where(r => !r.IsBossRoom && !r.IsSecretRoom && r.Exits.Count > 1)
+                .ToList();
+
+            for (int i = 0; i < hiddenCount && eligibleRooms.Count > 0; i++)
+            {
+                var room = eligibleRooms[random.Next(eligibleRooms.Count)];
+                var exitDir = room.Exits.Keys.ToList()[random.Next(room.Exits.Count)];
+                var exit = room.Exits[exitDir];
+
+                if (!exit.IsHidden)
+                {
+                    exit.IsHidden = true;
+                    exit.IsRevealed = false;
+                    exit.Description = GetHiddenExitDescription(floor.Theme, exitDir);
+                }
+            }
+        }
+
+        private static string GetHiddenExitDescription(DungeonTheme theme, Direction dir)
+        {
+            return theme switch
+            {
+                DungeonTheme.Catacombs => "A loose stone conceals a narrow passage.",
+                DungeonTheme.Sewers => "Behind the flowing water, a gap in the wall...",
+                DungeonTheme.Caverns => "A crevice, barely visible in the crystal light.",
+                DungeonTheme.AncientRuins => "A concealed door, marked only by faded runes.",
+                DungeonTheme.DemonLair => "A portal of shadow, visible only to those who look with fear.",
+                _ => "A hidden passage reveals itself to careful eyes."
+            };
+        }
+
+        private static void ConfigureSpecialRoomTypes(DungeonFloor floor)
+        {
+            foreach (var room in floor.Rooms)
+            {
+                switch (room.Type)
+                {
+                    case RoomType.PuzzleRoom:
+                        room.HasEvent = true;
+                        room.EventType = DungeonEventType.Puzzle;
+                        room.HasMonsters = false; // Puzzles first, then maybe combat
+                        room.RequiresPuzzle = true;
+                        room.PuzzleDifficulty = 1 + (floor.Level / 20);
+                        break;
+
+                    case RoomType.RiddleGate:
+                        room.HasEvent = true;
+                        room.EventType = DungeonEventType.Riddle;
+                        room.HasMonsters = false;
+                        room.RequiresRiddle = true;
+                        room.RiddleDifficulty = 1 + (floor.Level / 25);
+                        break;
+
+                    case RoomType.LoreLibrary:
+                        room.HasEvent = true;
+                        room.EventType = DungeonEventType.LoreDiscovery;
+                        room.HasMonsters = random.NextDouble() < 0.3; // Guardian?
+                        room.ContainsLore = true;
+                        break;
+
+                    case RoomType.MeditationChamber:
+                        room.HasEvent = true;
+                        room.EventType = DungeonEventType.RestSpot;
+                        room.HasMonsters = false;
+                        room.IsSafeRoom = true;
+                        room.GrantsInsight = floor.Level >= 30;
+                        break;
+
+                    case RoomType.TrapGauntlet:
+                        room.HasTrap = true;
+                        room.TrapCount = 2 + random.Next(3);
+                        room.HasMonsters = false;
+                        break;
+
+                    case RoomType.ArenaRoom:
+                        room.HasMonsters = true;
+                        room.MonsterCount = 2 + random.Next(3);
+                        room.IsArena = true;
+                        room.HasTreasure = true; // Reward for surviving
+                        break;
+
+                    case RoomType.MerchantDen:
+                        room.HasEvent = true;
+                        room.EventType = DungeonEventType.Merchant;
+                        room.HasMonsters = false;
+                        room.IsSafeRoom = true;
+                        break;
+
+                    case RoomType.MemoryFragment:
+                        room.HasEvent = true;
+                        room.EventType = DungeonEventType.MemoryFlash;
+                        room.HasMonsters = false;
+                        room.TriggersMemory = true;
+                        room.MemoryFragmentLevel = floor.Level / 15; // Which fragment
+                        break;
+
+                    case RoomType.BossAntechamber:
+                        room.HasMonsters = random.NextDouble() < 0.5; // Elite guards?
+                        room.HasTrap = random.NextDouble() < 0.3;
+                        room.RequiresPuzzle = floor.Level >= 50; // Deeper floors need puzzle
+                        break;
+
+                    case RoomType.SecretVault:
+                        room.HasTreasure = true;
+                        room.TreasureQuality = TreasureQuality.Legendary;
+                        room.HasTrap = true;
+                        room.HasMonsters = random.NextDouble() < 0.4; // Guardian
+                        break;
+                }
+            }
+        }
+
+        private static void PlaceLoreFragments(DungeonFloor floor)
+        {
+            var loreRooms = floor.Rooms.Where(r => r.Type == RoomType.LoreLibrary).ToList();
+
+            foreach (var room in loreRooms)
+            {
+                // Determine which lore fragment based on floor level
+                room.LoreFragmentType = floor.Level switch
+                {
+                    <= 20 => LoreFragmentType.OceanOrigin,
+                    <= 35 => LoreFragmentType.FirstSeparation,
+                    <= 50 => LoreFragmentType.TheForgetting,
+                    <= 65 => LoreFragmentType.ManwesChoice,
+                    <= 80 => LoreFragmentType.TheCorruption,
+                    <= 95 => LoreFragmentType.TheCycle,
+                    _ => LoreFragmentType.TheTruth
+                };
+            }
+        }
+
+        private static void PlaceSecretBoss(DungeonFloor floor)
+        {
+            // Secret bosses on specific floors
+            int[] secretBossFloors = { 25, 50, 75, 99 };
+
+            if (secretBossFloors.Contains(floor.Level))
+            {
+                // Find a SecretVault or create a hidden area for the secret boss
+                var bossRoom = floor.Rooms.FirstOrDefault(r => r.Type == RoomType.SecretVault);
+
+                if (bossRoom != null)
+                {
+                    bossRoom.HasSecretBoss = true;
+                    bossRoom.SecretBossType = floor.Level switch
+                    {
+                        25 => SecretBossType.TheFirstWave,
+                        50 => SecretBossType.TheForgottenEighth,
+                        75 => SecretBossType.EchoOfSelf,
+                        99 => SecretBossType.TheOceanSpeaks,
+                        _ => SecretBossType.TheFirstWave
+                    };
+                    bossRoom.EventType = DungeonEventType.SecretBoss;
+                    floor.HasSecretBoss = true;
+                    floor.SecretBossRoomId = bossRoom.Id;
+                }
             }
         }
 
@@ -542,8 +1077,49 @@ namespace UsurperRemake.Systems
         public int TreasuresFound { get; set; } = 0;
         public DateTime EnteredAt { get; set; } = DateTime.Now;
 
+        // New properties for expanded dungeons
+        public bool HasSecretBoss { get; set; } = false;
+        public string SecretBossRoomId { get; set; } = "";
+        public bool SecretBossDefeated { get; set; } = false;
+        public int PuzzlesSolved { get; set; } = 0;
+        public int RiddlesAnswered { get; set; } = 0;
+        public int SecretsFound { get; set; } = 0;
+        public int LoreFragmentsCollected { get; set; } = 0;
+        public List<string> RevealedSecretRooms { get; set; } = new();
+
         public DungeonRoom GetCurrentRoom() => Rooms.FirstOrDefault(r => r.Id == CurrentRoomId);
         public DungeonRoom GetRoom(string id) => Rooms.FirstOrDefault(r => r.Id == id);
+
+        /// <summary>
+        /// Get all visible exits from current room (respects hidden status)
+        /// </summary>
+        public Dictionary<Direction, RoomExit> GetVisibleExits()
+        {
+            var room = GetCurrentRoom();
+            if (room == null) return new Dictionary<Direction, RoomExit>();
+
+            return room.Exits
+                .Where(e => !e.Value.IsHidden || e.Value.IsRevealed)
+                .ToDictionary(e => e.Key, e => e.Value);
+        }
+
+        /// <summary>
+        /// Reveal a hidden exit
+        /// </summary>
+        public bool RevealHiddenExit(string roomId, Direction direction)
+        {
+            var room = GetRoom(roomId);
+            if (room == null || !room.Exits.TryGetValue(direction, out var exit))
+                return false;
+
+            if (exit.IsHidden && !exit.IsRevealed)
+            {
+                exit.IsRevealed = true;
+                SecretsFound++;
+                return true;
+            }
+            return false;
+        }
     }
 
     public class DungeonRoom
@@ -570,6 +1146,75 @@ namespace UsurperRemake.Systems
         public bool TrapTriggered { get; set; } = false;
         public bool TreasureLooted { get; set; } = false;
         public bool EventCompleted { get; set; } = false;
+
+        // ═══════════════════════════════════════════════════════════════
+        // New properties for expanded dungeon system
+        // ═══════════════════════════════════════════════════════════════
+
+        // Secret room properties
+        public bool IsSecretRoom { get; set; } = false;
+
+        // Puzzle room properties
+        public bool RequiresPuzzle { get; set; } = false;
+        public int PuzzleDifficulty { get; set; } = 1;
+        public bool PuzzleSolved { get; set; } = false;
+        public PuzzleType? AssignedPuzzle { get; set; }
+
+        // Riddle room properties
+        public bool RequiresRiddle { get; set; } = false;
+        public int RiddleDifficulty { get; set; } = 1;
+        public bool RiddleAnswered { get; set; } = false;
+        public int? AssignedRiddleId { get; set; }
+
+        // Lore room properties
+        public bool ContainsLore { get; set; } = false;
+        public LoreFragmentType? LoreFragmentType { get; set; }
+        public bool LoreCollected { get; set; } = false;
+
+        // Safe room / meditation properties
+        public bool IsSafeRoom { get; set; } = false;
+        public bool GrantsInsight { get; set; } = false;
+        public bool InsightGranted { get; set; } = false;
+
+        // Arena properties
+        public bool IsArena { get; set; } = false;
+        public int MonsterCount { get; set; } = 1;
+
+        // Trap gauntlet properties
+        public int TrapCount { get; set; } = 1;
+        public int TrapsDisarmed { get; set; } = 0;
+
+        // Memory fragment properties
+        public bool TriggersMemory { get; set; } = false;
+        public int MemoryFragmentLevel { get; set; } = 0;
+        public bool MemoryTriggered { get; set; } = false;
+
+        // Treasure quality
+        public TreasureQuality TreasureQuality { get; set; } = TreasureQuality.Normal;
+
+        // Secret boss properties
+        public bool HasSecretBoss { get; set; } = false;
+        public SecretBossType? SecretBossType { get; set; }
+        public bool SecretBossDefeated { get; set; } = false;
+
+        /// <summary>
+        /// Check if room is blocked by an unsolved puzzle or riddle
+        /// </summary>
+        public bool IsBlocked => (RequiresPuzzle && !PuzzleSolved) || (RequiresRiddle && !RiddleAnswered);
+
+        /// <summary>
+        /// Check if room has any unresolved content
+        /// </summary>
+        public bool HasUnresolvedContent =>
+            (HasMonsters && !IsCleared) ||
+            (HasTreasure && !TreasureLooted) ||
+            (HasEvent && !EventCompleted) ||
+            (HasTrap && !TrapTriggered) ||
+            (RequiresPuzzle && !PuzzleSolved) ||
+            (RequiresRiddle && !RiddleAnswered) ||
+            (ContainsLore && !LoreCollected) ||
+            (TriggersMemory && !MemoryTriggered) ||
+            (HasSecretBoss && !SecretBossDefeated);
     }
 
     public class RoomExit
@@ -603,8 +1248,79 @@ namespace UsurperRemake.Systems
     }
 
     public enum Direction { North, South, East, West }
-    public enum RoomType { Corridor, Chamber, Hall, Alcove, Shrine, Crypt }
+    public enum RoomType
+    {
+        Corridor, Chamber, Hall, Alcove, Shrine, Crypt,
+        // New room types for expanded dungeons
+        PuzzleRoom,         // Logic/environmental puzzle required
+        RiddleGate,         // Guardian asks riddle to pass
+        SecretVault,        // Hidden room with rare treasure
+        LoreLibrary,        // Wave/Ocean philosophy fragments
+        BossAntechamber,    // Pre-boss puzzle challenge
+        MeditationChamber,  // Rest + Ocean insights
+        TrapGauntlet,       // Multiple traps in sequence
+        ArenaRoom,          // Combat challenge room
+        MerchantDen,        // Hidden merchant location
+        MemoryFragment      // Amnesia system reveals
+    }
     public enum DungeonTheme { Catacombs, Sewers, Caverns, AncientRuins, DemonLair, FrozenDepths, VolcanicPit, AbyssalVoid }
     public enum FeatureInteraction { Examine, Open, Search, Read, Take, Use, Break, Enter }
-    public enum DungeonEventType { None, TreasureChest, Merchant, Shrine, Trap, NPCEncounter, Puzzle, RestSpot, MysteryEvent }
+    public enum DungeonEventType { None, TreasureChest, Merchant, Shrine, Trap, NPCEncounter, Puzzle, RestSpot, MysteryEvent, Riddle, LoreDiscovery, MemoryFlash, SecretBoss }
+
+    /// <summary>
+    /// Types of puzzles that can appear in dungeon rooms
+    /// </summary>
+    public enum PuzzleType
+    {
+        LeverSequence,      // Pull levers in correct order
+        SymbolAlignment,    // Rotate/align symbols
+        PressurePlates,     // Step on plates in order or with weight
+        LightDarkness,      // Manipulate light sources
+        NumberGrid,         // Solve number puzzle
+        MemoryMatch,        // Remember and repeat pattern
+        ItemCombination,    // Combine items to solve
+        EnvironmentChange,  // Change room state (water, fire, etc.)
+        CoordinationPuzzle, // Requires companion help
+        ReflectionPuzzle    // Use mirrors/reflections
+    }
+
+    /// <summary>
+    /// Lore fragment types that reveal Ocean Philosophy
+    /// </summary>
+    public enum LoreFragmentType
+    {
+        OceanOrigin,        // The vast Ocean before creation
+        FirstSeparation,    // The Ocean dreams of waves
+        TheForgetting,      // Waves must forget to feel separate
+        ManwesChoice,       // The first wave's deep forgetting
+        TheSevenDrops,      // The Old Gods as fragments
+        TheCorruption,      // Separation becomes pain
+        TheCycle,           // Why Manwe sends fragments
+        TheReturn,          // Death is returning home
+        TheTruth            // "You ARE the ocean"
+    }
+
+    /// <summary>
+    /// Treasure quality tiers
+    /// </summary>
+    public enum TreasureQuality
+    {
+        Poor,       // Common items
+        Normal,     // Standard loot
+        Good,       // Above average
+        Rare,       // Uncommon finds
+        Epic,       // Very rare
+        Legendary   // Best possible
+    }
+
+    /// <summary>
+    /// Secret boss types hidden in dungeons
+    /// </summary>
+    public enum SecretBossType
+    {
+        TheFirstWave,       // Floor 25: The first being to separate from Ocean
+        TheForgottenEighth, // Floor 50: A god Manwe erased from memory
+        EchoOfSelf,         // Floor 75: Fight your past life
+        TheOceanSpeaks      // Floor 99: The Ocean itself manifests
+    }
 }
