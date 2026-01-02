@@ -19,6 +19,7 @@ public class HealerLocation : BaseLocation
     private const int SmallpoxCostPerLevel = 7000;
     private const int MeaslesCostPerLevel = 7500;
     private const int LeprosyCostPerLevel = 8500;
+    private const int LoversBaneCostPerLevel = 4000;  // STD from Love Street
     private const int CursedItemCostPerLevel = 1000;
 
     // Healing costs
@@ -181,11 +182,12 @@ public class HealerLocation : BaseLocation
         terminal.WriteLine("═══ Disease Treatment ═══");
         terminal.SetColor("white");
         terminal.WriteLine($"(C)ure Disease   - Cure afflictions (cost varies by disease)");
-        terminal.WriteLine("                   Blindness: " + (BlindnessCostPerLevel * player.Level).ToString("N0") + " gold");
-        terminal.WriteLine("                   Plague:    " + (PlagueCostPerLevel * player.Level).ToString("N0") + " gold");
-        terminal.WriteLine("                   Smallpox:  " + (SmallpoxCostPerLevel * player.Level).ToString("N0") + " gold");
-        terminal.WriteLine("                   Measles:   " + (MeaslesCostPerLevel * player.Level).ToString("N0") + " gold");
-        terminal.WriteLine("                   Leprosy:   " + (LeprosyCostPerLevel * player.Level).ToString("N0") + " gold");
+        terminal.WriteLine("                   Blindness:    " + (BlindnessCostPerLevel * player.Level).ToString("N0") + " gold");
+        terminal.WriteLine("                   Plague:       " + (PlagueCostPerLevel * player.Level).ToString("N0") + " gold");
+        terminal.WriteLine("                   Smallpox:     " + (SmallpoxCostPerLevel * player.Level).ToString("N0") + " gold");
+        terminal.WriteLine("                   Measles:      " + (MeaslesCostPerLevel * player.Level).ToString("N0") + " gold");
+        terminal.WriteLine("                   Leprosy:      " + (LeprosyCostPerLevel * player.Level).ToString("N0") + " gold");
+        terminal.WriteLine("                   Lover's Bane: " + (LoversBaneCostPerLevel * player.Level).ToString("N0") + " gold");
         terminal.WriteLine("");
 
         terminal.SetColor("cyan");
@@ -232,6 +234,7 @@ public class HealerLocation : BaseLocation
         if (player.Smallpox) afflictions.Add("Smallpox");
         if (player.Measles) afflictions.Add("Measles");
         if (player.Leprosy) afflictions.Add("Leprosy");
+        if (player.LoversBane) afflictions.Add("Lover's Bane");
 
         if (afflictions.Count > 0)
         {
@@ -498,6 +501,8 @@ public class HealerLocation : BaseLocation
             diseases["M"] = ("Measles", MeaslesCostPerLevel * player.Level, () => player.Measles = false);
         if (player.Leprosy)
             diseases["L"] = ("Leprosy", LeprosyCostPerLevel * player.Level, () => player.Leprosy = false);
+        if (player.LoversBane)
+            diseases["V"] = ("Lover's Bane", LoversBaneCostPerLevel * player.Level, () => player.LoversBane = false);
 
         if (diseases.Count == 0)
         {
@@ -792,6 +797,11 @@ public class HealerLocation : BaseLocation
         if (player.Leprosy)
         {
             terminal.WriteLine("*Leprosy* - Severe debilitation", "red");
+            hasAffliction = true;
+        }
+        if (player.LoversBane)
+        {
+            terminal.WriteLine("*Lover's Bane* - Contracted at Love Street", "red");
             hasAffliction = true;
         }
 

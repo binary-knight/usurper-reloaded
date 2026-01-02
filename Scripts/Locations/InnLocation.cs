@@ -313,7 +313,12 @@ public class InnLocation : BaseLocation
             case "?":
                 // Menu already shown
                 return false;
-                
+
+            case "0":
+                // Talk to NPC (standard "0" option from BaseLocation)
+                await TalkToPatrons();
+                return false;
+
             default:
                 terminal.WriteLine("Invalid choice! The bartender shakes his head.", "red");
                 await Task.Delay(1500);
@@ -568,6 +573,7 @@ public class InnLocation : BaseLocation
 
     /// <summary>
     /// Interactive menu for NPC interaction (Inn-specific override)
+    /// Uses the VisualNovelDialogueSystem for full romance features
     /// </summary>
     protected override async Task InteractWithNPC(NPC npc)
     {
@@ -622,17 +628,9 @@ public class InnLocation : BaseLocation
             terminal.WriteLine("");
 
             terminal.SetColor("white");
-            terminal.WriteLine("[T] Talk - Make casual conversation");
-            terminal.WriteLine("[F] Flirt - Show romantic interest");
+            terminal.WriteLine("[T] Talk - Have a deep conversation (flirt, confess, romance)");
             terminal.WriteLine("[C] Challenge - Challenge to a duel");
             terminal.WriteLine("[G] Gift - Give a gift (costs 50 gold)");
-
-            // Marriage option if relationship is high enough
-            if (relationship >= GameConfig.RelationLove)
-            {
-                terminal.SetColor("bright_magenta");
-                terminal.WriteLine("[P] Propose - Ask for their hand in marriage!");
-            }
 
             terminal.WriteLine("");
             terminal.SetColor("gray");
@@ -644,10 +642,8 @@ public class InnLocation : BaseLocation
             switch (choice.ToUpper())
             {
                 case "T":
-                    await TalkToNPC(npc);
-                    break;
-                case "F":
-                    await FlirtWithNPC(npc);
+                    // Use the full VisualNovelDialogueSystem for all conversation/romance features
+                    await UsurperRemake.Systems.VisualNovelDialogueSystem.Instance.StartConversation(currentPlayer, npc, terminal);
                     break;
                 case "C":
                     await ChallengeNPC(npc);
@@ -656,175 +652,11 @@ public class InnLocation : BaseLocation
                 case "G":
                     await GiveGiftToNPC(npc);
                     break;
-                case "P":
-                    if (relationship >= GameConfig.RelationLove)
-                    {
-                        await ProposeToNPC(npc);
-                        continueInteraction = false;
-                    }
-                    break;
                 case "0":
                     continueInteraction = false;
                     break;
             }
         }
-    }
-
-    /// <summary>
-    /// Have a conversation with an NPC
-    /// </summary>
-    private async Task TalkToNPC(NPC npc)
-    {
-        terminal.ClearScreen();
-        terminal.SetColor("cyan");
-        terminal.WriteLine($"Talking to {npc.Name2}");
-        terminal.WriteLine("");
-
-        // Get alignment-based reaction modifier
-        var reactionModifier = AlignmentSystem.Instance.GetNPCReactionModifier(currentPlayer, npc);
-        var random = new Random();
-        var conversations = new List<string>();
-
-        // Apply alignment reaction to conversation tone
-        bool goodReaction = reactionModifier >= 1.0f;
-        bool badReaction = reactionModifier < 0.8f;
-
-        if (npc.Darkness > npc.Chivalry)
-        {
-            if (badReaction)
-            {
-                conversations.AddRange(new[] {
-                    $"{npc.Name2} scowls at your virtuous presence. \"Get lost, do-gooder.\"",
-                    $"{npc.Name2} spits, \"Your kind makes me sick.\"",
-                    $"{npc.Name2} turns away. \"I don't deal with holy types.\""
-                });
-            }
-            else
-            {
-                conversations.AddRange(new[] {
-                    $"{npc.Name2} nods approvingly. \"I sense a kindred spirit.\"",
-                    $"{npc.Name2} grins, \"You've got that look in your eyes. Good.\"",
-                    $"{npc.Name2} sneers, \"Together we could do some real damage.\""
-                });
-            }
-        }
-        else if (npc.Chivalry > 500)
-        {
-            if (badReaction)
-            {
-                conversations.AddRange(new[] {
-                    $"{npc.Name2} frowns at your dark aura. \"I sense evil in you.\"",
-                    $"{npc.Name2} backs away. \"Stay away from me, dark one.\"",
-                    $"{npc.Name2} warns, \"Change your ways or face judgment.\""
-                });
-            }
-            else
-            {
-                conversations.AddRange(new[] {
-                    $"{npc.Name2} greets you warmly. \"Well met, noble traveler!\"",
-                    $"{npc.Name2} smiles, \"It's always good to meet fellow adventurers.\"",
-                    $"{npc.Name2} says, \"May the gods watch over your journey.\""
-                });
-            }
-        }
-        else
-        {
-            conversations.AddRange(new[] {
-                $"{npc.Name2} nods in greeting. \"How goes it, stranger?\"",
-                $"{npc.Name2} remarks, \"The dungeon has been busy lately.\"",
-                $"{npc.Name2} says, \"I'm just passing through, same as everyone.\"",
-                $"{npc.Name2} mentions, \"The market had some interesting items today.\"",
-            });
-        }
-
-        terminal.SetColor("white");
-        terminal.WriteLine(conversations[random.Next(conversations.Count)]);
-        terminal.WriteLine("");
-
-        // Relationship boost modified by alignment compatibility
-        int baseBoost = 1;
-        int modifiedBoost = (int)(baseBoost * reactionModifier);
-        modifiedBoost = Math.Max(-2, Math.Min(3, modifiedBoost)); // Clamp to -2 to +3
-
-        RelationshipSystem.UpdateRelationship(currentPlayer, npc, modifiedBoost, modifiedBoost, false, false);
-
-        if (modifiedBoost > 1)
-        {
-            terminal.SetColor("bright_green");
-            terminal.WriteLine($"(Your alignment resonates with theirs! Relationship improves more.)");
-        }
-        else if (modifiedBoost <= 0)
-        {
-            terminal.SetColor("red");
-            terminal.WriteLine($"(Your alignment clashes with theirs. Relationship worsens.)");
-        }
-        else
-        {
-            terminal.SetColor("green");
-            terminal.WriteLine("(Your relationship with them improves slightly)");
-        }
-
-        await terminal.PressAnyKey();
-    }
-
-    /// <summary>
-    /// Flirt with an NPC
-    /// </summary>
-    private async Task FlirtWithNPC(NPC npc)
-    {
-        terminal.ClearScreen();
-        terminal.SetColor("bright_magenta");
-        terminal.WriteLine($"Flirting with {npc.Name2}");
-        terminal.WriteLine("");
-
-        var random = new Random();
-
-        // Success based on Charisma
-        int successChance = (int)Math.Min(80, 30 + currentPlayer.Charisma);
-        bool success = random.Next(100) < successChance;
-
-        if (success)
-        {
-            var responses = new[] {
-                $"{npc.Name2} blushes and laughs. \"Well, aren't you charming!\"",
-                $"{npc.Name2}'s eyes sparkle. \"You certainly know how to flatter someone.\"",
-                $"{npc.Name2} smiles warmly. \"I like your style, adventurer.\"",
-                $"{npc.Name2} leans closer. \"Perhaps we should talk more often...\""
-            };
-
-            terminal.SetColor("bright_green");
-            terminal.WriteLine(responses[random.Next(responses.Length)]);
-            terminal.WriteLine("");
-
-            // Big relationship boost
-            RelationshipSystem.UpdateRelationship(currentPlayer, npc, 1, 3, false, false);
-            terminal.SetColor("green");
-            terminal.WriteLine("(Your relationship improves significantly!)");
-
-            // Small chance they become romantically interested
-            if (random.Next(10) == 0)
-            {
-                terminal.SetColor("bright_magenta");
-                terminal.WriteLine($"{npc.Name2} seems particularly interested in you...");
-            }
-        }
-        else
-        {
-            var rejections = new[] {
-                $"{npc.Name2} looks away awkwardly. \"That's... flattering, I suppose.\"",
-                $"{npc.Name2} chuckles. \"Nice try, but I'm not that easy to impress.\"",
-                $"{npc.Name2} raises an eyebrow. \"You might want to work on your approach.\"",
-                $"{npc.Name2} just shakes their head and takes a drink."
-            };
-
-            terminal.SetColor("yellow");
-            terminal.WriteLine(rejections[random.Next(rejections.Length)]);
-            terminal.WriteLine("");
-            terminal.SetColor("gray");
-            terminal.WriteLine("(That didn't go as planned...)");
-        }
-
-        await terminal.PressAnyKey();
     }
 
     /// <summary>
@@ -946,52 +778,6 @@ public class InnLocation : BaseLocation
         terminal.SetColor("green");
         terminal.WriteLine("(Your relationship improves significantly!)");
         terminal.WriteLine("(-50 gold)");
-
-        await terminal.PressAnyKey();
-    }
-
-    /// <summary>
-    /// Propose marriage to an NPC
-    /// </summary>
-    private async Task ProposeToNPC(NPC npc)
-    {
-        terminal.ClearScreen();
-        terminal.SetColor("bright_magenta");
-        terminal.WriteLine("═══════════════════════════════════════");
-        terminal.WriteLine("          MARRIAGE PROPOSAL");
-        terminal.WriteLine("═══════════════════════════════════════");
-        terminal.WriteLine("");
-
-        terminal.SetColor("white");
-        terminal.WriteLine($"You kneel before {npc.Name2} and take their hand...");
-        terminal.WriteLine("");
-        terminal.WriteLine($"\"Will you marry me, {npc.Name2}?\"");
-        terminal.WriteLine("");
-
-        await Task.Delay(2000);
-
-        // Try to perform marriage
-        if (RelationshipSystem.PerformMarriage(currentPlayer, npc, out string message))
-        {
-            terminal.SetColor("bright_green");
-            terminal.WriteLine($"{npc.Name2} beams with joy! \"Yes! A thousand times yes!\"");
-            terminal.WriteLine("");
-            terminal.WriteLine(message);
-
-            // Generate news
-            NewsSystem.Instance?.Newsy(true, $"{currentPlayer.Name} and {npc.Name2} got married at the Inn!");
-
-            terminal.WriteLine("");
-            terminal.SetColor("yellow");
-            terminal.WriteLine("Congratulations on your marriage!");
-        }
-        else
-        {
-            terminal.SetColor("red");
-            terminal.WriteLine(message);
-            terminal.WriteLine("");
-            terminal.WriteLine($"{npc.Name2} looks apologetic but declines.");
-        }
 
         await terminal.PressAnyKey();
     }

@@ -4,12 +4,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using ModelItem = global::Item;
+using UsurperRemake.Systems;
 
 namespace UsurperRemake.Locations;
 
 /// <summary>
 /// Player home – allows resting, item storage, viewing trophies and family.
 /// Simplified port of Pascal HOME.PAS but supports core mechanics needed now.
+/// Now includes romance/family features.
 /// </summary>
 public class HomeLocation : BaseLocation
 {
@@ -37,6 +39,8 @@ public class HomeLocation : BaseLocation
             "View stored items (L)",
             "View trophies & stats (T)",
             "View family (F)",
+            "Spend time with spouse (P)",
+            "Visit bedroom (B)",
             "Status (S)",
             "Return (E)"
         };
@@ -73,8 +77,13 @@ public class HomeLocation : BaseLocation
                 await terminal.WaitForKey();
                 return false;
             case "F":
-                ShowFamily();
-                await terminal.WaitForKey();
+                await ShowFamily();
+                return false;
+            case "P":
+                await SpendTimeWithSpouse();
+                return false;
+            case "B":
+                await VisitBedroom();
                 return false;
             case "S":
                 await ShowStatus();
@@ -186,10 +195,410 @@ public class HomeLocation : BaseLocation
         }
     }
 
-    private void ShowFamily()
+    private async Task ShowFamily()
     {
-        terminal.WriteLine("\nFamily", "bright_cyan");
-        // Placeholder – until marriage/children systems done
-        terminal.WriteLine("You live alone... for now.", "gray");
+        terminal.WriteLine("\n", "white");
+        terminal.WriteLine("╔══════════════════════════════════════╗", "bright_cyan");
+        terminal.WriteLine("║            FAMILY & LOVED ONES       ║", "bright_cyan");
+        terminal.WriteLine("╚══════════════════════════════════════╝", "bright_cyan");
+        terminal.WriteLine();
+
+        var romance = RomanceTracker.Instance;
+        bool hasFamily = false;
+
+        // Show spouse(s)
+        if (romance.Spouses.Count > 0)
+        {
+            hasFamily = true;
+            terminal.SetColor("bright_magenta");
+            terminal.WriteLine($"  ♥ SPOUSE{(romance.Spouses.Count > 1 ? "S" : "")} ♥");
+            terminal.SetColor("white");
+
+            foreach (var spouse in romance.Spouses)
+            {
+                var npc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == spouse.NPCId);
+                var name = npc?.Name ?? spouse.NPCId;
+                var marriedDays = (int)(DateTime.Now - spouse.MarriedDate).TotalDays;
+
+                terminal.Write($"    ");
+                terminal.SetColor("bright_red");
+                terminal.Write("♥ ");
+                terminal.SetColor("bright_white");
+                terminal.Write(name);
+                terminal.SetColor("gray");
+                terminal.WriteLine($" - Married {marriedDays} day{(marriedDays != 1 ? "s" : "")}");
+
+                if (spouse.Children > 0)
+                {
+                    terminal.SetColor("bright_yellow");
+                    terminal.WriteLine($"      Children together: {spouse.Children}");
+                }
+
+                if (spouse.AcceptsPolyamory)
+                {
+                    terminal.SetColor("magenta");
+                    terminal.WriteLine("      (Open to polyamory)");
+                }
+            }
+            terminal.WriteLine();
+        }
+
+        // Show lovers
+        if (romance.CurrentLovers.Count > 0)
+        {
+            hasFamily = true;
+            terminal.SetColor("magenta");
+            terminal.WriteLine("  LOVERS");
+            terminal.SetColor("white");
+
+            foreach (var lover in romance.CurrentLovers)
+            {
+                var npc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == lover.NPCId);
+                var name = npc?.Name ?? lover.NPCId;
+                var daysTogether = (int)(DateTime.Now - lover.RelationshipStart).TotalDays;
+
+                terminal.Write($"    ");
+                terminal.SetColor("bright_magenta");
+                terminal.Write("♡ ");
+                terminal.SetColor("white");
+                terminal.Write(name);
+                terminal.SetColor("gray");
+                terminal.Write($" - Together {daysTogether} day{(daysTogether != 1 ? "s" : "")}");
+
+                if (lover.IsExclusive)
+                {
+                    terminal.SetColor("bright_cyan");
+                    terminal.Write(" [Exclusive]");
+                }
+                terminal.WriteLine();
+            }
+            terminal.WriteLine();
+        }
+
+        // Show friends with benefits
+        if (romance.FriendsWithBenefits.Count > 0)
+        {
+            hasFamily = true;
+            terminal.SetColor("cyan");
+            terminal.WriteLine("  FRIENDS WITH BENEFITS");
+            terminal.SetColor("white");
+
+            foreach (var fwbId in romance.FriendsWithBenefits)
+            {
+                var npc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == fwbId);
+                var name = npc?.Name ?? fwbId;
+                terminal.WriteLine($"    ~ {name}");
+            }
+            terminal.WriteLine();
+        }
+
+        // Show children (from all spouses)
+        int totalChildren = romance.Spouses.Sum(s => s.Children);
+        if (totalChildren > 0 || currentPlayer.Children > 0)
+        {
+            hasFamily = true;
+            int childCount = Math.Max(totalChildren, currentPlayer.Children);
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine($"  CHILDREN: {childCount}");
+            terminal.SetColor("gray");
+            terminal.WriteLine("    (Visit Love Corner to see detailed child information)");
+            terminal.WriteLine();
+        }
+
+        // Show exes
+        if (romance.Exes.Count > 0)
+        {
+            terminal.SetColor("dark_gray");
+            terminal.WriteLine($"  PAST RELATIONSHIPS: {romance.Exes.Count}");
+            terminal.SetColor("gray");
+            foreach (var exId in romance.Exes.Take(5)) // Show max 5
+            {
+                var npc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == exId);
+                var name = npc?.Name ?? exId;
+                terminal.WriteLine($"    - {name}");
+            }
+            if (romance.Exes.Count > 5)
+            {
+                terminal.WriteLine($"    ... and {romance.Exes.Count - 5} more");
+            }
+            terminal.WriteLine();
+        }
+
+        if (!hasFamily)
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("  You live alone... for now.");
+            terminal.WriteLine();
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine("  Tip: Meet someone special at Main Street or Love Corner!");
+        }
+
+        terminal.SetColor("white");
+        await terminal.WaitForKey();
+    }
+
+    private async Task SpendTimeWithSpouse()
+    {
+        var romance = RomanceTracker.Instance;
+
+        if (romance.Spouses.Count == 0 && romance.CurrentLovers.Count == 0)
+        {
+            terminal.WriteLine("\nYou have no spouse or lover to spend time with.", "yellow");
+            terminal.WriteLine("Perhaps you should get out there and meet someone?", "gray");
+            await terminal.WaitForKey();
+            return;
+        }
+
+        terminal.WriteLine("\n", "white");
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("Who would you like to spend time with?");
+        terminal.WriteLine();
+
+        var options = new List<(string id, string name, string type)>();
+
+        foreach (var spouse in romance.Spouses)
+        {
+            var npc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == spouse.NPCId);
+            var name = npc?.Name ?? spouse.NPCId;
+            options.Add((spouse.NPCId, name, "spouse"));
+        }
+
+        foreach (var lover in romance.CurrentLovers)
+        {
+            var npc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == lover.NPCId);
+            var name = npc?.Name ?? lover.NPCId;
+            options.Add((lover.NPCId, name, "lover"));
+        }
+
+        terminal.SetColor("white");
+        for (int i = 0; i < options.Count; i++)
+        {
+            var opt = options[i];
+            terminal.Write($"  [{i + 1}] ");
+            terminal.SetColor(opt.type == "spouse" ? "bright_red" : "bright_magenta");
+            terminal.Write($"♥ {opt.name}");
+            terminal.SetColor("gray");
+            terminal.WriteLine($" ({opt.type})");
+        }
+        terminal.SetColor("gray");
+        terminal.WriteLine("  [0] Cancel");
+        terminal.WriteLine();
+
+        var input = await terminal.GetInput("Choice: ");
+        if (!int.TryParse(input, out int choice) || choice < 1 || choice > options.Count)
+        {
+            terminal.WriteLine("Cancelled.", "gray");
+            await terminal.WaitForKey();
+            return;
+        }
+
+        var selected = options[choice - 1];
+        var selectedNpc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == selected.id);
+
+        if (selectedNpc == null)
+        {
+            terminal.WriteLine($"{selected.name} is not available right now.", "yellow");
+            await terminal.WaitForKey();
+            return;
+        }
+
+        await SpendQualityTime(selectedNpc, selected.type);
+    }
+
+    private async Task SpendQualityTime(NPC partner, string relationType)
+    {
+        terminal.WriteLine("\n", "white");
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine($"You spend quality time with {partner.Name}...");
+        terminal.WriteLine();
+
+        terminal.SetColor("white");
+        terminal.WriteLine("  [1] Have a romantic dinner together");
+        terminal.WriteLine("  [2] Take a walk and hold hands");
+        terminal.WriteLine("  [3] Cuddle by the fire");
+        terminal.WriteLine("  [4] Have a deep conversation");
+        if (relationType == "spouse")
+        {
+            terminal.SetColor("bright_red");
+            terminal.WriteLine("  [5] Retire to the bedroom...");
+        }
+        terminal.SetColor("gray");
+        terminal.WriteLine("  [0] Cancel");
+        terminal.WriteLine();
+
+        var input = await terminal.GetInput("Choice: ");
+        if (!int.TryParse(input, out int choice) || choice < 1)
+        {
+            terminal.WriteLine("You decide to spend time alone.", "gray");
+            await terminal.WaitForKey();
+            return;
+        }
+
+        terminal.WriteLine();
+
+        switch (choice)
+        {
+            case 1: // Romantic dinner
+                terminal.SetColor("bright_yellow");
+                terminal.WriteLine($"You prepare a lovely dinner for {partner.Name}.");
+                terminal.SetColor("white");
+                terminal.WriteLine("The candlelight flickers as you share stories and laughter.");
+                terminal.WriteLine($"{partner.Name} gazes at you with affection.");
+
+                // XP bonus for married couples
+                if (relationType == "spouse")
+                {
+                    long xpBonus = currentPlayer.Level * 50;
+                    currentPlayer.Experience += xpBonus;
+                    terminal.SetColor("bright_green");
+                    terminal.WriteLine($"Your bond strengthens! (+{xpBonus} XP)");
+                }
+                break;
+
+            case 2: // Walk and hold hands
+                terminal.SetColor("cyan");
+                terminal.WriteLine($"You and {partner.Name} walk hand in hand through the garden.");
+                terminal.SetColor("white");
+                terminal.WriteLine("The evening air is cool and refreshing.");
+                terminal.WriteLine($"{partner.Name} rests their head on your shoulder.");
+
+                // Small HP recovery from relaxation
+                currentPlayer.HP = Math.Min(currentPlayer.HP + currentPlayer.MaxHP / 20, currentPlayer.MaxHP);
+                terminal.SetColor("bright_green");
+                terminal.WriteLine("The peaceful moment restores you slightly.");
+                break;
+
+            case 3: // Cuddle by fire
+                terminal.SetColor("bright_red");
+                terminal.WriteLine("You settle by the crackling fire together.");
+                terminal.SetColor("white");
+                terminal.WriteLine($"{partner.Name} nestles close to you for warmth.");
+                terminal.WriteLine("You feel utterly at peace in this moment.");
+
+                // Mana recovery from emotional connection
+                currentPlayer.Mana = Math.Min(currentPlayer.Mana + currentPlayer.MaxMana / 10, currentPlayer.MaxMana);
+                terminal.SetColor("bright_blue");
+                terminal.WriteLine("Your spiritual connection is renewed.");
+                break;
+
+            case 4: // Deep conversation
+                await VisualNovelDialogueSystem.Instance.StartConversation(currentPlayer, partner, terminal);
+                return; // Already handled
+
+            case 5: // Bedroom (spouse only)
+                if (relationType == "spouse")
+                {
+                    await IntimacySystem.Instance.InitiateIntimateScene(currentPlayer, partner, terminal);
+                    return;
+                }
+                terminal.WriteLine("Invalid choice.", "gray");
+                break;
+
+            default:
+                terminal.WriteLine("Invalid choice.", "gray");
+                break;
+        }
+
+        await terminal.WaitForKey();
+    }
+
+    private async Task VisitBedroom()
+    {
+        var romance = RomanceTracker.Instance;
+
+        terminal.WriteLine("\n", "white");
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine("         THE MASTER BEDROOM");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine();
+
+        if (romance.Spouses.Count == 0 && romance.CurrentLovers.Count == 0)
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("Your bed seems cold and empty...");
+            terminal.WriteLine("Perhaps you should find someone special to share it with.");
+            await terminal.WaitForKey();
+            return;
+        }
+
+        // Check if spouse is home
+        var availablePartners = new List<NPC>();
+
+        foreach (var spouse in romance.Spouses)
+        {
+            var npc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == spouse.NPCId);
+            if (npc != null && npc.CurrentLocation == "Your Home")
+            {
+                availablePartners.Add(npc);
+            }
+        }
+
+        foreach (var lover in romance.CurrentLovers)
+        {
+            var npc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == lover.NPCId);
+            if (npc != null && npc.CurrentLocation == "Your Home")
+            {
+                availablePartners.Add(npc);
+            }
+        }
+
+        if (availablePartners.Count == 0)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("Your partner isn't home right now.");
+            terminal.SetColor("gray");
+            terminal.WriteLine("They might be at Main Street or elsewhere in town.");
+            await terminal.WaitForKey();
+            return;
+        }
+
+        if (availablePartners.Count == 1)
+        {
+            var partner = availablePartners[0];
+            terminal.SetColor("bright_magenta");
+            terminal.WriteLine($"{partner.Name} is here, looking inviting...");
+            terminal.WriteLine();
+            terminal.SetColor("white");
+            terminal.WriteLine($"  [1] Join {partner.Name} in bed");
+            terminal.WriteLine("  [0] Leave the bedroom");
+
+            var input = await terminal.GetInput("Choice: ");
+            if (input == "1")
+            {
+                await IntimacySystem.Instance.InitiateIntimateScene(currentPlayer, partner, terminal);
+            }
+            else
+            {
+                terminal.WriteLine("You quietly leave the bedroom.", "gray");
+                await terminal.WaitForKey();
+            }
+        }
+        else
+        {
+            // Multiple partners available
+            terminal.SetColor("bright_magenta");
+            terminal.WriteLine("Multiple partners are here waiting for you...");
+            terminal.WriteLine();
+
+            for (int i = 0; i < availablePartners.Count; i++)
+            {
+                terminal.SetColor("white");
+                terminal.WriteLine($"  [{i + 1}] {availablePartners[i].Name}");
+            }
+            terminal.SetColor("gray");
+            terminal.WriteLine("  [0] Leave the bedroom");
+
+            var input = await terminal.GetInput("Choice: ");
+            if (int.TryParse(input, out int choice) && choice >= 1 && choice <= availablePartners.Count)
+            {
+                await IntimacySystem.Instance.InitiateIntimateScene(currentPlayer, availablePartners[choice - 1], terminal);
+            }
+            else
+            {
+                terminal.WriteLine("You quietly leave the bedroom.", "gray");
+                await terminal.WaitForKey();
+            }
+        }
     }
 } 

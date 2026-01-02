@@ -3078,14 +3078,40 @@ public class DungeonLocation : BaseLocation
             .Where(n => n.Team == player.Team && n.IsAlive && !teammates.Contains(n))
             .ToList();
 
+        // Add spouse as potential teammate (if married)
+        NPC? spouseNpc = null;
+        if (UsurperRemake.Systems.RomanceTracker.Instance.IsMarried)
+        {
+            var spouse = UsurperRemake.Systems.RomanceTracker.Instance.PrimarySpouse;
+            if (spouse != null)
+            {
+                spouseNpc = UsurperRemake.Systems.NPCSpawnSystem.Instance.ActiveNPCs
+                    .FirstOrDefault(n => n.ID == spouse.NPCId && n.IsAlive && !teammates.Contains(n) && !npcTeammates.Contains(n));
+                if (spouseNpc != null)
+                {
+                    npcTeammates.Insert(0, spouseNpc); // Spouse first in list
+                }
+            }
+        }
+
         if (npcTeammates.Count > 0)
         {
             terminal.SetColor("green");
-            terminal.WriteLine("Available Team Members (not in dungeon party):");
+            terminal.WriteLine("Available Allies (not in dungeon party):");
             for (int i = 0; i < npcTeammates.Count; i++)
             {
                 var npc = npcTeammates[i];
-                terminal.WriteLine($"  [{i + 1}] {npc.DisplayName} - Level {npc.Level} {npc.Class} - HP: {npc.HP}/{npc.MaxHP}");
+                bool isSpouse = spouseNpc != null && npc.ID == spouseNpc.ID;
+                if (isSpouse)
+                {
+                    terminal.SetColor("bright_magenta");
+                    terminal.WriteLine($"  [{i + 1}] ♥ {npc.DisplayName} (Spouse) - Level {npc.Level} {npc.Class} - HP: {npc.HP}/{npc.MaxHP}");
+                    terminal.SetColor("green");
+                }
+                else
+                {
+                    terminal.WriteLine($"  [{i + 1}] {npc.DisplayName} - Level {npc.Level} {npc.Class} - HP: {npc.HP}/{npc.MaxHP}");
+                }
             }
             terminal.WriteLine("");
         }

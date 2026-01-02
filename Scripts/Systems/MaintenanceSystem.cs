@@ -1,4 +1,5 @@
 using UsurperRemake.Utils;
+using UsurperRemake.Systems;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -229,6 +230,33 @@ public class MaintenanceSystem
         
         // Birthday processing
         await ProcessPlayerBirthday(player);
+
+        // Relationship/Jealousy processing
+        await ProcessJealousyConsequences(player);
+    }
+
+    /// <summary>
+    /// Process jealousy consequences for player's romantic relationships
+    /// </summary>
+    private async Task ProcessJealousyConsequences(Character player)
+    {
+        var romanceTracker = RomanceTracker.Instance;
+        if (romanceTracker == null) return;
+
+        var messages = romanceTracker.ProcessJealousyConsequences();
+
+        if (messages.Count > 0)
+        {
+            foreach (var message in messages)
+            {
+                WriteIfNotSilent($"  {message}", "red");
+            }
+
+            if (!silentMode)
+            {
+                await Task.Delay(1000);
+            }
+        }
     }
     
     /// <summary>

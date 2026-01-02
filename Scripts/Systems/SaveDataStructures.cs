@@ -76,6 +76,8 @@ namespace UsurperRemake.Systems
         public int Thiefs { get; set; }
         public int Brawls { get; set; }
         public int Assa { get; set; }
+        public int DarkNr { get; set; }  // Dark deeds remaining today
+        public int ChivNr { get; set; }  // Chivalry deeds remaining today
         
         // Items and equipment
         public int[] Items { get; set; } = new int[0];
@@ -122,6 +124,7 @@ namespace UsurperRemake.Systems
         public bool Smallpox { get; set; }
         public bool Measles { get; set; }
         public bool Leprosy { get; set; }
+        public bool LoversBane { get; set; }  // STD from Love Street
 
         // Character settings
         public bool AutoHeal { get; set; }  // Auto-heal in battle
@@ -143,7 +146,10 @@ namespace UsurperRemake.Systems
         
         // Relationships
         public Dictionary<string, float> Relationships { get; set; } = new();
-        
+
+        // Romance Tracker Data
+        public RomanceTrackerData RomanceData { get; set; } = new();
+
         // Quests
         public List<QuestData> ActiveQuests { get; set; } = new();
         
@@ -478,5 +484,137 @@ namespace UsurperRemake.Systems
         Failed,
         Paused,
         Abandoned
+    }
+
+    /// <summary>
+    /// Romance tracker data for save system
+    /// </summary>
+    public class RomanceTrackerData
+    {
+        public List<LoverData> CurrentLovers { get; set; } = new();
+        public List<SpouseData> Spouses { get; set; } = new();
+        public List<string> FriendsWithBenefits { get; set; } = new();
+        public List<string> Exes { get; set; } = new();
+        public List<IntimateEncounterData> EncounterHistory { get; set; } = new();
+        public Dictionary<string, int> JealousyLevels { get; set; } = new();
+        public Dictionary<string, int> AgreedStructures { get; set; } = new(); // RelationshipStructure enum as int
+        public List<CuckoldArrangementData> CuckArrangements { get; set; } = new();
+        public List<PolyNetworkData> PolyNetworks { get; set; } = new();
+        public List<ConversationStateData> ConversationStates { get; set; } = new(); // Flirt progress per NPC
+    }
+
+    /// <summary>
+    /// Lover data for save system
+    /// </summary>
+    public class LoverData
+    {
+        public string NPCId { get; set; } = "";
+        public string NPCName { get; set; } = "";
+        public int LoveLevel { get; set; }
+        public bool IsExclusive { get; set; }
+        public bool KnowsAboutOthers { get; set; }
+        public List<string> MetamorsList { get; set; } = new();
+        public DateTime RelationshipStart { get; set; }
+        public DateTime? LastIntimateDate { get; set; }
+    }
+
+    /// <summary>
+    /// Spouse data for save system
+    /// </summary>
+    public class SpouseData
+    {
+        public string NPCId { get; set; } = "";
+        public string NPCName { get; set; } = "";
+        public DateTime MarriedDate { get; set; }
+        public int LoveLevel { get; set; }
+        public bool AcceptsPolyamory { get; set; }
+        public bool KnowsAboutOthers { get; set; }
+        public int Children { get; set; }
+        public DateTime? LastIntimateDate { get; set; }
+    }
+
+    /// <summary>
+    /// Intimate encounter data for save system
+    /// </summary>
+    public class IntimateEncounterData
+    {
+        public DateTime Date { get; set; }
+        public string Location { get; set; } = "";
+        public List<string> PartnerIds { get; set; } = new();
+        public List<string> PartnerNames { get; set; } = new();
+        public int Type { get; set; } // EncounterType enum as int
+        public int Mood { get; set; } // IntimacyMood enum as int
+        public bool IsFirstTime { get; set; }
+        public List<string> WatcherIds { get; set; } = new();
+        public string Notes { get; set; } = "";
+    }
+
+    /// <summary>
+    /// Cuckold arrangement data for save system
+    /// </summary>
+    public class CuckoldArrangementData
+    {
+        public string PrimaryPartnerId { get; set; } = "";
+        public string PrimaryPartnerName { get; set; } = "";
+        public string ThirdPartyId { get; set; } = "";
+        public string ThirdPartyName { get; set; } = "";
+        public bool PlayerIsWatching { get; set; }
+        public DateTime ConsentedDate { get; set; }
+        public int EncounterCount { get; set; }
+    }
+
+    /// <summary>
+    /// Poly network data for save system
+    /// </summary>
+    public class PolyNetworkData
+    {
+        public string NetworkName { get; set; } = "";
+        public List<string> MemberIds { get; set; } = new();
+        public List<string> MemberNames { get; set; } = new();
+        public DateTime EstablishedDate { get; set; }
+    }
+
+    /// <summary>
+    /// Child data for save system
+    /// </summary>
+    public class ChildData
+    {
+        public string Name { get; set; } = "";
+        public string Mother { get; set; } = "";
+        public string Father { get; set; } = "";
+        public string MotherID { get; set; } = "";
+        public string FatherID { get; set; } = "";
+        public string OriginalMother { get; set; } = "";
+        public string OriginalFather { get; set; } = "";
+        public int Sex { get; set; } // CharacterSex enum as int
+        public int Age { get; set; }
+        public DateTime BirthDate { get; set; }
+        public bool Named { get; set; }
+        public int Location { get; set; }
+        public int Health { get; set; }
+        public int Soul { get; set; }
+        public bool MotherAccess { get; set; }
+        public bool FatherAccess { get; set; }
+        public bool Kidnapped { get; set; }
+        public string KidnapperName { get; set; } = "";
+        public long RansomDemanded { get; set; }
+        public string CursedByGod { get; set; } = "";
+        public int Royal { get; set; }
+    }
+
+    /// <summary>
+    /// Conversation state data for save system (tracks flirt progress per NPC)
+    /// </summary>
+    public class ConversationStateData
+    {
+        public string NPCId { get; set; } = "";
+        public int FlirtSuccessCount { get; set; }
+        public bool LastFlirtWasPositive { get; set; }
+        public int TotalConversations { get; set; }
+        public int PersonalQuestionsAsked { get; set; }
+        public bool HasConfessed { get; set; }
+        public bool ConfessionAccepted { get; set; }
+        public List<string> TopicsDiscussed { get; set; } = new();
+        public DateTime LastConversationDate { get; set; }
     }
 } 

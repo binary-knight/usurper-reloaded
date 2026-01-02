@@ -49,10 +49,17 @@ public abstract class BaseLocation
     {
         currentPlayer = player;
         terminal = term;
-        
+
         // Update player location
         player.Location = (int)LocationId;
-        
+
+        // Ensure NPCs are initialized (safety check)
+        if (NPCSpawnSystem.Instance.ActiveNPCs.Count == 0)
+        {
+            GD.Print("[BaseLocation] NPCs not initialized, initializing now...");
+            await NPCSpawnSystem.Instance.InitializeClassicNPCs();
+        }
+
         // Main location loop
         await LocationLoop();
     }
@@ -310,6 +317,29 @@ public abstract class BaseLocation
     }
 
     /// <summary>
+    /// Get relationship display information (color, text, symbol) based on relationship level
+    /// Relationship levels: Married=10, Love=20, Passion=30, Friendship=40, Trust=50,
+    /// Respect=60, Normal=70, Suspicious=80, Anger=90, Enemy=100, Hate=110
+    /// </summary>
+    protected virtual (string color, string text, string symbol) GetRelationshipDisplayInfo(int relationLevel)
+    {
+        return relationLevel switch
+        {
+            <= GameConfig.RelationMarried => ("bright_red", "Married", "♥"),      // 10 - Married (red with heart)
+            <= GameConfig.RelationLove => ("bright_magenta", "In Love", "♥"),     // 20 - Love
+            <= GameConfig.RelationPassion => ("magenta", "Passionate", ""),        // 30 - Passion
+            <= GameConfig.RelationFriendship => ("bright_cyan", "Friends", ""),   // 40 - Friendship
+            <= GameConfig.RelationTrust => ("cyan", "Trusted", ""),               // 50 - Trust
+            <= GameConfig.RelationRespect => ("bright_green", "Respected", ""),   // 60 - Respect
+            <= GameConfig.RelationNormal => ("gray", "Stranger", ""),             // 70 - Normal/Neutral
+            <= GameConfig.RelationSuspicious => ("yellow", "Wary", ""),           // 80 - Suspicious
+            <= GameConfig.RelationAnger => ("bright_yellow", "Hostile", ""),      // 90 - Anger
+            <= GameConfig.RelationEnemy => ("red", "Enemy", ""),                  // 100 - Enemy
+            _ => ("dark_red", "Hated", "")                                        // 110+ - Hate
+        };
+    }
+
+    /// <summary>
     /// Show NPCs in this location - dynamically fetched from NPCSpawnSystem
     /// </summary>
     protected virtual void ShowNPCsInLocation()
@@ -556,11 +586,11 @@ public abstract class BaseLocation
             terminal.SetColor("darkgray");
             terminal.Write("[");
             terminal.SetColor("bright_green");
-            terminal.Write("P");
+            terminal.Write("0");
             terminal.SetColor("darkgray");
             terminal.Write("]");
             terminal.SetColor("white");
-            terminal.Write($"eople ({npcsHere.Count})");
+            terminal.Write($" Talk ({npcsHere.Count})");
         }
 
         terminal.WriteLine("");
@@ -625,7 +655,7 @@ public abstract class BaseLocation
                     return true;
                 }
                 break;
-            case "P":
+            case "0":
             case "TALK":
                 await TalkToNPC();
                 break;
@@ -734,21 +764,32 @@ public abstract class BaseLocation
         {
             var npc = allNPCs[i];
 
-            // Color based on alignment
-            string color;
-            if (npc.Darkness > npc.Chivalry + 200)
-                color = "red";
-            else if (npc.Chivalry > npc.Darkness + 200)
-                color = "bright_green";
-            else
-                color = "white";
+            // Get relationship status with player
+            int relationLevel = RelationshipSystem.GetRelationshipStatus(currentPlayer, npc);
+            var (relationColor, relationText, relationSymbol) = GetRelationshipDisplayInfo(relationLevel);
 
             terminal.SetColor("cyan");
             terminal.Write($"  [{i + 1}] ");
-            terminal.SetColor(color);
+
+            // Name color based on relationship rather than alignment
+            terminal.SetColor(relationColor);
             terminal.Write($"{npc.Name2}");
+
+            // Show class/level
             terminal.SetColor("gray");
-            terminal.WriteLine($" - Level {npc.Level} {npc.Class} ({GetAlignmentDisplay(npc)})");
+            terminal.Write($" - Level {npc.Level} {npc.Class}");
+
+            // Show relationship status in brackets with color
+            terminal.Write(" [");
+            terminal.SetColor(relationColor);
+            terminal.Write(relationText);
+            if (!string.IsNullOrEmpty(relationSymbol))
+            {
+                terminal.SetColor("bright_red");
+                terminal.Write($" {relationSymbol}");
+            }
+            terminal.SetColor("gray");
+            terminal.WriteLine("]");
         }
 
         if (allNPCs.Count > 10)
@@ -850,6 +891,16 @@ public abstract class BaseLocation
             terminal.WriteLine(" Challenge to a duel");
         }
 
+        // Full conversation option (visual novel style)
+        terminal.SetColor("darkgray");
+        terminal.Write("  [");
+        terminal.SetColor("bright_magenta");
+        terminal.Write("5");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine(" Have a deep conversation...");
+
         terminal.WriteLine("");
         terminal.SetColor("gray");
         terminal.WriteLine("  [0] Walk away");
@@ -873,6 +924,10 @@ public abstract class BaseLocation
                 {
                     await ChallengeNPC(npc);
                 }
+                break;
+            case "5":
+                // Full visual novel style conversation
+                await UsurperRemake.Systems.VisualNovelDialogueSystem.Instance.StartConversation(currentPlayer, npc, terminal);
                 break;
             default:
                 terminal.SetColor("gray");

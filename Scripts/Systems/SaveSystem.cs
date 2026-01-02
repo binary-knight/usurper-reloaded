@@ -478,6 +478,8 @@ namespace UsurperRemake.Systems
                 Thiefs = player.Thiefs,
                 Brawls = player.Brawls,
                 Assa = player.Assa,
+                DarkNr = player.DarkNr,
+                ChivNr = player.ChivNr,
                 
                 // Items and equipment
                 Items = player.Item?.ToArray() ?? new int[0],
@@ -527,6 +529,7 @@ namespace UsurperRemake.Systems
                 Smallpox = player.Smallpox,
                 Measles = player.Measles,
                 Leprosy = player.Leprosy,
+                LoversBane = player.LoversBane,
 
                 // Character settings
                 AutoHeal = player.AutoHeal,
@@ -548,7 +551,10 @@ namespace UsurperRemake.Systems
                 
                 // Relationships
                 Relationships = SerializeRelationships(player),
-                
+
+                // Romance Tracker Data
+                RomanceData = RomanceTracker.Instance.ToSaveData(),
+
                 // Quests
                 ActiveQuests = SerializeActiveQuests(player),
                 

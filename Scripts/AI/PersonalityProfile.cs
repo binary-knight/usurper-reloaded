@@ -2,6 +2,58 @@ using UsurperRemake.Utils;
 using Godot;
 using System.Collections.Generic;
 
+/// <summary>
+/// Sexual orientation - determines who the NPC is attracted to
+/// </summary>
+public enum SexualOrientation
+{
+    Straight,       // Attracted to opposite sex
+    Gay,            // Attracted to same sex (male)
+    Lesbian,        // Attracted to same sex (female)
+    Bisexual,       // Attracted to both sexes
+    Pansexual,      // Attracted regardless of gender
+    Asexual,        // Little to no sexual attraction
+    Demisexual      // Only attracted after emotional bond
+}
+
+/// <summary>
+/// Gender identity - how the NPC identifies
+/// </summary>
+public enum GenderIdentity
+{
+    Male,
+    Female,
+    NonBinary,
+    Genderfluid,
+    TransMale,      // Assigned female, identifies male
+    TransFemale     // Assigned male, identifies female
+}
+
+/// <summary>
+/// Romance style - preferred dynamic in intimate situations
+/// </summary>
+public enum RomanceStyle
+{
+    Dominant,       // Prefers to lead/control
+    Submissive,     // Prefers to follow/be led
+    Switch,         // Comfortable either way
+    Vanilla,        // Prefers traditional/gentle
+    Adventurous     // Open to experimentation
+}
+
+/// <summary>
+/// Relationship preference - what type of relationship structure they prefer
+/// </summary>
+public enum RelationshipPreference
+{
+    Monogamous,         // Traditional exclusive relationship
+    OpenRelationship,   // Primary partner + others allowed
+    Polyamorous,        // Multiple committed relationships
+    CasualOnly,         // No commitment, just fun
+    FriendsWithBenefits,// Physical without romance
+    Undecided           // Open to various structures
+}
+
 public class PersonalityProfile
 {
     // Core traits (0.0 to 1.0)
@@ -13,14 +65,32 @@ public class PersonalityProfile
     public float Impulsiveness { get; set; }   // Makes quick decisions
     public float Sociability { get; set; }     // Seeks interaction
     public float Ambition { get; set; }        // Desires power/status
-    
+
     // Additional traits required by ported modules
     public float Trustworthiness { get; set; } // Reliability / honesty
     public float Caution { get; set; }         // Risk-avoidance / carefulness
     public float Intelligence { get; set; }    // Problem-solving aptitude (for magic shops)
     public float Mysticism { get; set; }       // Affinity for the arcane
     public float Patience { get; set; }        // Willingness to wait / endure delays
-    
+
+    // Romance personality traits (0.0 to 1.0)
+    public float Romanticism { get; set; }     // How romantic vs. practical in relationships
+    public float Sensuality { get; set; }      // Physical expressiveness and desire
+    public float Jealousy { get; set; }        // Reaction intensity to partner with others
+    public float Commitment { get; set; }      // Marriage-minded vs. casual preference
+    public float Adventurousness { get; set; } // Willingness to try new things intimately
+    public float Exhibitionism { get; set; }   // Enjoys being watched during intimacy
+    public float Voyeurism { get; set; }       // Enjoys watching others
+    public float Flirtatiousness { get; set; } // Likelihood to flirt and respond to flirting
+    public float Passion { get; set; }         // Intensity of emotional/physical expression
+    public float Tenderness { get; set; }      // Preference for gentle vs. rough intimacy
+
+    // Sexual/romantic identity
+    public SexualOrientation Orientation { get; set; } = SexualOrientation.Bisexual;
+    public GenderIdentity Gender { get; set; } = GenderIdentity.Male;
+    public RomanceStyle IntimateStyle { get; set; } = RomanceStyle.Switch;
+    public RelationshipPreference RelationshipPref { get; set; } = RelationshipPreference.Undecided;
+
     // Behavioral modifiers
     public CombatStyle PreferredCombatStyle { get; set; }
     public List<string> Fears { get; set; } = new List<string>();
@@ -177,8 +247,145 @@ public class PersonalityProfile
                 profile.Desires.Add("security");
                 break;
         }
-        
+
+        // Generate romance traits for all archetypes
+        GenerateRomanceTraits(profile, npcArchetype);
+
         return profile;
+    }
+
+    /// <summary>
+    /// Generate romance-related personality traits based on archetype
+    /// </summary>
+    private static void GenerateRomanceTraits(PersonalityProfile profile, string archetype)
+    {
+        // Base romance traits - everyone gets some variance
+        profile.Romanticism = GD.Randf() * 0.6f + 0.2f;     // 0.2-0.8
+        profile.Sensuality = GD.Randf() * 0.6f + 0.2f;      // 0.2-0.8
+        profile.Jealousy = GD.Randf() * 0.6f + 0.2f;        // 0.2-0.8
+        profile.Commitment = GD.Randf() * 0.6f + 0.2f;      // 0.2-0.8
+        profile.Adventurousness = GD.Randf() * 0.6f + 0.2f; // 0.2-0.8
+        profile.Exhibitionism = GD.Randf() * 0.4f;          // 0.0-0.4 (rarer)
+        profile.Voyeurism = GD.Randf() * 0.4f;              // 0.0-0.4 (rarer)
+        profile.Flirtatiousness = GD.Randf() * 0.6f + 0.2f; // 0.2-0.8
+        profile.Passion = GD.Randf() * 0.6f + 0.2f;         // 0.2-0.8
+        profile.Tenderness = GD.Randf() * 0.6f + 0.2f;      // 0.2-0.8
+
+        // Archetype-specific romance trait adjustments
+        switch (archetype.ToLower())
+        {
+            case "thug":
+            case "brawler":
+                profile.Romanticism *= 0.5f;        // Less romantic
+                profile.Passion += 0.2f;            // More passionate/intense
+                profile.Tenderness *= 0.4f;         // Less tender
+                profile.IntimateStyle = GD.Randf() > 0.7f ? RomanceStyle.Dominant : RomanceStyle.Adventurous;
+                profile.Jealousy += 0.2f;           // More possessive
+                break;
+
+            case "noble":
+            case "aristocrat":
+                profile.Romanticism += 0.2f;        // More romantic (courtly love)
+                profile.Exhibitionism += 0.1f;      // Enjoys showing off
+                profile.Commitment += 0.2f;         // Values marriage/alliances
+                profile.IntimateStyle = GD.Randf() > 0.5f ? RomanceStyle.Dominant : RomanceStyle.Vanilla;
+                profile.RelationshipPref = GD.Randf() > 0.7f ? RelationshipPreference.OpenRelationship : RelationshipPreference.Monogamous;
+                break;
+
+            case "merchant":
+            case "trader":
+                profile.Commitment += 0.1f;         // Practical about relationships
+                profile.Romanticism *= 0.8f;        // Slightly less romantic
+                profile.IntimateStyle = RomanceStyle.Vanilla;
+                profile.RelationshipPref = RelationshipPreference.Monogamous;
+                break;
+
+            case "guard":
+            case "soldier":
+                profile.Commitment += 0.2f;         // Loyal in relationships too
+                profile.Jealousy += 0.1f;           // Protective
+                profile.Passion += 0.1f;
+                profile.IntimateStyle = GD.Randf() > 0.5f ? RomanceStyle.Dominant : RomanceStyle.Switch;
+                break;
+
+            case "priest":
+            case "cleric":
+                profile.Romanticism += 0.3f;        // Very romantic (spiritual love)
+                profile.Sensuality *= 0.6f;         // More reserved
+                profile.Tenderness += 0.3f;         // Very gentle
+                profile.Commitment += 0.3f;         // Strong commitment values
+                profile.IntimateStyle = RomanceStyle.Vanilla;
+                profile.Adventurousness *= 0.5f;    // Less adventurous
+                profile.RelationshipPref = RelationshipPreference.Monogamous;
+                break;
+
+            case "mystic":
+            case "mage":
+                profile.Adventurousness += 0.3f;    // Open to experimentation
+                profile.Sensuality += 0.1f;
+                profile.IntimateStyle = GD.Randf() > 0.5f ? RomanceStyle.Switch : RomanceStyle.Adventurous;
+                profile.RelationshipPref = GD.Randf() > 0.6f ? RelationshipPreference.Polyamorous : RelationshipPreference.Undecided;
+                break;
+
+            case "craftsman":
+            case "artisan":
+                profile.Passion += 0.2f;            // Passionate about everything
+                profile.Tenderness += 0.1f;
+                profile.Sensuality += 0.1f;         // Appreciates physical beauty
+                profile.IntimateStyle = RomanceStyle.Switch;
+                break;
+        }
+
+        // Randomly assign orientation with realistic distribution
+        float orientationRoll = GD.Randf();
+        if (orientationRoll < 0.70f)
+            profile.Orientation = SexualOrientation.Straight;
+        else if (orientationRoll < 0.85f)
+            profile.Orientation = SexualOrientation.Bisexual;
+        else if (orientationRoll < 0.92f)
+            profile.Orientation = profile.Gender == GenderIdentity.Female ? SexualOrientation.Lesbian : SexualOrientation.Gay;
+        else if (orientationRoll < 0.96f)
+            profile.Orientation = SexualOrientation.Pansexual;
+        else if (orientationRoll < 0.98f)
+            profile.Orientation = SexualOrientation.Demisexual;
+        else
+            profile.Orientation = SexualOrientation.Asexual;
+
+        // Randomly assign relationship preference if not already set by archetype
+        if (profile.RelationshipPref == RelationshipPreference.Undecided)
+        {
+            float relPrefRoll = GD.Randf();
+            if (relPrefRoll < 0.60f)
+                profile.RelationshipPref = RelationshipPreference.Monogamous;
+            else if (relPrefRoll < 0.75f)
+                profile.RelationshipPref = RelationshipPreference.OpenRelationship;
+            else if (relPrefRoll < 0.85f)
+                profile.RelationshipPref = RelationshipPreference.Polyamorous;
+            else if (relPrefRoll < 0.92f)
+                profile.RelationshipPref = RelationshipPreference.CasualOnly;
+            else
+                profile.RelationshipPref = RelationshipPreference.FriendsWithBenefits;
+        }
+
+        // Clamp all values to 0-1 range
+        profile.Romanticism = ClampFloat(profile.Romanticism, 0f, 1f);
+        profile.Sensuality = ClampFloat(profile.Sensuality, 0f, 1f);
+        profile.Jealousy = ClampFloat(profile.Jealousy, 0f, 1f);
+        profile.Commitment = ClampFloat(profile.Commitment, 0f, 1f);
+        profile.Adventurousness = ClampFloat(profile.Adventurousness, 0f, 1f);
+        profile.Exhibitionism = ClampFloat(profile.Exhibitionism, 0f, 1f);
+        profile.Voyeurism = ClampFloat(profile.Voyeurism, 0f, 1f);
+        profile.Flirtatiousness = ClampFloat(profile.Flirtatiousness, 0f, 1f);
+        profile.Passion = ClampFloat(profile.Passion, 0f, 1f);
+        profile.Tenderness = ClampFloat(profile.Tenderness, 0f, 1f);
+    }
+
+    /// <summary>
+    /// Clamp a float value between min and max
+    /// </summary>
+    private static float ClampFloat(float value, float min, float max)
+    {
+        return Math.Max(min, Math.Min(max, value));
     }
     
     /// <summary>
@@ -196,14 +403,184 @@ public class PersonalityProfile
         var loyaltyDiff = Math.Abs(Loyalty - other.Loyalty);
         var sociabilityDiff = Math.Abs(Sociability - other.Sociability);
         var ambitionDiff = Math.Abs(Ambition - other.Ambition);
-        
+
         // Similar people are more compatible
         var traitCompatibility = 1.0f - (aggressionDiff + loyaltyDiff + sociabilityDiff + ambitionDiff) / 4.0f;
-        
+
         // Special compatibility bonuses/penalties
         var archetypeBonus = GetArchetypeCompatibility(other.Archetype);
-        
+
         return Math.Max(0.0f, Math.Min(1.0f, traitCompatibility + archetypeBonus));
+    }
+
+    /// <summary>
+    /// Calculate romantic compatibility with another personality
+    /// </summary>
+    public float GetRomanticCompatibility(PersonalityProfile other)
+    {
+        float compatibility = 0f;
+
+        // Similar romanticism levels = good match
+        var romanticismMatch = 1f - Math.Abs(Romanticism - other.Romanticism);
+        compatibility += romanticismMatch * 0.15f;
+
+        // Complementary intimate styles work well
+        float styleMatch = GetIntimateStyleCompatibility(other.IntimateStyle);
+        compatibility += styleMatch * 0.15f;
+
+        // Passion levels should be similar
+        var passionMatch = 1f - Math.Abs(Passion - other.Passion);
+        compatibility += passionMatch * 0.1f;
+
+        // Tenderness preferences should align
+        var tendernessMatch = 1f - Math.Abs(Tenderness - other.Tenderness);
+        compatibility += tendernessMatch * 0.1f;
+
+        // Commitment levels should be similar
+        var commitmentMatch = 1f - Math.Abs(Commitment - other.Commitment);
+        compatibility += commitmentMatch * 0.15f;
+
+        // Adventurousness - either both adventurous or both vanilla
+        var adventureMatch = 1f - Math.Abs(Adventurousness - other.Adventurousness);
+        compatibility += adventureMatch * 0.1f;
+
+        // Relationship structure compatibility
+        float relPrefMatch = GetRelationshipPrefCompatibility(other.RelationshipPref);
+        compatibility += relPrefMatch * 0.15f;
+
+        // Base personality compatibility also matters
+        compatibility += GetCompatibility(other) * 0.1f;
+
+        return ClampFloat(compatibility, 0f, 1f);
+    }
+
+    /// <summary>
+    /// Check if this personality is attracted to another based on orientation
+    /// </summary>
+    public bool IsAttractedTo(GenderIdentity otherGender)
+    {
+        return Orientation switch
+        {
+            SexualOrientation.Straight => (Gender == GenderIdentity.Male && IsFemalePresentinig(otherGender)) ||
+                                          (Gender == GenderIdentity.Female && IsMalePresentinig(otherGender)),
+            SexualOrientation.Gay => Gender == GenderIdentity.Male && IsMalePresentinig(otherGender),
+            SexualOrientation.Lesbian => Gender == GenderIdentity.Female && IsFemalePresentinig(otherGender),
+            SexualOrientation.Bisexual => true,
+            SexualOrientation.Pansexual => true,
+            SexualOrientation.Demisexual => true, // Attraction develops with bond, check relationship level separately
+            SexualOrientation.Asexual => false,   // No sexual attraction
+            _ => true
+        };
+    }
+
+    private static bool IsMalePresentinig(GenderIdentity gender)
+    {
+        return gender == GenderIdentity.Male || gender == GenderIdentity.TransMale;
+    }
+
+    private static bool IsFemalePresentinig(GenderIdentity gender)
+    {
+        return gender == GenderIdentity.Female || gender == GenderIdentity.TransFemale;
+    }
+
+    /// <summary>
+    /// Get compatibility score for intimate styles (0-1)
+    /// </summary>
+    private float GetIntimateStyleCompatibility(RomanceStyle otherStyle)
+    {
+        // Dominant + Submissive = perfect match
+        if ((IntimateStyle == RomanceStyle.Dominant && otherStyle == RomanceStyle.Submissive) ||
+            (IntimateStyle == RomanceStyle.Submissive && otherStyle == RomanceStyle.Dominant))
+            return 1.0f;
+
+        // Switch works well with anyone
+        if (IntimateStyle == RomanceStyle.Switch || otherStyle == RomanceStyle.Switch)
+            return 0.8f;
+
+        // Two dominants or two submissives = less compatible
+        if (IntimateStyle == otherStyle && (IntimateStyle == RomanceStyle.Dominant || IntimateStyle == RomanceStyle.Submissive))
+            return 0.3f;
+
+        // Vanilla + Vanilla = good
+        if (IntimateStyle == RomanceStyle.Vanilla && otherStyle == RomanceStyle.Vanilla)
+            return 0.9f;
+
+        // Adventurous + Adventurous = great
+        if (IntimateStyle == RomanceStyle.Adventurous && otherStyle == RomanceStyle.Adventurous)
+            return 0.95f;
+
+        // Vanilla + Adventurous = mild mismatch
+        if ((IntimateStyle == RomanceStyle.Vanilla && otherStyle == RomanceStyle.Adventurous) ||
+            (IntimateStyle == RomanceStyle.Adventurous && otherStyle == RomanceStyle.Vanilla))
+            return 0.5f;
+
+        return 0.6f; // Default moderate compatibility
+    }
+
+    /// <summary>
+    /// Get compatibility for relationship structure preferences
+    /// </summary>
+    private float GetRelationshipPrefCompatibility(RelationshipPreference otherPref)
+    {
+        // Exact match
+        if (RelationshipPref == otherPref)
+            return 1.0f;
+
+        // Monogamous with non-monogamous = conflict
+        if (RelationshipPref == RelationshipPreference.Monogamous &&
+            (otherPref == RelationshipPreference.Polyamorous || otherPref == RelationshipPreference.OpenRelationship))
+            return 0.2f;
+
+        // Open and Poly are semi-compatible
+        if ((RelationshipPref == RelationshipPreference.OpenRelationship && otherPref == RelationshipPreference.Polyamorous) ||
+            (RelationshipPref == RelationshipPreference.Polyamorous && otherPref == RelationshipPreference.OpenRelationship))
+            return 0.7f;
+
+        // Casual + FWB are compatible
+        if ((RelationshipPref == RelationshipPreference.CasualOnly && otherPref == RelationshipPreference.FriendsWithBenefits) ||
+            (RelationshipPref == RelationshipPreference.FriendsWithBenefits && otherPref == RelationshipPreference.CasualOnly))
+            return 0.8f;
+
+        // Undecided is flexible
+        if (RelationshipPref == RelationshipPreference.Undecided || otherPref == RelationshipPreference.Undecided)
+            return 0.7f;
+
+        return 0.4f; // Default low compatibility for mismatches
+    }
+
+    /// <summary>
+    /// Calculate how likely this personality is to respond positively to flirting
+    /// </summary>
+    public float GetFlirtReceptiveness(float currentRelationshipLevel, bool isAttracted)
+    {
+        if (!isAttracted) return 0.1f; // Very unlikely if not attracted
+
+        // Base receptiveness from personality
+        float receptiveness = Flirtatiousness * 0.4f + Sensuality * 0.3f + Sociability * 0.2f;
+
+        // Better relationship = more receptive
+        receptiveness += (1f - currentRelationshipLevel / 110f) * 0.3f;
+
+        // Shy/reserved people need more relationship first
+        if (Sociability < 0.4f && currentRelationshipLevel > 50)
+            receptiveness *= 0.5f;
+
+        return ClampFloat(receptiveness, 0f, 1f);
+    }
+
+    /// <summary>
+    /// Get jealousy response intensity (0-1) when partner is with someone else
+    /// </summary>
+    public float GetJealousyResponse(bool hasConsentedToArrangement)
+    {
+        if (hasConsentedToArrangement)
+        {
+            // Even with consent, some jealousy may remain based on personality
+            return Jealousy * 0.3f;
+        }
+
+        // No consent = full jealousy response
+        return Jealousy;
     }
     
     private float GetArchetypeCompatibility(string otherArchetype)

@@ -793,11 +793,11 @@ namespace UsurperRemake.Systems
                 if (eventData.Type == "GlobalState")
                 {
                     if (eventData.Parameters.TryGetValue("PlaguActive", out var plague))
-                        PlaguActive = Convert.ToBoolean(plague);
+                        PlaguActive = ConvertToBoolean(plague);
                     if (eventData.Parameters.TryGetValue("WarActive", out var war))
-                        WarActive = Convert.ToBoolean(war);
+                        WarActive = ConvertToBoolean(war);
                     if (eventData.Parameters.TryGetValue("FestivalActive", out var festival))
-                        FestivalActive = Convert.ToBoolean(festival);
+                        FestivalActive = ConvertToBoolean(festival);
                     if (!string.IsNullOrEmpty(eventData.Description))
                         CurrentKingDecree = eventData.Description;
                     continue;
@@ -813,11 +813,11 @@ namespace UsurperRemake.Systems
                 // Get days remaining
                 int daysRemaining = 1;
                 if (eventData.Parameters.TryGetValue("DaysRemaining", out var days))
-                    daysRemaining = Convert.ToInt32(days);
+                    daysRemaining = ConvertToInt32(days);
 
                 int startDay = currentDay;
                 if (eventData.Parameters.TryGetValue("StartDay", out var start))
-                    startDay = Convert.ToInt32(start);
+                    startDay = ConvertToInt32(start);
 
                 // Create the event
                 var evt = new WorldEvent
@@ -836,7 +836,7 @@ namespace UsurperRemake.Systems
                     if (param.Key.StartsWith("Effect_"))
                     {
                         string effectKey = param.Key.Substring(7); // Remove "Effect_" prefix
-                        evt.Effects[effectKey] = Convert.ToSingle(param.Value);
+                        evt.Effects[effectKey] = ConvertToSingle(param.Value);
                     }
                 }
 
@@ -847,6 +847,42 @@ namespace UsurperRemake.Systems
             // Recalculate modifiers from restored events
             RecalculateGlobalModifiers();
             GD.Print($"[WorldEvent] Restored {_activeEvents.Count} active events");
+        }
+
+        /// <summary>
+        /// Helper to convert object (possibly JsonElement) to int
+        /// </summary>
+        private int ConvertToInt32(object value)
+        {
+            if (value is System.Text.Json.JsonElement jsonElement)
+            {
+                return jsonElement.GetInt32();
+            }
+            return Convert.ToInt32(value);
+        }
+
+        /// <summary>
+        /// Helper to convert object (possibly JsonElement) to bool
+        /// </summary>
+        private bool ConvertToBoolean(object value)
+        {
+            if (value is System.Text.Json.JsonElement jsonElement)
+            {
+                return jsonElement.GetBoolean();
+            }
+            return Convert.ToBoolean(value);
+        }
+
+        /// <summary>
+        /// Helper to convert object (possibly JsonElement) to float
+        /// </summary>
+        private float ConvertToSingle(object value)
+        {
+            if (value is System.Text.Json.JsonElement jsonElement)
+            {
+                return jsonElement.GetSingle();
+            }
+            return Convert.ToSingle(value);
         }
     }
 }

@@ -1120,6 +1120,18 @@ public partial class CombatEngine
         long expReward = WorldEventSystem.Instance.GetAdjustedXP(baseExpReward);
         long goldReward = WorldEventSystem.Instance.GetAdjustedGold(baseGoldReward);
 
+        // Spouse XP bonus - 10% if married and spouse is alive
+        long spouseBonus = 0;
+        if (RomanceTracker.Instance.IsMarried && RomanceTracker.Instance.PrimarySpouse != null)
+        {
+            var spouseNpc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == RomanceTracker.Instance.PrimarySpouse.NPCId);
+            if (spouseNpc != null && spouseNpc.IsAlive)
+            {
+                spouseBonus = expReward / 10; // 10% bonus
+                expReward += spouseBonus;
+            }
+        }
+
         result.Player.Experience += expReward;
         result.Player.Gold += goldReward;
         result.Player.MKills++;
@@ -1132,13 +1144,20 @@ public partial class CombatEngine
         terminal.WriteLine($"You find {goldReward} gold!");
 
         // Show bonus from world events if any
-        if (expReward > baseExpReward || goldReward > baseGoldReward)
+        if (expReward > baseExpReward + spouseBonus || goldReward > baseGoldReward)
         {
             terminal.SetColor("bright_cyan");
-            if (expReward > baseExpReward)
-                terminal.WriteLine($"  (World event bonus: +{expReward - baseExpReward} XP)");
+            if (expReward > baseExpReward + spouseBonus)
+                terminal.WriteLine($"  (World event bonus: +{expReward - baseExpReward - spouseBonus} XP)");
             if (goldReward > baseGoldReward)
                 terminal.WriteLine($"  (World event bonus: +{goldReward - baseGoldReward} gold)");
+        }
+
+        // Show spouse bonus if applicable
+        if (spouseBonus > 0)
+        {
+            terminal.SetColor("bright_magenta");
+            terminal.WriteLine($"  (Spouse love bonus: +{spouseBonus} XP) ♥");
         }
         
         // Offer weapon pickup

@@ -72,6 +72,7 @@ public class Character
     public bool Smallpox { get; set; }              // smallpox?
     public bool Measles { get; set; }               // measles?
     public bool Leprosy { get; set; }               // leprosy?
+    public bool LoversBane { get; set; }            // STD from Love Street
     public int Mercy { get; set; }                  // mercy??
     
     // Inventory - array from Pascal

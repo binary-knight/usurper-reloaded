@@ -88,8 +88,8 @@ public class LocationManager
         // Phase 11: Prison System
         locations[GameLocation.Prisoner] = new PrisonLocation();
         
-        // Phase 12: Relationship System  
-        locations[GameLocation.LoveCorner] = new LoveCornerLocation();
+        // Phase 12: Relationship System
+        locations[GameLocation.LoveCorner] = new LoveStreetLocation();
         
         GD.Print($"[LocationManager] Initialized {locations.Count} locations");
     }

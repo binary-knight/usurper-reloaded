@@ -1042,6 +1042,8 @@ public partial class GameEngine : Node
             Thiefs = playerData.Thiefs,
             Brawls = playerData.Brawls,
             Assa = playerData.Assa,
+            DarkNr = playerData.DarkNr > 0 ? playerData.DarkNr : GameConfig.DefaultDarkDeeds,
+            ChivNr = playerData.ChivNr > 0 ? playerData.ChivNr : GameConfig.DefaultGoodDeeds,
             
             // Status
             Chivalry = playerData.Chivalry,
@@ -1061,6 +1063,7 @@ public partial class GameEngine : Node
             Smallpox = playerData.Smallpox,
             Measles = playerData.Measles,
             Leprosy = playerData.Leprosy,
+            LoversBane = playerData.LoversBane,
 
             // Character settings
             AutoHeal = playerData.AutoHeal,
@@ -1140,6 +1143,12 @@ public partial class GameEngine : Node
         if (int.TryParse(playerData.CurrentLocation, out var locationId))
         {
             player.Location = locationId;
+        }
+
+        // Restore romance tracker data
+        if (playerData.RomanceData != null)
+        {
+            UsurperRemake.Systems.RomanceTracker.Instance.LoadFromSaveData(playerData.RomanceData);
         }
 
         return player;

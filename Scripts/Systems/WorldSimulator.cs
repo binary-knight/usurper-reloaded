@@ -1,4 +1,5 @@
 using UsurperRemake.Utils;
+using UsurperRemake.Systems;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -30,7 +31,7 @@ public class WorldSimulator
     private static readonly string[] GameLocations = new[]
     {
         "Main Street", "Dungeon", "Weapon Shop", "Armor Shop", "Magic Shop",
-        "Healer", "Inn", "Temple", "Gym", "Tavern", "Market", "Castle"
+        "Healer", "Inn", "Temple", "Gym", "Tavern", "Market", "Castle", "Love Street"
     };
     
     public void StartSimulation(List<NPC> worldNPCs)
@@ -139,6 +140,17 @@ public class WorldSimulator
         // Socialize/move around
         activities.Add(("move", 0.10));
 
+        // Romance/Love Street - based on personality
+        if (npc.Gold > 500 && npc.Brain?.Personality != null)
+        {
+            float romanceWeight = 0.05f; // Base chance
+            // Higher romanticism = more likely to seek romance
+            romanceWeight += npc.Brain.Personality.Romanticism * 0.10f;
+            // Lower commitment = more likely to visit pleasure houses
+            romanceWeight += (1f - npc.Brain.Personality.Commitment) * 0.05f;
+            activities.Add(("love_street", romanceWeight));
+        }
+
         // Team activities
         if (string.IsNullOrEmpty(npc.Team))
         {
@@ -201,6 +213,9 @@ public class WorldSimulator
                 break;
             case "team_dungeon":
                 NPCTeamDungeonRun(npc);
+                break;
+            case "love_street":
+                NPCVisitLoveStreet(npc);
                 break;
         }
     }
@@ -770,7 +785,85 @@ public class WorldSimulator
             GD.Print($"[WorldSim] {npc.Name} moved to {newLocation}");
         }
     }
-    
+
+    /// <summary>
+    /// NPC visits Love Street for romance or paid companionship
+    /// </summary>
+    private void NPCVisitLoveStreet(NPC npc)
+    {
+        npc.UpdateLocation("Love Street");
+        GD.Print($"[WorldSim] {npc.Name} visits Love Street");
+
+        var personality = npc.Brain?.Personality;
+        if (personality == null) return;
+
+        // Check if NPC has a spouse - might cause jealousy drama
+        var spouse = RomanceTracker.Instance?.Spouses?
+            .FirstOrDefault(s => s.NPCId == npc.ID);
+
+        // Decide what to do: socialize, seek romance, or use paid services
+        float roll = (float)random.NextDouble();
+
+        if (roll < 0.4f)
+        {
+            // Just socializing/looking for dates
+            GD.Print($"[WorldSim] {npc.Name} is looking for romance at Love Street");
+            // Could meet other NPCs here for relationship building
+        }
+        else if (roll < 0.7f && npc.Gold >= 500)
+        {
+            // Use paid services
+            int cost = random.Next(500, 5000);
+            cost = Math.Min(cost, (int)npc.Gold);
+            npc.SpendGold(cost);
+
+            // Disease risk based on how cheap they went
+            float diseaseChance = cost < 2000 ? 0.25f : cost < 5000 ? 0.15f : 0.05f;
+            bool gotDisease = random.NextDouble() < diseaseChance;
+
+            if (gotDisease)
+            {
+                // NPC contracted a disease
+                npc.HP = Math.Max(1, npc.HP / 2);
+                NewsSystem.Instance.Newsy(true,
+                    $"{npc.Name} caught a nasty disease at Love Street!");
+                GD.Print($"[WorldSim] {npc.Name} contracted a disease at Love Street!");
+            }
+            else
+            {
+                GD.Print($"[WorldSim] {npc.Name} spent {cost} gold at Love Street");
+            }
+
+            // Generate news occasionally
+            if (random.NextDouble() < 0.3f)
+            {
+                NewsSystem.Instance.Newsy(true,
+                    $"{npc.Name} was seen at Love Street last night.");
+            }
+        }
+        else
+        {
+            // Looking for actual romance with other NPCs present
+            var otherNPCs = npcs
+                .Where(n => n.IsAlive && n.ID != npc.ID && n.CurrentLocation == "Love Street")
+                .ToList();
+
+            if (otherNPCs.Any())
+            {
+                var target = otherNPCs[random.Next(otherNPCs.Count)];
+                bool isAttracted = personality.IsAttractedTo(
+                    target.Sex == CharacterSex.Female ? GenderIdentity.Female : GenderIdentity.Male);
+
+                if (isAttracted)
+                {
+                    // Improve relationship
+                    RelationshipSystem.UpdateRelationship(npc, target, 1, 2, true);
+                    GD.Print($"[WorldSim] {npc.Name} and {target.Name} hit it off at Love Street");
+                }
+            }
+        }
+    }
+
     private void ExecuteTrade(NPC npc, string targetId, WorldState world)
     {
         if (string.IsNullOrEmpty(targetId)) return;

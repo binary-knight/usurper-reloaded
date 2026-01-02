@@ -70,6 +70,18 @@ namespace UsurperRemake.Systems
         /// </summary>
         private NPC CreateNPCFromTemplate(NPCTemplate template)
         {
+            // Map GenderIdentity to CharacterSex
+            CharacterSex sex = template.Gender switch
+            {
+                GenderIdentity.Female => CharacterSex.Female,
+                GenderIdentity.TransFemale => CharacterSex.Female,
+                GenderIdentity.Male => CharacterSex.Male,
+                GenderIdentity.TransMale => CharacterSex.Male,
+                GenderIdentity.NonBinary => random.Next(2) == 0 ? CharacterSex.Male : CharacterSex.Female,
+                GenderIdentity.Genderfluid => random.Next(2) == 0 ? CharacterSex.Male : CharacterSex.Female,
+                _ => random.Next(2) == 0 ? CharacterSex.Male : CharacterSex.Female
+            };
+
             var npc = new NPC
             {
                 Name1 = template.Name,
@@ -78,15 +90,15 @@ namespace UsurperRemake.Systems
                 Race = template.Race,
                 Level = template.StartLevel,
                 Age = random.Next(18, 50),
-                Sex = random.Next(2) == 0 ? CharacterSex.Male : CharacterSex.Female,
+                Sex = sex,
                 AI = CharacterAI.Computer
             };
 
             // Generate stats based on level and class
             GenerateNPCStats(npc, template);
 
-            // Set personality and alignment
-            SetNPCPersonality(npc, template.Personality, template.Alignment);
+            // Set personality and alignment (including romance traits from template)
+            SetNPCPersonality(npc, template);
 
             // Give starting equipment
             GiveStartingEquipment(npc);
@@ -155,10 +167,13 @@ namespace UsurperRemake.Systems
         }
 
         /// <summary>
-        /// Set NPC personality based on template
+        /// Set NPC personality based on template (including romance traits)
         /// </summary>
-        private void SetNPCPersonality(NPC npc, string personality, string alignment)
+        private void SetNPCPersonality(NPC npc, NPCTemplate template)
         {
+            string personality = template.Personality;
+            string alignment = template.Alignment;
+
             // Create personality profile first
             var profile = new PersonalityProfile
             {
@@ -207,6 +222,46 @@ namespace UsurperRemake.Systems
                     // Neutral personality
                     break;
             }
+
+            // Apply romance traits from template
+            profile.Gender = template.Gender;
+            profile.Orientation = template.Orientation;
+            profile.IntimateStyle = template.IntimateStyle;
+            profile.RelationshipPref = template.RelationshipPref;
+
+            // Apply optional romance personality modifiers from template
+            if (template.Romanticism.HasValue)
+                profile.Romanticism = template.Romanticism.Value;
+            else
+                profile.Romanticism = 0.5f + (float)(random.NextDouble() * 0.3 - 0.15); // 0.35-0.65
+
+            if (template.Sensuality.HasValue)
+                profile.Sensuality = template.Sensuality.Value;
+            else
+                profile.Sensuality = 0.5f + (float)(random.NextDouble() * 0.3 - 0.15);
+
+            if (template.Passion.HasValue)
+                profile.Passion = template.Passion.Value;
+            else
+                profile.Passion = 0.5f + (float)(random.NextDouble() * 0.3 - 0.15);
+
+            if (template.Adventurousness.HasValue)
+                profile.Adventurousness = template.Adventurousness.Value;
+            else
+                profile.Adventurousness = 0.4f + (float)(random.NextDouble() * 0.3);
+
+            // Generate remaining romance traits randomly based on personality
+            profile.Flirtatiousness = profile.Sociability * 0.5f + (float)(random.NextDouble() * 0.3);
+            profile.Tenderness = personality.ToLower() switch
+            {
+                "gentle" or "kind" or "compassionate" => 0.8f + (float)(random.NextDouble() * 0.2),
+                "brutal" or "cruel" or "merciless" => 0.1f + (float)(random.NextDouble() * 0.2),
+                _ => 0.4f + (float)(random.NextDouble() * 0.3)
+            };
+            profile.Jealousy = 0.3f + (float)(random.NextDouble() * 0.4);
+            profile.Commitment = profile.RelationshipPref == RelationshipPreference.Monogamous ? 0.8f : 0.4f;
+            profile.Exhibitionism = (float)(random.NextDouble() * 0.3);
+            profile.Voyeurism = (float)(random.NextDouble() * 0.3);
 
             // Create NPCBrain with the personality profile
             npc.Brain = new NPCBrain(npc, profile);

@@ -344,7 +344,16 @@ public class MainStreetLocation : BaseLocation
         terminal.SetColor("darkgray");
         terminal.Write("]");
         terminal.SetColor("gray");
-        terminal.WriteLine(" Dark Alle(Y) - Shady district");
+        terminal.Write(" Dark Alle(Y)    ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_magenta");
+        terminal.Write("X");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("magenta");
+        terminal.WriteLine(" Love Street - Pleasure district");
 
         terminal.WriteLine("");
         terminal.SetColor("bright_cyan");
@@ -445,7 +454,9 @@ public class MainStreetLocation : BaseLocation
                 throw new LocationExitException(GameLocation.Temple);
                 
             case "X":
-                await NavigateToLocation(GameLocation.DarkAlley); // Extra shops
+                terminal.WriteLine("You head to Love Street...", "magenta");
+                await Task.Delay(1500);
+                throw new LocationExitException(GameLocation.LoveCorner);
                 return true;
                 
             case "J":
@@ -530,6 +541,12 @@ public class MainStreetLocation : BaseLocation
             case "CHEATER":
             case "DEVMENU":
                 await EnterDevMenu();
+                return false;
+
+            // Talk to NPCs
+            case "0":
+            case "TALK":
+                await TalkToNPC();
                 return false;
 
             default:

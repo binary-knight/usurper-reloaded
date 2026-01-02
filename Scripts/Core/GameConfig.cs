@@ -293,7 +293,7 @@ public static partial class GameConfig
     public const long MarriageCost = 1000;             // Cost for marriage ceremony
     public const long DivorceCost = 2000;              // Cost for divorce/annulment
     public const int MaxMarriageAttempts = 3;          // Daily marriage attempts
-    public const int MinAgeForMarriage = 16;           // Minimum age to marry
+    public const int MinAgeForMarriage = 18;           // Minimum age to marry
     
     // Divine Services
     public const long BlessingCost = 500;              // Cost for divine blessing
@@ -594,14 +594,14 @@ public static partial class GameConfig
     // Character Race Bonuses (Pascal USERHUNC.PAS race case statements)
     public static readonly Dictionary<CharacterRace, RaceAttributes> RaceAttributes = new()
     {
-        [CharacterRace.Human] = new() { HPBonus = 14, StrengthBonus = 4, DefenceBonus = 4, StaminaBonus = 4, MinAge = 15, MaxAge = 19, MinHeight = 180, MaxHeight = 219, MinWeight = 75, MaxWeight = 119, SkinColor = 10, HairColors = new[] { 1, 4, 5, 8 } },
+        [CharacterRace.Human] = new() { HPBonus = 14, StrengthBonus = 4, DefenceBonus = 4, StaminaBonus = 4, MinAge = 18, MaxAge = 22, MinHeight = 180, MaxHeight = 219, MinWeight = 75, MaxWeight = 119, SkinColor = 10, HairColors = new[] { 1, 4, 5, 8 } },
         [CharacterRace.Hobbit] = new() { HPBonus = 12, StrengthBonus = 2, DefenceBonus = 3, StaminaBonus = 3, MinAge = 20, MaxAge = 34, MinHeight = 100, MaxHeight = 136, MinWeight = 40, MaxWeight = 79, SkinColor = 10, HairColors = new[] { 1, 4, 5, 8 } },
         [CharacterRace.Elf] = new() { HPBonus = 11, StrengthBonus = 3, DefenceBonus = 2, StaminaBonus = 3, MinAge = 20, MaxAge = 34, MinHeight = 160, MaxHeight = 184, MinWeight = 60, MaxWeight = 89, SkinColor = 10, HairColors = new[] { 1, 4, 5, 8 } },
-        [CharacterRace.HalfElf] = new() { HPBonus = 13, StrengthBonus = 2, DefenceBonus = 3, StaminaBonus = 4, MinAge = 16, MaxAge = 25, MinHeight = 165, MaxHeight = 189, MinWeight = 70, MaxWeight = 94, SkinColor = 10, HairColors = new[] { 1, 4, 5, 8 } },
+        [CharacterRace.HalfElf] = new() { HPBonus = 13, StrengthBonus = 2, DefenceBonus = 3, StaminaBonus = 4, MinAge = 18, MaxAge = 25, MinHeight = 165, MaxHeight = 189, MinWeight = 70, MaxWeight = 94, SkinColor = 10, HairColors = new[] { 1, 4, 5, 8 } },
         [CharacterRace.Dwarf] = new() { HPBonus = 17, StrengthBonus = 5, DefenceBonus = 5, StaminaBonus = 4, MinAge = 25, MaxAge = 39, MinHeight = 160, MaxHeight = 179, MinWeight = 70, MaxWeight = 89, SkinColor = 7, HairColors = new[] { 1, 4, 5, 8 } },
-        [CharacterRace.Troll] = new() { HPBonus = 20, StrengthBonus = 7, DefenceBonus = 7, StaminaBonus = 5, MinAge = 15, MaxAge = 29, MinHeight = 185, MaxHeight = 219, MinWeight = 85, MaxWeight = 114, SkinColor = 5, HairColors = new[] { 5, 4, 4, 5 } },
-        [CharacterRace.Orc] = new() { HPBonus = 14, StrengthBonus = 3, DefenceBonus = 4, StaminaBonus = 3, MinAge = 15, MaxAge = 24, MinHeight = 170, MaxHeight = 189, MinWeight = 70, MaxWeight = 89, SkinColor = 5, HairColors = new[] { 5, 4, 4, 5 } },
-        [CharacterRace.Gnome] = new() { HPBonus = 12, StrengthBonus = 2, DefenceBonus = 3, StaminaBonus = 3, MinAge = 15, MaxAge = 29, MinHeight = 160, MaxHeight = 189, MinWeight = 60, MaxWeight = 74, SkinColor = 3, HairColors = new[] { 3, 3, 4, 9 } },
+        [CharacterRace.Troll] = new() { HPBonus = 20, StrengthBonus = 7, DefenceBonus = 7, StaminaBonus = 5, MinAge = 18, MaxAge = 29, MinHeight = 185, MaxHeight = 219, MinWeight = 85, MaxWeight = 114, SkinColor = 5, HairColors = new[] { 5, 4, 4, 5 } },
+        [CharacterRace.Orc] = new() { HPBonus = 14, StrengthBonus = 3, DefenceBonus = 4, StaminaBonus = 3, MinAge = 18, MaxAge = 24, MinHeight = 170, MaxHeight = 189, MinWeight = 70, MaxWeight = 89, SkinColor = 5, HairColors = new[] { 5, 4, 4, 5 } },
+        [CharacterRace.Gnome] = new() { HPBonus = 12, StrengthBonus = 2, DefenceBonus = 3, StaminaBonus = 3, MinAge = 18, MaxAge = 29, MinHeight = 160, MaxHeight = 189, MinWeight = 60, MaxWeight = 74, SkinColor = 3, HairColors = new[] { 3, 3, 4, 9 } },
         [CharacterRace.Gnoll] = new() { HPBonus = 9, StrengthBonus = 2, DefenceBonus = 2, StaminaBonus = 2, MinAge = 18, MaxAge = 27, MinHeight = 140, MaxHeight = 154, MinWeight = 50, MaxWeight = 64, SkinColor = 4, HairColors = new[] { 3, 3, 4, 9 } },
         [CharacterRace.Mutant] = new() { HPBonus = 10, StrengthBonus = 1, DefenceBonus = 1, StaminaBonus = 1, MinAge = 18, MaxAge = 32, MinHeight = 150, MaxHeight = 199, MinWeight = 50, MaxWeight = 99, SkinColor = 0, HairColors = new int[0] }  // Random for mutants
     };

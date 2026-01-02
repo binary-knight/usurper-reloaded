@@ -269,9 +269,9 @@ public partial class NPC : Character
                 break;
         }
         
-        // Set age based on level and archetype
+        // Set age based on level and archetype (minimum 18)
         Age = 18 + Level + GD.RandRange(-5, 10);
-        if (Age < 16) Age = 16;
+        if (Age < 18) Age = 18;
         if (Age > 80) Age = 80;
     }
     
