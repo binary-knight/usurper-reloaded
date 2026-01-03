@@ -1087,6 +1087,12 @@ namespace UsurperRemake.Systems
         public int LoreFragmentsCollected { get; set; } = 0;
         public List<string> RevealedSecretRooms { get; set; } = new();
 
+        // Seven Seals story integration
+        public bool HasUncollectedSeal { get; set; } = false;
+        public UsurperRemake.Systems.SealType? SealType { get; set; }
+        public bool SealCollected { get; set; } = false;
+        public string SealRoomId { get; set; } = "";
+
         public DungeonRoom GetCurrentRoom() => Rooms.FirstOrDefault(r => r.Id == CurrentRoomId);
         public DungeonRoom GetRoom(string id) => Rooms.FirstOrDefault(r => r.Id == id);
 

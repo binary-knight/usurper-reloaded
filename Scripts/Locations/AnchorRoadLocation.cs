@@ -190,7 +190,7 @@ public class AnchorRoadLocation : BaseLocation
             if (currentPlayer.CTurf)
             {
                 terminal.SetColor("bright_yellow");
-                terminal.WriteLine(" ★ CONTROLS TOWN");
+                terminal.WriteLine(" * CONTROLS TOWN");
             }
             else
             {
@@ -669,7 +669,7 @@ public class AnchorRoadLocation : BaseLocation
         for (int i = 0; i < teams.Count; i++)
         {
             var team = teams[i];
-            string turfMark = team.ControlsTurf ? "★" : "-";
+            string turfMark = team.ControlsTurf ? "*" : "-";
 
             if (team.ControlsTurf)
                 terminal.SetColor("bright_yellow");
@@ -747,7 +747,7 @@ public class AnchorRoadLocation : BaseLocation
                 {
                     terminal.SetColor("bright_yellow");
                     terminal.WriteLine("");
-                    terminal.WriteLine("★ YOUR TEAM NOW CONTROLS THE TOWN! ★");
+                    terminal.WriteLine("* YOUR TEAM NOW CONTROLS THE TOWN! *");
 
                     // Transfer turf control
                     foreach (var enemy in enemyTeamMembers)
@@ -1042,7 +1042,7 @@ public class AnchorRoadLocation : BaseLocation
 
                 terminal.SetColor("bright_green");
                 terminal.WriteLine("");
-                terminal.WriteLine("★ YOUR TEAM NOW CONTROLS THE TOWN! ★");
+                terminal.WriteLine("* YOUR TEAM NOW CONTROLS THE TOWN! *");
                 terminal.WriteLine("Rule wisely, for challengers will come...");
 
                 NewsSystem.Instance.Newsy(true, $"{currentPlayer.Team} has taken control of the town!");

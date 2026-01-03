@@ -45,6 +45,12 @@ public partial class NPC : Character
     public string CurrentLocation { get; set; } = "main_street";
     public bool IsSpecialNPC { get; set; } = false;           // Special scripted NPCs like Seth Able
     public string SpecialScript { get; set; } = "";           // Name of special behavior script
+
+    // Story-connected NPC tracking (e.g., "TheStranger", "Lysandra", "Mordecai")
+    // Story NPCs cannot become King/Queen and have special narrative roles
+    public string StoryRole { get; set; } = "";               // Empty for non-story NPCs
+    public string LoreNote { get; set; } = "";                // Description of narrative role
+    public bool IsStoryNPC => !string.IsNullOrEmpty(StoryRole);  // Helper property
     
     // Daily behavior tracking
     public DateTime LastInteraction { get; set; }

@@ -42,7 +42,7 @@ public class HomeLocation : BaseLocation
             "Spend time with spouse (P)",
             "Visit bedroom (B)",
             "Status (S)",
-            "Return (E)"
+            "Return to town (Q)"
         };
     }
 
@@ -52,6 +52,148 @@ public class HomeLocation : BaseLocation
         if (!PlayerChests.ContainsKey(playerKey))
             PlayerChests[playerKey] = new List<ModelItem>();
         await base.EnterLocation(player, term);
+    }
+
+    protected override void DisplayLocation()
+    {
+        terminal.ClearScreen();
+
+        // Header
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("+==========================================================+");
+        terminal.WriteLine("|                      YOUR HOME                           |");
+        terminal.WriteLine("+==========================================================+");
+        terminal.WriteLine("");
+
+        // Description
+        terminal.SetColor("white");
+        terminal.WriteLine("You stand in the warm comfort of your home. A crackling fire");
+        terminal.WriteLine("illuminates the cozy interior, and your belongings are arranged");
+        terminal.WriteLine("just how you like them.");
+        terminal.WriteLine("");
+
+        // Show family info if applicable
+        var romance = RomanceTracker.Instance;
+        if (romance.Spouses.Count > 0 || romance.CurrentLovers.Count > 0)
+        {
+            terminal.SetColor("bright_magenta");
+            terminal.WriteLine("Your loved ones are here with you.");
+            terminal.WriteLine("");
+        }
+
+        // Menu
+        ShowHomeMenu();
+
+        // Status line
+        ShowStatusLine();
+    }
+
+    private void ShowHomeMenu()
+    {
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("--- Home Activities ---");
+        terminal.WriteLine("");
+
+        // Row 1 - Rest & Storage
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_green");
+        terminal.Write("R");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("est & Recover   ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_cyan");
+        terminal.Write("D");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("eposit Item    ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_cyan");
+        terminal.Write("W");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("ithdraw Item");
+
+        // Row 2 - View
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("yellow");
+        terminal.Write("L");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("ist Chest       ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("yellow");
+        terminal.Write("T");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("rophies        ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("yellow");
+        terminal.Write("F");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("amily");
+
+        // Row 3 - Romance
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_magenta");
+        terminal.Write("P");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("artner Time     ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_magenta");
+        terminal.Write("B");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("edroom");
+
+        terminal.WriteLine("");
+
+        // Navigation
+        terminal.SetColor("gray");
+        terminal.WriteLine("--- Navigation ---");
+
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("cyan");
+        terminal.Write("S");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("tatus          ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_red");
+        terminal.Write("Q");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("uit to Main Street");
+
+        terminal.WriteLine("");
     }
 
     protected override async Task<bool> ProcessChoice(string choice)
@@ -88,8 +230,9 @@ public class HomeLocation : BaseLocation
             case "S":
                 await ShowStatus();
                 return false;
-            case "E":
-                await NavigateToLocation(GameLocation.AnchorRoad);
+            case "Q":
+            case "M": // Also allow M for Main Street
+                await NavigateToLocation(GameLocation.MainStreet);
                 return true;
             default:
                 return await base.ProcessChoice(choice);
@@ -211,7 +354,7 @@ public class HomeLocation : BaseLocation
         {
             hasFamily = true;
             terminal.SetColor("bright_magenta");
-            terminal.WriteLine($"  ♥ SPOUSE{(romance.Spouses.Count > 1 ? "S" : "")} ♥");
+            terminal.WriteLine($"  <3 SPOUSE{(romance.Spouses.Count > 1 ? "S" : "")} <3");
             terminal.SetColor("white");
 
             foreach (var spouse in romance.Spouses)
@@ -222,7 +365,7 @@ public class HomeLocation : BaseLocation
 
                 terminal.Write($"    ");
                 terminal.SetColor("bright_red");
-                terminal.Write("♥ ");
+                terminal.Write("<3 ");
                 terminal.SetColor("bright_white");
                 terminal.Write(name);
                 terminal.SetColor("gray");
@@ -259,7 +402,7 @@ public class HomeLocation : BaseLocation
 
                 terminal.Write($"    ");
                 terminal.SetColor("bright_magenta");
-                terminal.Write("♡ ");
+                terminal.Write("<3 ");
                 terminal.SetColor("white");
                 terminal.Write(name);
                 terminal.SetColor("gray");
@@ -376,7 +519,7 @@ public class HomeLocation : BaseLocation
             var opt = options[i];
             terminal.Write($"  [{i + 1}] ");
             terminal.SetColor(opt.type == "spouse" ? "bright_red" : "bright_magenta");
-            terminal.Write($"♥ {opt.name}");
+            terminal.Write($"<3 {opt.name}");
             terminal.SetColor("gray");
             terminal.WriteLine($" ({opt.type})");
         }

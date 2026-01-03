@@ -4,6 +4,7 @@ using UsurperRemake.Systems;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Godot;
 
 /// <summary>
@@ -67,34 +68,184 @@ public partial class MagicShopLocation : BaseLocation
     private void InitializeMagicInventory()
     {
         _magicInventory.Clear();
-        
-        // Neck items (Amulets)
-        AddMagicItem("Amulet of Wisdom", MagicItemType.Neck, 2500, wisdom: 3, mana: 10);
-        AddMagicItem("Pendant of Protection", MagicItemType.Neck, 3500, defense: 5, magicRes: 15);
-        AddMagicItem("Holy Symbol", MagicItemType.Neck, 4000, goodOnly: true, cureType: CureType.All);
-        AddMagicItem("Dark Medallion", MagicItemType.Neck, 4500, evilOnly: true, mana: 25, cursed: true);
-        AddMagicItem("Crystal Necklace", MagicItemType.Neck, 6000, wisdom: 5, mana: 20, dexterity: 2);
-        
-        // Ring items  
+
+        // ═══════════════════════════════════════════════════════════════════
+        // RINGS - Varied magical rings for different builds and purposes
+        // ═══════════════════════════════════════════════════════════════════
+
+        // Basic Rings (Affordable starter items)
+        AddMagicItem("Copper Ring", MagicItemType.Fingers, 500, dexterity: 1);
+        AddMagicItem("Silver Band", MagicItemType.Fingers, 800, wisdom: 1, mana: 5);
+        AddMagicItem("Iron Ring", MagicItemType.Fingers, 600, strength: 1, defense: 1);
+        AddMagicItem("Jade Ring", MagicItemType.Fingers, 1000, wisdom: 2);
+
+        // Combat Rings
         AddMagicItem("Ring of Dexterity", MagicItemType.Fingers, 1800, dexterity: 4);
-        AddMagicItem("Mana Ring", MagicItemType.Fingers, 2200, mana: 15, wisdom: 2);
+        AddMagicItem("Ring of Might", MagicItemType.Fingers, 2000, strength: 4, attack: 2);
         AddMagicItem("Ring of Protection", MagicItemType.Fingers, 2800, defense: 3, magicRes: 10);
+        AddMagicItem("Warrior's Signet", MagicItemType.Fingers, 3500, strength: 3, dexterity: 3, attack: 3);
+        AddMagicItem("Berserker's Band", MagicItemType.Fingers, 4500, strength: 6, attack: 5, defense: -2);
+        AddMagicItem("Ring of the Champion", MagicItemType.Fingers, 8000, strength: 5, dexterity: 5, defense: 3, attack: 4);
+
+        // Magic Rings
+        AddMagicItem("Mana Ring", MagicItemType.Fingers, 2200, mana: 15, wisdom: 2);
         AddMagicItem("Sage's Ring", MagicItemType.Fingers, 3500, wisdom: 4, mana: 18);
-        AddMagicItem("Ring of Shadows", MagicItemType.Fingers, 4200, evilOnly: true, dexterity: 6, cursed: true);
-        AddMagicItem("Master's Ring", MagicItemType.Fingers, 8000, wisdom: 8, mana: 35, dexterity: 4);
-        
-        // Waist items (Belts)
+        AddMagicItem("Archmage's Band", MagicItemType.Fingers, 6500, wisdom: 6, mana: 30, magicRes: 15);
+        AddMagicItem("Ring of Spellweaving", MagicItemType.Fingers, 7500, mana: 40, wisdom: 5, dexterity: 2);
+        AddMagicItem("Master's Ring", MagicItemType.Fingers, 12000, wisdom: 8, mana: 50, dexterity: 4, magicRes: 20);
+
+        // Ocean-Themed Rings (Lore items)
+        AddMagicItem("Tidecaller's Ring", MagicItemType.Fingers, 5000, mana: 25, wisdom: 4,
+            description: "A ring carved from pale blue coral, pulsing with the rhythm of distant waves.");
+        AddMagicItem("Ring of the Deep", MagicItemType.Fingers, 7000, dexterity: 4, magicRes: 25, mana: 20,
+            description: "From the lightless depths where the Ocean's dreams are darkest.");
+        AddMagicItem("Wavecrest Signet", MagicItemType.Fingers, 9000, strength: 4, dexterity: 4, wisdom: 4,
+            description: "The crest depicts a wave rising - or is it falling? The perspective shifts.");
+        AddMagicItem("Fragment Ring", MagicItemType.Fingers, 15000, wisdom: 10, mana: 45, magicRes: 30,
+            description: "Contains a droplet that never evaporates. It whispers of forgotten origins.");
+
+        // Alignment-Specific Rings
+        AddMagicItem("Ring of Radiance", MagicItemType.Fingers, 5500, wisdom: 5, mana: 20, goodOnly: true,
+            description: "Glows softly in the presence of true virtue.");
+        AddMagicItem("Paladin's Seal", MagicItemType.Fingers, 7500, strength: 4, defense: 4, magicRes: 20, goodOnly: true);
+        AddMagicItem("Ring of Shadows", MagicItemType.Fingers, 4200, dexterity: 6, evilOnly: true);
+        AddMagicItem("Nightbane Ring", MagicItemType.Fingers, 6000, dexterity: 5, attack: 4, evilOnly: true,
+            description: "Forged in darkness, it hungers for the light of others.");
+        AddMagicItem("Soulthief's Band", MagicItemType.Fingers, 9500, mana: 35, wisdom: 6, attack: 3, evilOnly: true);
+
+        // Cursed Rings (Powerful but dangerous)
+        AddMagicItem("Ring of Obsession", MagicItemType.Fingers, 3000, strength: 8, wisdom: -3, cursed: true,
+            description: "It will not come off. It does not want to come off.");
+        AddMagicItem("Withering Band", MagicItemType.Fingers, 4000, mana: 40, strength: -4, cursed: true);
+        AddMagicItem("Ring of the Drowned", MagicItemType.Fingers, 6000, magicRes: 40, wisdom: 8, dexterity: -3, cursed: true,
+            description: "Those who wear it hear the ocean calling them to return.");
+        AddMagicItem("Betrayer's Signet", MagicItemType.Fingers, 8000, dexterity: 10, attack: 6, defense: -5, cursed: true);
+
+        // Healing/Utility Rings
+        AddMagicItem("Ring of Vitality", MagicItemType.Fingers, 3200, defense: 2, cureType: CureType.Plague);
+        AddMagicItem("Ring of Purity", MagicItemType.Fingers, 4500, cureType: CureType.All, magicRes: 10, goodOnly: true);
+        AddMagicItem("Antidote Ring", MagicItemType.Fingers, 2500, cureType: CureType.Plague, dexterity: 2);
+
+        // ═══════════════════════════════════════════════════════════════════
+        // AMULETS & NECKLACES - Powerful neck slot items
+        // ═══════════════════════════════════════════════════════════════════
+
+        // Basic Amulets
+        AddMagicItem("Copper Medallion", MagicItemType.Neck, 600, defense: 1, wisdom: 1);
+        AddMagicItem("Silver Pendant", MagicItemType.Neck, 900, mana: 8, magicRes: 5);
+        AddMagicItem("Wooden Talisman", MagicItemType.Neck, 400, defense: 2);
+
+        // Protective Amulets
+        AddMagicItem("Amulet of Warding", MagicItemType.Neck, 2500, defense: 4, magicRes: 10);
+        AddMagicItem("Pendant of Protection", MagicItemType.Neck, 3500, defense: 5, magicRes: 15);
+        AddMagicItem("Guardian's Medallion", MagicItemType.Neck, 5000, defense: 6, magicRes: 20, strength: 2);
+        AddMagicItem("Amulet of the Fortress", MagicItemType.Neck, 8500, defense: 10, magicRes: 25, strength: -2);
+        AddMagicItem("Shield of the Ancients", MagicItemType.Neck, 15000, defense: 12, magicRes: 35, wisdom: 4);
+
+        // Magical Amulets
+        AddMagicItem("Amulet of Wisdom", MagicItemType.Neck, 2500, wisdom: 3, mana: 10);
+        AddMagicItem("Crystal Pendant", MagicItemType.Neck, 4000, wisdom: 4, mana: 15, dexterity: 2);
+        AddMagicItem("Starfire Amulet", MagicItemType.Neck, 6500, wisdom: 6, mana: 25, magicRes: 15);
+        AddMagicItem("Amulet of the Arcane", MagicItemType.Neck, 10000, wisdom: 8, mana: 40, magicRes: 20);
+        AddMagicItem("Pendant of Infinite Depths", MagicItemType.Neck, 18000, wisdom: 10, mana: 60, magicRes: 30,
+            description: "Looking into its gem is like staring into a bottomless pool.");
+
+        // Ocean-Themed Amulets (Lore items)
+        AddMagicItem("Teardrop of Manwe", MagicItemType.Neck, 12000, wisdom: 8, mana: 35, magicRes: 25,
+            description: "A crystallized tear from the Creator, shed in the first moment of separation.");
+        AddMagicItem("Wavecaller's Pendant", MagicItemType.Neck, 7500, wisdom: 5, mana: 30, dexterity: 3,
+            description: "The waves respond to those who wear this. Or perhaps they always did.");
+        AddMagicItem("Amulet of the Depths", MagicItemType.Neck, 9500, defense: 5, magicRes: 30, wisdom: 6,
+            description: "From where the pressure is so great that even light surrenders.");
+        AddMagicItem("Tidebinder's Chain", MagicItemType.Neck, 11000, strength: 5, dexterity: 5, mana: 25,
+            description: "Each link represents a binding - of water, of will, of memory.");
+        AddMagicItem("Heart of the Ocean", MagicItemType.Neck, 25000, wisdom: 12, mana: 50, magicRes: 40, defense: 8,
+            description: "It beats. Slowly. In rhythm with something vast and patient.");
+        AddMagicItem("Dreamer's Medallion", MagicItemType.Neck, 20000, wisdom: 10, mana: 45, strength: 4, dexterity: 4,
+            description: "The inscription reads: 'You are the Ocean, dreaming of waves.'");
+
+        // Alignment-Specific Amulets
+        AddMagicItem("Holy Symbol", MagicItemType.Neck, 4000, cureType: CureType.All, magicRes: 15, goodOnly: true);
+        AddMagicItem("Amulet of Divine Grace", MagicItemType.Neck, 8000, wisdom: 6, mana: 25, defense: 4, goodOnly: true,
+            description: "Blessed by those who remember the light before separation.");
+        AddMagicItem("Medallion of the Pure", MagicItemType.Neck, 12000, cureType: CureType.All, wisdom: 8, defense: 6, goodOnly: true);
+        AddMagicItem("Dark Medallion", MagicItemType.Neck, 4500, mana: 25, attack: 3, evilOnly: true);
+        AddMagicItem("Pendant of Shadows", MagicItemType.Neck, 7000, dexterity: 6, attack: 4, magicRes: 15, evilOnly: true);
+        AddMagicItem("Amulet of the Void", MagicItemType.Neck, 14000, mana: 40, wisdom: 7, magicRes: 25, evilOnly: true,
+            description: "Darkness given form. It drinks light and gives nothing back.");
+
+        // Cursed Amulets
+        AddMagicItem("Choker of Binding", MagicItemType.Neck, 5000, strength: 10, dexterity: -4, cursed: true,
+            description: "It tightens when you try to remove it.");
+        AddMagicItem("Medallion of Madness", MagicItemType.Neck, 6500, wisdom: 12, mana: 40, defense: -5, cursed: true,
+            description: "The voices it shares are ancient beyond measure.");
+        AddMagicItem("Amulet of the Drowned God", MagicItemType.Neck, 10000, mana: 50, magicRes: 35, wisdom: -5, cursed: true,
+            description: "A god died wearing this. Part of them remains.");
+        AddMagicItem("Pendant of Eternal Hunger", MagicItemType.Neck, 8000, strength: 8, attack: 6, wisdom: -6, cursed: true);
+
+        // Healing Amulets
+        AddMagicItem("Amulet of Restoration", MagicItemType.Neck, 3500, cureType: CureType.Blindness, wisdom: 2);
+        AddMagicItem("Healer's Pendant", MagicItemType.Neck, 5500, cureType: CureType.All, mana: 15, wisdom: 3);
+        AddMagicItem("Plague Ward", MagicItemType.Neck, 2800, cureType: CureType.Plague, defense: 2);
+        AddMagicItem("Purity Medallion", MagicItemType.Neck, 6000, cureType: CureType.All, defense: 4, magicRes: 15);
+
+        // ═══════════════════════════════════════════════════════════════════
+        // BELTS & GIRDLES - Waist slot items
+        // ═══════════════════════════════════════════════════════════════════
+
+        // Basic Belts
+        AddMagicItem("Leather Belt", MagicItemType.Waist, 300, defense: 1);
+        AddMagicItem("Studded Belt", MagicItemType.Waist, 600, defense: 2, strength: 1);
+        AddMagicItem("Cloth Sash", MagicItemType.Waist, 400, mana: 5, dexterity: 1);
+
+        // Strength Belts
         AddMagicItem("Belt of Strength", MagicItemType.Waist, 2000, strength: 3, attack: 2);
+        AddMagicItem("Girdle of Giant Strength", MagicItemType.Waist, 5000, strength: 6, attack: 3, dexterity: -1);
+        AddMagicItem("Champion's Belt", MagicItemType.Waist, 8000, strength: 5, attack: 4, defense: 3);
+        AddMagicItem("Titan's Girdle", MagicItemType.Waist, 15000, strength: 10, attack: 6, defense: 4, dexterity: -2);
+
+        // Dexterity Belts
         AddMagicItem("Girdle of Dexterity", MagicItemType.Waist, 2300, dexterity: 5, defense: 2);
+        AddMagicItem("Acrobat's Sash", MagicItemType.Waist, 4000, dexterity: 6, attack: 2);
+        AddMagicItem("Shadowdancer's Belt", MagicItemType.Waist, 7000, dexterity: 8, defense: 3, attack: 3);
+
+        // Magic Belts
         AddMagicItem("Mage's Belt", MagicItemType.Waist, 3200, mana: 20, wisdom: 3);
-        AddMagicItem("Belt of Health", MagicItemType.Waist, 3800, cureType: CureType.All, defense: 3);
+        AddMagicItem("Sorcerer's Sash", MagicItemType.Waist, 5500, mana: 30, wisdom: 5, magicRes: 10);
+        AddMagicItem("Arcane Girdle", MagicItemType.Waist, 9000, mana: 45, wisdom: 7, magicRes: 20);
+
+        // Ocean-Themed Belts (Lore items)
+        AddMagicItem("Tideweaver's Sash", MagicItemType.Waist, 6000, mana: 25, dexterity: 4, wisdom: 3,
+            description: "Woven from kelp that grows where the Ocean dreams most vividly.");
+        AddMagicItem("Belt of the Current", MagicItemType.Waist, 8500, dexterity: 7, strength: 3, attack: 3,
+            description: "Move with the current, not against it. The water remembers the way.");
+        AddMagicItem("Depthwalker's Girdle", MagicItemType.Waist, 12000, defense: 8, magicRes: 25, strength: 4,
+            description: "Those who journey to the depths must carry their own pressure.");
+
+        // Alignment Belts
+        AddMagicItem("Crusader's Belt", MagicItemType.Waist, 6000, strength: 4, defense: 4, attack: 3, goodOnly: true);
+        AddMagicItem("Belt of Righteous Fury", MagicItemType.Waist, 10000, strength: 6, attack: 5, defense: 2, goodOnly: true);
+        AddMagicItem("Assassin's Sash", MagicItemType.Waist, 5500, dexterity: 7, attack: 4, defense: -1, evilOnly: true);
+        AddMagicItem("Belt of Dark Power", MagicItemType.Waist, 9000, strength: 5, mana: 25, attack: 4, evilOnly: true);
+
+        // Cursed Belts
         AddMagicItem("Cursed Girdle", MagicItemType.Waist, 5000, strength: -2, dexterity: 8, cursed: true);
+        AddMagicItem("Belt of Burden", MagicItemType.Waist, 4000, defense: 10, dexterity: -6, cursed: true,
+            description: "Heavy. So heavy. Like carrying the weight of worlds.");
+        AddMagicItem("Parasite Sash", MagicItemType.Waist, 6000, mana: 35, strength: -3, defense: -2, cursed: true);
+
+        // Healing Belts
+        AddMagicItem("Belt of Health", MagicItemType.Waist, 3800, cureType: CureType.All, defense: 3);
+        AddMagicItem("Girdle of Wellness", MagicItemType.Waist, 5000, cureType: CureType.Plague, strength: 3, defense: 3);
+        AddMagicItem("Healer's Sash", MagicItemType.Waist, 4200, cureType: CureType.All, mana: 15, wisdom: 2);
     }
-    
-    private void AddMagicItem(string name, MagicItemType type, int value, 
-        int strength = 0, int defense = 0, int attack = 0, int dexterity = 0, 
+
+    // Description parameter for lore items
+    private void AddMagicItem(string name, MagicItemType type, int value,
+        int strength = 0, int defense = 0, int attack = 0, int dexterity = 0,
         int wisdom = 0, int mana = 0, int magicRes = 0, CureType cureType = CureType.None,
-        bool goodOnly = false, bool evilOnly = false, bool cursed = false)
+        bool goodOnly = false, bool evilOnly = false, bool cursed = false,
+        string description = "")
     {
         var item = new Item();
         item.Name = name;
@@ -102,26 +253,28 @@ public partial class MagicShopLocation : BaseLocation
         item.Type = ObjType.Magic;
         item.MagicType = type;
         item.IsShopItem = true;
-        
+        if (!string.IsNullOrEmpty(description))
+            item.Description[0] = description;
+
         // Set base stats
         item.Strength = strength;
         item.Defence = defense;
         item.Attack = attack;
         item.Dexterity = dexterity;
         item.Wisdom = wisdom;
-        
+
         // Set magic properties
         item.MagicProperties.Mana = mana;
         item.MagicProperties.Wisdom = wisdom;
         item.MagicProperties.Dexterity = dexterity;
         item.MagicProperties.MagicResistance = magicRes;
         item.MagicProperties.DiseaseImmunity = cureType;
-        
+
         // Set restrictions
         item.OnlyForGood = goodOnly;
         item.OnlyForEvil = evilOnly;
         item.IsCursed = cursed;
-        
+
         _magicInventory.Add(item);
     }
     
@@ -179,11 +332,13 @@ public partial class MagicShopLocation : BaseLocation
         DisplayMessage("");
 
         // Menu options
-        DisplayMessage("(R)eturn to street          (L)ist Items", "gray");
-        DisplayMessage("(I)dentify item             (B)uy Item", "gray");
-        DisplayMessage("(H)ealing Potions           (S)ell Item", "gray");
-        DisplayMessage("(Y) Study spells", "gray");
-        DisplayMessage($"                            (T)alk to {_ownerName}", "gray");
+        DisplayMessage("═══ Shopping ═══                    ═══ Services ═══", "cyan");
+        DisplayMessage("(L)ist Items by Category            (I)dentify item", "gray");
+        DisplayMessage("(B)uy Item                          (C)urse Removal", "gray");
+        DisplayMessage("(S)ell Item                         (E)nchant/Bless Item", "gray");
+        DisplayMessage("(H)ealing Potions                   (Y) Study spells", "gray");
+        DisplayMessage("");
+        DisplayMessage($"(T)alk to {_ownerName}              (R)eturn to street", "gray");
         DisplayMessage("");
         
         ProcessMagicShopMenu(player);
@@ -213,7 +368,7 @@ public partial class MagicShopLocation : BaseLocation
             switch (choice)
             {
                 case "L":
-                    ListMagicItems(player);
+                    ListMagicItemsByCategory(player);
                     break;
                 case "B":
                     BuyMagicItem(player);
@@ -223,6 +378,12 @@ public partial class MagicShopLocation : BaseLocation
                     break;
                 case "I":
                     IdentifyItem(player);
+                    break;
+                case "C":
+                    RemoveCurse(player);
+                    break;
+                case "E":
+                    EnchantItem(player);
                     break;
                 case "H":
                     BuyHealingPotions(player);
@@ -306,6 +467,9 @@ public partial class MagicShopLocation : BaseLocation
             var worldEventModifier = WorldEventSystem.Instance.GlobalPriceModifier;
             long adjustedPrice = (long)(item.Value * alignmentModifier * worldEventModifier);
 
+            // Apply city control discount if player's team controls the city
+            adjustedPrice = CityControlSystem.Instance.ApplyDiscount(adjustedPrice, player);
+
             // Check restrictions
             if (item.OnlyForGood && player.Chivalry < 1 && player.Darkness > 0)
             {
@@ -349,7 +513,10 @@ public partial class MagicShopLocation : BaseLocation
                 {
                     player.Gold -= adjustedPrice;
                     player.Inventory.Add(item.Clone());
-                    
+
+                    // Process city tax share from this sale
+                    CityControlSystem.Instance.ProcessSaleTax(adjustedPrice);
+
                     DisplayMessage("Done!", "green");
                     DisplayMessage($"You purchased the {item.Name}.", "gray");
                     
@@ -563,13 +730,19 @@ public partial class MagicShopLocation : BaseLocation
         {
             int totalCost = quantity * potionPrice;
             
-            if (player.Gold >= totalCost)
+            // Apply city control discount
+            long adjustedCost = CityControlSystem.Instance.ApplyDiscount(totalCost, player);
+
+            if (player.Gold >= adjustedCost)
             {
-                player.Gold -= totalCost;
+                player.Gold -= adjustedCost;
                 player.Healing += quantity;
-                
+
+                // Process city tax share from this sale
+                CityControlSystem.Instance.ProcessSaleTax(adjustedCost);
+
                 DisplayMessage($"Ok, it's a deal. You buy {quantity} potions.", "green");
-                DisplayMessage($"Total cost: {totalCost:N0} gold.", "gray");
+                DisplayMessage($"Total cost: {adjustedCost:N0} gold.", "gray");
             }
             else
             {
@@ -619,7 +792,461 @@ public partial class MagicShopLocation : BaseLocation
             DisplayMessage("A noble spirit! I have some blessed items that might serve you well.", "blue");
         }
     }
-    
+
+    /// <summary>
+    /// List magic items organized by category with pagination
+    /// </summary>
+    private void ListMagicItemsByCategory(Character player)
+    {
+        DisplayMessage("");
+        DisplayMessage("═══ Browse Magic Items by Category ═══", "cyan");
+        DisplayMessage("");
+        DisplayMessage("(1) Rings          - Magical rings for your fingers", "gray");
+        DisplayMessage("(2) Amulets        - Necklaces and pendants", "gray");
+        DisplayMessage("(3) Belts          - Magical girdles and sashes", "gray");
+        DisplayMessage("(4) Ocean Relics   - Items touched by Manwe's dream", "magenta");
+        DisplayMessage("(5) Cursed Items   - Powerful but dangerous", "darkred");
+        DisplayMessage("(6) All Items      - Browse everything", "gray");
+        DisplayMessage("");
+        DisplayMessage("Choose category (0 to cancel): ", "yellow", false);
+
+        string input = Console.ReadLine();
+        if (!int.TryParse(input, out int choice) || choice == 0)
+            return;
+
+        List<Item> filteredItems = choice switch
+        {
+            1 => _magicInventory.Where(i => i.MagicType == MagicItemType.Fingers).OrderBy(i => i.Value).ToList(),
+            2 => _magicInventory.Where(i => i.MagicType == MagicItemType.Neck).OrderBy(i => i.Value).ToList(),
+            3 => _magicInventory.Where(i => i.MagicType == MagicItemType.Waist).OrderBy(i => i.Value).ToList(),
+            4 => _magicInventory.Where(i => HasLoreDescription(i) &&
+                (i.Description[0].Contains("Ocean") || i.Description[0].Contains("wave") || i.Description[0].Contains("Manwe") ||
+                 i.Description[0].Contains("water") || i.Description[0].Contains("Tide") || i.Description[0].Contains("Depth") ||
+                 i.Name.Contains("Tide") || i.Name.Contains("Wave") || i.Name.Contains("Ocean") ||
+                 i.Name.Contains("Deep") || i.Name.Contains("Fragment") || i.Name.Contains("Dreamer"))).OrderBy(i => i.Value).ToList(),
+            5 => _magicInventory.Where(i => i.IsCursed).OrderBy(i => i.Value).ToList(),
+            6 => _magicInventory.OrderBy(i => i.Value).ToList(),
+            _ => new List<Item>()
+        };
+
+        string categoryName = choice switch
+        {
+            1 => "Rings",
+            2 => "Amulets & Necklaces",
+            3 => "Belts & Girdles",
+            4 => "Ocean Relics",
+            5 => "Cursed Items",
+            6 => "All Magic Items",
+            _ => "Unknown"
+        };
+
+        if (filteredItems.Count == 0)
+        {
+            DisplayMessage("No items found in this category.", "gray");
+            return;
+        }
+
+        // Paginated display
+        int itemsPerPage = 10;
+        int totalPages = (filteredItems.Count + itemsPerPage - 1) / itemsPerPage;
+        int currentPage = 0;
+
+        while (true)
+        {
+            terminal.ClearScreen();
+            DisplayMessage($"═══ {categoryName} ({filteredItems.Count} items) ═══", "cyan");
+            DisplayMessage($"Page {currentPage + 1} of {totalPages}", "gray");
+            DisplayMessage("");
+
+            int startIndex = currentPage * itemsPerPage;
+            int endIndex = Math.Min(startIndex + itemsPerPage, filteredItems.Count);
+
+            for (int i = startIndex; i < endIndex; i++)
+            {
+                var item = filteredItems[i];
+                int globalIndex = _magicInventory.IndexOf(item) + 1;
+
+                // Item name with price
+                string priceColor = item.IsCursed ? "darkred" : (item.OnlyForGood ? "blue" : (item.OnlyForEvil ? "red" : "white"));
+                DisplayMessage($"{globalIndex,3}. {item.Name,-30} {item.Value,10:N0} gold", priceColor);
+
+                // Stats line
+                var stats = new List<string>();
+                if (item.Strength != 0) stats.Add($"Str{(item.Strength > 0 ? "+" : "")}{item.Strength}");
+                if (item.Defence != 0) stats.Add($"Def{(item.Defence > 0 ? "+" : "")}{item.Defence}");
+                if (item.Attack != 0) stats.Add($"Att{(item.Attack > 0 ? "+" : "")}{item.Attack}");
+                if (item.Dexterity != 0) stats.Add($"Dex{(item.Dexterity > 0 ? "+" : "")}{item.Dexterity}");
+                if (item.Wisdom != 0) stats.Add($"Wis{(item.Wisdom > 0 ? "+" : "")}{item.Wisdom}");
+                if (item.MagicProperties.Mana != 0) stats.Add($"Mana{(item.MagicProperties.Mana > 0 ? "+" : "")}{item.MagicProperties.Mana}");
+                if (item.MagicProperties.MagicResistance != 0) stats.Add($"MR{(item.MagicProperties.MagicResistance > 0 ? "+" : "")}{item.MagicProperties.MagicResistance}");
+
+                if (stats.Count > 0)
+                    DisplayMessage($"     {string.Join(" ", stats)}", "green");
+
+                // Lore description if available
+                if (HasLoreDescription(item))
+                    DisplayMessage($"     \"{item.Description[0]}\"", "gray");
+
+                // Special flags
+                var flags = new List<string>();
+                if (item.OnlyForGood) flags.Add("[Good]");
+                if (item.OnlyForEvil) flags.Add("[Evil]");
+                if (item.IsCursed) flags.Add("[CURSED]");
+                if (item.MagicProperties.DiseaseImmunity != CureType.None)
+                    flags.Add($"[Cures {item.MagicProperties.DiseaseImmunity}]");
+
+                if (flags.Count > 0)
+                {
+                    string flagColor = item.IsCursed ? "darkred" : (item.OnlyForGood ? "blue" : "yellow");
+                    DisplayMessage($"     {string.Join(" ", flags)}", flagColor);
+                }
+
+                DisplayMessage(""); // Spacing between items
+            }
+
+            DisplayMessage("");
+            DisplayMessage("(N)ext page  (P)revious page  (Q)uit browsing", "yellow");
+            var key = Console.ReadKey(true).KeyChar.ToString().ToUpper();
+
+            if (key == "N" && currentPage < totalPages - 1)
+                currentPage++;
+            else if (key == "P" && currentPage > 0)
+                currentPage--;
+            else if (key == "Q")
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Remove curse from an item - expensive but essential service
+    /// </summary>
+    private void RemoveCurse(Character player)
+    {
+        DisplayMessage("");
+        DisplayMessage("═══ Curse Removal Service ═══", "magenta");
+        DisplayMessage("");
+        DisplayMessage($"{_ownerName} peers at you with knowing eyes.", "gray");
+        DisplayMessage("'Curses are tricky things. They bind to the soul, not just the flesh.'", "cyan");
+        DisplayMessage("'I can break such bonds, but it requires... significant effort.'", "cyan");
+        DisplayMessage("");
+
+        // Find cursed items in inventory
+        var cursedItems = player.Inventory.Where(i => i.IsCursed).ToList();
+
+        if (cursedItems.Count == 0)
+        {
+            DisplayMessage("You have no cursed items in your possession.", "gray");
+            DisplayMessage("'Consider yourself fortunate,' the gnome says with a wry smile.", "cyan");
+            return;
+        }
+
+        DisplayMessage("Cursed items in your inventory:", "darkred");
+        for (int i = 0; i < cursedItems.Count; i++)
+        {
+            var item = cursedItems[i];
+            long removalCost = CalculateCurseRemovalCost(item, player);
+            DisplayMessage($"{i + 1}. {item.Name} - Removal cost: {removalCost:N0} gold", "red");
+
+            // Show the curse's nature
+            DisplayCurseDetails(item);
+        }
+
+        DisplayMessage("");
+        DisplayMessage("Enter item # to uncurse (0 to cancel): ", "yellow", false);
+        string input = Console.ReadLine();
+
+        if (!int.TryParse(input, out int itemIndex) || itemIndex <= 0 || itemIndex > cursedItems.Count)
+            return;
+
+        var targetItem = cursedItems[itemIndex - 1];
+        long cost = CalculateCurseRemovalCost(targetItem, player);
+
+        if (player.Gold < cost)
+        {
+            DisplayMessage("");
+            DisplayMessage("'You lack the gold for such a ritual,' the gnome says sadly.", "cyan");
+            DisplayMessage("'The curse remains.'", "red");
+            return;
+        }
+
+        DisplayMessage("");
+        DisplayMessage($"Remove the curse from {targetItem.Name} for {cost:N0} gold? (Y/N): ", "yellow", false);
+        var confirm = Console.ReadKey().KeyChar.ToString().ToUpper();
+        DisplayMessage("");
+
+        if (confirm == "Y")
+        {
+            player.Gold -= cost;
+
+            // Dramatic curse removal scene
+            DisplayMessage("");
+            DisplayMessage($"{_ownerName} takes the {targetItem.Name} and places it in a circle of salt.", "gray");
+            DisplayMessage("Ancient words fill the air, words older than the walls of this shop...", "gray");
+            Thread.Sleep(500);
+            DisplayMessage("The item shudders. Something dark rises from it like smoke...", "magenta");
+            Thread.Sleep(500);
+            DisplayMessage("And dissipates into nothingness.", "white");
+            DisplayMessage("");
+
+            // Remove the curse
+            targetItem.IsCursed = false;
+            targetItem.Cursed = false;
+
+            // Add a small bonus for uncursed items (they're purified)
+            if (targetItem.MagicProperties.MagicResistance < 0)
+                targetItem.MagicProperties.MagicResistance = Math.Abs(targetItem.MagicProperties.MagicResistance) / 2;
+
+            DisplayMessage($"The {targetItem.Name} is now free of its curse!", "bright_green");
+            DisplayMessage("'It is done,' the gnome says, looking tired but satisfied.", "cyan");
+
+            // Special Ocean lore for certain items
+            if (targetItem.Name.Contains("Drowned") || targetItem.Name.Contains("Ocean") || targetItem.Name.Contains("Deep"))
+            {
+                DisplayMessage("");
+                DisplayMessage("'This item... it remembers the depths. The Ocean's dreams.'", "magenta");
+                DisplayMessage("'Perhaps it was not cursed, but merely... homesick.'", "magenta");
+            }
+        }
+    }
+
+    private long CalculateCurseRemovalCost(Item item, Character player)
+    {
+        // Base cost is 2x the item's value
+        long baseCost = item.Value * 2;
+
+        // Powerful curses cost more (items with big negative stats)
+        int cursePower = 0;
+        if (item.Strength < 0) cursePower += Math.Abs(item.Strength) * 100;
+        if (item.Defence < 0) cursePower += Math.Abs(item.Defence) * 100;
+        if (item.Dexterity < 0) cursePower += Math.Abs(item.Dexterity) * 100;
+        if (item.Wisdom < 0) cursePower += Math.Abs(item.Wisdom) * 100;
+
+        baseCost += cursePower;
+
+        // Minimum cost
+        return Math.Max(500, baseCost);
+    }
+
+    private void DisplayCurseDetails(Item item)
+    {
+        var negatives = new List<string>();
+        if (item.Strength < 0) negatives.Add($"Str{item.Strength}");
+        if (item.Defence < 0) negatives.Add($"Def{item.Defence}");
+        if (item.Dexterity < 0) negatives.Add($"Dex{item.Dexterity}");
+        if (item.Wisdom < 0) negatives.Add($"Wis{item.Wisdom}");
+
+        if (negatives.Count > 0)
+            DisplayMessage($"     Curse effect: {string.Join(", ", negatives)}", "darkred");
+
+        if (HasLoreDescription(item))
+            DisplayMessage($"     \"{item.Description[0]}\"", "gray");
+    }
+
+    /// <summary>
+    /// Helper to check if an item has a lore description
+    /// </summary>
+    private bool HasLoreDescription(Item item)
+    {
+        return item.Description != null &&
+               item.Description.Count > 0 &&
+               !string.IsNullOrEmpty(item.Description[0]);
+    }
+
+    /// <summary>
+    /// Enchant or bless items - add magical properties
+    /// </summary>
+    private void EnchantItem(Character player)
+    {
+        DisplayMessage("");
+        DisplayMessage("═══ Enchantment & Blessing Services ═══", "magenta");
+        DisplayMessage("");
+        DisplayMessage($"{_ownerName} waves a gnarled hand over a collection of glowing runes.", "gray");
+        DisplayMessage("'I can imbue your items with magical essence, or seek blessings from the divine.'", "cyan");
+        DisplayMessage("");
+
+        DisplayMessage("(1) Minor Enchantment   - +2 to one stat           2,000 gold", "gray");
+        DisplayMessage("(2) Standard Enchant    - +4 to one stat           5,000 gold", "gray");
+        DisplayMessage("(3) Greater Enchantment - +6 to one stat          12,000 gold", "gray");
+        DisplayMessage("(4) Divine Blessing     - +3 to all stats         25,000 gold", "blue");
+        DisplayMessage("(5) Ocean's Touch       - Special mana bonus      15,000 gold", "cyan");
+        DisplayMessage("(6) Ward Against Evil   - +20 Magic Resistance     8,000 gold", "yellow");
+        DisplayMessage("");
+        DisplayMessage("Choose enchantment type (0 to cancel): ", "yellow", false);
+
+        string input = Console.ReadLine();
+        if (!int.TryParse(input, out int enchantChoice) || enchantChoice <= 0 || enchantChoice > 6)
+            return;
+
+        long[] costs = { 0, 2000, 5000, 12000, 25000, 15000, 8000 };
+        long cost = costs[enchantChoice];
+
+        if (player.Gold < cost)
+        {
+            DisplayMessage("");
+            DisplayMessage("'The magical arts require material compensation,' the gnome says pointedly.", "cyan");
+            DisplayMessage($"You need {cost:N0} gold for this enchantment.", "red");
+            return;
+        }
+
+        // Show items that can be enchanted
+        var enchantableItems = player.Inventory.Where(i =>
+            i.Type == ObjType.Magic || i.MagicType != MagicItemType.None).ToList();
+
+        if (enchantableItems.Count == 0)
+        {
+            DisplayMessage("");
+            DisplayMessage("You have no items suitable for enchantment.", "gray");
+            DisplayMessage("'Bring me rings, amulets, or belts,' the gnome suggests.", "cyan");
+            return;
+        }
+
+        DisplayMessage("");
+        DisplayMessage("Items that can be enchanted:", "cyan");
+        for (int i = 0; i < enchantableItems.Count; i++)
+        {
+            var item = enchantableItems[i];
+            string status = item.IsCursed ? " [CURSED - cannot enchant]" : "";
+            DisplayMessage($"{i + 1}. {item.Name}{status}", item.IsCursed ? "red" : "white");
+        }
+
+        DisplayMessage("");
+        DisplayMessage("Choose item to enchant (0 to cancel): ", "yellow", false);
+        input = Console.ReadLine();
+
+        if (!int.TryParse(input, out int itemIndex) || itemIndex <= 0 || itemIndex > enchantableItems.Count)
+            return;
+
+        var targetItem = enchantableItems[itemIndex - 1];
+
+        if (targetItem.IsCursed)
+        {
+            DisplayMessage("");
+            DisplayMessage("'I cannot enchant a cursed item. The dark magic would consume my work.'", "red");
+            DisplayMessage("'Remove the curse first, then return.'", "cyan");
+            return;
+        }
+
+        // For stat-boosting enchants, let player choose the stat
+        int statChoice = 0;
+        if (enchantChoice >= 1 && enchantChoice <= 3)
+        {
+            DisplayMessage("");
+            DisplayMessage("Choose stat to enhance:", "cyan");
+            DisplayMessage("(1) Strength  (2) Defence  (3) Dexterity  (4) Wisdom  (5) Attack", "gray");
+            DisplayMessage("Choice: ", "yellow", false);
+            input = Console.ReadLine();
+            if (!int.TryParse(input, out statChoice) || statChoice <= 0 || statChoice > 5)
+                return;
+        }
+
+        DisplayMessage("");
+        DisplayMessage($"Enchant {targetItem.Name} for {cost:N0} gold? (Y/N): ", "yellow", false);
+        var confirm = Console.ReadKey().KeyChar.ToString().ToUpper();
+        DisplayMessage("");
+
+        if (confirm != "Y")
+            return;
+
+        player.Gold -= cost;
+
+        // Apply the enchantment
+        int bonus = enchantChoice switch
+        {
+            1 => 2,
+            2 => 4,
+            3 => 6,
+            _ => 0
+        };
+
+        DisplayMessage("");
+        DisplayMessage($"{_ownerName} begins the enchantment ritual...", "gray");
+        Thread.Sleep(500);
+
+        switch (enchantChoice)
+        {
+            case 1:
+            case 2:
+            case 3:
+                ApplyStatEnchant(targetItem, statChoice, bonus);
+                DisplayMessage($"Magical energy flows into the {targetItem.Name}!", "magenta");
+                break;
+
+            case 4: // Divine Blessing
+                targetItem.Strength += 3;
+                targetItem.Defence += 3;
+                targetItem.Dexterity += 3;
+                targetItem.Wisdom += 3;
+                targetItem.Attack += 3;
+                targetItem.MagicProperties.Wisdom += 3;
+                DisplayMessage("Divine light suffuses the item with holy power!", "bright_yellow");
+                DisplayMessage($"The {targetItem.Name} is now blessed!", "blue");
+                break;
+
+            case 5: // Ocean's Touch
+                targetItem.MagicProperties.Mana += 30;
+                targetItem.Wisdom += 2;
+                targetItem.MagicProperties.Wisdom += 2;
+                DisplayMessage("The scent of salt and distant tides fills the air...", "cyan");
+                DisplayMessage($"The {targetItem.Name} now carries the Ocean's blessing!", "blue");
+                DisplayMessage("'The waves remember all who seek their wisdom,' the gnome whispers.", "gray");
+                break;
+
+            case 6: // Ward Against Evil
+                targetItem.MagicProperties.MagicResistance += 20;
+                targetItem.Defence += 2;
+                DisplayMessage("Protective runes flare to life on the item's surface!", "yellow");
+                DisplayMessage($"The {targetItem.Name} now provides magical protection!", "green");
+                break;
+        }
+
+        // Update item name to show it's been enchanted (if not already)
+        if (!targetItem.Name.Contains("+") && !targetItem.Name.Contains("Blessed") &&
+            !targetItem.Name.Contains("Enchanted"))
+        {
+            string suffix = enchantChoice switch
+            {
+                4 => " (Blessed)",
+                5 => " (Ocean-Touched)",
+                6 => " (Warded)",
+                _ => $" +{bonus}"
+            };
+
+            // Only add suffix if name isn't too long
+            if (targetItem.Name.Length + suffix.Length < 35)
+                targetItem.Name += suffix;
+        }
+
+        // Increase item value
+        targetItem.Value = (long)(targetItem.Value * 1.5);
+
+        DisplayMessage("");
+        DisplayMessage("The enchantment is complete!", "bright_green");
+    }
+
+    private void ApplyStatEnchant(Item item, int statChoice, int bonus)
+    {
+        switch (statChoice)
+        {
+            case 1:
+                item.Strength += bonus;
+                break;
+            case 2:
+                item.Defence += bonus;
+                break;
+            case 3:
+                item.Dexterity += bonus;
+                item.MagicProperties.Dexterity += bonus;
+                break;
+            case 4:
+                item.Wisdom += bonus;
+                item.MagicProperties.Wisdom += bonus;
+                break;
+            case 5:
+                item.Attack += bonus;
+                break;
+        }
+    }
+
     /// <summary>
     /// Get current magic shop owner name
     /// </summary>

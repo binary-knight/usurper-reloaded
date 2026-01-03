@@ -138,6 +138,8 @@ public class LevelMasterLocation : BaseLocation
         terminal.WriteLine("Services:");
         terminal.SetColor("green");
         terminal.WriteLine("(L) Level Raise – advance if you have earned enough experience");
+        terminal.WriteLine("(A) Abilities – view and learn combat abilities or spells");
+        terminal.WriteLine($"(T) Training – improve your skills (Points: {currentPlayer.TrainingPoints})");
         terminal.WriteLine("(C) Crystal Ball – scry information about other players (coming soon)");
         terminal.WriteLine("(H) Help Team Member – assist a teammate in levelling (coming soon)");
         terminal.WriteLine("(S) Status – view your statistics");
@@ -168,7 +170,7 @@ public class LevelMasterLocation : BaseLocation
             if (xpNeeded <= 0)
             {
                 terminal.SetColor("bright_green");
-                terminal.WriteLine($"★ You are ready to advance to level {currentPlayer.Level + 1}! ★");
+                terminal.WriteLine($"* You are ready to advance to level {currentPlayer.Level + 1}! *");
             }
             else
             {
@@ -185,6 +187,12 @@ public class LevelMasterLocation : BaseLocation
         {
             case "L":
                 await AttemptLevelRaise();
+                return false;
+            case "A":
+                await ShowAbilitiesMenu();
+                return false;
+            case "T":
+                await ShowTrainingMenu();
                 return false;
             case "C":
                 terminal.WriteLine("The crystal ball is cloudy today… (feature not yet implemented)", "gray");
@@ -203,12 +211,46 @@ public class LevelMasterLocation : BaseLocation
         }
     }
 
+    /// <summary>
+    /// Show the abilities menu - spells for casters, combat abilities for others
+    /// </summary>
+    private async Task ShowAbilitiesMenu()
+    {
+        terminal.SetColor(currentMaster.Color);
+
+        if (ClassAbilitySystem.IsSpellcaster(currentPlayer.Class))
+        {
+            terminal.WriteLine($"\"{currentPlayer.DisplayName}, let me teach you the arcane arts...\"");
+            await Task.Delay(800);
+            await SpellLearningSystem.ShowSpellLearningMenu(currentPlayer, terminal);
+        }
+        else
+        {
+            terminal.WriteLine($"\"Come, {currentPlayer.DisplayName}. Let me show you the way of the warrior...\"");
+            await Task.Delay(800);
+            await ClassAbilitySystem.ShowAbilityLearningMenu(currentPlayer, terminal);
+        }
+    }
+
+    /// <summary>
+    /// Show the training menu - D&D style proficiency training
+    /// </summary>
+    private async Task ShowTrainingMenu()
+    {
+        terminal.SetColor(currentMaster.Color);
+        terminal.WriteLine($"\"Practice makes perfect, {currentPlayer.DisplayName}. Let us hone your skills...\"");
+        await Task.Delay(800);
+        await TrainingSystem.ShowTrainingMenu(currentPlayer, terminal);
+    }
+
     #region Level Raise Logic
 
     private async Task AttemptLevelRaise()
     {
         int levelsRaised = 0;
         int startLevel = currentPlayer.Level;
+
+        int totalTrainingPoints = 0;
 
         while (currentPlayer.Level < GameConfig.MaxLevel &&
                currentPlayer.Experience >= GetExperienceForLevel(currentPlayer.Level + 1))
@@ -221,6 +263,11 @@ public class LevelMasterLocation : BaseLocation
 
             // Apply hidden master bonuses
             ApplyMasterBonuses();
+
+            // Award training points for the new level
+            int trainingPoints = TrainingSystem.CalculateTrainingPointsPerLevel(currentPlayer);
+            currentPlayer.TrainingPoints += trainingPoints;
+            totalTrainingPoints += trainingPoints;
 
             currentPlayer.RaiseLevel(newLevel);
             levelsRaised++;
@@ -239,21 +286,21 @@ public class LevelMasterLocation : BaseLocation
             currentPlayer.HP = currentPlayer.MaxHP;
             currentPlayer.Mana = currentPlayer.MaxMana;
 
-            // Display level up celebration
-            await DisplayLevelUpCelebration(levelsRaised, startLevel);
+            // Display level up celebration with training points earned
+            await DisplayLevelUpCelebration(levelsRaised, startLevel, totalTrainingPoints);
         }
     }
 
     /// <summary>
     /// Displays an elaborate level up celebration message
     /// </summary>
-    private async Task DisplayLevelUpCelebration(int levelsRaised, int startLevel)
+    private async Task DisplayLevelUpCelebration(int levelsRaised, int startLevel, int trainingPointsEarned)
     {
         terminal.ClearScreen();
         terminal.SetColor("bright_yellow");
         terminal.WriteLine("");
         terminal.WriteLine("  ╔══════════════════════════════════════════════════════════════════════╗");
-        terminal.WriteLine("  ║                         ★ LEVEL UP! ★                                ║");
+        terminal.WriteLine("  ║                         * LEVEL UP! *                                ║");
         terminal.WriteLine("  ╚══════════════════════════════════════════════════════════════════════╝");
         terminal.WriteLine("");
 
@@ -289,6 +336,14 @@ public class LevelMasterLocation : BaseLocation
         terminal.SetColor("cyan");
         terminal.WriteLine("  Your body and mind surge with newfound power!");
         terminal.WriteLine("  Your health and mana have been fully restored.");
+        terminal.WriteLine("");
+
+        // Show training points earned
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine($"  +{trainingPointsEarned} Training Points earned!");
+        terminal.WriteLine($"  Total Training Points: {currentPlayer.TrainingPoints}");
+        terminal.SetColor("gray");
+        terminal.WriteLine("  (Use (T)raining at the Level Master to improve your skills)");
         terminal.WriteLine("");
 
         await terminal.PressAnyKey("  Press any key to continue...");

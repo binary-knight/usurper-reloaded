@@ -74,42 +74,50 @@ public static class MonsterGenerator
 
     /// <summary>
     /// Calculate balanced stats for a monster
-    /// Formulas designed to scale smoothly from level 1 to 100
-    /// Reduced exponential scaling to make combat more manageable
+    /// REBALANCED: Formulas designed for player to defeat monsters in 3-8 hits
+    /// at appropriate level, while monsters deal significant but survivable damage
+    ///
+    /// Design goals:
+    /// - Level 1 player (Str 10, Weap 5) deals ~30 damage -> Monster HP ~80-120
+    /// - Level 50 player (Str 100, Weap 100) deals ~400 damage -> Monster HP ~1200-2000
+    /// - Level 100 player (Str 200, Weap 200) deals ~800 damage -> Monster HP ~2500-4000
     /// </summary>
     private static MonsterStats CalculateMonsterStats(int level, float powerMultiplier, bool isBoss)
     {
-        // Base multipliers for boss monsters
-        float bossMultiplier = isBoss ? 1.8f : 1.0f;
+        // Reduced boss multiplier to 1.5 (was 1.8)
+        float bossMultiplier = isBoss ? 1.5f : 1.0f;
         float totalMultiplier = powerMultiplier * bossMultiplier;
 
-        // Gentler exponential scaling with linear base
-        // Reduced exponents from 1.35/1.25/1.2 to 1.2/1.15/1.1
-        // This makes monsters scale more linearly with level
-
-        // HP scales moderately (reduced from 1.35 to 1.2)
-        long baseHP = (long)((40 * level) + Math.Pow(level, 1.2) * 15);
+        // REBALANCED HP: Nearly linear scaling
+        // Formula: 25*level + level^1.1 * 8 (was 40*level + level^1.2 * 15)
+        // Level 1: ~33, Level 50: ~1600, Level 100: ~3200 (before multiplier)
+        long baseHP = (long)((25 * level) + Math.Pow(level, 1.1) * 8);
         long hp = (long)(baseHP * totalMultiplier);
 
-        // Strength scales gently (reduced from 1.25 to 1.15)
-        long baseStrength = (long)((4 * level) + Math.Pow(level, 1.15) * 2);
+        // REBALANCED STRENGTH: Reduced to match new player damage scaling
+        // Formula: 2*level + level^1.05 * 1.5 (was 4*level + level^1.15 * 2)
+        long baseStrength = (long)((2 * level) + Math.Pow(level, 1.05) * 1.5);
         long strength = (long)(baseStrength * totalMultiplier);
 
-        // Defence scales minimally (reduced from 1.2 to 1.1)
-        long baseDefence = (long)((2 * level) + Math.Pow(level, 1.1) * 1.5);
-        long defence = (long)(baseDefence * totalMultiplier * 0.7f);
+        // REBALANCED DEFENCE: Much lower so player damage isn't negated
+        // Formula: level + level^1.02 * 0.5 (was 2*level + level^1.1 * 1.5)
+        long baseDefence = (long)((level) + Math.Pow(level, 1.02) * 0.5);
+        long defence = (long)(baseDefence * totalMultiplier * 0.5f);
 
-        // Punch (natural attack bonus) - reduced scaling
-        long basePunch = (long)((1.5 * level) + Math.Pow(level, 1.1) * 1);
+        // REBALANCED PUNCH: Reduced natural attack bonus
+        // Formula: level + level^1.02 * 0.5 (was 1.5*level + level^1.1 * 1)
+        long basePunch = (long)((level) + Math.Pow(level, 1.02) * 0.5);
         long punch = (long)(basePunch * totalMultiplier);
 
-        // Weapon power - reduced scaling
-        long baseWeaponPower = (long)((3 * level) + Math.Pow(level, 1.15) * 1.5);
+        // REBALANCED WEAPON POWER: Reduced so monsters don't one-shot players
+        // Formula: 1.5*level + level^1.05 * 1 (was 3*level + level^1.15 * 1.5)
+        long baseWeaponPower = (long)((1.5 * level) + Math.Pow(level, 1.05) * 1);
         long weaponPower = (long)(baseWeaponPower * totalMultiplier);
 
-        // Armor power - reduced to keep combat reasonable
-        long baseArmorPower = (long)((2 * level) + Math.Pow(level, 1.1) * 1.5);
-        long armorPower = (long)(baseArmorPower * totalMultiplier * 0.6f);
+        // REBALANCED ARMOR POWER: Minimal so player hits always matter
+        // Formula: level * 0.5 + level^1.02 * 0.3 (was 2*level + level^1.1 * 1.5)
+        long baseArmorPower = (long)((0.5 * level) + Math.Pow(level, 1.02) * 0.3);
+        long armorPower = (long)(baseArmorPower * totalMultiplier * 0.4f);
 
         return new MonsterStats
         {

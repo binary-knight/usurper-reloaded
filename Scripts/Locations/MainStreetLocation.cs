@@ -104,7 +104,7 @@ public class MainStreetLocation : BaseLocation
             terminal.SetColor("bright_yellow");
             terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
             terminal.SetColor("bright_green");
-            terminal.WriteLine("║     ★ You are eligible for a level raise! Visit your Master to advance! ★    ║");
+            terminal.WriteLine("║     * You are eligible for a level raise! Visit your Master to advance! *    ║");
             terminal.SetColor("bright_yellow");
             terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
             terminal.WriteLine("");
@@ -353,7 +353,17 @@ public class MainStreetLocation : BaseLocation
         terminal.SetColor("darkgray");
         terminal.Write("]");
         terminal.SetColor("magenta");
-        terminal.WriteLine(" Love Street - Pleasure district");
+        terminal.WriteLine(" Love Street");
+
+        // Row 8 - Quit
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("red");
+        terminal.Write("Q");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("gray");
+        terminal.WriteLine("uit Game");
 
         terminal.WriteLine("");
         terminal.SetColor("bright_cyan");
@@ -714,7 +724,7 @@ public class MainStreetLocation : BaseLocation
                 terminal.SetColor(color);
 
                 string rankStr = rank <= 3 ? $"#{rank}" : $" {rank}.";
-                string marker = entry.IsPlayer ? "★" : " ";
+                string marker = entry.IsPlayer ? "*" : " ";
                 terminal.WriteLine($"  {rankStr,-6}{marker}{entry.Name,-19} {entry.Level,5}  {entry.Class,-12} {entry.Experience,12:N0}");
             }
 
@@ -782,7 +792,7 @@ public class MainStreetLocation : BaseLocation
             terminal.WriteLine("  ═══ PLAYERS ═══");
             terminal.SetColor("yellow");
             string playerSex = currentPlayer.Sex == CharacterSex.Male ? "M" : "F";
-            terminal.WriteLine($"  ★ {currentPlayer.DisplayName,-18} {playerSex} Lv{currentPlayer.Level,3} {currentPlayer.Class,-10} HP:{currentPlayer.HP}/{currentPlayer.MaxHP} (You)");
+            terminal.WriteLine($"  * {currentPlayer.DisplayName,-18} {playerSex} Lv{currentPlayer.Level,3} {currentPlayer.Class,-10} HP:{currentPlayer.HP}/{currentPlayer.MaxHP} (You)");
             terminal.WriteLine("");
 
             if (!viewingDead)

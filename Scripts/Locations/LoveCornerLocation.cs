@@ -504,7 +504,7 @@ public class LoveCornerLocation : BaseLocation
     {
         var terminal = TerminalEmulator.Instance;
         terminal.WriteLine();
-        terminal.WriteLine("♥♥♥ Married Couples ♥♥♥", TerminalEmulator.ColorMagenta);
+        terminal.WriteLine("<3<3<3 Married Couples <3<3<3", TerminalEmulator.ColorMagenta);
         terminal.WriteLine();
         
         // In full implementation, would use RelationshipSystem.GetMarriedCouples()

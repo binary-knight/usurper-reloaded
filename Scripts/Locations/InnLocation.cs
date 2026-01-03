@@ -227,7 +227,7 @@ public class InnLocation : BaseLocation
         terminal.SetColor("darkgray");
         terminal.Write("[");
         terminal.SetColor("bright_red");
-        terminal.Write("M");
+        terminal.Write("Q");
         terminal.SetColor("darkgray");
         terminal.Write("] ");
         terminal.SetColor("red");
@@ -302,10 +302,11 @@ public class InnLocation : BaseLocation
                 await NavigateToLocation(GameLocation.Recruit);
                 return true;
                 
+            case "Q":
             case "M":
                 await NavigateToLocation(GameLocation.MainStreet);
                 return true;
-                
+
             case "S":
                 await ShowStatus();
                 return false;

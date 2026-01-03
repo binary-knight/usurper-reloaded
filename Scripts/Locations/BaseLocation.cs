@@ -325,8 +325,8 @@ public abstract class BaseLocation
     {
         return relationLevel switch
         {
-            <= GameConfig.RelationMarried => ("bright_red", "Married", "♥"),      // 10 - Married (red with heart)
-            <= GameConfig.RelationLove => ("bright_magenta", "In Love", "♥"),     // 20 - Love
+            <= GameConfig.RelationMarried => ("bright_red", "Married", "<3"),     // 10 - Married (red with heart)
+            <= GameConfig.RelationLove => ("bright_magenta", "In Love", "<3"),    // 20 - Love
             <= GameConfig.RelationPassion => ("magenta", "Passionate", ""),        // 30 - Passion
             <= GameConfig.RelationFriendship => ("bright_cyan", "Friends", ""),   // 40 - Friendship
             <= GameConfig.RelationTrust => ("cyan", "Trusted", ""),               // 50 - Trust

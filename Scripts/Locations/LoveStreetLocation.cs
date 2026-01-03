@@ -90,7 +90,7 @@ public class LoveStreetLocation : BaseLocation
 
         terminal.SetColor("bright_magenta");
         terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
-        terminal.WriteLine("║                           ♥ LOVE STREET ♥                                   ║");
+        terminal.WriteLine("║                           <3 LOVE STREET <3                                  ║");
         terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
         terminal.WriteLine("");
 
@@ -521,7 +521,7 @@ public class LoveStreetLocation : BaseLocation
         terminal.WriteLine("");
         terminal.SetColor("bright_yellow");
         terminal.WriteLine("══════════════════════════════════════════════════════════════════════════════");
-        terminal.WriteLine($" ★★ Night of Pleasure with {partnerName} ★★");
+        terminal.WriteLine($" ** Night of Pleasure with {partnerName} **");
         terminal.WriteLine("");
         terminal.SetColor("white");
         terminal.WriteLine($" Experience gained: {xpGained:N0}");
@@ -966,10 +966,24 @@ public class LoveStreetLocation : BaseLocation
         if (int.TryParse(input, out int choice) && choice >= 1 && choice <= potentialDates.Count)
         {
             var selected = potentialDates[choice - 1];
+            // Try to find NPC by ID first, then fall back to name match
             var npc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == selected.id);
+            if (npc == null)
+            {
+                // Fall back to matching by name (handles saved data with different ID formats)
+                npc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n =>
+                    n.Name.Equals(selected.name, StringComparison.OrdinalIgnoreCase) ||
+                    n.Name2.Equals(selected.name, StringComparison.OrdinalIgnoreCase));
+            }
             if (npc != null)
             {
                 await GoOnDate(npc);
+            }
+            else
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine($"Could not find {selected.name} in town. They may have left.");
+                await terminal.WaitForKey();
             }
         }
     }
@@ -1025,7 +1039,7 @@ public class LoveStreetLocation : BaseLocation
         switch (activity)
         {
             case 1: // Dinner
-                terminal.WriteLine("\n                         ★ Romantic Dinner ★\n");
+                terminal.WriteLine("\n                         * Romantic Dinner *\n");
                 terminal.SetColor("white");
                 terminal.WriteLine($"You take {partner.Name} to the finest restaurant in town.");
                 terminal.WriteLine("Candlelight flickers across the table as you share stories.");
@@ -1037,7 +1051,7 @@ public class LoveStreetLocation : BaseLocation
                 break;
 
             case 2: // Moonlit Walk
-                terminal.WriteLine("\n                         ★ Moonlit Walk ★\n");
+                terminal.WriteLine("\n                         * Moonlit Walk *\n");
                 terminal.SetColor("white");
                 terminal.WriteLine($"Hand in hand, you and {partner.Name} stroll through the quiet streets.");
                 terminal.WriteLine("The moon casts silver light on everything, making the world magical.");
@@ -1049,7 +1063,7 @@ public class LoveStreetLocation : BaseLocation
                 break;
 
             case 3: // Theater
-                terminal.WriteLine("\n                         ★ Theater Performance ★\n");
+                terminal.WriteLine("\n                         * Theater Performance *\n");
                 terminal.SetColor("white");
                 terminal.WriteLine($"You and {partner.Name} watch an enchanting performance.");
                 terminal.WriteLine("During the emotional scenes, you feel their hand squeeze yours.");
@@ -1061,7 +1075,7 @@ public class LoveStreetLocation : BaseLocation
                 break;
 
             case 4: // Picnic
-                terminal.WriteLine("\n                         ★ Picnic by the Lake ★\n");
+                terminal.WriteLine("\n                         * Picnic by the Lake *\n");
                 terminal.SetColor("white");
                 terminal.WriteLine($"You spread a blanket by the water's edge with {partner.Name}.");
                 terminal.WriteLine("The sun sets beautifully as you share food and wine.");
@@ -1073,7 +1087,7 @@ public class LoveStreetLocation : BaseLocation
                 break;
 
             case 5: // Dancing
-                terminal.WriteLine("\n                         ★ Dancing at the Inn ★\n");
+                terminal.WriteLine("\n                         * Dancing at the Inn *\n");
                 terminal.SetColor("white");
                 terminal.WriteLine($"You lead {partner.Name} onto the dance floor at the Inn.");
                 terminal.WriteLine("The music is lively, and you spin together, laughing.");
@@ -1364,7 +1378,7 @@ public class LoveStreetLocation : BaseLocation
             foreach (var spouse in playerRomance.Spouses)
             {
                 var name = npcs.FirstOrDefault(n => n.ID == spouse.NPCId)?.Name ?? spouse.NPCId;
-                terminal.WriteLine($"♥ {currentPlayer.Name2} is married to {name}");
+                terminal.WriteLine($"<3 {currentPlayer.Name2} is married to {name}");
                 romanceCount++;
             }
         }
@@ -1373,7 +1387,7 @@ public class LoveStreetLocation : BaseLocation
             foreach (var lover in playerRomance.CurrentLovers)
             {
                 var name = npcs.FirstOrDefault(n => n.ID == lover.NPCId)?.Name ?? lover.NPCId;
-                terminal.WriteLine($"♡ {currentPlayer.Name2} is involved with {name}");
+                terminal.WriteLine($"<3 {currentPlayer.Name2} is involved with {name}");
                 romanceCount++;
             }
         }
@@ -1398,7 +1412,7 @@ public class LoveStreetLocation : BaseLocation
                 var daysSince = (DateTime.Now - spouse.MarriedDate).Days;
                 var npc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == spouse.NPCId);
                 var name = npc?.Name ?? spouse.NPCId;
-                terminal.WriteLine($"♥ {currentPlayer.Name2} married {name} ({daysSince} days ago)");
+                terminal.WriteLine($"<3 {currentPlayer.Name2} married {name} ({daysSince} days ago)");
             }
         }
         else
@@ -1484,7 +1498,7 @@ public class LoveStreetLocation : BaseLocation
 
         // Spouses
         terminal.SetColor("bright_red");
-        terminal.WriteLine($"♥ SPOUSES: {romance.Spouses.Count}");
+        terminal.WriteLine($"<3 SPOUSES: {romance.Spouses.Count}");
         if (romance.Spouses.Count > 0)
         {
             terminal.SetColor("white");
@@ -1500,7 +1514,7 @@ public class LoveStreetLocation : BaseLocation
 
         // Lovers
         terminal.SetColor("bright_magenta");
-        terminal.WriteLine($"♡ LOVERS: {romance.CurrentLovers.Count}");
+        terminal.WriteLine($"<3 LOVERS: {romance.CurrentLovers.Count}");
         if (romance.CurrentLovers.Count > 0)
         {
             terminal.SetColor("white");
@@ -1521,7 +1535,7 @@ public class LoveStreetLocation : BaseLocation
 
         // Exes
         terminal.SetColor("gray");
-        terminal.WriteLine($"✗ PAST RELATIONSHIPS: {romance.Exes.Count}");
+        terminal.WriteLine($"X PAST RELATIONSHIPS: {romance.Exes.Count}");
         terminal.WriteLine("");
 
         // Encounters

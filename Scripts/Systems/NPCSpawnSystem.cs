@@ -86,12 +86,16 @@ namespace UsurperRemake.Systems
             {
                 Name1 = template.Name,
                 Name2 = template.Name,
+                ID = $"npc_{template.Name.ToLower().Replace(" ", "_")}",  // Generate unique ID from name
                 Class = template.Class,
                 Race = template.Race,
                 Level = template.StartLevel,
                 Age = random.Next(18, 50),
                 Sex = sex,
-                AI = CharacterAI.Computer
+                AI = CharacterAI.Computer,
+                // Copy story role info - story NPCs have special narrative roles
+                StoryRole = template.StoryRole ?? "",
+                LoreNote = template.LoreNote ?? ""
             };
 
             // Generate stats based on level and class
@@ -174,52 +178,84 @@ namespace UsurperRemake.Systems
             string personality = template.Personality;
             string alignment = template.Alignment;
 
-            // Create personality profile first
+            // Create personality profile with randomized base values
+            // These ensure NPCs have varying personalities for team formation
             var profile = new PersonalityProfile
             {
-                Archetype = "commoner" // Default archetype, prevents null reference
+                Archetype = "commoner", // Default archetype, prevents null reference
+                // Initialize core traits with random base values (0.3-0.7 range for variety)
+                Aggression = 0.3f + (float)(random.NextDouble() * 0.4),
+                Greed = 0.3f + (float)(random.NextDouble() * 0.4),
+                Courage = 0.4f + (float)(random.NextDouble() * 0.4),
+                Loyalty = 0.4f + (float)(random.NextDouble() * 0.4),
+                Vengefulness = 0.2f + (float)(random.NextDouble() * 0.4),
+                Impulsiveness = 0.3f + (float)(random.NextDouble() * 0.4),
+                Sociability = 0.4f + (float)(random.NextDouble() * 0.4),
+                Ambition = 0.3f + (float)(random.NextDouble() * 0.5),
+                Trustworthiness = 0.4f + (float)(random.NextDouble() * 0.4),
+                Caution = 0.3f + (float)(random.NextDouble() * 0.4),
+                Intelligence = 0.3f + (float)(random.NextDouble() * 0.4),
+                Mysticism = 0.2f + (float)(random.NextDouble() * 0.3),
+                Patience = 0.3f + (float)(random.NextDouble() * 0.4)
             };
 
-            // Set personality traits based on personality type
+            // Modify traits based on personality type - these override the base values
             switch (personality.ToLower())
             {
                 case "aggressive":
                 case "fierce":
                 case "brutal":
-                    profile.Aggression = 0.9f;
-                    profile.Courage = 0.8f;
+                    profile.Aggression = 0.7f + (float)(random.NextDouble() * 0.3); // 0.7-1.0
+                    profile.Courage = 0.6f + (float)(random.NextDouble() * 0.3);
+                    profile.Sociability = 0.5f + (float)(random.NextDouble() * 0.3); // Warriors are social
                     break;
                 case "honorable":
                 case "noble":
                 case "righteous":
-                    profile.Trustworthiness = 0.9f;
-                    profile.Loyalty = 0.8f;
+                    profile.Trustworthiness = 0.8f + (float)(random.NextDouble() * 0.2);
+                    profile.Loyalty = 0.7f + (float)(random.NextDouble() * 0.3);
+                    profile.Courage = 0.6f + (float)(random.NextDouble() * 0.3);
                     break;
                 case "cunning":
                 case "scheming":
                 case "sneaky":
-                    profile.Intelligence = 0.8f;
-                    profile.Greed = 0.7f;
+                    profile.Intelligence = 0.7f + (float)(random.NextDouble() * 0.3);
+                    profile.Greed = 0.6f + (float)(random.NextDouble() * 0.3);
+                    profile.Ambition = 0.6f + (float)(random.NextDouble() * 0.3);
                     break;
                 case "wise":
                 case "eccentric":
-                    profile.Intelligence = 0.9f;
-                    profile.Impulsiveness = 0.2f; // Wise people are not impulsive
+                    profile.Intelligence = 0.8f + (float)(random.NextDouble() * 0.2);
+                    profile.Impulsiveness = 0.1f + (float)(random.NextDouble() * 0.2);
+                    profile.Patience = 0.7f + (float)(random.NextDouble() * 0.3);
                     break;
                 case "greedy":
-                    profile.Greed = 0.9f;
+                    profile.Greed = 0.8f + (float)(random.NextDouble() * 0.2);
+                    profile.Ambition = 0.6f + (float)(random.NextDouble() * 0.3);
                     break;
                 case "kind":
                 case "compassionate":
                 case "gentle":
-                    profile.Sociability = 0.9f;
-                    profile.Aggression = 0.1f;
+                    profile.Sociability = 0.7f + (float)(random.NextDouble() * 0.3);
+                    profile.Aggression = 0.1f + (float)(random.NextDouble() * 0.2);
+                    profile.Loyalty = 0.6f + (float)(random.NextDouble() * 0.3);
                     break;
                 case "cowardly":
-                    profile.Courage = 0.2f;
+                    profile.Courage = 0.1f + (float)(random.NextDouble() * 0.2);
+                    profile.Caution = 0.7f + (float)(random.NextDouble() * 0.3);
+                    break;
+                case "ambitious":
+                case "driven":
+                    profile.Ambition = 0.7f + (float)(random.NextDouble() * 0.3);
+                    profile.Courage = 0.5f + (float)(random.NextDouble() * 0.3);
+                    break;
+                case "loyal":
+                case "steadfast":
+                    profile.Loyalty = 0.8f + (float)(random.NextDouble() * 0.2);
+                    profile.Sociability = 0.5f + (float)(random.NextDouble() * 0.3);
                     break;
                 default:
-                    // Neutral personality
+                    // Neutral personality - keep base random values
                     break;
             }
 

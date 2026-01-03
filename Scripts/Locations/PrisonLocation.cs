@@ -183,7 +183,7 @@ public partial class PrisonLocation : BaseLocation
             else
             {
                 await terminal.WriteLineAsync();
-                await terminal.WriteAsync("Royal Prison (W,M,N,D,O,S,E,Q,?) :");
+                await terminal.WriteAsync("Royal Prison (W,M,N,D,O,S,E,A,Q,?) :");
             }
         }
         else
@@ -218,7 +218,7 @@ public partial class PrisonLocation : BaseLocation
         await terminal.WriteLineAsync("(W)ho else is here          (D)emand to be released!");
         await terminal.WriteLineAsync("(M)essage                   (N)ew mail");
         await terminal.WriteLineAsync("(O)pen cell door            (E)scape!");
-        await terminal.WriteLineAsync("(S)tatus");
+        await terminal.WriteLineAsync("(S)tatus                    (A)ctivities - Exercise!");
         await terminal.WriteLineAsync("(Q)uit");
     }
     
@@ -253,10 +253,59 @@ public partial class PrisonLocation : BaseLocation
             case 'W':
                 await HandleListPrisoners(player);
                 break;
+            case 'A':
+                await HandleActivities(player);
+                break;
             default:
                 // Invalid choice, do nothing
                 break;
         }
+    }
+
+    /// <summary>
+    /// Handle prison activity selection - allows prisoners to build stats
+    /// </summary>
+    private async Task HandleActivities(Character player)
+    {
+        await terminal.ClearScreenAsync();
+        await terminal.WriteColorLineAsync("═══════════════════════════════════════", TerminalEmulator.ColorCyan);
+        await terminal.WriteColorLineAsync("           PRISON ACTIVITIES           ", TerminalEmulator.ColorCyan);
+        await terminal.WriteColorLineAsync("═══════════════════════════════════════", TerminalEmulator.ColorCyan);
+        await terminal.WriteLineAsync();
+        await terminal.WriteLineAsync("While imprisoned, you can pass the time");
+        await terminal.WriteLineAsync("with activities that improve your body and mind.");
+        await terminal.WriteLineAsync();
+
+        var activities = PrisonActivitySystem.Instance.GetAvailableActivities();
+        int i = 1;
+        foreach (var activity in activities)
+        {
+            var info = PrisonActivitySystem.ActivityInfo[activity];
+            await terminal.WriteColorAsync($"({i}) ", TerminalEmulator.ColorYellow);
+            await terminal.WriteAsync($"{info.Name,-15} ");
+            await terminal.WriteColorAsync($"{info.Effect}", TerminalEmulator.ColorGreen);
+            await terminal.WriteLineAsync();
+            await terminal.WriteColorLineAsync($"    {info.Description}", TerminalEmulator.ColorDarkGray);
+            i++;
+        }
+
+        await terminal.WriteLineAsync();
+        await terminal.WriteAsync("Choose activity (0 to cancel): ");
+        string input = await terminal.ReadLineAsync();
+
+        if (int.TryParse(input, out int choice) && choice >= 1 && choice <= activities.Count)
+        {
+            var selectedActivity = activities[choice - 1];
+            string result = await PrisonActivitySystem.Instance.PerformActivity(player, selectedActivity);
+
+            await terminal.WriteLineAsync();
+            await terminal.WriteColorLineAsync(result, TerminalEmulator.ColorGreen);
+            await terminal.WriteLineAsync();
+            await terminal.WriteAsync("Press any key to continue...");
+            await terminal.GetCharAsync();
+        }
+
+        refreshMenu = true;
     }
     
     private async Task HandleMenuDisplay(Character player)

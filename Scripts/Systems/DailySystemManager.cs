@@ -16,7 +16,7 @@ public class DailySystemManager
     private DateTime lastResetTime;
     private DateTime gameStartTime;
     private int currentDay = 1;
-    private DailyCycleMode currentMode = DailyCycleMode.SessionBased;
+    private DailyCycleMode currentMode = DailyCycleMode.Endless;
     private MaintenanceSystem? maintenanceSystem;
     private TerminalUI? terminal;
     
@@ -261,9 +261,9 @@ public class DailySystemManager
         
         // Process daily events
         await ProcessDailyEvents();
-        
+
         // Process bank maintenance
-        BankLocation.ProcessDailyMaintenance();
+        BankLocation.ProcessDailyMaintenance(player);
     }
     
     /// <summary>

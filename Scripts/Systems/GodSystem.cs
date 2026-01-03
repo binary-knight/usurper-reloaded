@@ -28,6 +28,9 @@ public class GodSystem
         
         // Initialize with supreme creator if needed
         InitializeSupremeCreator();
+
+        // Initialize the default pantheon gods
+        InitializeDefaultPantheon();
     }
     
     /// <summary>
@@ -58,7 +61,120 @@ public class GodSystem
             godsByName[supremeCreator.Name] = supremeCreator;
         }
     }
-    
+
+    /// <summary>
+    /// Initialize the default pantheon of worshipable gods
+    /// These represent the "mortal-created" gods that echo the Old Gods' domains
+    /// Players can worship these from the start - they provide blessings and can be sacrificed to
+    ///
+    /// LORE: When the Seven Old Gods fell silent after the Sundering, mortals created new
+    /// gods to fill the void. These "New Gods" are pale reflections of the originals, powered
+    /// by mortal belief rather than true divinity. Some scholars believe they are actually
+    /// fragments of the Old Gods' power that escaped imprisonment...
+    /// </summary>
+    private void InitializeDefaultPantheon()
+    {
+        // The New Pantheon - mortal-created gods that reflect the Old Gods' domains
+        // Each echoes an Old God: Solarius/Aurelion, Valorian/Maelketh, Amara/Veloura,
+        // Judicar/Thorgrim, Umbrath/Noctura, Terran/Terravok, Arcanus/Manwe
+        var defaultGods = new List<(string name, string domain, long goodness, long darkness, string description, string echoes)>
+        {
+            // Light and Truth - Echoes Aurelion, The Fading Light
+            ("Solarius", "The Radiant", 10000, 0,
+                "God of light, truth, and righteousness. Worshippers gain clarity and protection from darkness. " +
+                "Some say Solarius is a fragment of Aurelion's fading light, kept alive by mortal faith.",
+                "Aurelion"),
+
+            // War and Honor - Echoes Maelketh, The Broken Blade
+            ("Valorian", "The Ironwilled", 5000, 2000,
+                "God of battle, honor, and strength. Favors warriors who fight with courage. " +
+                "Unlike the mad war-god Maelketh, Valorian represents the honor that Maelketh lost.",
+                "Maelketh"),
+
+            // Love and Passion - Echoes Veloura, The Withered Heart
+            ("Amara", "The Heartsworn", 8000, 1000,
+                "Goddess of love, passion, and fertility. Blesses unions and protects lovers. " +
+                "Born from what remains of Veloura's domain, Amara embodies love's hope rather than its sorrow.",
+                "Veloura"),
+
+            // Law and Justice - Echoes Thorgrim, The Hollow Judge
+            ("Judicar", "The Balanced", 7000, 3000,
+                "God of law, justice, and order. Punishes oathbreakers and rewards the righteous. " +
+                "Where Thorgrim became tyranny, Judicar strives to remain true justice.",
+                "Thorgrim"),
+
+            // Shadow and Secrets - Echoes Noctura, The Shadow Weaver
+            ("Umbrath", "The Veiled", 2000, 6000,
+                "God of shadows, secrets, and the unseen. Favors thieves, assassins, and those who walk in darkness. " +
+                "Some whisper that Umbrath IS Noctura, watching mortals through a different mask.",
+                "Noctura"),
+
+            // Earth and Endurance - Echoes Terravok, The Sleeping Mountain
+            ("Terran", "The Unyielding", 6000, 1000,
+                "God of earth, stone, and endurance. Grants fortitude and protection to the faithful. " +
+                "When Terravok fell asleep beneath the world, Terran rose to carry his burden.",
+                "Terravok"),
+
+            // Death and Transition - No direct Old God echo, but fills a cosmic role
+            ("Mortis", "The Final Gate", 3000, 7000,
+                "God of death, endings, and rebirth. Neither good nor evil - all must pass through the gate. " +
+                "Mortis claims no Old God as predecessor; death existed before even the gods.",
+                "None"),
+
+            // Magic and Knowledge - Echoes Manwe, The Creator
+            ("Arcanus", "The All-Seeing", 5000, 5000,
+                "God of magic, knowledge, and the arcane arts. Seeks truth through mystical means. " +
+                "Scholars debate whether Arcanus holds a fragment of Manwe's infinite wisdom.",
+                "Manwe"),
+
+            // Nature and the Wild - Represents primal creation
+            ("Sylvana", "The Wildmother", 9000, 500,
+                "Goddess of nature, animals, and the wild places. Protects the natural order. " +
+                "Sylvana rose when the Old Gods' war scarred the land, defender of what remains.",
+                "None"),
+
+            // Chaos and Change - Opposite of Order
+            ("Discordia", "The Ever-Changing", 1000, 8000,
+                "Goddess of chaos, change, and upheaval. Embraces those who reject the status quo. " +
+                "Some say Discordia was born from the Sundering itself - chaos made divine.",
+                "Sundering")
+        };
+
+        foreach (var (name, domain, goodness, darkness, description, echoes) in defaultGods)
+        {
+            if (!godsByName.ContainsKey(name))
+            {
+                var god = new God
+                {
+                    Name = name,
+                    RealName = domain,
+                    Id = $"PANTHEON_{name.ToUpper()}",
+                    Level = random.Next(3, 7), // Level 3-6
+                    Experience = random.Next(5000, 20000),
+                    AI = GameConfig.GodAIComputer,
+                    Age = random.Next(100, 1000),
+                    Sex = name == "Amara" || name == "Sylvana" || name == "Discordia" ? 2 : 1,
+                    Believers = random.Next(5, 50),
+                    Deleted = false,
+                    DeedsLeft = 99,
+                    Darkness = darkness,
+                    Goodness = goodness
+                };
+
+                // Store description and lore connections in properties
+                god.Properties["Description"] = description;
+                god.Properties["Domain"] = domain;
+                god.Properties["IsPantheonGod"] = true;
+                god.Properties["EchoesOldGod"] = echoes; // Which Old God this deity echoes
+
+                gods.Add(god);
+                godsByName[name] = god;
+            }
+        }
+
+        GD.Print($"[GodSystem] Initialized {defaultGods.Count} pantheon gods");
+    }
+
     /// <summary>
     /// Search for gods by user name (Pascal God_Search function)
     /// </summary>

@@ -823,11 +823,11 @@ public class CastleLocation : BaseLocation
         terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
         terminal.WriteLine("");
 
-        // Guard summary
+        // NPC Guard summary
         terminal.SetColor("cyan");
         terminal.WriteLine("=== Royal Guard Status ===");
         terminal.SetColor("white");
-        terminal.WriteLine($"Total Guards: {currentKing.Guards.Count}/{GameConfig.MaxRoyalGuards}");
+        terminal.WriteLine($"NPC Guards: {currentKing.Guards.Count}/{King.MaxNPCGuards}");
 
         if (currentKing.Guards.Count > 0)
         {
@@ -859,8 +859,38 @@ public class CastleLocation : BaseLocation
         }
         else
         {
-            terminal.SetColor("red");
-            terminal.WriteLine("WARNING: No guards protecting the castle!");
+            terminal.SetColor("yellow");
+            terminal.WriteLine("No NPC guards currently employed.");
+        }
+
+        terminal.WriteLine("");
+
+        // Monster Guard summary
+        terminal.SetColor("bright_red");
+        terminal.WriteLine("=== Monster Guards ===");
+        terminal.SetColor("white");
+        terminal.WriteLine($"Monster Guards: {currentKing.MonsterGuards.Count}/{King.MaxMonsterGuards}");
+
+        if (currentKing.MonsterGuards.Count > 0)
+        {
+            terminal.WriteLine($"Daily Feeding Costs: {currentKing.MonsterGuards.Sum(m => m.DailyFeedingCost):N0} gold");
+            terminal.WriteLine("");
+
+            terminal.SetColor("cyan");
+            terminal.WriteLine($"{"Name",-20} {"Level",-8} {"HP",-12} {"Strength",-10}");
+            terminal.SetColor("darkgray");
+            terminal.WriteLine(new string('─', 55));
+
+            foreach (var monster in currentKing.MonsterGuards)
+            {
+                terminal.SetColor("red");
+                terminal.WriteLine($"{monster.Name,-20} {monster.Level,-8} {monster.HP}/{monster.MaxHP,-8} {monster.Strength,-10}");
+            }
+        }
+        else
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("No monster guards currently protecting the castle.");
         }
 
         terminal.WriteLine("");
@@ -872,6 +902,8 @@ public class CastleLocation : BaseLocation
         string securityColor = securityLevel > 80 ? "bright_green" : securityLevel > 50 ? "yellow" : "red";
         terminal.SetColor(securityColor);
         terminal.WriteLine($"Overall Security: {securityLevel}%");
+        terminal.SetColor("white");
+        terminal.WriteLine($"Total Guards: {currentKing.TotalGuardCount} (Challengers fight monsters first, then NPC guards)");
 
         if (securityLevel < 50)
         {
@@ -883,7 +915,8 @@ public class CastleLocation : BaseLocation
         terminal.SetColor("cyan");
         terminal.WriteLine("Guard Commands:");
         terminal.SetColor("white");
-        terminal.WriteLine("(H)ire guard  (F)ire guard  (P)ay bonus  (R)eturn");
+        terminal.WriteLine("(H)ire NPC guard    (M)onster guard    (F)ire guard");
+        terminal.WriteLine("(P)ay bonus         (D)ismiss monster  (R)eturn");
         terminal.WriteLine("");
 
         terminal.SetColor("cyan");
@@ -898,8 +931,14 @@ public class CastleLocation : BaseLocation
                 case 'H':
                     await HireGuard();
                     break;
+                case 'M':
+                    await HireMonsterGuard();
+                    break;
                 case 'F':
                     await FireGuard();
+                    break;
+                case 'D':
+                    await DismissMonsterGuard();
                     break;
                 case 'P':
                     await PayGuardBonus();
@@ -910,17 +949,124 @@ public class CastleLocation : BaseLocation
 
     private int CalculateSecurityLevel()
     {
-        if (currentKing.Guards.Count == 0) return 10;
+        int totalGuards = currentKing.TotalGuardCount;
+        if (totalGuards == 0) return 10;
 
-        int baseLevel = (currentKing.Guards.Count * 100) / GameConfig.MaxRoyalGuards;
-        int loyaltyBonus = (int)currentKing.Guards.Average(g => g.Loyalty) / 2;
+        // NPC guards contribute based on loyalty and count
+        int npcContribution = 0;
+        if (currentKing.Guards.Count > 0)
+        {
+            int avgLoyalty = (int)currentKing.Guards.Average(g => g.Loyalty);
+            npcContribution = (currentKing.Guards.Count * 10) + (avgLoyalty / 5);
+        }
 
-        return Math.Min(100, baseLevel + loyaltyBonus);
+        // Monster guards contribute based on level and count
+        int monsterContribution = 0;
+        if (currentKing.MonsterGuards.Count > 0)
+        {
+            int avgLevel = (int)currentKing.MonsterGuards.Average(m => m.Level);
+            monsterContribution = (currentKing.MonsterGuards.Count * 8) + (avgLevel / 2);
+        }
+
+        return Math.Min(100, npcContribution + monsterContribution + 10);
+    }
+
+    private async Task HireMonsterGuard()
+    {
+        if (currentKing.MonsterGuards.Count >= King.MaxMonsterGuards)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("You already have the maximum number of monster guards!");
+            await Task.Delay(2000);
+            return;
+        }
+
+        terminal.ClearScreen();
+        terminal.SetColor("bright_red");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║                      MONSTER GUARD MARKET                                   ║");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+
+        terminal.SetColor("white");
+        terminal.WriteLine("The Beast Master presents fearsome creatures for your protection.");
+        terminal.WriteLine($"Treasury: {currentKing.Treasury:N0} gold");
+        terminal.WriteLine("");
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"{"#",-3} {"Name",-20} {"Level",-8} {"Cost",-12} {"Feeding/Day",-12}");
+        terminal.SetColor("darkgray");
+        terminal.WriteLine(new string('─', 60));
+
+        int i = 1;
+        foreach (var (name, level, cost) in MonsterGuardTypes.AvailableMonsters)
+        {
+            long actualCost = cost + (currentKing.MonsterGuards.Count * 500);
+            long feedingCost = 50 + (level * 10);
+
+            terminal.SetColor("white");
+            terminal.WriteLine($"{i,-3} {name,-20} {level,-8} {actualCost:N0,-12} {feedingCost:N0,-12}");
+            i++;
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        terminal.Write("Purchase which monster? (0 to cancel): ");
+        terminal.SetColor("white");
+        string input = await terminal.ReadLineAsync();
+
+        if (int.TryParse(input, out int choice) && choice >= 1 && choice <= MonsterGuardTypes.AvailableMonsters.Length)
+        {
+            var (name, level, cost) = MonsterGuardTypes.AvailableMonsters[choice - 1];
+
+            if (currentKing.AddMonsterGuard(name, level, cost))
+            {
+                terminal.SetColor("bright_green");
+                terminal.WriteLine($"A {name} has been added to your castle defenses!");
+                NewsSystem.Instance.Newsy(true, $"{currentKing.GetTitle()} {currentKing.Name} acquired a fearsome {name} to guard the castle!");
+            }
+            else
+            {
+                terminal.SetColor("red");
+                terminal.WriteLine("Insufficient funds!");
+            }
+        }
+
+        await Task.Delay(2000);
+    }
+
+    private async Task DismissMonsterGuard()
+    {
+        if (currentKing.MonsterGuards.Count == 0)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("You have no monster guards to dismiss.");
+            await Task.Delay(2000);
+            return;
+        }
+
+        terminal.SetColor("cyan");
+        terminal.Write("Name of monster to dismiss: ");
+        terminal.SetColor("white");
+        string name = await terminal.ReadLineAsync();
+
+        if (currentKing.RemoveMonsterGuard(name))
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"The {name} has been released from service.");
+        }
+        else
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine("No monster by that name found.");
+        }
+
+        await Task.Delay(2000);
     }
 
     private async Task HireGuard()
     {
-        if (currentKing.Guards.Count >= GameConfig.MaxRoyalGuards)
+        if (currentKing.Guards.Count >= King.MaxNPCGuards)
         {
             terminal.SetColor("yellow");
             terminal.WriteLine("You already have the maximum number of guards!");
@@ -1863,16 +2009,55 @@ public class CastleLocation : BaseLocation
         terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
         terminal.WriteLine("");
 
+        // RULE: King cannot be on a team - must leave team first
+        if (!string.IsNullOrEmpty(currentPlayer.Team))
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("To challenge for the throne, you must abandon your team.");
+            terminal.WriteLine($"You are currently a member of '{currentPlayer.Team}'.");
+            terminal.WriteLine("");
+            terminal.SetColor("cyan");
+            terminal.Write("Leave your team to pursue the crown? (Y/N): ");
+            terminal.SetColor("white");
+            string leaveConfirm = await terminal.ReadLineAsync();
+
+            if (leaveConfirm?.ToUpper() != "Y")
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine("You decide to remain loyal to your team.");
+                await Task.Delay(2000);
+                return false;
+            }
+
+            // Force leave team
+            string oldTeam = currentPlayer.Team;
+            CityControlSystem.Instance.ForceLeaveTeam(currentPlayer);
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"You have left '{oldTeam}' to pursue the crown.");
+            terminal.WriteLine("");
+        }
+
         terminal.SetColor("white");
         terminal.WriteLine("You have chosen to challenge for the throne!");
         terminal.WriteLine($"You must defeat {currentKing.GetTitle()} {currentKing.Name} in combat.");
         terminal.WriteLine("");
 
-        // Show king's guard warning
+        // Show monster guard warning
+        if (currentKing.MonsterGuards.Count > 0)
+        {
+            terminal.SetColor("bright_red");
+            terminal.WriteLine($"WARNING: You must first defeat {currentKing.MonsterGuards.Count} Monster Guards!");
+        }
+
+        // Show NPC guard warning
         if (currentKing.Guards.Count > 0)
         {
             terminal.SetColor("yellow");
-            terminal.WriteLine($"WARNING: You must first defeat {currentKing.Guards.Count} Royal Guards!");
+            terminal.WriteLine($"WARNING: You must also defeat {currentKing.Guards.Count} Royal Guards!");
+        }
+
+        if (currentKing.TotalGuardCount > 0)
+        {
             terminal.WriteLine("");
         }
 
@@ -1889,57 +2074,116 @@ public class CastleLocation : BaseLocation
             return false;
         }
 
-        // Fight through guards
-        bool defeatedGuards = true;
+        long runningPlayerHP = currentPlayer.HP;
+
+        // PHASE 1: Fight through monster guards first
+        foreach (var monster in currentKing.MonsterGuards.ToList())
+        {
+            terminal.ClearScreen();
+            terminal.SetColor("bright_red");
+            terminal.WriteLine($"=== Fighting Monster Guard: {monster.Name} (Level {monster.Level}) ===");
+            terminal.WriteLine("");
+
+            long monsterHP = monster.HP;
+
+            while (monsterHP > 0 && runningPlayerHP > 0)
+            {
+                // Player attacks
+                long playerDamage = Math.Max(1, currentPlayer.Strength + currentPlayer.WeapPow - monster.Defence);
+                playerDamage += random.Next(1, (int)Math.Max(2, currentPlayer.WeapPow / 3));
+                monsterHP -= playerDamage;
+
+                terminal.SetColor("bright_green");
+                terminal.WriteLine($"You strike the {monster.Name} for {playerDamage} damage! (Monster HP: {Math.Max(0, monsterHP)})");
+
+                if (monsterHP <= 0) break;
+
+                // Monster attacks
+                long monsterDamage = Math.Max(1, monster.Strength + monster.WeapPow - currentPlayer.Defence - currentPlayer.ArmPow);
+                monsterDamage += random.Next(1, (int)Math.Max(2, monster.WeapPow / 3));
+                runningPlayerHP -= monsterDamage;
+
+                terminal.SetColor("red");
+                terminal.WriteLine($"The {monster.Name} claws you for {monsterDamage} damage! (Your HP: {Math.Max(0, runningPlayerHP)})");
+
+                await Task.Delay(300);
+            }
+
+            if (runningPlayerHP <= 0)
+            {
+                terminal.SetColor("red");
+                terminal.WriteLine($"You were slain by the {monster.Name}!");
+                currentPlayer.HP = 1;
+                terminal.WriteLine("Your challenge has failed. You barely escape with your life.");
+                await Task.Delay(2500);
+                return false;
+            }
+            else
+            {
+                terminal.SetColor("bright_green");
+                terminal.WriteLine($"You defeated the {monster.Name}!");
+                currentKing.MonsterGuards.Remove(monster);
+                NewsSystem.Instance?.Newsy(true, $"{currentPlayer.DisplayName} slew the monster guard {monster.Name}!");
+            }
+
+            await Task.Delay(1500);
+        }
+
+        // PHASE 2: Fight through NPC guards
         foreach (var guard in currentKing.Guards.ToList())
         {
             terminal.ClearScreen();
             terminal.SetColor("bright_red");
-            terminal.WriteLine($"=== Fighting {guard.Name} ===");
+            terminal.WriteLine($"=== Fighting Royal Guard: {guard.Name} ===");
             terminal.WriteLine("");
 
             // Simple guard combat
             int guardStr = 50 + random.Next(50);
             int guardHP = 200 + random.Next(200);
-            long playerHP = currentPlayer.HP;
 
-            while (guardHP > 0 && playerHP > 0)
+            while (guardHP > 0 && runningPlayerHP > 0)
             {
                 // Player attacks
                 long playerDamage = Math.Max(1, currentPlayer.Strength + currentPlayer.WeapPow - guardStr / 5);
                 guardHP -= (int)playerDamage;
 
+                terminal.SetColor("bright_green");
+                terminal.WriteLine($"You strike {guard.Name} for {playerDamage} damage! (Guard HP: {Math.Max(0, guardHP)})");
+
                 if (guardHP <= 0) break;
 
                 // Guard attacks
                 long guardDamage = Math.Max(1, guardStr - currentPlayer.Defence);
-                playerHP -= guardDamage;
+                runningPlayerHP -= guardDamage;
+
+                terminal.SetColor("red");
+                terminal.WriteLine($"{guard.Name} strikes you for {guardDamage} damage! (Your HP: {Math.Max(0, runningPlayerHP)})");
+
+                await Task.Delay(300);
             }
 
-            if (playerHP <= 0)
+            if (runningPlayerHP <= 0)
             {
-                defeatedGuards = false;
                 terminal.SetColor("red");
                 terminal.WriteLine($"You were defeated by {guard.Name}!");
                 currentPlayer.HP = 1;
-                break;
+                terminal.WriteLine("Your challenge has failed. You barely escape with your life.");
+                await Task.Delay(2500);
+                return false;
             }
             else
             {
                 terminal.SetColor("bright_green");
                 terminal.WriteLine($"You defeated {guard.Name}!");
                 currentKing.Guards.Remove(guard);
+                NewsSystem.Instance?.Newsy(true, $"{currentPlayer.DisplayName} defeated guard {guard.Name}!");
             }
 
             await Task.Delay(1500);
         }
 
-        if (!defeatedGuards)
-        {
-            terminal.WriteLine("Your challenge has failed. You barely escape with your life.");
-            await Task.Delay(2500);
-            return false;
-        }
+        // Update player HP from the guard battles
+        currentPlayer.HP = runningPlayerHP;
 
         // Fight the king (simulated as powerful NPC)
         terminal.ClearScreen();
@@ -2041,6 +2285,34 @@ public class CastleLocation : BaseLocation
         terminal.WriteLine("No King or Queen is to be found anywhere. People are just");
         terminal.WriteLine("running around in a disorganized manner.");
         terminal.WriteLine("");
+
+        // RULE: King cannot be on a team - must leave team first
+        if (!string.IsNullOrEmpty(currentPlayer.Team))
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("To claim the throne, you must abandon your team.");
+            terminal.WriteLine($"You are currently a member of '{currentPlayer.Team}'.");
+            terminal.WriteLine("");
+            terminal.SetColor("cyan");
+            terminal.Write("Leave your team to claim the crown? (Y/N): ");
+            terminal.SetColor("white");
+            string leaveConfirm = await terminal.ReadLineAsync();
+
+            if (leaveConfirm?.ToUpper() != "Y")
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine("You decide to remain loyal to your team.");
+                await Task.Delay(2000);
+                return false;
+            }
+
+            // Force leave team
+            string oldTeam = currentPlayer.Team;
+            CityControlSystem.Instance.ForceLeaveTeam(currentPlayer);
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"You have left '{oldTeam}' to claim the crown.");
+            terminal.WriteLine("");
+        }
 
         var title = currentPlayer.Sex == CharacterSex.Male ? "KING" : "QUEEN";
         terminal.SetColor("cyan");

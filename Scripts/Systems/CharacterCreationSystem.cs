@@ -28,21 +28,22 @@ public class CharacterCreationSystem
         terminal.WriteLine("");
         terminal.WriteLine("--- CHARACTER CREATION ---", "bright_green");
         terminal.WriteLine("");
-        terminal.WriteLine($"Welcome, {playerName}!", "yellow");
-        terminal.WriteLine("You are about to enter the medieval world of Usurper...");
+        terminal.WriteLine("Welcome to the medieval world of Usurper...", "yellow");
         terminal.WriteLine("");
-        
+
         // Create base character with Pascal defaults
         var character = CreateBaseCharacter(playerName);
-        
+
         try
         {
-            // Step 1: Choose character alias (Pascal alias selection)
-            character.Name2 = await SelectCharacterAlias();
-            if (string.IsNullOrEmpty(character.Name2))
+            // Step 1: Choose character name (used for both Name1 and Name2)
+            var characterName = await SelectCharacterName();
+            if (string.IsNullOrEmpty(characterName))
             {
                 return null; // User aborted
             }
+            character.Name1 = characterName;
+            character.Name2 = characterName;
             
             // Step 2: Select gender (Pascal gender selection)
             character.Sex = await SelectGender();
@@ -53,9 +54,9 @@ public class CharacterCreationSystem
             // Step 4: Select class (Pascal class selection with validation)
             character.Class = await SelectClass(character.Race);
             
-            // Step 5: Apply race and class bonuses (Pascal attribute calculation)
-            ApplyRaceAndClassBonuses(character);
-            
+            // Step 5: Roll stats with re-roll option (up to 5 re-rolls)
+            await RollCharacterStats(character);
+
             // Step 6: Generate physical appearance (Pascal appearance generation)
             GeneratePhysicalAppearance(character);
             
@@ -225,54 +226,53 @@ public class CharacterCreationSystem
     }
     
     /// <summary>
-    /// Select character alias with Pascal validation (USERHUNC.PAS)
+    /// Select character name with Pascal validation (USERHUNC.PAS)
     /// </summary>
-    private async Task<string> SelectCharacterAlias()
+    private async Task<string> SelectCharacterName()
     {
-        string alias;
+        string name;
         bool validName = false;
-        
+
         do
         {
             terminal.WriteLine("");
             terminal.WriteLine("Enter your character's name:", "cyan");
-            terminal.WriteLine("This is the name your character will be known by in the realm.");
-            terminal.WriteLine("(This can be different from your real name)");
+            terminal.WriteLine("This is the name you will be known by in the realm.");
             terminal.WriteLine("");
 
-            alias = await terminal.GetInputAsync("Character name: ");
-            
-            if (string.IsNullOrWhiteSpace(alias))
+            name = await terminal.GetInputAsync("Character name: ");
+
+            if (string.IsNullOrWhiteSpace(name))
             {
                 terminal.WriteLine("You must enter a name!", "red");
                 continue;
             }
-            
-            alias = alias.Trim();
-            
+
+            name = name.Trim();
+
             // Pascal validation: Check for forbidden names
-            var upperAlias = alias.ToUpper();
-            if (GameConfig.ForbiddenNames.Contains(upperAlias))
+            var upperName = name.ToUpper();
+            if (GameConfig.ForbiddenNames.Contains(upperName))
             {
                 terminal.WriteLine("I'm sorry, but that name is already being used.", "red");
                 continue;
             }
-            
+
             // TODO: Check against existing players and NPCs
             // For now, we'll skip this validation in the prototype
-            
+
             terminal.WriteLine("");
-            terminal.WriteLine($"{alias} is what you want? (Y/N)", "yellow");
+            terminal.WriteLine($"{name} is what you want? (Y/N)", "yellow");
             var confirm = await terminal.GetInputAsync("");
-            
+
             if (confirm.ToUpper() == "Y")
             {
                 validName = true;
             }
-            
+
         } while (!validName);
-        
-        return alias;
+
+        return name;
     }
     
     /// <summary>
@@ -388,7 +388,23 @@ public class CharacterCreationSystem
     private async Task<CharacterClass> SelectClass(CharacterRace race)
     {
         string choice = "?";
-        
+
+        // Menu choice to enum mapping (menu order doesn't match alphabetical enum order)
+        var menuToClass = new Dictionary<int, CharacterClass>
+        {
+            { 0, CharacterClass.Warrior },
+            { 1, CharacterClass.Paladin },
+            { 2, CharacterClass.Ranger },
+            { 3, CharacterClass.Assassin },
+            { 4, CharacterClass.Bard },
+            { 5, CharacterClass.Jester },
+            { 6, CharacterClass.Alchemist },
+            { 7, CharacterClass.Magician },
+            { 8, CharacterClass.Cleric },
+            { 9, CharacterClass.Sage },
+            { 10, CharacterClass.Barbarian }
+        };
+
         while (true)
         {
             if (choice == "?")
@@ -397,7 +413,7 @@ public class CharacterCreationSystem
                 terminal.WriteLine("");
                 terminal.WriteLine("Choose your Class:", "cyan");
                 terminal.WriteLine("");
-                
+
                 // Pascal class menu layout
                 terminal.WriteLine("(0) Warrior", "white");
                 terminal.WriteLine("(1) Paladin", "white");
@@ -414,9 +430,9 @@ public class CharacterCreationSystem
                 terminal.WriteLine("(A) Abort", "red");
                 terminal.WriteLine("");
             }
-            
+
             choice = await terminal.GetInputAsync("Your choice: ");
-            
+
             // Handle help
             if (choice.ToUpper() == "H")
             {
@@ -424,7 +440,7 @@ public class CharacterCreationSystem
                 choice = "?";
                 continue;
             }
-            
+
             // Handle abort
             if (choice.ToUpper() == "A")
             {
@@ -435,28 +451,26 @@ public class CharacterCreationSystem
                 choice = "?";
                 continue;
             }
-            
+
             // Handle class selection
-            if (int.TryParse(choice, out int classChoice) && classChoice >= 0 && classChoice <= 10)
+            if (int.TryParse(choice, out int classChoice) && menuToClass.ContainsKey(classChoice))
             {
-                var characterClass = (CharacterClass)classChoice;
+                var characterClass = menuToClass[classChoice];
                 
                 // Pascal validation: Check invalid race/class combinations
                 if (GameConfig.InvalidCombinations.ContainsKey(race) && 
                     GameConfig.InvalidCombinations[race].Contains(characterClass))
                 {
                     terminal.WriteLine("");
-                    terminal.WriteLine($"Sorry, {GameConfig.RaceNames[(int)race]} cannot be {GameConfig.ClassNames[(int)characterClass]}!", "red");
+                    terminal.WriteLine($"Sorry, {GameConfig.RaceNames[(int)race]} cannot be a {characterClass}!", "red");
                     terminal.WriteLine("Some race/class combinations are impossible.", "yellow");
                     await Task.Delay(2000);
                     choice = "?";
                     continue;
                 }
                 
-                var className = GameConfig.ClassNames[(int)characterClass];
-                
                 terminal.WriteLine("");
-                if (await ConfirmChoice($"Be a {className}", false))
+                if (await ConfirmChoice($"Be a {characterClass}", false))
                 {
                     return characterClass;
                 }
@@ -471,32 +485,158 @@ public class CharacterCreationSystem
     }
     
     /// <summary>
-    /// Apply race and class bonuses (Pascal USERHUNC.PAS attribute calculation)
+    /// Roll character stats with option to re-roll up to 5 times
     /// </summary>
-    private void ApplyRaceAndClassBonuses(Character character)
+    private async Task RollCharacterStats(Character character)
     {
-        // Apply class starting attributes (Pascal class case statement)
+        const int MAX_REROLLS = 5;
+        int rerollsRemaining = MAX_REROLLS;
+
+        while (true)
+        {
+            // Roll the stats
+            RollStats(character);
+
+            // Display the rolled stats
+            terminal.Clear();
+            terminal.WriteLine("");
+            terminal.WriteLine("═══ STAT ROLL ═══", "bright_cyan");
+            terminal.WriteLine("");
+            terminal.WriteLine($"Class: {character.Class}", "yellow");
+            terminal.WriteLine($"Race: {GameConfig.RaceNames[(int)character.Race]}", "yellow");
+            terminal.WriteLine("");
+
+            // Calculate total stat points for comparison
+            long totalStats = character.Strength + character.Defence + character.Stamina +
+                              character.Agility + character.Charisma + character.Dexterity + character.Wisdom;
+
+            terminal.WriteLine("Your rolled attributes:", "cyan");
+            terminal.WriteLine("");
+            terminal.WriteLine($"  Hit Points:  {character.HP,3}", GetStatColor(character.HP, 15, 25));
+            terminal.WriteLine($"  Strength:    {character.Strength,3}", GetStatColor(character.Strength, 6, 12));
+            terminal.WriteLine($"  Defence:     {character.Defence,3}", GetStatColor(character.Defence, 5, 10));
+            terminal.WriteLine($"  Stamina:     {character.Stamina,3}", GetStatColor(character.Stamina, 5, 10));
+            terminal.WriteLine($"  Agility:     {character.Agility,3}", GetStatColor(character.Agility, 5, 10));
+            terminal.WriteLine($"  Charisma:    {character.Charisma,3}", GetStatColor(character.Charisma, 5, 10));
+            terminal.WriteLine($"  Dexterity:   {character.Dexterity,3}", GetStatColor(character.Dexterity, 5, 10));
+            terminal.WriteLine($"  Wisdom:      {character.Wisdom,3}", GetStatColor(character.Wisdom, 5, 10));
+            if (character.MaxMana > 0)
+            {
+                terminal.WriteLine($"  Mana:        {character.Mana,3}/{character.MaxMana}", "cyan");
+            }
+            terminal.WriteLine("");
+            terminal.WriteLine($"  Total Stats: {totalStats}", totalStats >= 50 ? "bright_green" : totalStats >= 40 ? "yellow" : "red");
+            terminal.WriteLine("");
+
+            if (rerollsRemaining > 0)
+            {
+                terminal.WriteLine($"Re-rolls remaining: {rerollsRemaining}", "yellow");
+                terminal.WriteLine("");
+                terminal.WriteLine("(A)ccept these stats", "green");
+                terminal.WriteLine("(R)e-roll for new stats", "cyan");
+                terminal.WriteLine("");
+
+                var choice = await terminal.GetInputAsync("Your choice: ");
+
+                if (choice.ToUpper() == "A")
+                {
+                    terminal.WriteLine("");
+                    terminal.WriteLine("Stats accepted!", "bright_green");
+                    await Task.Delay(1000);
+                    break;
+                }
+                else if (choice.ToUpper() == "R")
+                {
+                    rerollsRemaining--;
+                    if (rerollsRemaining == 0)
+                    {
+                        terminal.WriteLine("");
+                        terminal.WriteLine("This is your final roll!", "bright_red");
+                        await Task.Delay(1500);
+                    }
+                    else
+                    {
+                        terminal.WriteLine("");
+                        terminal.WriteLine("Re-rolling stats...", "cyan");
+                        await Task.Delay(800);
+                    }
+                    continue;
+                }
+                else
+                {
+                    terminal.WriteLine("Please choose (A)ccept or (R)e-roll.", "red");
+                    await Task.Delay(1000);
+                    continue;
+                }
+            }
+            else
+            {
+                // No re-rolls remaining - must accept
+                terminal.WriteLine("No re-rolls remaining - these are your final stats!", "bright_red");
+                terminal.WriteLine("");
+                await terminal.GetInputAsync("Press Enter to accept and continue...");
+                break;
+            }
+        }
+
+        // CRITICAL: Initialize base stats from the rolled values
+        // This prevents RecalculateStats() from resetting stats to 0
+        character.InitializeBaseStats();
+    }
+
+    /// <summary>
+    /// Get color based on stat value (for display)
+    /// </summary>
+    private string GetStatColor(long value, int mediumThreshold, int highThreshold)
+    {
+        if (value >= highThreshold) return "bright_green";
+        if (value >= mediumThreshold) return "yellow";
+        return "white";
+    }
+
+    /// <summary>
+    /// Roll stats for a character based on their class and race
+    /// Uses 3d6 style rolling with class modifiers
+    /// </summary>
+    private void RollStats(Character character)
+    {
+        // Get class base attributes (these are now modifiers, not fixed values)
         var classAttrib = GameConfig.ClassStartingAttributes[character.Class];
-        character.HP = classAttrib.HP;
-        character.Strength = classAttrib.Strength;
-        character.Defence = classAttrib.Defence;
-        character.Stamina = classAttrib.Stamina;
-        character.Agility = classAttrib.Agility;
-        character.Charisma = classAttrib.Charisma;
-        character.Dexterity = classAttrib.Dexterity;
-        character.Wisdom = classAttrib.Wisdom;
+        var raceAttrib = GameConfig.RaceAttributes[character.Race];
+
+        // Roll each stat using 3d6 base + class modifier + small random bonus
+        // Class attributes act as bonuses to make classes feel distinct
+        character.Strength = Roll3d6() + classAttrib.Strength + raceAttrib.StrengthBonus;
+        character.Defence = Roll3d6() + classAttrib.Defence + raceAttrib.DefenceBonus;
+        character.Stamina = Roll3d6() + classAttrib.Stamina + raceAttrib.StaminaBonus;
+        character.Agility = Roll3d6() + classAttrib.Agility;
+        character.Charisma = Roll3d6() + classAttrib.Charisma;
+        character.Dexterity = Roll3d6() + classAttrib.Dexterity;
+        character.Wisdom = Roll3d6() + classAttrib.Wisdom;
+
+        // HP is rolled differently - 2d6 + class HP bonus + race HP bonus
+        character.HP = Roll2d6() + (classAttrib.HP * 3) + raceAttrib.HPBonus;
+        character.MaxHP = character.HP;
+
+        // Mana for spellcasters - fixed from class
         character.Mana = classAttrib.Mana;
         character.MaxMana = classAttrib.MaxMana;
-        
-        // Apply race bonuses (Pascal race case statement)
-        var raceAttrib = GameConfig.RaceAttributes[character.Race];
-        character.HP += raceAttrib.HPBonus;
-        character.Strength += raceAttrib.StrengthBonus;
-        character.Defence += raceAttrib.DefenceBonus;
-        character.Stamina += raceAttrib.StaminaBonus;
-        
-        // Set MaxHP equal to HP (Pascal: player.maxhps := player.hps)
-        character.MaxHP = character.HP;
+    }
+
+    /// <summary>
+    /// Roll 3d6 (3 six-sided dice)
+    /// </summary>
+    private int Roll3d6()
+    {
+        return random.Next(1, 7) + random.Next(1, 7) + random.Next(1, 7);
+    }
+
+    /// <summary>
+    /// Roll 2d6 (2 six-sided dice)
+    /// </summary>
+    private int Roll2d6()
+    {
+        return random.Next(1, 7) + random.Next(1, 7);
     }
     
     /// <summary>
@@ -659,9 +799,8 @@ public class CharacterCreationSystem
         terminal.WriteLine("");
         
         terminal.WriteLine($"Name: {character.Name2}", "cyan");
-        terminal.WriteLine($"Real Name: {character.Name1}", "white");
         terminal.WriteLine($"Race: {GameConfig.RaceNames[(int)character.Race]}", "yellow");
-        terminal.WriteLine($"Class: {GameConfig.ClassNames[(int)character.Class]}", "yellow");
+        terminal.WriteLine($"Class: {character.Class}", "yellow");
         terminal.WriteLine($"Sex: {(character.Sex == CharacterSex.Male ? "Male" : "Female")}", "white");
         terminal.WriteLine($"Age: {character.Age}", "white");
         terminal.WriteLine("");

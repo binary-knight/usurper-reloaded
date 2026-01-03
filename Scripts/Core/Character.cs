@@ -143,7 +143,57 @@ public class Character
     public bool IsDefending { get; set; } = false;
     public bool IsRaging { get; set; } = false;        // Barbarian rage state
     public int SmiteChargesRemaining { get; set; } = 0; // Paladin daily smite uses left
-    
+
+    // Temporary combat bonuses from abilities
+    public int TempAttackBonus { get; set; } = 0;
+    public int TempAttackBonusDuration { get; set; } = 0;
+    public int TempDefenseBonus { get; set; } = 0;
+    public int TempDefenseBonusDuration { get; set; } = 0;
+    public bool DodgeNextAttack { get; set; } = false;
+
+    // Combat Stamina System - resource for special abilities
+    // Formula: MaxCombatStamina = 50 + (Stamina stat * 2) + (Level * 3)
+    public long CurrentCombatStamina { get; set; } = 100;
+    public long MaxCombatStamina => 50 + (Stamina * 2) + (Level * 3);
+
+    /// <summary>
+    /// Initialize combat stamina to full at start of combat
+    /// </summary>
+    public void InitializeCombatStamina()
+    {
+        CurrentCombatStamina = MaxCombatStamina;
+    }
+
+    /// <summary>
+    /// Regenerate stamina per combat round
+    /// Base regen: 5 + (Stamina stat / 10)
+    /// </summary>
+    public int RegenerateCombatStamina()
+    {
+        int regen = 5 + (int)(Stamina / 10);
+        long oldStamina = CurrentCombatStamina;
+        CurrentCombatStamina = Math.Min(CurrentCombatStamina + regen, MaxCombatStamina);
+        return (int)(CurrentCombatStamina - oldStamina);
+    }
+
+    /// <summary>
+    /// Check if character has enough stamina for an ability
+    /// </summary>
+    public bool HasEnoughStamina(int cost)
+    {
+        return CurrentCombatStamina >= cost;
+    }
+
+    /// <summary>
+    /// Spend stamina on an ability, returns true if successful
+    /// </summary>
+    public bool SpendStamina(int cost)
+    {
+        if (CurrentCombatStamina < cost) return false;
+        CurrentCombatStamina -= cost;
+        return true;
+    }
+
     // Magical combat buffs
     public int MagicACBonus { get; set; } = 0;          // Flat AC bonus from spells like Shield/Prismatic Cage
     public int DamageAbsorptionPool { get; set; } = 0;  // Remaining damage Stoneskin can absorb
@@ -169,6 +219,11 @@ public class Character
     public long BaseDefence { get; set; }
     public long BaseStamina { get; set; }
     public long BaseAgility { get; set; }
+
+    // Training System - D&D style proficiency
+    public int TrainingPoints { get; set; } = 0;
+    public Dictionary<string, TrainingSystem.ProficiencyLevel> SkillProficiencies { get; set; } = new();
+    public Dictionary<string, int> SkillTrainingProgress { get; set; } = new();
 
     // Weapon configuration detection
     public bool IsDualWielding =>
@@ -280,6 +335,7 @@ public class Character
 
     /// <summary>
     /// Recalculate all stats from base values plus equipment bonuses
+    /// Now applies stat-based bonuses from the StatEffectsSystem
     /// </summary>
     public void RecalculateStats()
     {
@@ -305,6 +361,20 @@ public class Character
             var item = EquipmentDatabase.GetById(kvp.Value);
             item?.ApplyToCharacter(this);
         }
+
+        // Apply stat-based bonuses AFTER equipment (stats may have been modified)
+        // Constitution bonus to HP
+        MaxHP += StatEffectsSystem.GetConstitutionHPBonus(Constitution, Level);
+
+        // Intelligence and Wisdom bonus to Mana (for casters)
+        if (BaseMaxMana > 0) // Only for classes with mana
+        {
+            MaxMana += StatEffectsSystem.GetIntelligenceManaBonus(Intelligence, Level);
+            MaxMana += StatEffectsSystem.GetWisdomManaBonus(Wisdom);
+        }
+
+        // Agility bonus to Defense (evasion component)
+        Defence += StatEffectsSystem.GetAgilityDefenseBonus(Agility);
 
         // Keep current HP/Mana within bounds
         HP = Math.Min(HP, MaxHP);
@@ -401,6 +471,7 @@ public class Character
     
     public bool BankGuard { get; set; }             // bank guard?
     public long BankWage { get; set; }              // salary from bank
+    public long Loan { get; set; }                  // outstanding bank loan
     public byte WeapHag { get; set; } = 3;          // weapon shop haggling attempts left
     public byte ArmHag { get; set; } = 3;           // armor shop haggling attempts left
     public int RecNr { get; set; }                  // file record number
@@ -519,6 +590,27 @@ public class Character
     public Dictionary<StatusEffect, int> ActiveStatuses { get; set; } = new();
 
     public bool HasStatus(StatusEffect s) => ActiveStatuses.ContainsKey(s);
+
+    /// <summary>
+    /// Check for status effect by string name (for spell effects like "evasion", "invisible")
+    /// </summary>
+    public bool HasStatusEffect(string effectName)
+    {
+        // Check if there's a matching StatusEffect enum
+        if (Enum.TryParse<StatusEffect>(effectName, true, out var effect))
+        {
+            return HasStatus(effect);
+        }
+
+        // Check special string-based effects stored in combat buffs
+        return effectName.ToLower() switch
+        {
+            "evasion" => HasStatus(StatusEffect.Blur) || HasStatus(StatusEffect.Haste),
+            "invisible" => HasStatus(StatusEffect.Hidden), // Hidden acts like invisible
+            "haste" => HasStatus(StatusEffect.Haste),
+            _ => false
+        };
+    }
 
     public void ApplyStatus(StatusEffect status, int duration)
     {

@@ -19,7 +19,9 @@
       "Bash(del nul)",
       "Bash(git push:*)",
       "Bash(git commit:*)",
-      "Bash(Select-String -Pattern \"error\")"
+      "Bash(Select-String -Pattern \"error\")",
+      "Bash(cmd /c \"dir c:\\\\Users\\\\jason\\\\Desktop\\\\Usurper\\\\usurper-remake\\\\publish\\\\*.exe\")",
+      "Bash(cmd /c \"dir c:\\\\Users\\\\jason\\\\Desktop\\\\Usurper\\\\usurper-remake\\\\publish\")"
     ]
   }
 }

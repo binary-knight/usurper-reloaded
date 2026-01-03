@@ -797,7 +797,7 @@ Barbarian - Savage fighters, incredible strength
     public const long MaxSaveFileSize = 50 * 1024 * 1024; // 50MB max save file size
     
     // Daily cycle system defaults (enum defined in SaveDataStructures.cs)
-    public const int DefaultDailyCycleModeInt = 0; // SessionBased = 0
+    public const int DefaultDailyCycleModeInt = 5; // Endless = 5 (no turn limits)
     public const int SessionBasedTurns = TurnsPerDay;      // Full turns for session-based
     public const int AcceleratedTurnsDivisor = 6;         // Divide turns for accelerated modes
     public const int EndlessModeMinTurns = 50;             // Minimum turns before boost in endless mode
@@ -939,16 +939,16 @@ Barbarian - Savage fighters, incredible strength
     
     // News Entry Prefixes (Pascal style)
     public const string NewsPrefixTime = "[{0}] ";     // Time prefix for entries
-    public const string NewsPrefixDeath = "† ";        // Death announcement
-    public const string NewsPrefixBirth = "♦ ";        // Birth announcement
-    public const string NewsPrefixMarriage = "♥ ";     // Marriage announcement
-    public const string NewsPrefixDivorce = "♠ ";      // Divorce announcement
-    public const string NewsPrefixRoyal = "♔ ";        // Royal announcement
-    public const string NewsPrefixHoly = "☩ ";         // Holy event
-    public const string NewsPrefixCombat = "⚔ ";       // Combat event
-    public const string NewsPrefixQuest = "◊ ";        // Quest event
-    public const string NewsPrefixTeam = "▲ ";         // Team/gang event
-    public const string NewsPrefixPrison = "■ ";       // Prison event
+    public const string NewsPrefixDeath = "+ ";        // Death announcement
+    public const string NewsPrefixBirth = "* ";        // Birth announcement
+    public const string NewsPrefixMarriage = "<3 ";    // Marriage announcement
+    public const string NewsPrefixDivorce = "X ";      // Divorce announcement
+    public const string NewsPrefixRoyal = "# ";        // Royal announcement
+    public const string NewsPrefixHoly = "! ";         // Holy event
+    public const string NewsPrefixCombat = "x ";       // Combat event
+    public const string NewsPrefixQuest = "> ";        // Quest event
+    public const string NewsPrefixTeam = "^ ";         // Team/gang event
+    public const string NewsPrefixPrison = "@ ";       // Prison event
     
     // Daily Maintenance News Settings
     public const bool RotateNewsDaily = true;          // Rotate news files during maintenance

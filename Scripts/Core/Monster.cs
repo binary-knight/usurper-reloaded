@@ -24,6 +24,9 @@ public class Monster
     public long HP { get; set; }                        // hitpoints
     public long Punch { get; set; }                     // punch, temporary battle var
     public bool Poisoned { get; set; }                  // poisoned?, temporary battle var
+    public bool Stunned { get; set; }                   // stunned?, temporary battle var
+    public bool Distracted { get; set; }                // distracted?, reduced accuracy
+    public bool Charmed { get; set; }                   // charmed?, may skip attack
     public string Weapon { get; set; } = "";            // name of weapon
     public string Armor { get; set; } = "";             // name of armor
     public bool Disease { get; set; }                   // infected by a disease?

@@ -1697,7 +1697,7 @@ namespace UsurperRemake.Systems
 
             terminal.SetColor("bright_yellow");
             terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
-            terminal.WriteLine("║                      ♥♥♥ WEDDING CEREMONY ♥♥♥                               ║");
+            terminal.WriteLine("║                      <3<3<3 WEDDING CEREMONY <3<3<3                         ║");
             terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
             terminal.WriteLine("");
 
@@ -1746,7 +1746,7 @@ namespace UsurperRemake.Systems
             await Task.Delay(1000);
 
             terminal.SetColor("bright_magenta");
-            terminal.WriteLine("  ♥ You may now kiss your spouse! ♥");
+            terminal.WriteLine("  <3 You may now kiss your spouse! <3");
             terminal.WriteLine("");
             await Task.Delay(1500);
 

@@ -588,6 +588,9 @@ public class WeaponShopLocation : BaseLocation
         var worldEventModifier = WorldEventSystem.Instance.GlobalPriceModifier;
         long adjustedPrice = (long)(item.Value * alignmentModifier * worldEventModifier);
 
+        // Apply city control discount if player's team controls the city
+        adjustedPrice = CityControlSystem.Instance.ApplyDiscount(adjustedPrice, currentPlayer);
+
         if (currentPlayer.Gold < adjustedPrice)
         {
             terminal.WriteLine("");
@@ -647,6 +650,9 @@ public class WeaponShopLocation : BaseLocation
         }
 
         currentPlayer.Gold -= adjustedPrice;
+
+        // Process city tax share from this sale
+        CityControlSystem.Instance.ProcessSaleTax(adjustedPrice);
 
         if (currentPlayer.EquipItem(item, out string message))
         {
@@ -739,7 +745,12 @@ public class WeaponShopLocation : BaseLocation
 
         var selectedWeapon = oneHandedWeapons[selection - 1];
 
-        currentPlayer.Gold -= selectedWeapon.Value;
+        // Apply city control discount
+        long adjustedWeaponPrice = CityControlSystem.Instance.ApplyDiscount(selectedWeapon.Value, currentPlayer);
+        currentPlayer.Gold -= adjustedWeaponPrice;
+
+        // Process city tax share from this sale
+        CityControlSystem.Instance.ProcessSaleTax(adjustedWeaponPrice);
 
         // Directly equip to off-hand
         currentPlayer.UnequipSlot(EquipmentSlot.OffHand);
@@ -879,7 +890,12 @@ public class WeaponShopLocation : BaseLocation
             return;
         }
 
-        currentPlayer.Gold -= allWeapons.Value;
+        // Apply city control discount
+        long adjustedAllWeaponsPrice = CityControlSystem.Instance.ApplyDiscount(allWeapons.Value, currentPlayer);
+        currentPlayer.Gold -= adjustedAllWeaponsPrice;
+
+        // Process city tax share from this sale
+        CityControlSystem.Instance.ProcessSaleTax(adjustedAllWeaponsPrice);
 
         if (currentPlayer.EquipItem(allWeapons, out string message))
         {

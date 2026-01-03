@@ -264,7 +264,7 @@ namespace UsurperRemake.Systems
         private async Task PlayAnticipationPhase(NPC partner, PersonalityProfile? profile, IntimacyMood mood)
         {
             terminal!.SetColor("bright_cyan");
-            terminal.WriteLine("  ━━━ ANTICIPATION ━━━");
+            terminal.WriteLine("  --- ANTICIPATION ---");
             terminal.WriteLine("");
 
             string gender = partner.Sex == CharacterSex.Female ? "she" : "he";
@@ -365,7 +365,7 @@ namespace UsurperRemake.Systems
             await ShowSceneHeader(partner, mood);
 
             terminal.SetColor("bright_cyan");
-            terminal.WriteLine("  ━━━ EXPLORATION ━━━");
+            terminal.WriteLine("  --- EXPLORATION ---");
             terminal.WriteLine("");
 
             string gender = partner.Sex == CharacterSex.Female ? "she" : "he";
@@ -438,7 +438,7 @@ namespace UsurperRemake.Systems
             await ShowSceneHeader(partner, mood);
 
             terminal.SetColor("bright_cyan");
-            terminal.WriteLine("  ━━━ ESCALATION ━━━");
+            terminal.WriteLine("  --- ESCALATION ---");
             terminal.WriteLine("");
 
             string gender = partner.Sex == CharacterSex.Female ? "she" : "he";
@@ -550,7 +550,7 @@ namespace UsurperRemake.Systems
             await ShowSceneHeader(partner, mood);
 
             terminal.SetColor("bright_cyan");
-            terminal.WriteLine("  ━━━ CLIMAX ━━━");
+            terminal.WriteLine("  --- CLIMAX ---");
             terminal.WriteLine("");
 
             string gender = partner.Sex == CharacterSex.Female ? "she" : "he";
@@ -608,7 +608,7 @@ namespace UsurperRemake.Systems
             await ShowSceneHeader(partner, mood);
 
             terminal.SetColor("bright_cyan");
-            terminal.WriteLine("  ━━━ AFTERGLOW ━━━");
+            terminal.WriteLine("  --- AFTERGLOW ---");
             terminal.WriteLine("");
 
             string gender = partner.Sex == CharacterSex.Female ? "she" : "he";

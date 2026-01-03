@@ -13,16 +13,23 @@ public class King
     public string Name { get; set; } = "";                    // King's name
     public CharacterAI AI { get; set; } = CharacterAI.Human;  // 'H' for human, 'N' for NPC
     public CharacterSex Sex { get; set; } = CharacterSex.Male; // King's gender
-    
+
     // Royal Treasury (Pascal: treasury)
     public long Treasury { get; set; } = GameConfig.DefaultRoyalTreasury;
-    
+
     // Tax System (Pascal: tax, taxalignment)
     public long TaxRate { get; set; } = 0;                     // Daily tax amount
     public GameConfig.TaxAlignment TaxAlignment { get; set; } = GameConfig.TaxAlignment.All;
-    
+
+    // City control tax share (percentage of sales that goes to city-controlling team)
+    public int CityTaxPercent { get; set; } = 2;              // Default 2% of all sales
+
     // Royal Guard System (Pascal: guard, guardpay, guardai, guardsex arrays)
+    // Max 5 NPC guards + 5 monster guards
+    public const int MaxNPCGuards = 5;
+    public const int MaxMonsterGuards = 5;
     public List<RoyalGuard> Guards { get; set; } = new();
+    public List<MonsterGuard> MonsterGuards { get; set; } = new();
     
     // Royal Orders and Establishments (Pascal: various establishment controls)
     public Dictionary<string, bool> EstablishmentStatus { get; set; } = new();
@@ -91,19 +98,25 @@ public class King
     public long CalculateDailyExpenses()
     {
         long expenses = 0;
-        
-        // Guard salaries
+
+        // NPC Guard salaries
         foreach (var guard in Guards)
         {
             expenses += guard.DailySalary;
         }
-        
+
+        // Monster guard feeding costs
+        foreach (var monster in MonsterGuards)
+        {
+            expenses += monster.DailyFeedingCost;
+        }
+
         // Orphan care costs
         expenses += Orphans.Count * GameConfig.OrphanCareCost;
-        
+
         // Base court maintenance
         expenses += 1000; // Base daily cost
-        
+
         return expenses;
     }
     
@@ -154,16 +167,16 @@ public class King
     }
     
     /// <summary>
-    /// Add a guard to the royal guard
+    /// Add an NPC guard to the royal guard
     /// </summary>
     public bool AddGuard(string guardName, CharacterAI ai, CharacterSex sex, long salary)
     {
-        if (Guards.Count >= GameConfig.MaxRoyalGuards)
+        if (Guards.Count >= MaxNPCGuards)
             return false;
-            
+
         if (Treasury < GameConfig.GuardRecruitmentCost)
             return false;
-            
+
         var guard = new RoyalGuard
         {
             Name = guardName,
@@ -172,15 +185,15 @@ public class King
             DailySalary = salary,
             RecruitmentDate = DateTime.Now
         };
-        
+
         Guards.Add(guard);
         Treasury -= GameConfig.GuardRecruitmentCost;
-        
+
         return true;
     }
-    
+
     /// <summary>
-    /// Remove a guard from the royal guard
+    /// Remove an NPC guard from the royal guard
     /// </summary>
     public bool RemoveGuard(string guardName)
     {
@@ -192,6 +205,58 @@ public class King
         }
         return false;
     }
+
+    /// <summary>
+    /// Add a monster guard - monsters cost more but are stronger
+    /// </summary>
+    public bool AddMonsterGuard(string monsterName, int level, long purchaseCost)
+    {
+        if (MonsterGuards.Count >= MaxMonsterGuards)
+            return false;
+
+        // Monster cost scales with level and count
+        long actualCost = purchaseCost + (MonsterGuards.Count * 500);
+
+        if (Treasury < actualCost)
+            return false;
+
+        var monster = new MonsterGuard
+        {
+            Name = monsterName,
+            Level = level,
+            HP = 200 + (level * 50),
+            MaxHP = 200 + (level * 50),
+            Strength = 30 + (level * 5),
+            Defence = 20 + (level * 3),
+            PurchaseCost = actualCost,
+            DailyFeedingCost = 50 + (level * 10),
+            AcquiredDate = DateTime.Now
+        };
+
+        MonsterGuards.Add(monster);
+        Treasury -= actualCost;
+
+        return true;
+    }
+
+    /// <summary>
+    /// Remove a monster guard
+    /// </summary>
+    public bool RemoveMonsterGuard(string monsterName)
+    {
+        var monster = MonsterGuards.Find(m => m.Name == monsterName);
+        if (monster != null)
+        {
+            MonsterGuards.Remove(monster);
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Get total guard count (NPC + Monster)
+    /// </summary>
+    public int TotalGuardCount => Guards.Count + MonsterGuards.Count;
     
     /// <summary>
     /// Imprison a character
@@ -277,4 +342,45 @@ public class RoyalOrphan
     public DateTime ArrivalDate { get; set; } = DateTime.Now;
     public string BackgroundStory { get; set; } = "";
     public int Happiness { get; set; } = 50;          // 0-100, affects kingdom morale
+}
+
+/// <summary>
+/// Monster guard - fearsome creatures that protect the throne
+/// Challengers must fight through monster guards before NPC guards
+/// </summary>
+public class MonsterGuard
+{
+    public string Name { get; set; } = "";
+    public int Level { get; set; } = 1;
+    public long HP { get; set; } = 200;
+    public long MaxHP { get; set; } = 200;
+    public long Strength { get; set; } = 30;
+    public long Defence { get; set; } = 20;
+    public long WeapPow { get; set; } = 20;           // Natural attack power
+    public long ArmPow { get; set; } = 15;            // Natural armor
+    public string MonsterType { get; set; } = "";     // Family type (Dragon, Undead, etc.)
+    public long PurchaseCost { get; set; } = 1000;
+    public long DailyFeedingCost { get; set; } = 50;
+    public DateTime AcquiredDate { get; set; } = DateTime.Now;
+    public bool IsAlive => HP > 0;
+}
+
+/// <summary>
+/// Available monster types for purchase as guards
+/// </summary>
+public static class MonsterGuardTypes
+{
+    public static readonly (string Name, int Level, long Cost)[] AvailableMonsters = new[]
+    {
+        ("War Hound", 5, 2000L),
+        ("Cave Troll", 10, 5000L),
+        ("Giant Spider", 8, 3500L),
+        ("Dire Wolf", 7, 3000L),
+        ("Stone Golem", 15, 8000L),
+        ("Hellhound", 12, 6000L),
+        ("Manticore", 18, 12000L),
+        ("Wyvern", 20, 15000L),
+        ("Basilisk", 16, 10000L),
+        ("Iron Golem", 25, 20000L)
+    };
 } 

@@ -14,24 +14,28 @@ public class WorldSimulator
     private const float SIMULATION_INTERVAL = 60.0f; // seconds between simulation steps
     private const int MAX_TEAM_SIZE = 5; // Maximum members per team (from Pascal)
 
-    // Team name generators for NPC-formed teams
+    // Team name generators for NPC-formed teams - Ocean/Manwe themed for lore
     private static readonly string[] TeamNamePrefixes = new[]
     {
-        "The", "Dark", "Iron", "Shadow", "Blood", "Storm", "Night", "Steel",
-        "Crimson", "Black", "Silver", "Golden", "Savage", "Wild", "Grim"
+        "The Tidal", "The Azure", "The Storm", "The Deep", "The Salt",
+        "The Wave", "The Coral", "The Tempest", "The Abyssal", "The Pearl",
+        "The Manwe", "The Seafoam", "The Riptide", "The Trident", "The Nautical",
+        "The Leviathan", "The Kraken", "The Siren", "The Maritime", "The Oceanic"
     };
 
     private static readonly string[] TeamNameSuffixes = new[]
     {
-        "Warriors", "Raiders", "Blades", "Wolves", "Dragons", "Vipers", "Hawks",
-        "Reapers", "Knights", "Legion", "Fang", "Claws", "Guard", "Syndicate", "Brotherhood"
+        "Tide", "Current", "Mariners", "Sailors", "Corsairs",
+        "Navigators", "Voyagers", "Depths", "Wanderers", "Brotherhood",
+        "Covenant", "Order", "Guild", "Company", "Alliance",
+        "Conclave", "Fellowship", "Syndicate", "Circle", "Legion"
     };
 
     // Location names that match actual game locations
     private static readonly string[] GameLocations = new[]
     {
         "Main Street", "Dungeon", "Weapon Shop", "Armor Shop", "Magic Shop",
-        "Healer", "Inn", "Temple", "Gym", "Tavern", "Market", "Castle", "Love Street"
+        "Healer", "Inn", "Temple", "Gym", "Tavern", "Market", "Castle", "Love Street", "Bank"
     };
     
     public void StartSimulation(List<NPC> worldNPCs)
@@ -151,6 +155,34 @@ public class WorldSimulator
             activities.Add(("love_street", romanceWeight));
         }
 
+        // Temple worship - based on personality (faith/piety influences this)
+        if (npc.Brain?.Personality != null)
+        {
+            float templeWeight = 0.05f; // Base chance
+            // More lawful/good aligned characters visit temple more
+            if (npc.Chivalry > npc.Darkness)
+                templeWeight += 0.08f;
+            // Lower aggression = more peaceful/spiritual
+            templeWeight += (1f - npc.Brain.Personality.Aggression) * 0.05f;
+            // Higher wisdom = more spiritual
+            if (npc.Wisdom > 50)
+                templeWeight += 0.05f;
+            activities.Add(("temple", templeWeight));
+        }
+
+        // Bank visit - more likely if has gold to deposit or needs gold
+        if (npc.Gold > 1000 || (npc.BankGold > 0 && npc.Gold < 100))
+        {
+            float bankWeight = 0.1f; // Base chance
+            // Higher greed = more likely to visit bank
+            if (npc.Brain?.Personality != null)
+                bankWeight += npc.Brain.Personality.Greed * 0.08f;
+            // More gold = more reason to deposit
+            if (npc.Gold > 5000)
+                bankWeight += 0.1f;
+            activities.Add(("bank", bankWeight));
+        }
+
         // Team activities
         if (string.IsNullOrEmpty(npc.Team))
         {
@@ -216,6 +248,12 @@ public class WorldSimulator
                 break;
             case "love_street":
                 NPCVisitLoveStreet(npc);
+                break;
+            case "temple":
+                NPCVisitTemple(npc);
+                break;
+            case "bank":
+                NPCVisitBank(npc);
                 break;
         }
     }
@@ -864,6 +902,180 @@ public class WorldSimulator
         }
     }
 
+    /// <summary>
+    /// NPC visits the Temple to worship, sacrifice, or seek divine guidance
+    /// </summary>
+    private void NPCVisitTemple(NPC npc)
+    {
+        npc.UpdateLocation("Temple");
+        GD.Print($"[WorldSim] {npc.Name} visits the Temple");
+
+        var personality = npc.Brain?.Personality;
+        float roll = (float)random.NextDouble();
+
+        // Decide what to do at the temple
+        if (roll < 0.4f)
+        {
+            // Prayer and worship
+            GD.Print($"[WorldSim] {npc.Name} prays at the Temple");
+
+            // Small chance of receiving a blessing
+            if (random.NextDouble() < 0.1)
+            {
+                // NPC receives minor blessing
+                int statBoost = random.Next(1, 3);
+                switch (random.Next(3))
+                {
+                    case 0:
+                        npc.Strength += statBoost;
+                        break;
+                    case 1:
+                        npc.Wisdom += statBoost;
+                        break;
+                    case 2:
+                        npc.HP = Math.Min(npc.HP + npc.MaxHP / 4, npc.MaxHP);
+                        break;
+                }
+                NewsSystem.Instance.Newsy(false, $"{npc.Name} received a divine blessing at the Temple.");
+                GD.Print($"[WorldSim] {npc.Name} received a divine blessing!");
+            }
+        }
+        else if (roll < 0.6f && npc.Gold >= 500)
+        {
+            // Gold sacrifice to gain favor
+            int sacrifice = random.Next(500, Math.Min(5000, (int)npc.Gold));
+            npc.SpendGold(sacrifice);
+
+            // Boost chivalry slightly
+            npc.Chivalry += sacrifice / 500;
+
+            GD.Print($"[WorldSim] {npc.Name} sacrificed {sacrifice} gold at the Temple");
+
+            // Occasional news for large sacrifices
+            if (sacrifice >= 2000 && random.NextDouble() < 0.3)
+            {
+                NewsSystem.Instance.Newsy(false, $"{npc.Name} made a generous offering at the Temple.");
+            }
+        }
+        else if (roll < 0.75f && personality != null && personality.Aggression > 0.6f && npc.Darkness > npc.Chivalry)
+        {
+            // Evil NPCs might desecrate an altar
+            GD.Print($"[WorldSim] {npc.Name} desecrates an altar at the Temple!");
+
+            // Gain darkness, risk divine retribution
+            npc.Darkness += random.Next(10, 25);
+
+            // 30% chance of divine punishment
+            if (random.NextDouble() < 0.3)
+            {
+                int damage = random.Next(20, 50 + npc.Level);
+                npc.HP = Math.Max(1, npc.HP - damage);
+                NewsSystem.Instance.Newsy(true, $"{npc.Name} was struck by divine wrath for desecrating an altar!");
+                GD.Print($"[WorldSim] {npc.Name} was struck by divine wrath!");
+            }
+            else
+            {
+                NewsSystem.Instance.Newsy(true, $"{npc.Name} desecrated an altar at the Temple!");
+            }
+        }
+        else
+        {
+            // Meditation and contemplation - slight HP recovery
+            npc.HP = Math.Min(npc.HP + npc.MaxHP / 10, npc.MaxHP);
+            GD.Print($"[WorldSim] {npc.Name} meditates peacefully at the Temple");
+
+            // Meet other NPCs at temple for relationship building
+            var otherNPCs = npcs
+                .Where(n => n.IsAlive && n.ID != npc.ID && n.CurrentLocation == "Temple")
+                .ToList();
+
+            if (otherNPCs.Any() && random.NextDouble() < 0.3)
+            {
+                var other = otherNPCs[random.Next(otherNPCs.Count)];
+                // Spiritual bond - improve relationship
+                RelationshipSystem.UpdateRelationship(npc, other, 1, 1, false);
+                GD.Print($"[WorldSim] {npc.Name} and {other.Name} share a moment of spiritual connection");
+            }
+        }
+    }
+
+    /// <summary>
+    /// NPC visits the Bank to deposit, withdraw, or apply for guard duty
+    /// </summary>
+    private void NPCVisitBank(NPC npc)
+    {
+        npc.UpdateLocation("Bank");
+        GD.Print($"[WorldSim] {npc.Name} visits the Bank");
+
+        var personality = npc.Brain?.Personality;
+        float roll = (float)random.NextDouble();
+
+        // Decide what to do at the bank
+        if (npc.Gold > 1000 && roll < 0.5f)
+        {
+            // Deposit gold (deposit 50-80% of gold on hand)
+            double depositPercent = 0.5 + (random.NextDouble() * 0.3);
+            long depositAmount = (long)(npc.Gold * depositPercent);
+
+            npc.SpendGold(depositAmount);
+            npc.BankGold += depositAmount;
+
+            GD.Print($"[WorldSim] {npc.Name} deposited {depositAmount} gold at the Bank");
+
+            // Occasional news for large deposits
+            if (depositAmount >= 10000 && random.NextDouble() < 0.2)
+            {
+                NewsSystem.Instance.Newsy(false, $"{npc.Name} made a substantial deposit at the Ironvault Bank.");
+            }
+        }
+        else if (npc.BankGold > 0 && npc.Gold < 100 && roll < 0.7f)
+        {
+            // Withdraw gold when low on cash
+            long withdrawAmount = Math.Min(npc.BankGold, 500 + (npc.Level * 50));
+            npc.BankGold -= withdrawAmount;
+            npc.GainGold(withdrawAmount);
+
+            GD.Print($"[WorldSim] {npc.Name} withdrew {withdrawAmount} gold from the Bank");
+        }
+        else if (!npc.BankGuard && npc.Level >= 5 && npc.Darkness <= 100 && roll < 0.85f)
+        {
+            // Apply for guard duty (if eligible)
+            if (random.NextDouble() < 0.3) // 30% chance to actually apply
+            {
+                npc.BankGuard = true;
+                npc.BankWage = 1000 + (npc.Level * 50);
+
+                NewsSystem.Instance.Newsy(true, $"{npc.Name} has been hired as a guard at the Ironvault Bank!");
+                GD.Print($"[WorldSim] {npc.Name} became a bank guard (wage: {npc.BankWage}/day)");
+            }
+        }
+        else if (npc.BankGuard && random.NextDouble() < 0.05f)
+        {
+            // Small chance to resign from guard duty
+            npc.BankGuard = false;
+            npc.BankWage = 0;
+            GD.Print($"[WorldSim] {npc.Name} resigned from bank guard duty");
+        }
+        else
+        {
+            // Just checking account or socializing at the bank
+            GD.Print($"[WorldSim] {npc.Name} checked their account at the Bank");
+
+            // Might meet other NPCs at the bank
+            var otherNPCs = npcs
+                .Where(n => n.IsAlive && n.ID != npc.ID && n.CurrentLocation == "Bank")
+                .ToList();
+
+            if (otherNPCs.Any() && random.NextDouble() < 0.2)
+            {
+                var other = otherNPCs[random.Next(otherNPCs.Count)];
+                // Business acquaintance - small relationship boost
+                RelationshipSystem.UpdateRelationship(npc, other, 1, 0, false);
+                GD.Print($"[WorldSim] {npc.Name} and {other.Name} chatted at the Bank");
+            }
+        }
+    }
+
     private void ExecuteTrade(NPC npc, string targetId, WorldState world)
     {
         if (string.IsNullOrEmpty(targetId)) return;
@@ -1096,6 +1308,42 @@ public class WorldSimulator
 
         // Process team dynamics
         ProcessTeamDynamics();
+
+        // Process throne and city challenges
+        ProcessChallenges();
+
+        // Process prisoner activities
+        ProcessPrisonerActivities();
+    }
+
+    /// <summary>
+    /// Process throne and city control challenges
+    /// </summary>
+    private void ProcessChallenges()
+    {
+        try
+        {
+            ChallengeSystem.Instance.ProcessMaintenanceChallenges();
+        }
+        catch (Exception ex)
+        {
+            GD.PrintErr($"[WorldSim] Error processing challenges: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Process prisoner stat-building activities
+    /// </summary>
+    private void ProcessPrisonerActivities()
+    {
+        try
+        {
+            PrisonActivitySystem.Instance.ProcessAllPrisonerActivities();
+        }
+        catch (Exception ex)
+        {
+            GD.PrintErr($"[WorldSim] Error processing prisoner activities: {ex.Message}");
+        }
     }
 
     /// <summary>

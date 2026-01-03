@@ -425,7 +425,7 @@ public partial class GameEngine : Node
             terminal.SetColor("darkgray");
             terminal.Write("] ");
             terminal.SetColor("white");
-            terminal.WriteLine("Instructions");
+            terminal.WriteLine("The Story So Far...");
 
             terminal.SetColor("darkgray");
             terminal.Write("  [");
@@ -448,11 +448,20 @@ public partial class GameEngine : Node
             terminal.SetColor("darkgray");
             terminal.Write("  [");
             terminal.SetColor("bright_cyan");
-            terminal.Write("N");
+            terminal.Write("H");
+            terminal.SetColor("darkgray");
+            terminal.Write("] ");
+            terminal.SetColor("bright_magenta");
+            terminal.WriteLine("Usurper History");
+
+            terminal.SetColor("darkgray");
+            terminal.Write("  [");
+            terminal.SetColor("bright_cyan");
+            terminal.Write("C");
             terminal.SetColor("darkgray");
             terminal.Write("] ");
             terminal.SetColor("white");
-            terminal.WriteLine("Yesterday's News");
+            terminal.WriteLine("Credits");
 
             terminal.SetColor("darkgray");
             terminal.Write("  [");
@@ -471,7 +480,7 @@ public partial class GameEngine : Node
             terminal.SetColor("darkgray");
             terminal.Write("] ");
             terminal.SetColor("red");
-            terminal.WriteLine("Quit to DOS");
+            terminal.WriteLine("Quit");
 
             terminal.WriteLine("");
             terminal.SetColor("bright_white");
@@ -491,8 +500,11 @@ public partial class GameEngine : Node
                 case "T":
                     await ShowTeams();
                     break;
-                case "N":
-                    await ShowNews();
+                case "H":
+                    await UsurperHistorySystem.Instance.ShowHistory(terminal);
+                    break;
+                case "C":
+                    await ShowCredits();
                     break;
                 case "S":
                     await ShowGameSettings();
@@ -533,16 +545,8 @@ public partial class GameEngine : Node
                 terminal.WriteLine("Let's create a new character!");
                 terminal.WriteLine("");
 
-                var playerName = await terminal.GetInput("Enter your real name (or player name): ");
-
-                if (string.IsNullOrWhiteSpace(playerName))
-                {
-                    terminal.WriteLine("Invalid name!", "red");
-                    await Task.Delay(2000);
-                    continue;
-                }
-
-                await CreateNewGame(playerName);
+                // Go directly to character creation - name will be entered there
+                await CreateNewGame("");
                 return;
             }
 
@@ -835,7 +839,7 @@ public partial class GameEngine : Node
     /// </summary>
     private string GetUserDataPath()
     {
-        var appName = "UsurperReborn";
+        var appName = "UsurperReloaded";
 
         if (System.Environment.OSVersion.Platform == PlatformID.Win32NT)
         {
@@ -904,8 +908,10 @@ public partial class GameEngine : Node
 
         currentPlayer = (Character)newCharacter;
 
-        // Save the new game
-        var success = await SaveSystem.Instance.SaveGame(playerName, currentPlayer);
+        // Save the new game using the character's actual name (Name1)
+        // This is important because playerName may be empty if coming from no-saves path
+        string savePlayerName = !string.IsNullOrEmpty(currentPlayer.Name1) ? currentPlayer.Name1 : currentPlayer.Name2;
+        var success = await SaveSystem.Instance.SaveGame(savePlayerName, currentPlayer);
         if (success)
         {
             terminal.WriteLine("New game saved successfully!", "green");
@@ -947,6 +953,15 @@ public partial class GameEngine : Node
         if (NPCSpawnSystem.Instance.ActiveNPCs.Count == 0)
         {
             await NPCSpawnSystem.Instance.InitializeClassicNPCs();
+
+            // Initialize the world with simulated history (100 days of activity)
+            // This creates teams, establishes a King, city control, guards, etc.
+            if (!WorldInitializerSystem.Instance.IsWorldInitialized)
+            {
+                terminal.WriteLine("The world stirs with activity...", "cyan");
+                await WorldInitializerSystem.Instance.InitializeWorld(100);
+                terminal.WriteLine("History has been written. Your adventure begins!", "bright_green");
+            }
         }
 
         // Check if player is allowed to play
@@ -1597,12 +1612,206 @@ public partial class GameEngine : Node
     }
     
     // Placeholder methods for game actions
-    private async Task ShowInstructions() => await ShowInfoScreen("Instructions", "Game instructions will be here...");
+    private async Task ShowInstructions() => await ShowStoryIntroduction();
     private async Task ListPlayers() => await ShowInfoScreen("Player List", "Player list will be here...");
     private async Task ShowTeams() => await ShowInfoScreen("Teams", "Team information will be here...");
-    private async Task ShowNews() => await ShowInfoScreen("News", "Yesterday's news will be here...");
     private async Task ShowGameSettings() => await ShowInfoScreen("Game Settings", "Game settings will be here...");
     private async Task ShowStatus() => await ShowInfoScreen("Status", $"Player: {currentPlayer?.DisplayName}\nLevel: {currentPlayer?.Level}\nHP: {currentPlayer?.HP}/{currentPlayer?.MaxHP}");
+
+    /// <summary>
+    /// Display the credits screen
+    /// </summary>
+    private async Task ShowCredits()
+    {
+        terminal.ClearScreen();
+
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("+=============================================================================+");
+        terminal.WriteLine("|                              CREDITS                                        |");
+        terminal.WriteLine("+=============================================================================+");
+        terminal.WriteLine("");
+
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("                         USURPER REBORN");
+        terminal.WriteLine("                    A Modern Tribute to a Classic");
+        terminal.WriteLine("");
+
+        terminal.SetColor("bright_white");
+        terminal.WriteLine("  Original Game:");
+        terminal.SetColor("white");
+        terminal.WriteLine("    Usurper: Halls of Avarice (1993)");
+        terminal.WriteLine("");
+
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("  ORIGINAL CREATORS:");
+        terminal.SetColor("cyan");
+        terminal.WriteLine("    Jakob Dangarden          - Original Game Creator (1993)");
+        terminal.WriteLine("    Rick Parrish             - Source Code Preservation & Porting");
+        terminal.WriteLine("    Daniel Zingaro           - Bug Fixing & Code Quality");
+        terminal.WriteLine("");
+
+        terminal.SetColor("bright_green");
+        terminal.WriteLine("  THIS REMAKE:");
+        terminal.SetColor("cyan");
+        terminal.WriteLine("    Jason Knight             - Creator of Usurper Reborn");
+        terminal.WriteLine("    Claude AI                - Development Assistant");
+        terminal.WriteLine("");
+        terminal.SetColor("gray");
+        terminal.WriteLine("    Built with C# / .NET 6.0 / Godot Engine (optional)");
+        terminal.WriteLine("");
+
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("  SPECIAL THANKS:");
+        terminal.SetColor("gray");
+        terminal.WriteLine("    The BBS community of the 1980s and 1990s");
+        terminal.WriteLine("    All the SysOps who kept the boards running");
+        terminal.WriteLine("    Every player who dialed in to explore Durunghins");
+        terminal.WriteLine("    The Break Into Chat wiki for preserving BBS history");
+        terminal.WriteLine("");
+
+        terminal.SetColor("bright_white");
+        terminal.WriteLine("  LICENSE:");
+        terminal.SetColor("gray");
+        terminal.WriteLine("    The original Usurper was released under the GNU GPL");
+        terminal.WriteLine("    This remake honors that open source tradition");
+        terminal.WriteLine("");
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine("");
+        terminal.WriteLine("                         [Press any key to return]");
+        await terminal.WaitForKey();
+    }
+
+    /// <summary>
+    /// Display the story introduction and lore
+    /// </summary>
+    private async Task ShowStoryIntroduction()
+    {
+        terminal.ClearScreen();
+
+        // Page 1: The Golden Age
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║                         THE STORY SO FAR...                                  ║");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("                           ~ The Golden Age ~");
+        terminal.WriteLine("");
+        terminal.SetColor("white");
+        terminal.WriteLine("  Long ago, in an age now lost to memory, the world was watched over by the");
+        terminal.WriteLine("  Seven Divine - gods of immense power who guided mortalkind with wisdom and");
+        terminal.WriteLine("  grace. Under their benevolent gaze, civilizations flourished. The god of");
+        terminal.WriteLine("  war taught honor in battle. The goddess of love blessed every union. The");
+        terminal.WriteLine("  god of light ensured truth prevailed over deception.");
+        terminal.WriteLine("");
+        terminal.SetColor("gray");
+        terminal.WriteLine("  It was an age of miracles. An age of heroes. An age of hope.");
+        terminal.WriteLine("");
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine("                              [Press any key]");
+        await terminal.WaitForKey();
+
+        // Page 2: The Sundering
+        terminal.ClearScreen();
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║                         THE STORY SO FAR...                                  ║");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+
+        terminal.SetColor("bright_red");
+        terminal.WriteLine("                            ~ The Sundering ~");
+        terminal.WriteLine("");
+        terminal.SetColor("white");
+        terminal.WriteLine("  Then came the Sundering - a cataclysm whose cause remains unknown. Some say");
+        terminal.WriteLine("  mortals grew too proud and turned away from the gods. Others whisper of a");
+        terminal.WriteLine("  betrayal among the Divine themselves. Whatever the truth, the result was");
+        terminal.WriteLine("  catastrophic.");
+        terminal.WriteLine("");
+        terminal.SetColor("red");
+        terminal.WriteLine("  The Seven were corrupted. Twisted. Imprisoned in realms of their own making.");
+        terminal.WriteLine("");
+        terminal.SetColor("white");
+        terminal.WriteLine("  The god of war became rage incarnate, drowning in endless bloodshed. The");
+        terminal.WriteLine("  goddess of love withered into jealousy and obsession. The god of light");
+        terminal.WriteLine("  faded to barely a whisper, truth dying with each passing lie.");
+        terminal.WriteLine("");
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine("                              [Press any key]");
+        await terminal.WaitForKey();
+
+        // Page 3: The Age of Avarice
+        terminal.ClearScreen();
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║                         THE STORY SO FAR...                                  ║");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("                          ~ The Age of Avarice ~");
+        terminal.WriteLine("");
+        terminal.SetColor("white");
+        terminal.WriteLine("  Centuries have passed. The Old Gods are now mere legends - cautionary tales");
+        terminal.WriteLine("  told to frighten children. In their absence, mortals have created new gods");
+        terminal.WriteLine("  to worship, pale echoes of the Divine that once were.");
+        terminal.WriteLine("");
+        terminal.WriteLine("  And in this godless age, a new power has risen: AVARICE.");
+        terminal.WriteLine("");
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("  The Halls of Avarice - a sprawling underground complex where adventurers");
+        terminal.WriteLine("  seek fortune, glory, and power. Where the strong prey upon the weak. Where");
+        terminal.WriteLine("  gold is the only god that matters.");
+        terminal.WriteLine("");
+        terminal.SetColor("gray");
+        terminal.WriteLine("  Some come seeking treasure. Some come seeking fame. Some come to escape");
+        terminal.WriteLine("  their past. And some... some hear whispers in the dark. Ancient voices");
+        terminal.WriteLine("  calling from the depths. Promising power. Demanding sacrifice.");
+        terminal.WriteLine("");
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine("                              [Press any key]");
+        await terminal.WaitForKey();
+
+        // Page 4: Your Story Begins
+        terminal.ClearScreen();
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║                         THE STORY SO FAR...                                  ║");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+
+        terminal.SetColor("bright_green");
+        terminal.WriteLine("                          ~ Your Story Begins ~");
+        terminal.WriteLine("");
+        terminal.SetColor("white");
+        terminal.WriteLine("  You arrive at the gates of the realm with little more than the clothes on");
+        terminal.WriteLine("  your back and a hunger for something more. The bustling Main Street awaits,");
+        terminal.WriteLine("  filled with shops, taverns, and opportunities for those bold enough to");
+        terminal.WriteLine("  seize them.");
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        terminal.WriteLine("  Will you delve into the deadly Dungeons in search of treasure and glory?");
+        terminal.WriteLine("  Will you find love on the cobblestones of this dangerous town?");
+        terminal.WriteLine("  Will you rise to become a champion... or fall to become a cautionary tale?");
+        terminal.WriteLine("");
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("  And perhaps, if you grow strong enough, you may discover what truly lurks");
+        terminal.WriteLine("  in the deepest halls. You may learn the fate of the Old Gods. You may even");
+        terminal.WriteLine("  have the chance to save them... or destroy them forever.");
+        terminal.WriteLine("");
+        terminal.SetColor("bright_white");
+        terminal.WriteLine("  The choice, adventurer, is yours.");
+        terminal.WriteLine("");
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine("                         [Press any key to return]");
+        await terminal.WaitForKey();
+    }
     
     private async Task ShowInfoScreen(string title, string content)
     {

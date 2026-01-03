@@ -461,6 +461,9 @@ public class ArmorShopLocation : BaseLocation
         var totalModifier = alignmentModifier * worldEventModifier;
         long adjustedPrice = (long)(item.Value * totalModifier);
 
+        // Apply city control discount if player's team controls the city
+        adjustedPrice = CityControlSystem.Instance.ApplyDiscount(adjustedPrice, currentPlayer);
+
         if (currentPlayer.Gold < adjustedPrice)
         {
             terminal.WriteLine("");
@@ -511,6 +514,9 @@ public class ArmorShopLocation : BaseLocation
 
         // Process purchase
         currentPlayer.Gold -= adjustedPrice;
+
+        // Process city tax share from this sale
+        CityControlSystem.Instance.ProcessSaleTax(adjustedPrice);
 
         // Equip the item (will auto-unequip old item)
         if (currentPlayer.EquipItem(item, out string message))
@@ -644,14 +650,19 @@ public class ArmorShopLocation : BaseLocation
 
             if (bestItem != null)
             {
-                currentPlayer.Gold -= bestItem.Value;
-                totalSpent += bestItem.Value;
+                // Apply city control discount
+                long itemPrice = CityControlSystem.Instance.ApplyDiscount(bestItem.Value, currentPlayer);
+                currentPlayer.Gold -= itemPrice;
+                totalSpent += itemPrice;
+
+                // Process city tax share from this sale
+                CityControlSystem.Instance.ProcessSaleTax(itemPrice);
 
                 if (currentPlayer.EquipItem(bestItem, out _))
                 {
                     purchased++;
                     terminal.SetColor("bright_green");
-                    terminal.WriteLine($"✓ {slot.GetDisplayName()}: Bought {bestItem.Name} (AC:{bestItem.ArmorClass}) for {FormatNumber(bestItem.Value)}");
+                    terminal.WriteLine($"✓ {slot.GetDisplayName()}: Bought {bestItem.Name} (AC:{bestItem.ArmorClass}) for {FormatNumber(itemPrice)}");
                 }
             }
             else

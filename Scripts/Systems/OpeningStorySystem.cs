@@ -16,9 +16,43 @@ namespace UsurperRemake.Systems
         private static OpeningStorySystem? _instance;
         public static OpeningStorySystem Instance => _instance ??= new OpeningStorySystem();
 
+        // Skip mode - when true, text appears instantly
+        private bool _skipMode = false;
+
         public OpeningStorySystem()
         {
             _instance = this;
+        }
+
+        /// <summary>
+        /// Delay that can be skipped by pressing space bar
+        /// </summary>
+        private async Task SkippableDelay(int milliseconds)
+        {
+            if (_skipMode)
+            {
+                await Task.Delay(10); // Minimal delay even in skip mode for readability
+                return;
+            }
+
+            // Check for space press during delay
+            int elapsed = 0;
+            const int checkInterval = 50;
+
+            while (elapsed < milliseconds)
+            {
+                if (Console.KeyAvailable)
+                {
+                    var key = Console.ReadKey(true);
+                    if (key.Key == ConsoleKey.Spacebar)
+                    {
+                        _skipMode = true;
+                        return;
+                    }
+                }
+                await Task.Delay(checkInterval);
+                elapsed += checkInterval;
+            }
         }
 
         /// <summary>
@@ -26,6 +60,15 @@ namespace UsurperRemake.Systems
         /// </summary>
         public async Task PlayOpeningSequence(Character player, TerminalEmulator terminal)
         {
+            // Reset skip mode for this playthrough
+            _skipMode = false;
+
+            // Show skip hint
+            terminal.Clear();
+            terminal.WriteLine("");
+            terminal.WriteLine("  (Press SPACE at any time to skip through text faster)", "dark_gray");
+            await SkippableDelay(2000);
+
             // Phase 1: The Awakening (mysterious dream-like intro)
             await PlayAwakening(player, terminal);
 
@@ -49,13 +92,13 @@ namespace UsurperRemake.Systems
         private async Task PlayAwakening(Character player, TerminalEmulator terminal)
         {
             terminal.Clear();
-            await Task.Delay(1000);
+            await SkippableDelay(1000);
 
             // Fade in from darkness
             terminal.WriteLine("");
             terminal.WriteLine("");
             terminal.WriteLine("", "white");
-            await Task.Delay(2000);
+            await SkippableDelay(2000);
 
             // The dream
             var dreamLines = new[]
@@ -89,10 +132,10 @@ namespace UsurperRemake.Systems
                 {
                     terminal.WriteLine($"  {line}", color);
                 }
-                await Task.Delay(800);
+                await SkippableDelay(800);
             }
 
-            await Task.Delay(1500);
+            await SkippableDelay(1500);
             terminal.Clear();
         }
 
@@ -102,7 +145,7 @@ namespace UsurperRemake.Systems
         private async Task PlayDormitoryScene(Character player, TerminalEmulator terminal)
         {
             terminal.Clear();
-            await Task.Delay(500);
+            await SkippableDelay(500);
 
             terminal.WriteLine("");
             terminal.WriteLine("╔═══════════════════════════════════════════════════════════════════╗", "dark_cyan");
@@ -110,7 +153,7 @@ namespace UsurperRemake.Systems
             terminal.WriteLine("╚═══════════════════════════════════════════════════════════════════╝", "dark_cyan");
             terminal.WriteLine("");
 
-            await Task.Delay(1000);
+            await SkippableDelay(1000);
 
             var sceneLines = new[]
             {
@@ -146,7 +189,7 @@ namespace UsurperRemake.Systems
                 {
                     terminal.WriteLine($"  {line}", color);
                 }
-                await Task.Delay(400);
+                await SkippableDelay(400);
             }
 
             terminal.WriteLine("");
@@ -159,7 +202,7 @@ namespace UsurperRemake.Systems
         private async Task PlayFirstMystery(Character player, TerminalEmulator terminal)
         {
             terminal.Clear();
-            await Task.Delay(500);
+            await SkippableDelay(500);
 
             var mysteryLines = new[]
             {
@@ -183,40 +226,40 @@ namespace UsurperRemake.Systems
                 {
                     terminal.WriteLine($"  {line}", color);
                 }
-                await Task.Delay(400);
+                await SkippableDelay(400);
             }
 
             // The letter - the hook
             terminal.WriteLine("  ┌─────────────────────────────────────────────────────────┐", "yellow");
-            await Task.Delay(200);
+            await SkippableDelay(200);
             terminal.WriteLine("  │                                                         │", "yellow");
             terminal.WriteLine("  │  To myself, if I survive:                               │", "yellow");
-            await Task.Delay(500);
+            await SkippableDelay(500);
             terminal.WriteLine("  │                                                         │", "yellow");
             terminal.WriteLine("  │  The gods are broken. Corrupted. Manwe has gone mad,    │", "yellow");
-            await Task.Delay(300);
+            await SkippableDelay(300);
             terminal.WriteLine("  │  and the Old Gods fight an endless war in his shadow.   │", "yellow");
-            await Task.Delay(300);
+            await SkippableDelay(300);
             terminal.WriteLine("  │                                                         │", "yellow");
             terminal.WriteLine("  │  There are SEVEN SEALS hidden in the dungeons below.    │", "yellow");
-            await Task.Delay(300);
+            await SkippableDelay(300);
             terminal.WriteLine("  │  Collect them. Break the cycle. End the suffering.      │", "yellow");
-            await Task.Delay(300);
+            await SkippableDelay(300);
             terminal.WriteLine("  │                                                         │", "yellow");
             terminal.WriteLine("  │  Trust no one. Especially not the Stranger.             │", "yellow");
-            await Task.Delay(300);
+            await SkippableDelay(300);
             terminal.WriteLine("  │                                                         │", "yellow");
             terminal.WriteLine("  │  And remember this:                                     │", "yellow");
             terminal.WriteLine("  │  You are not what you think you are.                    │", "bright_cyan");
             terminal.WriteLine("  │  You never were.                                        │", "bright_cyan");
-            await Task.Delay(500);
+            await SkippableDelay(500);
             terminal.WriteLine("  │                                                         │", "yellow");
             terminal.WriteLine("  │                                    - You (Before)       │", "gray");
             terminal.WriteLine("  │                                                         │", "yellow");
             terminal.WriteLine("  └─────────────────────────────────────────────────────────┘", "yellow");
 
             terminal.WriteLine("");
-            await Task.Delay(1000);
+            await SkippableDelay(1000);
 
             terminal.WriteLine("");
             terminal.WriteLine("  The parchment crumbles to dust in your hands.", "gray");
@@ -232,7 +275,7 @@ namespace UsurperRemake.Systems
         private async Task PlayGoalReveal(Character player, TerminalEmulator terminal)
         {
             terminal.Clear();
-            await Task.Delay(500);
+            await SkippableDelay(500);
 
             terminal.WriteLine("");
             terminal.WriteLine("╔═══════════════════════════════════════════════════════════════════╗", "bright_cyan");
@@ -240,7 +283,7 @@ namespace UsurperRemake.Systems
             terminal.WriteLine("╚═══════════════════════════════════════════════════════════════════╝", "bright_cyan");
             terminal.WriteLine("");
 
-            await Task.Delay(500);
+            await SkippableDelay(500);
 
             var goalLines = new[]
             {
@@ -274,11 +317,11 @@ namespace UsurperRemake.Systems
                 {
                     terminal.WriteLine($"  {line}", color);
                 }
-                await Task.Delay(350);
+                await SkippableDelay(350);
             }
 
             terminal.WriteLine("");
-            await Task.Delay(1000);
+            await SkippableDelay(1000);
 
             // Quick gameplay tips
             terminal.WriteLine("");
@@ -306,7 +349,7 @@ namespace UsurperRemake.Systems
             terminal.WriteLine("        May you find what you seek...", "cyan");
             terminal.WriteLine("        ...and remember what you've forgotten.", "gray");
             terminal.WriteLine("");
-            await Task.Delay(3000);
+            await SkippableDelay(3000);
         }
 
         /// <summary>
@@ -365,8 +408,16 @@ namespace UsurperRemake.Systems
         /// </summary>
         public async Task PlayNewGamePlusOpening(Character player, TerminalEmulator terminal)
         {
+            // Reset skip mode for this playthrough
+            _skipMode = false;
+
             terminal.Clear();
-            await Task.Delay(1000);
+            terminal.WriteLine("");
+            terminal.WriteLine("  (Press SPACE at any time to skip through text faster)", "dark_gray");
+            await SkippableDelay(2000);
+
+            terminal.Clear();
+            await SkippableDelay(1000);
 
             int cycle = StoryProgressionSystem.Instance.CurrentCycle;
 
@@ -376,7 +427,7 @@ namespace UsurperRemake.Systems
             terminal.WriteLine("╚═══════════════════════════════════════════════════════════════════╝", "bright_magenta");
             terminal.WriteLine("");
 
-            await Task.Delay(1000);
+            await SkippableDelay(1000);
 
             var ngPlusLines = new[]
             {
@@ -404,7 +455,7 @@ namespace UsurperRemake.Systems
                 {
                     terminal.WriteLine($"  {line}", color);
                 }
-                await Task.Delay(400);
+                await SkippableDelay(400);
             }
 
             // NG+ additional revelation
@@ -425,7 +476,7 @@ namespace UsurperRemake.Systems
             terminal.WriteLine("  └─────────────────────────────────────────────────────────┘", "bright_magenta");
 
             terminal.WriteLine("");
-            await Task.Delay(1500);
+            await SkippableDelay(1500);
 
             // NG+ bonuses reminder
             var bonuses = CycleSystem.Instance.GetCurrentCycleBonuses();

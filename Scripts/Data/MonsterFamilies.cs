@@ -5,6 +5,14 @@ using System.Linq;
 /// <summary>
 /// Monster family system - defines monster types with tier progressions
 /// Monsters scale from level 1-100 with distinct families and variations
+///
+/// LORE: The dungeons beneath Dorashire were not always so infested with monsters.
+/// When the Sundering shattered the divine order, the corruption that seeped from
+/// the broken gods took physical form. Each monster family reflects an aspect of
+/// divine corruption - the Undead rose from Mortis's broken domain, the Demonic
+/// crawled through tears in reality, and the Celestials fell when Aurelion's
+/// light began to fade. The deeper one descends, the closer one gets to the
+/// source of corruption - and the Old Gods themselves.
 /// </summary>
 public static class MonsterFamilies
 {
@@ -38,11 +46,11 @@ public static class MonsterFamilies
     /// </summary>
     public static readonly List<MonsterFamily> AllFamilies = new()
     {
-        // GOBLINOID FAMILY
+        // GOBLINOID FAMILY - Twisted by Maelketh's endless war
         new MonsterFamily
         {
             FamilyName = "Goblinoid",
-            Description = "Small, cunning creatures that grow in power and organization",
+            Description = "Twisted creatures born from Maelketh's corruption. Once peaceful cave-dwellers, the goblins were warped by the mad war-god's influence into cunning, violent warriors who live only for conquest.",
             BaseColor = "green",
             AttackType = "physical",
             Tiers = new List<MonsterTier>
@@ -55,11 +63,11 @@ public static class MonsterFamilies
             }
         },
 
-        // UNDEAD FAMILY
+        // UNDEAD FAMILY - Death's servants when Mortis lost control
         new MonsterFamily
         {
             FamilyName = "Undead",
-            Description = "Cursed beings risen from death, immune to fear and pain",
+            Description = "When the god Mortis was weakened by the Sundering, the boundary between life and death grew thin. The undead are souls that cannot pass through the Final Gate, trapped in rotting bodies by divine corruption.",
             BaseColor = "gray",
             AttackType = "necrotic",
             Tiers = new List<MonsterTier>
@@ -72,11 +80,11 @@ public static class MonsterFamilies
             }
         },
 
-        // ORCISH FAMILY
+        // ORCISH FAMILY - Maelketh's chosen warriors
         new MonsterFamily
         {
             FamilyName = "Orcish",
-            Description = "Brutal warriors that live for battle and glory",
+            Description = "Unlike goblins who were corrupted, orcs willingly embraced Maelketh's war-blessing. They are the Broken Blade's most devoted followers, believing that dying in glorious battle will earn them a place in his eternal army.",
             BaseColor = "red",
             AttackType = "physical",
             Tiers = new List<MonsterTier>
@@ -89,11 +97,11 @@ public static class MonsterFamilies
             }
         },
 
-        // DRACONIC FAMILY
+        // DRACONIC FAMILY - Ancient servants of the Creator
         new MonsterFamily
         {
             FamilyName = "Draconic",
-            Description = "Ancient reptilian creatures of immense power",
+            Description = "Dragons existed before the Old Gods, created directly by Manwe to guard the world. When the Creator grew distant, many dragons fell to corruption. The Ancient Dragons remember the truth, but their minds are clouded by millennia of isolation.",
             BaseColor = "bright_red",
             AttackType = "fire",
             Tiers = new List<MonsterTier>
@@ -106,11 +114,11 @@ public static class MonsterFamilies
             }
         },
 
-        // DEMONIC FAMILY
+        // DEMONIC FAMILY - Creatures from beyond the Veil
         new MonsterFamily
         {
             FamilyName = "Demonic",
-            Description = "Fiends from the lower planes, masters of corruption",
+            Description = "When the Sundering tore holes in reality, demons crawled through from the Void beyond. They are not of this world - they are what exists in the spaces between Manwe's creation, hungry to consume what the Creator made.",
             BaseColor = "red",
             AttackType = "fire",
             Tiers = new List<MonsterTier>
@@ -123,11 +131,11 @@ public static class MonsterFamilies
             }
         },
 
-        // GIANT FAMILY
+        // GIANT FAMILY - Children of Terravok
         new MonsterFamily
         {
             FamilyName = "Giant",
-            Description = "Massive humanoids of incredible strength",
+            Description = "The giants were born from Terravok's dreams as he slept beneath the mountains. When the Earth God fell into his deep slumber, his children lost their purpose. Now they wander, confused and angry, awaiting a father who may never wake.",
             BaseColor = "bright_white",
             AttackType = "physical",
             Tiers = new List<MonsterTier>
@@ -140,11 +148,11 @@ public static class MonsterFamilies
             }
         },
 
-        // BEAST FAMILY
+        // BEAST FAMILY - Nature corrupted by divine war
         new MonsterFamily
         {
             FamilyName = "Beast",
-            Description = "Savage predators driven by primal hunger",
+            Description = "When the Old Gods warred, their divine energy poisoned the natural world. Beasts grew larger, fiercer, hungrier. The worst are the Lycanthropes - mortals cursed to transform under Noctura's moon, caught between human and animal.",
             BaseColor = "yellow",
             AttackType = "physical",
             Tiers = new List<MonsterTier>
@@ -157,11 +165,11 @@ public static class MonsterFamilies
             }
         },
 
-        // ELEMENTAL FAMILY
+        // ELEMENTAL FAMILY - Pure creation energy given form
         new MonsterFamily
         {
             FamilyName = "Elemental",
-            Description = "Living manifestations of primal fire",
+            Description = "Elementals are raw creation energy given form - the building blocks Manwe used to forge the world. Without the Creator's guiding will, they have become chaotic and dangerous, burning with purpose they can no longer remember.",
             BaseColor = "bright_red",
             AttackType = "fire",
             Tiers = new List<MonsterTier>
@@ -174,11 +182,11 @@ public static class MonsterFamilies
             }
         },
 
-        // ABERRATION FAMILY
+        // ABERRATION FAMILY - What should not exist
         new MonsterFamily
         {
             FamilyName = "Aberration",
-            Description = "Amorphous horrors from beyond reality",
+            Description = "Aberrations are mistakes - things that slipped through when Manwe created reality. They exist outside natural law, their very presence an affront to creation. The scholars say they came from the same Void as the demons, but are far older.",
             BaseColor = "green",
             AttackType = "acid",
             Tiers = new List<MonsterTier>
@@ -191,11 +199,11 @@ public static class MonsterFamilies
             }
         },
 
-        // INSECTOID FAMILY
+        // INSECTOID FAMILY - Noctura's children
         new MonsterFamily
         {
             FamilyName = "Insectoid",
-            Description = "Chitinous horrors from the deep places",
+            Description = "The spider-kin are Noctura's favored children, dwelling in darkness and spinning webs of shadow. The Shadow Weaver blessed them with cunning and venom, making them perfect hunters in the lightless depths where secrets are kept.",
             BaseColor = "white",
             AttackType = "poison",
             Tiers = new List<MonsterTier>
@@ -208,11 +216,11 @@ public static class MonsterFamilies
             }
         },
 
-        // CONSTRUCT FAMILY
+        // CONSTRUCT FAMILY - Thorgrim's enforcers
         new MonsterFamily
         {
             FamilyName = "Construct",
-            Description = "Animated objects and golems, relentless and unfeeling",
+            Description = "Golems were created by Thorgrim to enforce his absolute law. When the god of justice became the god of tyranny, his constructs continued to follow their programming - destroy all who break the law. But whose law do they serve now?",
             BaseColor = "gray",
             AttackType = "physical",
             Tiers = new List<MonsterTier>
@@ -225,11 +233,11 @@ public static class MonsterFamilies
             }
         },
 
-        // FEY FAMILY
+        // FEY FAMILY - Remnants of a kinder age
         new MonsterFamily
         {
             FamilyName = "Fey",
-            Description = "Magical beings from the feywild, tricksters and nature guardians",
+            Description = "The Fey remember the world before the Sundering, when the gods walked openly and love was not yet twisted into jealousy. Some say they are Veloura's first children, born from joy itself. Now they guard what remains of the old beauty.",
             BaseColor = "green",
             AttackType = "magic",
             Tiers = new List<MonsterTier>
@@ -242,11 +250,11 @@ public static class MonsterFamilies
             }
         },
 
-        // AQUATIC FAMILY
+        // AQUATIC FAMILY - The Ocean's memories
         new MonsterFamily
         {
             FamilyName = "Aquatic",
-            Description = "Terrors from the deep ocean",
+            Description = "The sea creatures know the truth that mortals have forgotten - that all existence is like water, and separation is an illusion. The Elder Krakens remember when Manwe first dreamed of waves, and they wait for the dreamer to wake.",
             BaseColor = "blue",
             AttackType = "physical",
             Tiers = new List<MonsterTier>
@@ -259,11 +267,11 @@ public static class MonsterFamilies
             }
         },
 
-        // CELESTIAL FAMILY
+        // CELESTIAL FAMILY - Aurelion's fallen servants
         new MonsterFamily
         {
             FamilyName = "Celestial",
-            Description = "Divine warriors from the upper planes",
+            Description = "Once the guardians of Aurelion's light, the celestials have dimmed with their master. Some still serve the Fading Light, desperately trying to preserve what truth remains. Others have gone mad, judging all mortals guilty of the lies that weakened their god.",
             BaseColor = "bright_white",
             AttackType = "holy",
             Tiers = new List<MonsterTier>
@@ -276,11 +284,11 @@ public static class MonsterFamilies
             }
         },
 
-        // SHADOW FAMILY
+        // SHADOW FAMILY - Noctura's truest servants
         new MonsterFamily
         {
             FamilyName = "Shadow",
-            Description = "Dark entities from the plane of shadow",
+            Description = "Shadow creatures are extensions of Noctura herself - pieces of her being that walk the world gathering secrets. The most powerful among them, the Void Entities, are said to know Noctura's true plan... and the truth about who the player really is.",
             BaseColor = "gray",
             AttackType = "necrotic",
             Tiers = new List<MonsterTier>

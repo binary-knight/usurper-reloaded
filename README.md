@@ -39,6 +39,24 @@ The letter crumbles to dust. But the words burn in your mind.
 - **37 Combat Spells** - Complete magic system across Cleric, Magician, and Sage classes
 - **Persistent World** - NPCs act, trade, fight, and die even when you're not playing
 
+### Combat Stamina System (NEW)
+Resource management for special abilities:
+- **Stamina Bar** - Combat resource separate from HP/Mana
+- **Per-Round Regeneration** - Stamina recovers each combat round
+- **Ability Costs** - All 44 class abilities require stamina (prevents spam)
+- **Stat-Based Scaling** - Stamina stat affects max pool and regen rate
+
+### Meaningful Character Stats (NEW)
+Every stat now has real mechanical effects like a modern RPG:
+- **Strength** - Bonus melee damage (+STR/4)
+- **Dexterity** - Hit chance bonus, critical hit chance (5%+), ranged damage
+- **Constitution** - Bonus HP, poison/disease resistance (up to 75%)
+- **Intelligence** - Bonus mana, spell damage multiplier, spell critical chance, XP bonus
+- **Wisdom** - Mana cost reduction (up to 50%), magic resistance, healing power
+- **Charisma** - Shop discounts, team size limit, NPC reactions
+- **Stamina** - Combat stamina pool and regeneration rate
+- **Agility** - Dodge chance (up to 35%), extra attack chance, initiative bonus
+
 ### The Ocean Philosophy System (NEW)
 A subtle narrative layer that tracks your awakening to deeper truths:
 - **7 Awakening Levels** - From ignorance to full enlightenment

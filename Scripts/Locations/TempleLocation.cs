@@ -1,4 +1,6 @@
 using UsurperRemake.Utils;
+using UsurperRemake.Systems;
+using UsurperRemake.Data;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,7 +10,11 @@ using Godot;
 /// <summary>
 /// Temple of the Gods - Complete Pascal-compatible temple system
 /// Based on TEMPLE.PAS with worship, sacrifice, and divine services
-/// Integrated with Phase 13 God System
+/// Integrated with Phase 13 God System and Old Gods storyline
+///
+/// The Temple houses altars to mortal-created gods as well as whispers
+/// of the Old Gods - the corrupted divine beings who once guided humanity.
+/// Aurelion, The Fading Light, can be encountered in the Deep Temple.
 /// </summary>
 public partial class TempleLocation : BaseLocation
 {
@@ -17,6 +23,29 @@ public partial class TempleLocation : BaseLocation
     private readonly GodSystem godSystem;
     private bool refreshMenu = true;
     private Character currentPlayer;
+    private Random random = new Random();
+
+    // Old Gods integration
+    private static readonly string[] OldGodsProphecies = new[]
+    {
+        "The Broken Blade weeps in halls of bone...",
+        "Love withers where the heart turns cold...",
+        "Justice blind becomes tyranny's tool...",
+        "In shadow's web, truth and lies entwine...",
+        "The light that fades leaves only dark behind...",
+        "Mountains sleep while the world forgets...",
+        "The Weary Creator watches, waits, and wonders..."
+    };
+
+    private static readonly string[] DivineWhispers = new[]
+    {
+        "You hear whispers from beyond the veil...",
+        "The candles flicker as something ancient stirs...",
+        "A cold wind carries the scent of forgotten ages...",
+        "The stones remember when gods walked among mortals...",
+        "Prayers echo back, transformed into warnings...",
+        "The altar trembles with barely contained power..."
+    };
     
     public TempleLocation(TerminalEmulator terminal, LocationManager locationManager, GodSystem godSystem)
     {
@@ -33,11 +62,33 @@ public partial class TempleLocation : BaseLocation
     public TempleLocation() : this(TerminalEmulator.Instance ?? new TerminalEmulator(), LocationManager.Instance, UsurperRemake.GodSystemSingleton.Instance)
     {
     }
-    
+
+    /// <summary>
+    /// Override EnterLocation to use our custom temple loop
+    /// </summary>
+    public override async Task EnterLocation(Character player, TerminalEmulator term)
+    {
+        // Set the terminal for this location
+        // Note: We use our own stored terminal from constructor, but update if needed
+        if (term != null && term != terminal)
+        {
+            // Use the provided terminal for consistency
+        }
+
+        // Run the temple's custom processing loop
+        var destination = await ProcessLocation(player);
+
+        // Handle navigation if needed
+        if (!string.IsNullOrEmpty(destination) && destination != GameLocation.MainStreet.ToString())
+        {
+            throw new LocationChangeException(destination);
+        }
+    }
+
     /// <summary>
     /// Main temple processing loop based on Pascal TEMPLE.PAS
     /// </summary>
-    public new async Task<string> ProcessLocation(Character player)
+    public async Task<string> ProcessLocation(Character player)
     {
         currentPlayer = player;
         terminal.Clear();
@@ -90,7 +141,19 @@ public partial class TempleLocation : BaseLocation
                     case GameConfig.TempleMenuHolyNews: // "H"
                         await DisplayHolyNews();
                         break;
-                        
+
+                    case "P": // Prophecies of the Old Gods
+                        await DisplayOldGodsProphecies();
+                        break;
+
+                    case "I": // Item sacrifice
+                        await ProcessItemSacrifice();
+                        break;
+
+                    case "T": // Deep Temple (Aurelion encounter)
+                        await EnterDeepTemple();
+                        break;
+
                     case GameConfig.TempleMenuReturn: // "R"
                         exitLocation = true;
                         break;
@@ -159,11 +222,20 @@ public partial class TempleLocation : BaseLocation
         }
         terminal.WriteLine("");
         
-        // Main menu options (Pascal TEMPLE.PAS format)
+        // Main menu options (Pascal TEMPLE.PAS format + Old Gods)
         terminal.WriteLine("(W)orship              (D)esecrate altar       (H)oly News", "yellow");
-        terminal.WriteLine("(A)ltars               (C)ontribute", "yellow");
-        terminal.WriteLine("(S)tatus               (G)od ranking", "yellow");
-        terminal.WriteLine("(R)eturn", "yellow");
+        terminal.WriteLine("(A)ltars               (C)ontribute            (I)tem Sacrifice", "yellow");
+        terminal.WriteLine("(S)tatus               (G)od ranking           (P)rophecies", "yellow");
+
+        // Deep Temple option - only show if player meets requirements
+        if (CanEnterDeepTemple())
+        {
+            terminal.WriteLine("(T)he Deep Temple      (R)eturn", "bright_magenta");
+        }
+        else
+        {
+            terminal.WriteLine("(R)eturn", "yellow");
+        }
         terminal.WriteLine("");
     }
     
@@ -293,8 +365,8 @@ public partial class TempleLocation : BaseLocation
         
         var confirmChoice = await terminal.GetInputAsync($"Desecrate {selectedGod.Name}'s altar? (Y/N) ");
         if (confirmChoice.ToUpper() != "Y") return;
-        
-        await PerformDesecration(selectedGod);
+
+        await PerformEnhancedDesecration(selectedGod);
     }
     
     /// <summary>
@@ -475,15 +547,43 @@ public partial class TempleLocation : BaseLocation
     private async Task DisplayGodList()
     {
         terminal.WriteLine("");
-        terminal.WriteLine("Available Gods:", "cyan");
+        terminal.WriteLine("═══ Available Gods ═══", "cyan");
         terminal.WriteLine("");
-        
-        var activeGods = godSystem.GetActiveGods().OrderBy(g => g.Name);
+
+        var activeGods = godSystem.GetActiveGods().OrderBy(g => g.Name).ToList();
+
+        if (activeGods.Count == 0)
+        {
+            terminal.WriteLine("No gods currently accept worshippers.", "gray");
+            terminal.WriteLine("");
+            return;
+        }
+
         foreach (var god in activeGods)
         {
-            terminal.WriteLine($"  {god.Name} - {god.GetTitle()}", "yellow");
+            // Get domain/title from properties or use GetTitle()
+            string domain = god.Properties.ContainsKey("Domain")
+                ? god.Properties["Domain"].ToString()
+                : god.GetTitle();
+
+            // Color based on alignment
+            string color = "yellow";
+            if (god.Goodness > god.Darkness * 2)
+                color = "bright_cyan";
+            else if (god.Darkness > god.Goodness * 2)
+                color = "dark_red";
+
+            terminal.WriteLine($"  {god.Name}, {domain}", color);
+
+            // Show description if available
+            if (god.Properties.ContainsKey("Description"))
+            {
+                terminal.WriteLine($"    {god.Properties["Description"]}", "gray");
+            }
+
+            terminal.WriteLine($"    Believers: {god.Believers} | Power: {god.Experience:N0}", "white");
+            terminal.WriteLine("");
         }
-        terminal.WriteLine("");
     }
     
     /// <summary>
@@ -663,4 +763,592 @@ public partial class TempleLocation : BaseLocation
         
         await terminal.GetInputAsync("Press Enter to continue...");
     }
-} 
+
+    #region Old Gods Integration
+
+    /// <summary>
+    /// Display prophecies about the Old Gods - hints about the main storyline
+    /// </summary>
+    private async Task DisplayOldGodsProphecies()
+    {
+        terminal.WriteLine("");
+        terminal.WriteLine("");
+        terminal.WriteLine("═══ The Prophecies of the Old Gods ═══", "bright_magenta");
+        terminal.WriteLine("");
+
+        // Random divine whisper intro
+        terminal.WriteLine(DivineWhispers[random.Next(DivineWhispers.Length)], "gray");
+        await Task.Delay(1500);
+        terminal.WriteLine("");
+
+        // Show prophecies based on story progression
+        var story = StoryProgressionSystem.Instance;
+        int propheciesRevealed = 0;
+
+        // Maelketh - The Broken Blade (War God)
+        if (story.OldGodStates.TryGetValue(OldGodType.Maelketh, out var maelkethState))
+        {
+            if (maelkethState.Status == GodStatus.Defeated)
+                terminal.WriteLine("The Broken Blade has shattered. War finds peace at last.", "green");
+            else if (maelkethState.Status == GodStatus.Saved)
+                terminal.WriteLine("The Blade remembers honor. War serves justice once more.", "bright_green");
+            else
+                terminal.WriteLine(OldGodsProphecies[0], "red");
+            propheciesRevealed++;
+        }
+        else if (currentPlayer.Level >= 50)
+        {
+            terminal.WriteLine(OldGodsProphecies[0], "red");
+            propheciesRevealed++;
+        }
+
+        // Veloura - The Withered Heart (Love Goddess)
+        if (story.OldGodStates.TryGetValue(OldGodType.Veloura, out var velouraState))
+        {
+            if (velouraState.Status == GodStatus.Defeated)
+                terminal.WriteLine("The Withered Heart beats no more. Love fades from the world.", "gray");
+            else if (velouraState.Status == GodStatus.Saved)
+                terminal.WriteLine("Love blooms anew where hope was planted.", "bright_magenta");
+            else
+                terminal.WriteLine(OldGodsProphecies[1], "red");
+            propheciesRevealed++;
+        }
+        else if (currentPlayer.Level >= 40)
+        {
+            terminal.WriteLine(OldGodsProphecies[1], "red");
+            propheciesRevealed++;
+        }
+
+        // Thorgrim - The Hollow Judge (Law God)
+        if (story.OldGodStates.TryGetValue(OldGodType.Thorgrim, out var thorgrimState))
+        {
+            if (thorgrimState.Status == GodStatus.Defeated)
+                terminal.WriteLine("The Hollow Judge is silenced. Mortals must find their own justice.", "yellow");
+            else
+                terminal.WriteLine(OldGodsProphecies[2], "red");
+            propheciesRevealed++;
+        }
+        else if (currentPlayer.Level >= 60)
+        {
+            terminal.WriteLine(OldGodsProphecies[2], "red");
+            propheciesRevealed++;
+        }
+
+        // Noctura - The Shadow Weaver
+        if (story.OldGodStates.TryGetValue(OldGodType.Noctura, out var nocturaState))
+        {
+            if (nocturaState.Status == GodStatus.Allied)
+                terminal.WriteLine("The Weaver's thread guides you through darkness.", "bright_cyan");
+            else if (nocturaState.Status == GodStatus.Defeated)
+                terminal.WriteLine("The shadows scatter. Secrets lie bare.", "gray");
+            else
+                terminal.WriteLine(OldGodsProphecies[3], "red");
+            propheciesRevealed++;
+        }
+        else if (currentPlayer.Level >= 70)
+        {
+            terminal.WriteLine(OldGodsProphecies[3], "red");
+            propheciesRevealed++;
+        }
+
+        // Aurelion - The Fading Light (encountered at Temple)
+        if (story.OldGodStates.TryGetValue(OldGodType.Aurelion, out var aurelionState))
+        {
+            if (aurelionState.Status == GodStatus.Defeated)
+                terminal.WriteLine("The Fading Light is extinguished. Truth dies in darkness.", "gray");
+            else if (aurelionState.Status == GodStatus.Saved)
+                terminal.WriteLine("The Light burns anew within a mortal vessel.", "bright_yellow");
+            else
+                terminal.WriteLine(OldGodsProphecies[4], "red");
+            propheciesRevealed++;
+        }
+        else if (currentPlayer.Level >= 55)
+        {
+            terminal.WriteLine(OldGodsProphecies[4], "red");
+            propheciesRevealed++;
+        }
+
+        // Terravok - The Sleeping Mountain
+        if (story.OldGodStates.TryGetValue(OldGodType.Terravok, out var terravokState))
+        {
+            if (terravokState.Status == GodStatus.Defeated)
+                terminal.WriteLine("The Mountain crumbles. The foundation breaks.", "gray");
+            else if (terravokState.Status == GodStatus.Saved)
+                terminal.WriteLine("The Mountain rises. The foundation stands eternal.", "bright_green");
+            else
+                terminal.WriteLine(OldGodsProphecies[5], "red");
+            propheciesRevealed++;
+        }
+        else if (currentPlayer.Level >= 75)
+        {
+            terminal.WriteLine(OldGodsProphecies[5], "red");
+            propheciesRevealed++;
+        }
+
+        // Manwe - The Weary Creator (final boss)
+        if (story.OldGodStates.TryGetValue(OldGodType.Manwe, out var manweState))
+        {
+            if (manweState.Status != GodStatus.Imprisoned)
+                terminal.WriteLine("The Creator's question has been answered. What comes next?", "bright_white");
+            else
+                terminal.WriteLine(OldGodsProphecies[6], "bright_magenta");
+            propheciesRevealed++;
+        }
+        else if (currentPlayer.Level >= 90)
+        {
+            terminal.WriteLine(OldGodsProphecies[6], "bright_magenta");
+            propheciesRevealed++;
+        }
+
+        if (propheciesRevealed == 0)
+        {
+            terminal.WriteLine("The prophecies remain sealed to those not yet ready.", "gray");
+            terminal.WriteLine("Grow stronger, and the whispers will find you...", "gray");
+        }
+
+        terminal.WriteLine("");
+
+        // Chance for divine vision
+        if (random.NextDouble() < 0.15 && currentPlayer.Level >= 30)
+        {
+            await DisplayDivineVision();
+        }
+
+        await terminal.GetInputAsync("Press Enter to continue...");
+    }
+
+    /// <summary>
+    /// Display a divine vision - rare insight into the story
+    /// </summary>
+    private async Task DisplayDivineVision()
+    {
+        terminal.WriteLine("");
+        terminal.WriteLine("╔═══════════════════════════════════════════════════════════════╗", "bright_cyan");
+        terminal.WriteLine("║              A VISION OVERTAKES YOU                           ║", "bright_cyan");
+        terminal.WriteLine("╚═══════════════════════════════════════════════════════════════╝", "bright_cyan");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        var story = StoryProgressionSystem.Instance;
+        int godsFaced = story.OldGodStates.Count(s => s.Value.Status != GodStatus.Imprisoned);
+
+        if (godsFaced == 0)
+        {
+            terminal.WriteLine("You see seven figures standing in a circle of light.", "white");
+            terminal.WriteLine("Their faces are beautiful, radiant, divine.", "white");
+            await Task.Delay(1000);
+            terminal.WriteLine("", "white");
+            terminal.WriteLine("Then darkness creeps in. One by one, their light dims.", "gray");
+            terminal.WriteLine("Their beauty twists. Their smiles become snarls.", "gray");
+            await Task.Delay(1000);
+            terminal.WriteLine("", "white");
+            terminal.WriteLine("\"We were meant to guide you,\" one whispers.", "bright_magenta");
+            terminal.WriteLine("\"But you broke our hearts instead.\"", "bright_magenta");
+        }
+        else if (godsFaced < 4)
+        {
+            terminal.WriteLine("You see yourself walking through endless halls.", "white");
+            terminal.WriteLine("Ahead, a faint light flickers - barely visible.", "white");
+            await Task.Delay(1000);
+            terminal.WriteLine("", "white");
+            terminal.WriteLine("A voice speaks: \"The Light fades with every lie.\"", "bright_yellow");
+            terminal.WriteLine("\"Find me before truth dies forever.\"", "bright_yellow");
+            await Task.Delay(1000);
+            terminal.WriteLine("", "white");
+            terminal.WriteLine("You sense the vision comes from... here. The Temple.", "bright_cyan");
+        }
+        else
+        {
+            terminal.WriteLine("You stand before a throne of stars.", "white");
+            terminal.WriteLine("Upon it sits a figure older than time itself.", "white");
+            await Task.Delay(1000);
+            terminal.WriteLine("", "white");
+            terminal.WriteLine("\"You've come far, child of dust.\"", "bright_white");
+            terminal.WriteLine("\"But the final question remains.\"", "bright_white");
+            await Task.Delay(1000);
+            terminal.WriteLine("", "white");
+            terminal.WriteLine("\"Was creation worth the cost?\"", "bright_magenta");
+        }
+
+        terminal.WriteLine("");
+        await Task.Delay(2000);
+
+        // Record divine vision in story
+        story.SetStoryFlag("had_divine_vision", true);
+
+        // Generate news
+        NewsSystem.Instance.Newsy(false, $"{currentPlayer.Name2} received a vision from the gods at the Temple.");
+    }
+
+    /// <summary>
+    /// Check if player can enter the Deep Temple (Aurelion encounter)
+    /// </summary>
+    private bool CanEnterDeepTemple()
+    {
+        // Requires level 55+ and at least 3 Old Gods defeated
+        if (currentPlayer.Level < 55)
+            return false;
+
+        var story = StoryProgressionSystem.Instance;
+        int godsDefeated = story.OldGodStates.Count(s => s.Value.Status == GodStatus.Defeated || s.Value.Status == GodStatus.Saved);
+
+        // Can enter if defeated/saved 3+ gods, OR if already encountered Aurelion
+        if (godsDefeated >= 3)
+            return true;
+
+        if (story.HasStoryFlag("aurelion_encountered"))
+            return true;
+
+        return false;
+    }
+
+    /// <summary>
+    /// Enter the Deep Temple - Aurelion's domain
+    /// </summary>
+    private async Task EnterDeepTemple()
+    {
+        if (!CanEnterDeepTemple())
+        {
+            terminal.WriteLine("");
+            terminal.WriteLine("The path to the Deep Temple is sealed.", "red");
+            terminal.WriteLine("You must prove yourself against the other Old Gods first.", "gray");
+            await Task.Delay(2000);
+            return;
+        }
+
+        terminal.Clear();
+        terminal.WriteLine("");
+        terminal.WriteLine("═══ THE DEEP TEMPLE ═══", "bright_yellow");
+        terminal.WriteLine("");
+        terminal.WriteLine("You descend stone steps worn smooth by millennia of pilgrims.", "white");
+        terminal.WriteLine("The torches here burn with pale, flickering flames.", "white");
+        await Task.Delay(1500);
+        terminal.WriteLine("");
+        terminal.WriteLine("The air grows thick with the weight of forgotten prayers.", "gray");
+        terminal.WriteLine("Something watches you from the shadows between the light.", "gray");
+        await Task.Delay(1500);
+
+        var story = StoryProgressionSystem.Instance;
+
+        // Check Aurelion's status
+        if (story.OldGodStates.TryGetValue(OldGodType.Aurelion, out var aurelionState))
+        {
+            if (aurelionState.Status == GodStatus.Defeated)
+            {
+                terminal.WriteLine("");
+                terminal.WriteLine("The altar where Aurelion once dwelt is dark and cold.", "gray");
+                terminal.WriteLine("Only ash remains where the god of truth once flickered.", "gray");
+                terminal.WriteLine("You feel a deep sense of... loss.", "white");
+                await terminal.GetInputAsync("Press Enter to return...");
+                return;
+            }
+            else if (aurelionState.Status == GodStatus.Saved)
+            {
+                terminal.WriteLine("");
+                terminal.WriteLine("A warm light fills the chamber.", "bright_yellow");
+                terminal.WriteLine("You feel Aurelion's presence within you - truth made flesh.", "bright_white");
+                terminal.WriteLine("", "white");
+                terminal.WriteLine("\"Thank you,\" his voice echoes in your mind.", "bright_cyan");
+                terminal.WriteLine("\"For giving truth a new vessel.\"", "bright_cyan");
+                await terminal.GetInputAsync("Press Enter to return...");
+                return;
+            }
+        }
+
+        // Aurelion encounter available
+        terminal.WriteLine("");
+        terminal.WriteLine("A faint glow pulses at the heart of the Deep Temple.", "bright_yellow");
+        terminal.WriteLine("It is weak... barely visible... but unmistakably divine.", "white");
+        terminal.WriteLine("");
+        terminal.WriteLine("\"You... can see me?\" a voice whispers.", "bright_yellow");
+        terminal.WriteLine("\"Few can anymore. The lies have grown so thick...\"", "bright_yellow");
+        terminal.WriteLine("");
+
+        var choice = await terminal.GetInputAsync("Approach the fading light? (Y/N) ");
+
+        if (choice.ToUpper() == "Y")
+        {
+            story.SetStoryFlag("aurelion_encountered", true);
+
+            // Start Aurelion boss encounter
+            var bossSystem = OldGodBossSystem.Instance;
+            if (bossSystem.CanEncounterBoss(currentPlayer, OldGodType.Aurelion))
+            {
+                var result = await bossSystem.StartBossEncounter(currentPlayer, OldGodType.Aurelion, terminal);
+
+                if (result.Success)
+                {
+                    // Generate news
+                    switch (result.Outcome)
+                    {
+                        case BossOutcome.Defeated:
+                            NewsSystem.Instance.Newsy(true, $"{currentPlayer.Name2} destroyed Aurelion, the Fading Light! Truth dies in darkness.");
+                            break;
+                        case BossOutcome.Saved:
+                            NewsSystem.Instance.Newsy(true, $"{currentPlayer.Name2} saved Aurelion, the Fading Light! Truth lives on within them.");
+                            break;
+                        case BossOutcome.Allied:
+                            NewsSystem.Instance.Newsy(true, $"{currentPlayer.Name2} has allied with Aurelion, the Fading Light!");
+                            break;
+                    }
+                }
+            }
+            else
+            {
+                terminal.WriteLine("");
+                terminal.WriteLine("The light flickers but cannot fully manifest.", "yellow");
+                terminal.WriteLine("\"I am... too weak. You must face the others first.\"", "bright_yellow");
+                terminal.WriteLine("\"Defeat more of my fallen siblings. Only then...\"", "bright_yellow");
+                await Task.Delay(2000);
+            }
+        }
+        else
+        {
+            terminal.WriteLine("");
+            terminal.WriteLine("You step back from the fading light.", "white");
+            terminal.WriteLine("\"I understand,\" the voice whispers sadly.", "bright_yellow");
+            terminal.WriteLine("\"Not everyone is ready for the truth.\"", "bright_yellow");
+        }
+
+        await terminal.GetInputAsync("Press Enter to return...");
+    }
+
+    /// <summary>
+    /// Process item sacrifice - sacrifice equipment for divine favor
+    /// </summary>
+    private async Task ProcessItemSacrifice()
+    {
+        terminal.WriteLine("");
+        terminal.WriteLine("");
+        terminal.WriteLine("═══ Item Sacrifice ═══", "cyan");
+        terminal.WriteLine("");
+
+        string currentGod = godSystem.GetPlayerGod(currentPlayer.Name2);
+
+        if (string.IsNullOrEmpty(currentGod))
+        {
+            terminal.WriteLine("You must worship a god before you can sacrifice items!", "red");
+            terminal.WriteLine("Visit the (W)orship option first.", "gray");
+            await Task.Delay(2000);
+            return;
+        }
+
+        terminal.WriteLine($"You kneel before the altar of {currentGod}.", "white");
+        terminal.WriteLine("", "white");
+        terminal.WriteLine("What would you sacrifice?", "cyan");
+        terminal.WriteLine("", "white");
+        terminal.WriteLine("(W)eapon - Offer your weapon for divine blessing", "yellow");
+        terminal.WriteLine("(A)rmor - Offer your armor for divine protection", "yellow");
+        terminal.WriteLine("(H)ealing potions - Offer potions for divine favor", "yellow");
+        terminal.WriteLine("(R)eturn", "yellow");
+        terminal.WriteLine("");
+
+        var choice = await terminal.GetInputAsync("Sacrifice: ");
+
+        switch (choice.ToUpper())
+        {
+            case "W":
+                await SacrificeWeapon(currentGod);
+                break;
+            case "A":
+                await SacrificeArmor(currentGod);
+                break;
+            case "H":
+                await SacrificePotions(currentGod);
+                break;
+            case "R":
+                return;
+        }
+    }
+
+    /// <summary>
+    /// Sacrifice weapon to god
+    /// </summary>
+    private async Task SacrificeWeapon(string godName)
+    {
+        if (currentPlayer.WeapPow <= 0)
+        {
+            terminal.WriteLine("You have no weapon to sacrifice!", "red");
+            await Task.Delay(1500);
+            return;
+        }
+
+        var confirm = await terminal.GetInputAsync($"Sacrifice your weapon (Power: {currentPlayer.WeapPow}) to {godName}? (Y/N) ");
+        if (confirm.ToUpper() != "Y") return;
+
+        long powerGained = currentPlayer.WeapPow * 2;
+        godSystem.ProcessGoldSacrifice(godName, powerGained * 100, currentPlayer.Name2); // Convert to equivalent gold power
+
+        terminal.WriteLine("");
+        terminal.WriteLine("Your weapon dissolves into divine light!", "bright_yellow");
+        terminal.WriteLine($"{godName} accepts your sacrifice!", "cyan");
+        terminal.WriteLine($"Divine power increased by {powerGained}!", "bright_cyan");
+
+        // Chance for divine blessing based on weapon power
+        if (random.NextDouble() < 0.3 + (currentPlayer.WeapPow / 500.0))
+        {
+            int blessingBonus = random.Next(2, 6);
+            currentPlayer.Strength += blessingBonus;
+            terminal.WriteLine($"{godName} blesses you with +{blessingBonus} Strength!", "bright_green");
+        }
+
+        currentPlayer.WeapPow = 0;
+        // Note: WeaponName is derived from equipment slots
+
+        // Generate news
+        NewsSystem.Instance.Newsy(false, $"{currentPlayer.Name2} sacrificed their weapon to {godName} at the Temple.");
+
+        await Task.Delay(2500);
+    }
+
+    /// <summary>
+    /// Sacrifice armor to god
+    /// </summary>
+    private async Task SacrificeArmor(string godName)
+    {
+        if (currentPlayer.ArmPow <= 0)
+        {
+            terminal.WriteLine("You have no armor to sacrifice!", "red");
+            await Task.Delay(1500);
+            return;
+        }
+
+        var confirm = await terminal.GetInputAsync($"Sacrifice your armor (Power: {currentPlayer.ArmPow}) to {godName}? (Y/N) ");
+        if (confirm.ToUpper() != "Y") return;
+
+        long powerGained = currentPlayer.ArmPow * 2;
+        godSystem.ProcessGoldSacrifice(godName, powerGained * 100, currentPlayer.Name2);
+
+        terminal.WriteLine("");
+        terminal.WriteLine("Your armor dissolves into divine light!", "bright_yellow");
+        terminal.WriteLine($"{godName} accepts your sacrifice!", "cyan");
+        terminal.WriteLine($"Divine power increased by {powerGained}!", "bright_cyan");
+
+        // Chance for divine blessing
+        if (random.NextDouble() < 0.3 + (currentPlayer.ArmPow / 500.0))
+        {
+            int blessingBonus = random.Next(2, 6);
+            currentPlayer.Defence += blessingBonus;
+            terminal.WriteLine($"{godName} blesses you with +{blessingBonus} Defence!", "bright_green");
+        }
+
+        currentPlayer.ArmPow = 0;
+        // Note: ArmorName is derived from equipment slots
+
+        NewsSystem.Instance.Newsy(false, $"{currentPlayer.Name2} sacrificed their armor to {godName} at the Temple.");
+
+        await Task.Delay(2500);
+    }
+
+    /// <summary>
+    /// Sacrifice healing potions to god
+    /// </summary>
+    private async Task SacrificePotions(string godName)
+    {
+        if (currentPlayer.Healing <= 0)
+        {
+            terminal.WriteLine("You have no healing potions to sacrifice!", "red");
+            await Task.Delay(1500);
+            return;
+        }
+
+        terminal.WriteLine($"You have {currentPlayer.Healing} healing potions.", "white");
+        var amountStr = await terminal.GetInputAsync("How many to sacrifice? ");
+
+        if (!int.TryParse(amountStr, out int amount) || amount <= 0)
+        {
+            terminal.WriteLine("Invalid amount.", "red");
+            await Task.Delay(1000);
+            return;
+        }
+
+        if (amount > currentPlayer.Healing)
+        {
+            terminal.WriteLine("You don't have that many potions!", "red");
+            await Task.Delay(1000);
+            return;
+        }
+
+        var confirm = await terminal.GetInputAsync($"Sacrifice {amount} healing potions to {godName}? (Y/N) ");
+        if (confirm.ToUpper() != "Y") return;
+
+        long powerGained = amount * 5; // Each potion gives 5 power
+        godSystem.ProcessGoldSacrifice(godName, powerGained * 50, currentPlayer.Name2);
+
+        currentPlayer.Healing -= amount;
+
+        terminal.WriteLine("");
+        terminal.WriteLine("Your potions evaporate into divine essence!", "bright_yellow");
+        terminal.WriteLine($"{godName} accepts your sacrifice!", "cyan");
+        terminal.WriteLine($"Divine power increased by {powerGained}!", "bright_cyan");
+
+        // Chance for divine healing
+        if (amount >= 3 && random.NextDouble() < 0.5)
+        {
+            currentPlayer.HP = currentPlayer.MaxHP;
+            terminal.WriteLine($"{godName} fully restores your health!", "bright_green");
+        }
+
+        await Task.Delay(2500);
+    }
+
+    /// <summary>
+    /// Enhanced desecration that rewards XP and darkness (from Pascal TEMPLE.PAS)
+    /// </summary>
+    private async Task PerformEnhancedDesecration(God god)
+    {
+        terminal.WriteLine("");
+        terminal.WriteLine("");
+
+        var random = new Random();
+
+        // Desecration flavour text
+        string[] desecrationMethods = new[]
+        {
+            "You smash the altar with a pickaxe, shattering holy relics.",
+            "You pour unholy substances over the sacred symbols.",
+            "You carve blasphemous words into the altar's surface.",
+            "You set fire to the offerings left by faithful worshippers.",
+            "You topple the statue of the god, watching it shatter."
+        };
+
+        terminal.WriteLine(desecrationMethods[random.Next(desecrationMethods.Length)], "red");
+        await Task.Delay(1500);
+
+        terminal.WriteLine("");
+        terminal.WriteLine($"You have desecrated {god.Name}'s altar!", "bright_red");
+
+        // Process desecration in god system
+        godSystem.ProcessAltarDesecration(god.Name, currentPlayer.Name2);
+
+        // Award darkness and XP (from Pascal)
+        int darknessGain = random.Next(10, 25);
+        long xpGain = (long)(Math.Pow(currentPlayer.Level, 1.5) * 20);
+
+        currentPlayer.Darkness += darknessGain;
+        currentPlayer.Experience += xpGain;
+        currentPlayer.DarkNr--;
+
+        terminal.WriteLine("", "white");
+        terminal.WriteLine($"Darkness flows into your soul! (+{darknessGain} Darkness)", "dark_red");
+        terminal.WriteLine($"Experience gained from profane knowledge! (+{xpGain} XP)", "yellow");
+
+        // Chance for curse
+        if (random.NextDouble() < 0.2)
+        {
+            terminal.WriteLine("", "white");
+            terminal.WriteLine($"{god.Name} curses you from beyond!", "bright_red");
+
+            int curseDamage = random.Next(10, 30 + currentPlayer.Level);
+            currentPlayer.HP = Math.Max(1, currentPlayer.HP - curseDamage);
+            terminal.WriteLine($"You take {curseDamage} divine damage!", "red");
+        }
+
+        // Generate news
+        NewsSystem.Instance.Newsy(true, $"{currentPlayer.Name2} desecrated the altar of {god.Name}! The gods are furious!");
+
+        await Task.Delay(3000);
+    }
+
+    #endregion
+}

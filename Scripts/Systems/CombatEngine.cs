@@ -22,6 +22,9 @@ public partial class CombatEngine
     private bool globalBegged = false;
     private bool globalEscape = false;
     private bool globalNoBeg = false;
+
+    // Ability cooldowns - reset each combat
+    private Dictionary<string, int> abilityCooldowns = new();
     
     public CombatEngine(TerminalEmulator term = null)
     {
@@ -97,6 +100,15 @@ public partial class CombatEngine
     {
         // Reset temporary flags per battle
         player.IsRaging = false;
+        player.TempAttackBonus = 0;
+        player.TempAttackBonusDuration = 0;
+        player.TempDefenseBonus = 0;
+        player.TempDefenseBonusDuration = 0;
+        player.DodgeNextAttack = false;
+        abilityCooldowns.Clear();
+
+        // Initialize combat stamina for player and teammates
+        player.InitializeCombatStamina();
 
         var result = new CombatResult
         {
@@ -145,6 +157,7 @@ public partial class CombatEngine
             {
                 if (teammate.IsAlive)
                 {
+                    teammate.InitializeCombatStamina(); // Initialize teammate stamina
                     terminal.WriteLine($"  • {teammate.DisplayName} (Level {teammate.Level})");
                 }
             }
@@ -257,6 +270,9 @@ public partial class CombatEngine
             // Check for player death
             if (!player.IsAlive)
                 break;
+
+            // Process end-of-round effects: decrement ability cooldowns and buff durations
+            ProcessEndOfRoundAbilityEffects(player);
 
             // Short pause between rounds
             await Task.Delay(1000);
@@ -397,61 +413,39 @@ public partial class CombatEngine
         terminal.WriteLine("");
 
         // === CLASS ABILITIES ===
-        var hasClassAbility = false;
-        var classAbilities = new List<string>();
+        terminal.SetColor("yellow");
+        terminal.Write("Special: ");
+        terminal.SetColor("bright_magenta");
 
-        if (player.Class == CharacterClass.Cleric || player.Class == CharacterClass.Magician || player.Class == CharacterClass.Sage)
+        // Check if this is a spellcaster (uses spells) or martial class (uses abilities)
+        if (ClassAbilitySystem.IsSpellcaster(player.Class))
         {
+            // Spellcasters use the Cast Spell option
             if (player.Mana > 0)
             {
-                classAbilities.Add("(C)ast Spell");
-                hasClassAbility = true;
-            }
-        }
-
-        if (player.Class == CharacterClass.Paladin)
-        {
-            classAbilities.Add("(1)Soul Strike");
-            hasClassAbility = true;
-
-            if (player.SmiteChargesRemaining == 0)
-            {
-                var mods = player.GetClassCombatModifiers();
-                player.SmiteChargesRemaining = mods.SmiteCharges;
-            }
-            if (player.SmiteChargesRemaining > 0)
-            {
-                classAbilities.Add($"(2)Smite Evil ({player.SmiteChargesRemaining})");
-            }
-        }
-
-        if (player.Class == CharacterClass.Assassin)
-        {
-            classAbilities.Add("(1)Backstab");
-            hasClassAbility = true;
-        }
-
-        if (player.Class == CharacterClass.Barbarian)
-        {
-            if (!player.IsRaging)
-            {
-                classAbilities.Add("(G)Rage");
-                hasClassAbility = true;
+                terminal.Write($"(C)ast Spell (Mana: {player.Mana}/{player.MaxMana})");
             }
             else
             {
-                classAbilities.Add("(G)[RAGING!]");
-                hasClassAbility = true;
+                terminal.SetColor("dark_gray");
+                terminal.Write("(C)ast Spell [No Mana]");
             }
         }
-
-        if (hasClassAbility)
+        else
         {
-            terminal.SetColor("yellow");
-            terminal.Write("Special: ");
-            terminal.SetColor("bright_magenta");
-            terminal.WriteLine(string.Join("  ", classAbilities));
+            // Martial classes use the Abilities option
+            var availableAbilities = ClassAbilitySystem.GetAvailableAbilities(player);
+            if (availableAbilities.Count > 0)
+            {
+                terminal.Write($"(B)ilities ({availableAbilities.Count} available)");
+            }
+            else
+            {
+                terminal.SetColor("dark_gray");
+                terminal.Write("(B)ilities [None learned]");
+            }
         }
+        terminal.WriteLine("");
 
         // === DEFENSIVE ACTIONS ===
         terminal.SetColor("yellow");
@@ -484,7 +478,7 @@ public partial class CombatEngine
         terminal.SetColor("yellow");
         terminal.Write("Other: ");
         terminal.SetColor("gray");
-        terminal.Write("(S)tatus  (U)se Item  (B)eg for Mercy  (F)ight to Death");
+        terminal.Write("(S)tatus  (U)se Item  (M)ercy  (F)ight to Death");
         terminal.WriteLine("");
 
         terminal.SetColor("bright_cyan");
@@ -510,16 +504,14 @@ public partial class CombatEngine
             "Q" => new CombatAction { Type = CombatActionType.QuickHeal },
             "F" => new CombatAction { Type = CombatActionType.FightToDeath },
             "S" => new CombatAction { Type = CombatActionType.Status },
-            "B" => new CombatAction { Type = CombatActionType.BegForMercy },
+            "M" => new CombatAction { Type = CombatActionType.BegForMercy },  // Changed from B to M
             "U" => new CombatAction { Type = CombatActionType.UseItem },
             "P" => new CombatAction { Type = CombatActionType.PowerAttack },
             "E" => new CombatAction { Type = CombatActionType.PreciseStrike },
             "C" => new CombatAction { Type = CombatActionType.CastSpell },
-            "1" when player.Class == CharacterClass.Paladin => new CombatAction { Type = CombatActionType.SoulStrike },
-            "1" when player.Class == CharacterClass.Assassin => new CombatAction { Type = CombatActionType.Backstab },
+            "B" when !ClassAbilitySystem.IsSpellcaster(player.Class) => new CombatAction { Type = CombatActionType.UseAbility },  // Abilities for non-casters
             "R" => new CombatAction { Type = CombatActionType.Retreat },
             "G" when player.Class == CharacterClass.Barbarian && !player.IsRaging => new CombatAction { Type = CombatActionType.Rage },
-            "2" when player.Class == CharacterClass.Paladin => new CombatAction { Type = CombatActionType.Smite },
             "I" => new CombatAction { Type = CombatActionType.Disarm },
             "T" => new CombatAction { Type = CombatActionType.Taunt },
             "L" => new CombatAction { Type = CombatActionType.Hide },
@@ -572,7 +564,11 @@ public partial class CombatEngine
             case CombatActionType.CastSpell:
                 await ExecuteCastSpell(player, monster, result);
                 break;
-                
+
+            case CombatActionType.UseAbility:
+                await ExecuteUseAbility(player, monster, result);
+                break;
+
             case CombatActionType.SoulStrike:
                 await ExecuteSoulStrike(player, monster, result);
                 break;
@@ -639,32 +635,24 @@ public partial class CombatEngine
 
     private async Task ExecuteSingleAttack(Character attacker, Monster target, CombatResult result, bool isExtra, bool isOffHandAttack = false)
     {
-        long attackPower = attacker.Strength;
+        // === D20 ROLL SYSTEM FOR HIT DETERMINATION ===
+        // Calculate monster AC based on level and defense
+        int monsterAC = 10 + (target.Level / 5) + (int)(target.Defence / 20);
 
-        // Apply class/status modifiers
+        // Apply modifiers that affect hit chance
         if (attacker.IsRaging)
-            attackPower *= 2; // Rage doubles base strength contribution
-
+            monsterAC += 4; // Rage lowers accuracy
         if (attacker.HasStatus(StatusEffect.PowerStance))
-            attackPower = (long)(attackPower * 1.5);
-
+            monsterAC += 2; // Power stance is less accurate
         if (attacker.HasStatus(StatusEffect.Blessed))
-            attackPower += 2;
-        if (attacker.HasStatus(StatusEffect.Weakened))
-            attackPower = Math.Max(1, attackPower - 4);
+            monsterAC -= 2; // Blessing helps accuracy
 
-        // Add weapon power
-        if (attacker.WeapPow > 0)
-        {
-            attackPower += attacker.WeapPow + random.Next(0, (int)attacker.WeapPow + 1);
-        }
+        // Roll to hit using D20 system
+        var attackRoll = TrainingSystem.RollAttack(attacker, monsterAC, false, null, random);
 
-        // Random attack variation
-        attackPower += random.Next(1, 21); // Pascal: random(20) + 1
-
-        // Apply weapon configuration damage modifier (2H bonus, dual-wield off-hand penalty)
-        double damageModifier = GetWeaponConfigDamageModifier(attacker, isOffHandAttack);
-        attackPower = (long)(attackPower * damageModifier);
+        // Show the roll result
+        terminal.SetColor("dark_gray");
+        terminal.WriteLine($"[Roll: {attackRoll.NaturalRoll} + {attackRoll.Modifier} = {attackRoll.Total} vs AC {monsterAC}]");
 
         // Show off-hand attack message
         if (isOffHandAttack)
@@ -673,65 +661,146 @@ public partial class CombatEngine
             terminal.WriteLine("Off-hand strike!");
         }
 
-        // Critical hit chance (Pascal: random(20) = 0)
-        bool criticalHit = random.Next(20) == 0;
-        if (criticalHit)
+        // Check for hit
+        if (!attackRoll.Success && !attackRoll.IsCriticalSuccess)
         {
-            attackPower = (long)(attackPower * GameConfig.CriticalHitMultiplier);
+            // Miss!
+            if (attackRoll.IsCriticalFailure)
+            {
+                terminal.SetColor("dark_red");
+                terminal.WriteLine("CRITICAL MISS! You stumble badly!");
+            }
+            else
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine($"You missed the {target.Name}!");
+            }
+            result.CombatLog.Add($"Player misses {target.Name} (roll: {attackRoll.NaturalRoll})");
+
+            // Still have chance to improve basic attack skill from attempting
+            if (TrainingSystem.TryImproveFromUse(attacker, "basic_attack", random))
+            {
+                var newLevel = TrainingSystem.GetSkillProficiency(attacker, "basic_attack");
+                terminal.WriteLine($"Your combat experience grows! Basic Attack is now {TrainingSystem.GetProficiencyName(newLevel)}!", "bright_yellow");
+            }
+
+            await Task.Delay(1500);
+            return;
+        }
+
+        // === HIT! Calculate damage ===
+        // Base damage = Strength + Strength bonus + (Level * 2) + WeapPow
+        long attackPower = attacker.Strength;
+
+        // Add Strength-based damage bonus from StatEffectsSystem
+        attackPower += StatEffectsSystem.GetStrengthDamageBonus(attacker.Strength);
+
+        // Level-based scaling - CRITICAL for high level balance
+        attackPower += attacker.Level * 2;
+
+        // Apply class/status modifiers
+        if (attacker.IsRaging)
+            attackPower = (long)(attackPower * 1.75); // Rage gives 75% bonus
+
+        if (attacker.HasStatus(StatusEffect.PowerStance))
+            attackPower = (long)(attackPower * 1.5);
+
+        if (attacker.HasStatus(StatusEffect.Blessed))
+            attackPower += attacker.Level / 5 + 2;
+        if (attacker.HasStatus(StatusEffect.Weakened))
+            attackPower = Math.Max(1, attackPower - attacker.Level / 10 - 4);
+
+        // Add weapon power with level scaling
+        if (attacker.WeapPow > 0)
+        {
+            long weaponBonus = attacker.WeapPow + (attacker.Level / 10);
+            attackPower += weaponBonus + random.Next(0, (int)Math.Min(int.MaxValue, weaponBonus + 1));
+        }
+
+        // Random attack variation - scales with level
+        int variationMax = Math.Max(21, attacker.Level / 2);
+        attackPower += random.Next(1, variationMax);
+
+        // Apply weapon configuration damage modifier (2H bonus, dual-wield off-hand penalty)
+        double damageModifier = GetWeaponConfigDamageModifier(attacker, isOffHandAttack);
+        attackPower = (long)(attackPower * damageModifier);
+
+        // Apply proficiency effect multiplier for basic attacks
+        var basicProficiency = TrainingSystem.GetSkillProficiency(attacker, "basic_attack");
+        float proficiencyMultiplier = TrainingSystem.GetEffectMultiplier(basicProficiency);
+        attackPower = (long)(attackPower * proficiencyMultiplier);
+
+        // Apply roll quality multiplier (critical hits, great hits, etc.)
+        float rollMultiplier = attackRoll.GetDamageMultiplier();
+
+        // Additional Dexterity-based critical hit chance (on top of natural 20)
+        bool dexCrit = !attackRoll.IsCriticalSuccess && StatEffectsSystem.RollCriticalHit(attacker);
+        if (dexCrit)
+        {
+            // Apply Dexterity-based crit multiplier
+            rollMultiplier = StatEffectsSystem.GetCriticalDamageMultiplier(attacker.Dexterity);
+        }
+
+        attackPower = (long)(attackPower * rollMultiplier);
+
+        // Show critical hit message
+        if (attackRoll.IsCriticalSuccess)
+        {
             terminal.WriteLine("CRITICAL HIT!", "bright_red");
-            await Task.Delay(1000);
+            await Task.Delay(500);
+        }
+        else if (dexCrit)
+        {
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine($"Precision strike! ({StatEffectsSystem.GetCriticalHitChance(attacker.Dexterity)}% crit chance)");
+            await Task.Delay(300);
+        }
+        else if (rollMultiplier >= 1.5f)
+        {
+            terminal.WriteLine("Devastating blow!", "bright_yellow");
+        }
+        else if (rollMultiplier >= 1.25f)
+        {
+            terminal.WriteLine("Solid hit!", "yellow");
         }
 
         // Store punch for display
         attacker.Punch = attackPower;
-        
-        if (attackPower > 0)
-        {
-            terminal.SetColor("green");
-            terminal.WriteLine($"You hit the {target.Name} for {attackPower} damage!");
-            
-            // Stoneskin absorption handled later in this method
-            
-            // Calculate defense absorption (Pascal-compatible)
-            long defense = target.Defence + random.Next(0, (int)Math.Max(1, target.Defence / 8));
-            
-            if (attacker.IsRaging)
-            {
-                // Rage lowers accuracy: simulate by giving target +4 AC (defence)
-                defense += 4;
-            }
-            
-            if (attacker.HasStatus(StatusEffect.PowerStance))
-                defense = (long)(defense * 1.25); // less accurate
-            
-            if (target.ArmPow > 0)
-            {
-                defense += random.Next(0, (int)target.ArmPow + 1);
-            }
-            
-            long actualDamage = Math.Max(1, attackPower - defense);
-            
-            if (defense > 0 && defense < attackPower)
-            {
-                terminal.SetColor("cyan");
-                terminal.WriteLine($"{target.Name}'s armor absorbed {defense} points!");
-            }
-            
-            // Apply damage
-            target.HP = Math.Max(0, target.HP - actualDamage);
 
-            terminal.SetColor("red");
-            terminal.WriteLine($"{target.Name} takes {actualDamage} damage!");
+        terminal.SetColor("green");
+        terminal.WriteLine($"You hit the {target.Name} for {attackPower} damage!");
 
-            result.CombatLog.Add($"Player attacks {target.Name} for {actualDamage} damage");
-        }
-        else
+        // Calculate defense absorption
+        long defense = target.Defence + random.Next(0, (int)Math.Max(1, target.Defence / 8));
+
+        if (target.ArmPow > 0)
         {
-            terminal.SetColor("gray");
-            terminal.WriteLine("You missed your blow!");
-            result.CombatLog.Add($"Player misses {target.Name}");
+            defense += random.Next(0, (int)target.ArmPow + 1);
         }
-        
+
+        long actualDamage = Math.Max(1, attackPower - defense);
+
+        if (defense > 0 && defense < attackPower)
+        {
+            terminal.SetColor("cyan");
+            terminal.WriteLine($"{target.Name}'s armor absorbed {defense} points!");
+        }
+
+        // Apply damage
+        target.HP = Math.Max(0, target.HP - actualDamage);
+
+        terminal.SetColor("red");
+        terminal.WriteLine($"{target.Name} takes {actualDamage} damage!");
+
+        result.CombatLog.Add($"Player attacks {target.Name} for {actualDamage} damage (roll: {attackRoll.NaturalRoll})");
+
+        // Chance to improve basic attack skill from successful use
+        if (TrainingSystem.TryImproveFromUse(attacker, "basic_attack", random))
+        {
+            var newLevel = TrainingSystem.GetSkillProficiency(attacker, "basic_attack");
+            terminal.WriteLine($"Your combat experience grows! Basic Attack is now {TrainingSystem.GetProficiencyName(newLevel)}!", "bright_yellow");
+        }
+
         await Task.Delay(1500);
     }
     
@@ -839,9 +908,28 @@ public partial class CombatEngine
         terminal.SetColor("yellow");
         terminal.WriteLine("You attempt to flee from combat!");
         await Task.Delay(1000);
-        
-        // 50% chance to escape (Pascal: random(2))
-        if (random.Next(2) == 0)
+
+        // IMPROVED ESCAPE FORMULA:
+        // Base 40% + Dexterity bonus (each 10 dex = +5%) + Level bonus (each 10 levels = +3%)
+        // Rangers/Assassins get +15% bonus
+        // Maximum 85% chance to escape
+        int escapeChance = 40;
+        escapeChance += (int)(player.Dexterity / 2); // Dex contributes significantly
+        escapeChance += player.Level / 3; // Level helps too
+
+        // Class bonuses for agile classes
+        if (player.Class == CharacterClass.Ranger || player.Class == CharacterClass.Assassin)
+            escapeChance += 15;
+        if (player.Class == CharacterClass.Jester || player.Class == CharacterClass.Bard)
+            escapeChance += 10;
+
+        // Cap at 85%
+        escapeChance = Math.Min(85, escapeChance);
+
+        terminal.SetColor("gray");
+        terminal.WriteLine($"(Escape chance: {escapeChance}%)");
+
+        if (random.Next(100) < escapeChance)
         {
             terminal.SetColor("green");
             terminal.WriteLine("You have escaped battle!");
@@ -853,25 +941,25 @@ public partial class CombatEngine
         {
             terminal.SetColor("red");
             terminal.WriteLine("The monster won't let you escape!");
-            
-            // Damage for failed escape (Pascal: random(global_dungeonlevel * 10) + 3)
-            long escapeDamage = random.Next(10 * 3) + 3; // Simplified dungeon level
-            
-            terminal.WriteLine($"As you cowardly turn and run, you feel pain when something");
-            terminal.WriteLine($"hits you in the back for {escapeDamage} points");
-            
-            player.HP = Math.Max(0, player.HP - escapeDamage);
+
+            // Reduced damage for failed escape - scales moderately with monster level
+            // At worst, lose 5-15% of max HP
+            long maxEscapeDamage = Math.Max(10, player.MaxHP / 10);
+            long escapeDamage = random.Next((int)Math.Min(int.MaxValue, maxEscapeDamage / 2), (int)Math.Min(int.MaxValue, maxEscapeDamage));
+
+            terminal.WriteLine($"As you turn to flee, you take {escapeDamage} damage!");
+
+            player.HP = Math.Max(1, player.HP - escapeDamage); // Never kills - just reduces to 1 HP
             result.CombatLog.Add($"Player retreat fails, takes {escapeDamage} damage");
-            
-            if (player.HP <= 0)
+
+            // Failed escape doesn't kill, but warns player
+            if (player.HP <= player.MaxHP / 10)
             {
-                terminal.SetColor("red");
-                terminal.WriteLine("You have been slain!");
-                globalKilled = true;
-                result.Outcome = CombatOutcome.PlayerDied;
+                terminal.SetColor("bright_red");
+                terminal.WriteLine("WARNING: You are critically wounded!");
             }
         }
-        
+
         await Task.Delay(2000);
     }
     
@@ -939,99 +1027,172 @@ public partial class CombatEngine
             await Task.Delay(600);
             return; // Skip action
         }
-        
-        // Monster attack calculation (Pascal-compatible)
-        long monsterAttack = monster.GetAttackPower();
-        
-        // Add random variation – scale with monster level so early foes hit lighter
-        int variationMax = monster.Level <= 3 ? 6 : 10; // up to +5 for lvl1-3
-        monsterAttack += random.Next(0, variationMax);
-        
-        if (monsterAttack > 0)
+
+        // Check if monster is stunned from ability effects
+        if (monster.Stunned)
         {
-            // Blur / duplicate miss chance (20%)
-            if (player.HasStatus(StatusEffect.Blur))
+            monster.Stunned = false; // One-round stun
+            terminal.WriteLine($"{monster.Name} is stunned and cannot act!", "cyan");
+            await Task.Delay(600);
+            return;
+        }
+
+        // Check if monster is charmed (may skip attack)
+        if (monster.Charmed)
+        {
+            if (random.Next(100) < 50) // 50% chance to skip
             {
-                if (random.Next(100) < 20)
-                {
-                    // Miss message
-                    var missMessage = CombatMessages.GetMonsterAttackMessage(monster.Name, monster.MonsterColor, 0, player.MaxHP);
-                    terminal.WriteLine(missMessage);
-                    terminal.WriteLine($"The attack strikes only illusory images!", "gray");
-                    result.CombatLog.Add($"{monster.Name} misses due to blur");
-                    await Task.Delay(800);
-                    return;
-                }
+                terminal.WriteLine($"{monster.Name} hesitates, charmed by your presence!", "magenta");
+                monster.Charmed = false;
+                await Task.Delay(600);
+                return;
             }
+            monster.Charmed = false;
+        }
 
-            // Use new colored combat message
-            var attackMessage = CombatMessages.GetMonsterAttackMessage(monster.Name, monster.MonsterColor, monsterAttack, player.MaxHP);
-            terminal.WriteLine(attackMessage);
+        // Check if player will dodge the next attack
+        if (player.DodgeNextAttack)
+        {
+            player.DodgeNextAttack = false;
+            terminal.WriteLine($"You deftly dodge {monster.Name}'s attack!", "bright_cyan");
+            await Task.Delay(600);
+            return;
+        }
 
-            // Check for shield block (20% chance to double shield AC)
-            var (blocked, blockBonus) = TryShieldBlock(player);
-            if (blocked)
+        // === D20 ROLL SYSTEM FOR MONSTER ATTACK ===
+        // Roll monster attack against player AC
+        var monsterRoll = TrainingSystem.RollMonsterAttack(monster, player, random);
+
+        // Show the roll result
+        terminal.SetColor("dark_gray");
+        terminal.WriteLine($"[{monster.Name} rolls: {monsterRoll.NaturalRoll} + {monsterRoll.Modifier} = {monsterRoll.Total} vs AC {monsterRoll.TargetDC}]");
+
+        // Blur / duplicate miss chance (20%) - additional miss chance on top of D20
+        if (player.HasStatus(StatusEffect.Blur) && monsterRoll.Success)
+        {
+            if (random.Next(100) < 20)
             {
-                terminal.SetColor("bright_cyan");
-                terminal.WriteLine($"You raise your shield and block the attack!");
+                var missMessage = CombatMessages.GetMonsterAttackMessage(monster.Name, monster.MonsterColor, 0, player.MaxHP);
+                terminal.WriteLine(missMessage);
+                terminal.WriteLine($"The attack strikes only illusory images!", "gray");
+                result.CombatLog.Add($"{monster.Name} misses due to blur");
+                await Task.Delay(800);
+                return;
             }
+        }
 
-            // Player defense (Pascal-compatible)
-            long playerDefense = player.Defence + random.Next(0, (int)Math.Max(1, player.Defence / 8));
-            // Add magical AC bonuses from spells (Shield / Prismatic Cage / Fog etc.)
-            playerDefense += player.MagicACBonus;
+        // Agility-based dodge chance (from StatEffectsSystem)
+        if (monsterRoll.Success && StatEffectsSystem.RollDodge(player))
+        {
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine($"You nimbly dodge {monster.Name}'s attack! ({StatEffectsSystem.GetDodgeChance(player.Agility)}% dodge)");
+            result.CombatLog.Add($"Player dodges {monster.Name}'s attack");
+            await Task.Delay(800);
+            return;
+        }
 
-            if (player.ArmPow > 0)
+        // Check for miss
+        if (!monsterRoll.Success && !monsterRoll.IsCriticalSuccess)
+        {
+            if (monsterRoll.IsCriticalFailure)
             {
-                playerDefense += random.Next(0, (int)player.ArmPow + 1);
-            }
-
-            // Add shield block bonus (doubles shield AC when blocking)
-            playerDefense += blockBonus;
-
-            // Apply weapon configuration defense modifier (2H/dual-wield penalties)
-            double defenseModifier = GetWeaponConfigDefenseModifier(player);
-            playerDefense = (long)(playerDefense * defenseModifier);
-
-            // Status modifications
-            if (player.HasStatus(StatusEffect.Blessed))
-                playerDefense += 2;
-            if (player.IsRaging)
-                playerDefense = Math.Max(0, playerDefense - 4);
-
-            long actualDamage = Math.Max(1, monsterAttack - playerDefense);
-
-            // Defending halves damage
-            if (player.IsDefending)
-            {
-                actualDamage = (long)Math.Ceiling(actualDamage / 2.0);
-            }
-
-            // Apply damage
-            player.HP = Math.Max(0, player.HP - actualDamage);
-
-            terminal.SetColor("red");
-            if (blocked && actualDamage < monsterAttack / 2)
-            {
-                terminal.WriteLine($"Your shield absorbs most of the blow! You take only {actualDamage} damage!", "bright_cyan");
-            }
-            else if (player.IsDefending)
-            {
-                terminal.WriteLine($"You brace for impact and only take {actualDamage} damage!", "bright_cyan");
+                terminal.SetColor("bright_green");
+                terminal.WriteLine($"The {monster.Name} stumbles and misses badly!");
             }
             else
             {
-                terminal.WriteLine($"{player.DisplayName} takes {actualDamage} damage!");
+                terminal.WriteLine($"The {monster.Name} attacks but misses!");
             }
+            result.CombatLog.Add($"{monster.Name} misses player (roll: {monsterRoll.NaturalRoll})");
+            await Task.Delay(1500);
+            return;
+        }
 
-            result.CombatLog.Add($"{monster.Name} attacks player for {actualDamage} damage");
+        // === HIT! Calculate damage ===
+        long monsterAttack = monster.GetAttackPower();
+
+        // Add random variation
+        int variationMax = monster.Level <= 3 ? 6 : 10;
+        monsterAttack += random.Next(0, variationMax);
+
+        // Apply roll quality multiplier
+        float rollMultiplier = monsterRoll.GetDamageMultiplier();
+        monsterAttack = (long)(monsterAttack * rollMultiplier);
+
+        // Show critical hit message
+        if (monsterRoll.IsCriticalSuccess)
+        {
+            terminal.WriteLine($"CRITICAL HIT from {monster.Name}!", "bright_red");
+        }
+
+        // Use colored combat message
+        var attackMessage = CombatMessages.GetMonsterAttackMessage(monster.Name, monster.MonsterColor, monsterAttack, player.MaxHP);
+        terminal.WriteLine(attackMessage);
+
+        // Check for shield block (20% chance to double shield AC)
+        var (blocked, blockBonus) = TryShieldBlock(player);
+        if (blocked)
+        {
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine($"You raise your shield and block the attack!");
+        }
+
+        // Player defense
+        long playerDefense = player.Defence + random.Next(0, (int)Math.Max(1, player.Defence / 8));
+        playerDefense += player.MagicACBonus;
+
+        if (player.ArmPow > 0)
+        {
+            playerDefense += random.Next(0, (int)player.ArmPow + 1);
+        }
+
+        playerDefense += blockBonus;
+
+        double defenseModifier = GetWeaponConfigDefenseModifier(player);
+        playerDefense = (long)(playerDefense * defenseModifier);
+
+        if (player.HasStatus(StatusEffect.Blessed))
+            playerDefense += 2;
+        if (player.IsRaging)
+            playerDefense = Math.Max(0, playerDefense - 4);
+
+        // Apply temporary defense bonus from abilities
+        playerDefense += player.TempDefenseBonus;
+
+        // Apply monster distraction (reduces monster accuracy effectively increasing defense)
+        if (monster.Distracted)
+        {
+            playerDefense += 15; // Distraction gives effective +15 defense
+            monster.Distracted = false;
+        }
+
+        long actualDamage = Math.Max(1, monsterAttack - playerDefense);
+
+        // Defending halves damage
+        if (player.IsDefending)
+        {
+            actualDamage = (long)Math.Ceiling(actualDamage / 2.0);
+        }
+
+        // Apply damage
+        player.HP = Math.Max(0, player.HP - actualDamage);
+
+        terminal.SetColor("red");
+        if (blocked && actualDamage < monsterAttack / 2)
+        {
+            terminal.WriteLine($"Your shield absorbs most of the blow! You take only {actualDamage} damage!", "bright_cyan");
+        }
+        else if (player.IsDefending)
+        {
+            terminal.WriteLine($"You brace for impact and only take {actualDamage} damage!", "bright_cyan");
         }
         else
         {
-            terminal.WriteLine($"The {monster.Name} attacks but misses!");
-            result.CombatLog.Add($"{monster.Name} misses player");
+            terminal.WriteLine($"{player.DisplayName} takes {actualDamage} damage!");
         }
-        
+
+        result.CombatLog.Add($"{monster.Name} attacks player for {actualDamage} damage (roll: {monsterRoll.NaturalRoll})");
+
         // Defend stance expires after the first enemy attack
         if (player.IsDefending)
         {
@@ -1157,7 +1318,7 @@ public partial class CombatEngine
         if (spouseBonus > 0)
         {
             terminal.SetColor("bright_magenta");
-            terminal.WriteLine($"  (Spouse love bonus: +{spouseBonus} XP) ♥");
+            terminal.WriteLine($"  (Spouse love bonus: +{spouseBonus} XP) <3");
         }
         
         // Offer weapon pickup
@@ -1406,6 +1567,20 @@ public partial class CombatEngine
         terminal.Write($"Potions: ");
         terminal.SetColor("white");
         terminal.WriteLine($"{player.Healing}/{player.MaxPotions}");
+
+        // Stamina bar for combat abilities
+        double staminaPercent = player.MaxCombatStamina > 0 ? Math.Max(0, Math.Min(1.0, (double)player.CurrentCombatStamina / player.MaxCombatStamina)) : 0;
+        int staminaBarLen = 10;
+        int staminaFilledBars = Math.Max(0, Math.Min(staminaBarLen, (int)(staminaPercent * staminaBarLen)));
+        int staminaEmptyBars = staminaBarLen - staminaFilledBars;
+        string staminaBar = new string('█', staminaFilledBars) + new string('░', staminaEmptyBars);
+
+        terminal.SetColor("bright_cyan");
+        terminal.Write($"║ ");
+        terminal.SetColor("bright_yellow");
+        terminal.Write($"ST:{staminaBar} ");
+        terminal.SetColor("yellow");
+        terminal.WriteLine($"{player.CurrentCombatStamina,4}/{player.MaxCombatStamina,-4}");
 
         // Status effects line for player
         if (player.ActiveStatuses.Count > 0)
@@ -1954,6 +2129,9 @@ public partial class CombatEngine
 
                         // Calculate player attack damage
                         long attackPower = player.Strength + player.WeapPow + random.Next(1, 16);
+
+                        // Apply temporary attack bonus from abilities
+                        attackPower += player.TempAttackBonus;
 
                         // Apply weapon configuration damage modifier
                         double damageModifier = GetWeaponConfigDamageModifier(player, isOffHandAttack);
@@ -3023,7 +3201,325 @@ public partial class CombatEngine
         // Small delay to keep pacing consistent with other combat actions.
         await Task.Delay(500);
     }
-    
+
+    /// <summary>
+    /// Execute ability usage action for non-caster classes.
+    /// Shows ability selection menu and applies the selected ability's effects.
+    /// </summary>
+    private async Task ExecuteUseAbility(Character player, Monster monster, CombatResult result)
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("═══ COMBAT ABILITIES ═══");
+        terminal.WriteLine("");
+
+        // Get available abilities for this character
+        var availableAbilities = ClassAbilitySystem.GetAvailableAbilities(player);
+
+        if (availableAbilities.Count == 0)
+        {
+            terminal.WriteLine("You haven't learned any abilities yet!", "red");
+            terminal.WriteLine("Train at the Level Master to unlock abilities as you level up.", "yellow");
+            await Task.Delay(2000);
+            return;
+        }
+
+        // Display available abilities with cooldown and stamina info
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"Combat Stamina: {player.CurrentCombatStamina}/{player.MaxCombatStamina}");
+        terminal.WriteLine("");
+        terminal.WriteLine("Available Abilities:", "white");
+        terminal.WriteLine("");
+
+        int displayIndex = 1;
+        var selectableAbilities = new List<ClassAbilitySystem.ClassAbility>();
+
+        foreach (var ability in availableAbilities)
+        {
+            bool canUse = ClassAbilitySystem.CanUseAbility(player, ability.Id, abilityCooldowns);
+            bool hasStamina = player.HasEnoughStamina(ability.StaminaCost);
+            bool onCooldown = abilityCooldowns.TryGetValue(ability.Id, out int cooldownLeft) && cooldownLeft > 0;
+
+            string statusText = "";
+            string color = "white";
+
+            if (onCooldown)
+            {
+                statusText = $" [Cooldown: {cooldownLeft} rounds]";
+                color = "dark_gray";
+            }
+            else if (!hasStamina)
+            {
+                statusText = $" [Need {ability.StaminaCost} stamina, have {player.CurrentCombatStamina}]";
+                color = "dark_gray";
+            }
+
+            terminal.SetColor(color);
+            terminal.WriteLine($"  {displayIndex}. {ability.Name} - {ability.StaminaCost} stamina{statusText}");
+            terminal.SetColor("gray");
+            terminal.WriteLine($"     {ability.Description}");
+
+            selectableAbilities.Add(ability);
+            displayIndex++;
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("yellow");
+        terminal.Write("Enter ability number (0 to cancel): ");
+        string input = terminal.GetInputSync();
+
+        if (!int.TryParse(input, out int choice) || choice < 1 || choice > selectableAbilities.Count)
+        {
+            terminal.WriteLine("Cancelled.", "gray");
+            await Task.Delay(500);
+            return;
+        }
+
+        var selectedAbility = selectableAbilities[choice - 1];
+
+        // Verify we can actually use it
+        if (!ClassAbilitySystem.CanUseAbility(player, selectedAbility.Id, abilityCooldowns))
+        {
+            if (abilityCooldowns.TryGetValue(selectedAbility.Id, out int cd) && cd > 0)
+            {
+                terminal.WriteLine($"{selectedAbility.Name} is on cooldown for {cd} more rounds!", "red");
+            }
+            await Task.Delay(1500);
+            return;
+        }
+
+        // Check stamina cost
+        if (!player.HasEnoughStamina(selectedAbility.StaminaCost))
+        {
+            terminal.WriteLine($"Not enough stamina! Need {selectedAbility.StaminaCost}, have {player.CurrentCombatStamina}.", "red");
+            await Task.Delay(1500);
+            return;
+        }
+
+        // Deduct stamina cost
+        player.SpendStamina(selectedAbility.StaminaCost);
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"(-{selectedAbility.StaminaCost} stamina, {player.CurrentCombatStamina}/{player.MaxCombatStamina} remaining)");
+
+        // Execute the ability
+        var abilityResult = ClassAbilitySystem.UseAbility(player, selectedAbility.Id, random);
+
+        terminal.WriteLine("");
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine(abilityResult.Message);
+
+        // Apply ability effects
+        await ApplyAbilityEffects(player, monster, abilityResult, result);
+
+        // Set cooldown
+        if (abilityResult.CooldownApplied > 0)
+        {
+            abilityCooldowns[selectedAbility.Id] = abilityResult.CooldownApplied;
+        }
+
+        // Log the action
+        result.CombatLog.Add($"{player.DisplayName} uses {selectedAbility.Name}");
+
+        await Task.Delay(1000);
+    }
+
+    /// <summary>
+    /// Apply the effects of a class ability to combat
+    /// </summary>
+    private async Task ApplyAbilityEffects(Character player, Monster monster, ClassAbilityResult abilityResult, CombatResult result)
+    {
+        var ability = abilityResult.AbilityUsed;
+        if (ability == null) return;
+
+        // Apply damage
+        if (abilityResult.Damage > 0 && monster != null)
+        {
+            long actualDamage = abilityResult.Damage;
+
+            // Handle special damage effects
+            if (abilityResult.SpecialEffect == "execute" && monster.HP < monster.MaxHP * 0.3)
+            {
+                actualDamage *= 2;
+                terminal.WriteLine("EXECUTION! Double damage to wounded enemy!", "bright_red");
+            }
+            else if (abilityResult.SpecialEffect == "last_stand" && player.HP < player.MaxHP * 0.25)
+            {
+                actualDamage = (long)(actualDamage * 1.5);
+                terminal.WriteLine("LAST STAND! Desperation fuels your attack!", "bright_red");
+            }
+            else if (abilityResult.SpecialEffect == "armor_pierce")
+            {
+                // Ignore defense for acid splash
+                terminal.WriteLine("The acid ignores armor!", "green");
+            }
+            else if (abilityResult.SpecialEffect == "backstab")
+            {
+                // Backstab bonus if monster hasn't attacked yet
+                actualDamage = (long)(actualDamage * 1.5);
+                terminal.WriteLine("Critical strike from the shadows!", "bright_yellow");
+            }
+
+            // Apply defense unless armor_pierce
+            if (abilityResult.SpecialEffect != "armor_pierce")
+            {
+                long defense = monster.Defence / 2; // Abilities partially bypass defense
+                actualDamage = Math.Max(1, actualDamage - defense);
+            }
+
+            monster.HP -= actualDamage;
+            result.TotalDamageDealt += actualDamage;
+
+            terminal.SetColor("bright_red");
+            terminal.WriteLine($"You deal {actualDamage} damage to {monster.Name}!");
+
+            if (monster.HP <= 0)
+            {
+                terminal.WriteLine($"{monster.Name} is slain!", "bright_green");
+            }
+        }
+
+        // Apply healing
+        if (abilityResult.Healing > 0)
+        {
+            long actualHealing = Math.Min(abilityResult.Healing, player.MaxHP - player.HP);
+            player.HP += actualHealing;
+
+            terminal.SetColor("bright_green");
+            terminal.WriteLine($"You recover {actualHealing} HP!");
+        }
+
+        // Apply buffs (temporary combat bonuses stored on player)
+        if (abilityResult.AttackBonus > 0 || abilityResult.DefenseBonus != 0)
+        {
+            // Store buff info - these will be applied to next attacks/defense
+            // For simplicity, we'll add them directly to temp stats
+            if (abilityResult.AttackBonus > 0)
+            {
+                player.TempAttackBonus = abilityResult.AttackBonus;
+                player.TempAttackBonusDuration = abilityResult.Duration;
+                terminal.WriteLine($"Attack increased by {abilityResult.AttackBonus} for {abilityResult.Duration} rounds!", "cyan");
+            }
+
+            if (abilityResult.DefenseBonus > 0)
+            {
+                player.TempDefenseBonus = abilityResult.DefenseBonus;
+                player.TempDefenseBonusDuration = abilityResult.Duration;
+                terminal.WriteLine($"Defense increased by {abilityResult.DefenseBonus} for {abilityResult.Duration} rounds!", "cyan");
+            }
+            else if (abilityResult.DefenseBonus < 0)
+            {
+                // Rage reduces defense
+                player.TempDefenseBonus = abilityResult.DefenseBonus;
+                player.TempDefenseBonusDuration = abilityResult.Duration;
+                terminal.WriteLine($"Defense reduced by {-abilityResult.DefenseBonus} (rage)!", "yellow");
+            }
+        }
+
+        // Handle special effects
+        switch (abilityResult.SpecialEffect)
+        {
+            case "escape":
+                terminal.WriteLine("You vanish in a puff of smoke!", "magenta");
+                globalEscape = true;
+                break;
+
+            case "stun":
+                if (monster != null && random.Next(100) < 60)
+                {
+                    monster.Stunned = true;
+                    terminal.WriteLine($"{monster.Name} is stunned!", "yellow");
+                }
+                break;
+
+            case "poison":
+                if (monster != null)
+                {
+                    monster.Poisoned = true;
+                    terminal.WriteLine($"{monster.Name} is poisoned!", "green");
+                }
+                break;
+
+            case "distract":
+                if (monster != null)
+                {
+                    monster.Distracted = true;
+                    terminal.WriteLine($"{monster.Name} is distracted and will have reduced accuracy!", "yellow");
+                }
+                break;
+
+            case "charm":
+                if (monster != null && random.Next(100) < 40)
+                {
+                    monster.Charmed = true;
+                    terminal.WriteLine($"{monster.Name} is charmed and may hesitate to attack!", "magenta");
+                }
+                break;
+
+            case "smoke":
+                terminal.WriteLine("A cloud of smoke obscures you from attack!", "gray");
+                player.TempDefenseBonus += 40;
+                player.TempDefenseBonusDuration = Math.Max(player.TempDefenseBonusDuration, 2);
+                break;
+
+            case "rage":
+                player.IsRaging = true;
+                terminal.WriteLine("BERSERKER RAGE! You enter a blood fury!", "bright_red");
+                break;
+
+            case "dodge_next":
+                player.DodgeNextAttack = true;
+                terminal.WriteLine("You prepare to dodge the next attack!", "cyan");
+                break;
+        }
+
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Process end-of-round ability effects: decrement cooldowns and buff durations
+    /// </summary>
+    private void ProcessEndOfRoundAbilityEffects(Character player)
+    {
+        // Regenerate combat stamina each round
+        int staminaRegen = player.RegenerateCombatStamina();
+        if (staminaRegen > 0)
+        {
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine($"You recover {staminaRegen} stamina. (Stamina: {player.CurrentCombatStamina}/{player.MaxCombatStamina})");
+        }
+
+        // Decrement ability cooldowns
+        var cooldownKeys = abilityCooldowns.Keys.ToList();
+        foreach (var key in cooldownKeys)
+        {
+            abilityCooldowns[key]--;
+            if (abilityCooldowns[key] <= 0)
+            {
+                abilityCooldowns.Remove(key);
+            }
+        }
+
+        // Decrement temporary attack bonus duration
+        if (player.TempAttackBonusDuration > 0)
+        {
+            player.TempAttackBonusDuration--;
+            if (player.TempAttackBonusDuration <= 0)
+            {
+                player.TempAttackBonus = 0;
+            }
+        }
+
+        // Decrement temporary defense bonus duration
+        if (player.TempDefenseBonusDuration > 0)
+        {
+            player.TempDefenseBonusDuration--;
+            if (player.TempDefenseBonusDuration <= 0)
+            {
+                player.TempDefenseBonus = 0;
+            }
+        }
+    }
+
     private async Task ShowPvPIntroduction(Character attacker, Character defender, CombatResult result)
     {
         terminal.ClearScreen();
@@ -3615,6 +4111,10 @@ public partial class CombatEngine
         if (attacker.IsDualWielding)
             attacks += 1;
 
+        // Agility-based extra attack chance (from StatEffectsSystem)
+        if (StatEffectsSystem.RollExtraAttack(attacker))
+            attacks += 1;
+
         // Drug-based extra attacks (e.g., Haste drug)
         var drugEffects = DrugSystem.GetDrugEffects(attacker);
         attacks += drugEffects.ExtraAttacks;
@@ -4015,8 +4515,9 @@ public enum CombatActionType
     BegForMercy,
     UseItem,
     CastSpell,
-    SoulStrike,     // Paladin ability
-    Backstab,       // Assassin ability
+    UseAbility,     // Use a class ability from ClassAbilitySystem
+    SoulStrike,     // Paladin ability (legacy)
+    Backstab,       // Assassin ability (legacy)
     Retreat,
     PowerAttack,
     PreciseStrike,
@@ -4037,6 +4538,7 @@ public class CombatAction
     public int SpellIndex { get; set; }
     public int ItemIndex { get; set; }
     public string TargetId { get; set; } = "";
+    public string AbilityId { get; set; } = "";   // For UseAbility action type
 
     // Multi-monster combat support
     public int? TargetIndex { get; set; }         // Which monster (0-based index) or null for random
