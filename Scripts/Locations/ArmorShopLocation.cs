@@ -62,10 +62,15 @@ public class ArmorShopLocation : BaseLocation
             return;
         }
 
-        terminal.SetColor("bright_blue");
-        terminal.WriteLine("════════════════════════════════════════════════════════");
-        terminal.WriteLine($"    Armorshop, run by {shopkeeperName} the elf");
-        terminal.WriteLine("════════════════════════════════════════════════════════");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╔═════════════════════════════════════════════════════════════════════════════╗");
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("║                              ARMOR SHOP                                     ║");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╚═════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+        terminal.SetColor("gray");
+        terminal.WriteLine($"Run by {shopkeeperName} the elf");
         terminal.WriteLine("");
 
         if (currentSlotCategory.HasValue)

@@ -25,7 +25,6 @@ public class AnchorRoadLocation : BaseLocation
         PossibleExits = new List<GameLocation>
         {
             GameLocation.MainStreet,
-            GameLocation.Gym,
             GameLocation.Castle
         };
 
@@ -41,7 +40,6 @@ public class AnchorRoadLocation : BaseLocation
             "Flee Town Control",
             "Status",
             "Kings Castle",
-            "The Gym",
             "Prison Grounds"
         };
     }
@@ -87,7 +85,7 @@ public class AnchorRoadLocation : BaseLocation
         terminal.SetColor("cyan");
         terminal.WriteLine("Navigation:");
         terminal.SetColor("white");
-        WriteMenuRow("S", "Status", "K", "Kings Castle", "T", "The Gym");
+        WriteMenuRow("S", "Status", "K", "Kings Castle", "", "");
         terminal.SetColor("white");
         WriteMenuOption("P", "Prison Grounds (attempt a jailbreak)");
         terminal.WriteLine("");
@@ -259,10 +257,6 @@ public class AnchorRoadLocation : BaseLocation
 
             case 'K':
                 await NavigateToLocation(GameLocation.Castle);
-                return true;
-
-            case 'T':
-                await NavigateToLocation(GameLocation.Gym);
                 return true;
 
             case 'P':

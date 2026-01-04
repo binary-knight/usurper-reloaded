@@ -287,11 +287,16 @@ public partial class MagicShopLocation : BaseLocation
     private void DisplayMagicShopMenu(Character player)
     {
         terminal.ClearScreen();
-        
-        // Shop header
-        string title = $"{ShopTitle}, run by {_ownerName} the gnome";
-        DisplayMessage($"┌─ {title} ─┐", "magenta");
-        DisplayMessage("├─────────────────────────────────────────────────────────┤", "magenta");
+
+        // Shop header - standardized format
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╔═════════════════════════════════════════════════════════════════════════════╗");
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("║                              MAGIC SHOP                                     ║");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╚═════════════════════════════════════════════════════════════════════════════╝");
+        DisplayMessage("");
+        DisplayMessage($"Run by {_ownerName} the gnome", "gray");
         DisplayMessage("");
         
         // Shop description
@@ -331,15 +336,107 @@ public partial class MagicShopLocation : BaseLocation
         }
         DisplayMessage("");
 
-        // Menu options
-        DisplayMessage("═══ Shopping ═══                    ═══ Services ═══", "cyan");
-        DisplayMessage("(L)ist Items by Category            (I)dentify item", "gray");
-        DisplayMessage("(B)uy Item                          (C)urse Removal", "gray");
-        DisplayMessage("(S)ell Item                         (E)nchant/Bless Item", "gray");
-        DisplayMessage("(H)ealing Potions                   (Y) Study spells", "gray");
-        DisplayMessage("");
-        DisplayMessage($"(T)alk to {_ownerName}              (R)eturn to street", "gray");
-        DisplayMessage("");
+        // Menu options - standardized format
+        DisplayMessage("═══ Shopping ═══                         ═══ Services ═══", "cyan");
+        terminal.WriteLine("");
+
+        // Row 1
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_green");
+        terminal.Write("L");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("ist Items by Category       ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("I");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("dentify item");
+
+        // Row 2
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_green");
+        terminal.Write("B");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("uy Item                     ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("C");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("urse Removal");
+
+        // Row 3
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_green");
+        terminal.Write("S");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("ell Item                    ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("E");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("nchant/Bless Item");
+
+        // Row 4
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_green");
+        terminal.Write("H");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("ealing Potions              ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_magenta");
+        terminal.Write("Y");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine(" Study spells");
+
+        terminal.WriteLine("");
+
+        // Row 5 - Talk and Return
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_cyan");
+        terminal.Write("T");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write($"alk to {_ownerName}                ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_red");
+        terminal.Write("R");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("eturn to street");
+        terminal.WriteLine("");
         
         ProcessMagicShopMenu(player);
     }

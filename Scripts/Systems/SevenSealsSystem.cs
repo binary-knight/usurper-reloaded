@@ -368,12 +368,41 @@ namespace UsurperRemake.Systems
             terminal.Clear();
             terminal.WriteLine("");
             terminal.WriteLine($"╔══════════════════════════════════════════════════════════════════╗", seal.IconColor);
-            terminal.WriteLine($"║                 S E A L   D I S C O V E R E D                    ║", seal.IconColor);
-            terminal.WriteLine($"║                      {seal.Number} of 7                                 ║", seal.IconColor);
+            terminal.WriteLine($"║             ★ ★ ★  S E A L   D I S C O V E R E D  ★ ★ ★          ║", seal.IconColor);
             terminal.WriteLine($"╚══════════════════════════════════════════════════════════════════╝", seal.IconColor);
             terminal.WriteLine("");
 
-            await Task.Delay(1000);
+            await Task.Delay(800);
+
+            // Show collection progress
+            var story = StoryProgressionSystem.Instance;
+            int collected = story.CollectedSeals.Count + 1; // +1 for current seal
+            terminal.SetColor("gray");
+            terminal.Write("  Seal Progress: ");
+            for (int i = 1; i <= 7; i++)
+            {
+                if (i < collected)
+                {
+                    terminal.SetColor("bright_green");
+                    terminal.Write("●");
+                }
+                else if (i == collected)
+                {
+                    terminal.SetColor("bright_yellow");
+                    terminal.Write("★");
+                }
+                else
+                {
+                    terminal.SetColor("darkgray");
+                    terminal.Write("○");
+                }
+                terminal.Write(" ");
+            }
+            terminal.SetColor("white");
+            terminal.WriteLine($"  ({collected}/7)");
+            terminal.WriteLine("");
+
+            await Task.Delay(500);
 
             terminal.WriteLine($"  {seal.Name}", "bright_white");
             terminal.WriteLine($"  \"{seal.Title}\"", "cyan");
@@ -400,6 +429,16 @@ namespace UsurperRemake.Systems
             terminal.WriteLine("");
             terminal.WriteLine("  ═══════════════════════════════════════", "dark_cyan");
             terminal.WriteLine("");
+
+            // Show what's next
+            if (collected < 7)
+            {
+                int[] sealFloors = { 15, 30, 45, 60, 80, 99, 100 };
+                int nextFloor = sealFloors[collected]; // collected is now 1-indexed
+                terminal.SetColor("bright_yellow");
+                terminal.WriteLine($"  NEXT SEAL: Floor {nextFloor}");
+                terminal.WriteLine("");
+            }
 
             await terminal.GetInputAsync("  Press Enter to continue...");
         }

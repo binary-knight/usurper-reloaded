@@ -8,7 +8,10 @@ public partial class GoalSystem
 {
     private List<Goal> goals = new List<Goal>();
     private PersonalityProfile personality;
-    
+
+    // Public accessor for serialization
+    public List<Goal> AllGoals => goals;
+
     public GoalSystem(PersonalityProfile profile)
     {
         personality = profile;
@@ -206,6 +209,11 @@ public class Goal
     public string TargetCharacter { get; set; } // For revenge goals
     public string TargetLocation { get; set; } // For location-based goals
     public Dictionary<string, object> Parameters { get; set; } = new Dictionary<string, object>();
+
+    // Progress tracking for serialization
+    public float Progress { get; set; } = 0f;
+    public float TargetValue { get; set; } = 1f;
+    public float CurrentValue { get; set; } = 0f;
     
     public Goal(string name, GoalType type, float priority)
     {

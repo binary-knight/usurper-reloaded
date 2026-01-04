@@ -114,8 +114,25 @@ npc.IsAlive       // HP > 0
 npc.CurrentLocation // String like "Main Street", "Dungeon"
 ```
 
-## Recent Changes (Dec 2024)
+## Recent Changes (Jan 2025)
 
+### Equipment Expansion
+- **Weapons**: Expanded from ~14 to 120+ weapons across all types (swords, axes, daggers, maces, etc.)
+- **Armor**: Full slot coverage with tiered progression (Head, Body, Arms, Hands, Legs, Feet, Waist, Face, Cloak)
+- **Shields**: Complete shield lineup (Bucklers, Kite Shields, Tower Shields, etc.)
+- **Accessories**: 35+ Neck items, 40+ Rings with stat bonuses
+
+### Economy Rebalance
+- **Monster Gold**: Changed from `level^1.3 * 8` to `level^1.5 * 12` (better endgame scaling)
+- **Disease Costs**: Changed from linear to diminishing curve `baseCost * (1 + level^0.6)`
+- **Guard Salary**: Increased from 50 to 150 gold per level
+- **Rare Encounters**: Tripled all gold rewards
+
+### Bug Fixes
+- **CRITICAL**: Fixed equipment stat bonuses not applying on save/load (added `RecalculateStats()`)
+- Fixed display text mismatches in rare encounters showing wrong gold amounts
+
+### Previous (Dec 2024)
 1. **Balance Overhaul**: Reduced monster scaling, gentler XP curve (1.8 instead of 2.5)
 2. **NPC Activity System**: NPCs now actively explore dungeons, shop, train, level up
 3. **Character Listing**: Main Street [L] option shows all characters with pagination
@@ -150,3 +167,90 @@ There's a plan file at `~/.claude/plans/nifty-wobbling-cerf.md` for overhauling 
 4. **Terminal key input** - Use `GetKeyInput()` for getting key presses that return values
 5. **Max level is 100** - Both players and NPCs cap at level 100
 6. **WorldSimulator runs every 60 seconds** - NPCs do activities in background
+
+---
+
+## Feature Roadmap
+
+Progress tracker for features to broaden appeal. Organized by priority and effort.
+
+### Priority 1: Quick Wins (Low Effort, High Impact)
+
+| Status | Feature | Description | Files |
+|--------|---------|-------------|-------|
+| [x] | **Difficulty Modes** | Easy/Normal/Hard/Nightmare affecting XP rates, monster damage, gold drops | `DifficultySystem.cs`, `CombatEngine.cs`, `Monster.cs`, `CharacterCreationSystem.cs` |
+| [ ] | **Combat Speed Options** | Instant/Fast/Normal text speed toggle | `CombatEngine.cs`, `GameConfig.cs` |
+| [ ] | **Auto-Combat Toggle** | Let players auto-fight weaker monsters | `CombatEngine.cs` |
+| [x] | **Achievement System** | 50+ achievements across Combat, Progression, Economy, Exploration, Social, Challenge categories | `AchievementSystem.cs`, `CombatEngine.cs`, `SaveDataStructures.cs`, `MainStreetLocation.cs` |
+| [x] | **Statistics Screen** | Track kills, deaths, gold earned, time played, etc. | `StatisticsSystem.cs`, `MainStreetLocation.cs` |
+
+### Priority 2: Guidance Systems (Medium Effort, High Impact)
+
+| Status | Feature | Description | Files |
+|--------|---------|-------------|-------|
+| [ ] | **Quest Journal** | Track active quests and objectives | New: `QuestJournal.cs` |
+| [ ] | **Daily Summary** | "While you were away..." recap of NPC activities | `WorldSimulator.cs`, `MainStreetLocation.cs` |
+| [ ] | **Location Hints** | Brief tips when entering new locations | All location files |
+| [ ] | **Monster Bestiary** | Track monsters encountered with stats/drops | New: `Bestiary.cs` |
+| [ ] | **NPC Relationship Summary** | Quick view of standing with all NPCs | `MainStreetLocation.cs` |
+
+### Priority 3: Engagement Loops (Medium Effort, High Impact)
+
+| Status | Feature | Description | Files |
+|--------|---------|-------------|-------|
+| [ ] | **Daily Challenges** | "Kill 5 Goblins" type objectives with rewards | New: `DailyChallenges.cs` |
+| [ ] | **Bounty Board** | Posted bounties on specific monsters/NPCs | New: `BountySystem.cs` |
+| [ ] | **Milestone Rewards** | Bonuses at levels 10, 25, 50, 75, 100 | `LevelMasterLocation.cs` |
+| [ ] | **Prestige/New Game+** | Reset with bonuses after beating the game | `GameEngine.cs` |
+| [ ] | **Seasonal Events** | Holiday-themed content and rewards | New: `SeasonalEvents.cs` |
+
+### Priority 4: Narrative Hooks (High Effort, High Impact)
+
+| Status | Feature | Description | Files |
+|--------|---------|-------------|-------|
+| [ ] | **Main Story Arc** | Overarching narrative with villain and conclusion | Multiple files |
+| [ ] | **NPC Storylines** | Personal quests for key NPCs | `NPC.cs`, new quest files |
+| [ ] | **Faction System** | Join guilds with unique benefits/quests | New: `FactionSystem.cs` |
+| [ ] | **Rival NPC System** | Nemesis NPC that grows with you | `NPCSpawnSystem.cs` |
+| [ ] | **Multiple Endings** | Different outcomes based on choices | `GameEngine.cs` |
+
+### Priority 5: Presentation Polish (Variable Effort)
+
+| Status | Feature | Description | Files |
+|--------|---------|-------------|-------|
+| [ ] | **Animated Title Screen** | ASCII art animation on startup | `GameEngine.cs` |
+| [ ] | **Sound Effects** | Combat sounds, UI feedback (optional) | New: `SoundSystem.cs` |
+| [ ] | **Background Music** | Atmospheric music (optional) | New: `MusicSystem.cs` |
+| [ ] | **Visual Themes** | Color scheme options (Classic, Dark, Light) | `TerminalEmulator.cs` |
+| [ ] | **Combat Log Export** | Save combat logs to file | `CombatEngine.cs` |
+
+### Implementation Priority Matrix
+
+**Start Here (Quick Wins):**
+1. Difficulty Modes - Immediate accessibility improvement
+2. Statistics Screen - Players love tracking progress
+3. Achievement System - Natural engagement hook
+
+**Next Phase (Guidance):**
+4. Quest Journal - Helps players track goals
+5. Daily Summary - Makes NPC world feel alive
+6. Monster Bestiary - Collection incentive
+
+**Growth Phase (Engagement):**
+7. Daily Challenges - Gives players daily reasons to return
+8. Bounty Board - Directed gameplay goals
+9. Milestone Rewards - Celebration of progress
+
+**Polish Phase (Narrative):**
+10. Main Story Arc - Gives the game a "point"
+
+### Estimated Playtime
+
+- **Casual Playthrough** (Level 30-40): 20-40 hours
+- **Serious Run** (Level 60-70): 100-200 hours
+- **Completionist** (Level 100): 1,000-1,500 hours
+
+### Status Legend
+- `[ ]` Not Started
+- `[~]` In Progress
+- `[x]` Completed

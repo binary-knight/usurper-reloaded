@@ -18,7 +18,7 @@ public static partial class GameConfig
     public const int MaxMSpells = 6;             // global_maxmspells
     public const int MaxItem = 15;               // global_maxitem
     public const int MaxHittas = 450;            // global_maxhittas (dungeon objects)
-    public const int MaxSpells = 12;             // global_maxspells
+    public const int MaxSpells = 25;             // global_maxspells - Expanded from 12 to 25 spells per class
     public const int MaxCombat = 14;             // global_maxcombat
     public const int MaxClasses = 11;            // global_maxclasses
     public const int MaxRaces = 10;              // global_maxraces
@@ -232,7 +232,8 @@ public static partial class GameConfig
     // Bank system constants
     public const int DefaultBankRobberyAttempts = 3;
     public const long MaxBankBalance = 2000000000L; // 2 billion gold limit
-    public const int GuardSalaryPerLevel = 50;
+    public const int GuardSalaryPerLevel = 150;  // Increased from 50 to make guard job worthwhile at higher levels
+                                                  // Level 100: 1000 + (100 * 150) = 16,000 gold/day (about 1.5 monster kills)
     
     // Bank guard requirements
     public const int MaxDarknessForGuard = 100;
@@ -264,7 +265,7 @@ public static partial class GameConfig
     public const int MagicItemTypeWaist = 9;   // Belts, girdles
     
     // Spell system constants (automatic by class/level)
-    public const int MaxSpellLevel = 12;
+    public const int MaxSpellLevel = 25; // Expanded from 12 to support all 25 spells per class
     public const int BaseSpellManaCost = 10; // Level 1 spells cost 10 mana
     public const int ManaPerSpellLevel = 10; // Each spell level adds 10 mana cost
     
@@ -1100,7 +1101,7 @@ public enum GameLocation
     Gigolos = 38,        // onloc_gigolos
     OutsideInn = 39,     // onloc_outsideinn
     TeamCorner = 41,     // onloc_teamcorner
-    Gym = 42,           // training gym placeholder (was Steroids in original)
+    Gym = 42,           // UNUSED - Gym removed (doesn't fit single-player endless format)
     LoveCorner = 77,    // love corner location same as constant above
     Temple = 47,         // onloc_temple (altar of the gods)
     BountyRoom = 44,     // onloc_bountyroom
@@ -1138,4 +1139,14 @@ public enum GameLocation
     HeavenBoss = 401,    // onloc_heaven_boss
     
     Closed = 30000       // onloc_closed (for fake players)
+}
+
+/// <summary>
+/// Combat speed settings - controls text delay during combat
+/// </summary>
+public enum CombatSpeed
+{
+    Normal = 0,   // Full delays (default, best for reading)
+    Fast = 1,     // 50% delays
+    Instant = 2   // No delays (0ms)
 } 

@@ -11,7 +11,11 @@ public partial class MemorySystem
     
     private List<MemoryEvent> memories = new List<MemoryEvent>();
     private Dictionary<string, float> characterImpressions = new Dictionary<string, float>();
-    
+
+    // Public accessors for serialization
+    public List<MemoryEvent> AllMemories => memories;
+    public Dictionary<string, float> CharacterImpressions => characterImpressions;
+
     public void RecordEvent(MemoryEvent memoryEvent)
     {
         memoryEvent.Timestamp = DateTime.Now;
@@ -242,6 +246,7 @@ public class MemoryEvent
     public string InvolvedCharacter { get; set; } // Character ID
     public string Location { get; set; }
     public float Importance { get; set; } = 0.5f; // 0.0 to 1.0
+    public float EmotionalImpact { get; set; } = 0f; // -1.0 (negative) to 1.0 (positive)
     public Dictionary<string, object> Details { get; set; } = new Dictionary<string, object>();
     
     public TimeSpan GetAge()

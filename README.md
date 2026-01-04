@@ -200,10 +200,41 @@ usurper-reborn/
 └── .github/            # CI/CD workflows
 ```
 
+### Quest & Bounty System (NEW)
+Dynamic quest content for single-player progression:
+- **Quest Hall** - Central hub for viewing and claiming quests
+- **Starter Quests** - 11 pre-made quests spanning levels 1-100
+- **Bounty Board** - Dungeon-generated quests that refresh automatically
+- **King's Bounties** - The NPC King posts bounties on criminals and NPCs
+- **Quest Objectives** - Track progress on kills, exploration, and discoveries
+- **Difficulty Scaling** - Easy, Medium, Hard, Extreme quest tiers
+
+### Achievement System (NEW)
+Track your progress with 50+ achievements:
+- **Combat** - Monster kills, boss defeats, combat milestones
+- **Progression** - Level milestones, stat achievements
+- **Economy** - Gold earned, items purchased
+- **Exploration** - Dungeon depths, locations visited
+- **Social** - NPC interactions, relationships formed
+- **Challenge** - Special accomplishments
+
+### Statistics Tracking (NEW)
+Comprehensive gameplay statistics:
+- Total monsters killed, gold earned, time played
+- Deepest dungeon floor reached
+- Quests completed, achievements unlocked
+- Combat statistics and records
+
+### Difficulty Modes (NEW)
+Choose your challenge level:
+- **Easy** - 150% XP, 50% monster damage, 150% gold
+- **Normal** - Standard balanced experience
+- **Hard** - 75% XP, 150% monster damage, 75% gold
+- **Nightmare** - 50% XP, 200% monster damage, 50% gold
+
 ## What's Still In Development
 
 ### Missing from Original Usurper
-- Mail system and player messaging
 - Team management features
 - Castle politics (throne challenges, royal functions)
 - Tournament system

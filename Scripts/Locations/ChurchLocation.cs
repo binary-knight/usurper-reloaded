@@ -146,11 +146,13 @@ namespace UsurperRemake.Locations
         {
             terminal.ClearScreen();
             
-            // Church header with ASCII art
+            // Church header - standardized format
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine("╔═════════════════════════════════════════════════════════════════════════════╗");
             terminal.SetColor("bright_yellow");
-            terminal.WriteLine("╔═══════════════════════════════════════════════════════════════════════════╗");
-            terminal.WriteLine("║                          CHURCH OF GOOD DEEDS                            ║");
-            terminal.WriteLine("╚═══════════════════════════════════════════════════════════════════════════╝");
+            terminal.WriteLine("║                          CHURCH OF GOOD DEEDS                               ║");
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine("╚═════════════════════════════════════════════════════════════════════════════╝");
             terminal.WriteLine("");
             
             // Church description

@@ -53,10 +53,13 @@ public class CastleLocation : BaseLocation
     /// </summary>
     private void DisplayRoyalCastleInterior()
     {
+        // Header - standardized format
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╔═════════════════════════════════════════════════════════════════════════════╗");
         terminal.SetColor("bright_yellow");
-        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
-        terminal.WriteLine("║                         THE ROYAL CASTLE                                    ║");
-        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("║                            THE ROYAL CASTLE                                 ║");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╚═════════════════════════════════════════════════════════════════════════════╝");
         terminal.WriteLine("");
 
         // Royal greeting
@@ -106,10 +109,13 @@ public class CastleLocation : BaseLocation
     /// </summary>
     private void DisplayCastleExterior()
     {
-        terminal.SetColor("bright_red");
-        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
-        terminal.WriteLine("║                       OUTSIDE THE ROYAL CASTLE                              ║");
-        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+        // Header - standardized format
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╔═════════════════════════════════════════════════════════════════════════════╗");
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("║                        OUTSIDE THE ROYAL CASTLE                             ║");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╚═════════════════════════════════════════════════════════════════════════════╝");
         terminal.WriteLine("");
 
         // Approach description
@@ -150,13 +156,131 @@ public class CastleLocation : BaseLocation
     {
         terminal.SetColor("cyan");
         terminal.WriteLine("Royal Commands:");
+        terminal.WriteLine("");
+
+        // Row 1
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("P");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
         terminal.SetColor("white");
-        terminal.WriteLine("(P)rison Cells      (O)rders            (1) Royal Mail");
-        terminal.WriteLine("(G)o to Sleep       (C)heck Security    (H)istory of Monarchs");
-        terminal.WriteLine("(A)bdicate          (M)agic             (F)iscal Matters");
-        terminal.WriteLine("(S)tatus            (Q)uests            (T)he Royal Orphanage");
+        terminal.Write("rison Cells       ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("O");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("rders             ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
         terminal.SetColor("bright_cyan");
-        terminal.WriteLine("(R)eturn to Town");
+        terminal.Write("1");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine(" Royal Mail");
+
+        // Row 2
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_green");
+        terminal.Write("G");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("o to Sleep        ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_green");
+        terminal.Write("C");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("heck Security     ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_cyan");
+        terminal.Write("H");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("istory of Monarchs");
+
+        // Row 3
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_red");
+        terminal.Write("A");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("bdicate           ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_magenta");
+        terminal.Write("M");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("agic              ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("F");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("iscal Matters");
+
+        // Row 4
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_cyan");
+        terminal.Write("S");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("tatus             ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_magenta");
+        terminal.Write("Q");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("uests             ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("T");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("he Royal Orphanage");
+
+        terminal.WriteLine("");
+
+        // Navigation
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_red");
+        terminal.Write("R");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("eturn to Town");
         terminal.WriteLine("");
     }
 
@@ -167,22 +291,115 @@ public class CastleLocation : BaseLocation
     {
         terminal.SetColor("cyan");
         terminal.WriteLine("Options:");
+        terminal.WriteLine("");
+
+        // Row 1
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("T");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
         terminal.SetColor("white");
-        terminal.WriteLine("(T)he Royal Guard   (P)rison            (D)onate to Royal Purse");
+        terminal.Write("he Royal Guard    ");
 
-        if (CanChallengeThrone())
-        {
-            terminal.SetColor("bright_red");
-            terminal.WriteLine("(I)nfiltrate Castle (Challenge for Throne)");
-        }
-        else if (currentKing == null || !currentKing.IsActive)
-        {
-            terminal.SetColor("bright_yellow");
-            terminal.WriteLine("(C)laim Empty Throne");
-        }
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("P");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("rison             ");
 
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_green");
+        terminal.Write("D");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("onate to Royal Purse");
+
+        // Row 2
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
         terminal.SetColor("bright_cyan");
-        terminal.WriteLine("(R)eturn to Town");
+        terminal.Write("H");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("istory of Monarchs ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_magenta");
+        terminal.Write("S");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("eek Audience");
+
+        // Throne options - always show one of these
+        if (currentKing != null && currentKing.IsActive)
+        {
+            // There is a king - show infiltrate option
+            terminal.SetColor("darkgray");
+            terminal.Write(" [");
+            terminal.SetColor("bright_red");
+            terminal.Write("I");
+            terminal.SetColor("darkgray");
+            terminal.Write("]");
+
+            if (CanChallengeThrone())
+            {
+                terminal.SetColor("bright_red");
+                terminal.WriteLine("nfiltrate Castle (Challenge for Throne)");
+            }
+            else if (currentPlayer.Level < GameConfig.MinLevelKing)
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine($"nfiltrate Castle (Requires Level {GameConfig.MinLevelKing})");
+            }
+            else
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine("nfiltrate Castle (Not Available)");
+            }
+        }
+        else
+        {
+            // No king - show claim throne option
+            terminal.SetColor("darkgray");
+            terminal.Write(" [");
+            terminal.SetColor("bright_yellow");
+            terminal.Write("C");
+            terminal.SetColor("darkgray");
+            terminal.Write("]");
+
+            if (currentPlayer.Level >= GameConfig.MinLevelKing)
+            {
+                terminal.SetColor("bright_yellow");
+                terminal.WriteLine("laim Empty Throne");
+            }
+            else
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine($"laim Empty Throne (Requires Level {GameConfig.MinLevelKing})");
+            }
+        }
+
+        terminal.WriteLine("");
+
+        // Navigation
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_red");
+        terminal.Write("R");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("eturn to Town");
         terminal.WriteLine("");
     }
 
@@ -286,6 +503,14 @@ public class CastleLocation : BaseLocation
 
             case "D":
                 await DonateToRoyalPurse();
+                return false;
+
+            case "H":
+                await ShowMonarchHistory();
+                return false;
+
+            case "S":
+                await SeekAudience();
                 return false;
 
             case "I":
@@ -1942,40 +2167,51 @@ public class CastleLocation : BaseLocation
     private async Task RoyalQuests()
     {
         terminal.ClearScreen();
-        terminal.SetColor("bright_yellow");
+        terminal.SetColor("bright_red");
         terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
-        terminal.WriteLine("║                            ROYAL QUESTS                                     ║");
+        terminal.WriteLine("║                         ROYAL BOUNTY BOARD                                  ║");
         terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
         terminal.WriteLine("");
 
         terminal.SetColor("white");
-        terminal.WriteLine("As monarch, you can commission quests for adventurers.");
+        terminal.WriteLine("The King's personal bounty board displays wanted criminals and threats.");
         terminal.WriteLine("");
 
-        // Show available quests from QuestSystem
-        var quests = QuestSystem.GetAvailableQuests(currentPlayer);
+        // Get bounties posted by the King
+        var bounties = QuestSystem.GetKingBounties();
 
-        if (quests.Count == 0)
+        if (bounties.Count == 0)
         {
             terminal.SetColor("gray");
-            terminal.WriteLine("No active quests at this time.");
+            terminal.WriteLine("No bounties have been posted by the Crown.");
+            terminal.WriteLine("");
+            terminal.SetColor("yellow");
+            terminal.WriteLine("The realm is at peace... for now.");
         }
         else
         {
-            terminal.SetColor("cyan");
-            terminal.WriteLine("Active Royal Quests:");
+            terminal.SetColor("bright_red");
+            terminal.WriteLine("WANTED:");
             terminal.SetColor("darkgray");
-            terminal.WriteLine(new string('─', 50));
+            terminal.WriteLine(new string('─', 60));
 
-            foreach (var quest in quests.Take(5))
+            foreach (var bounty in bounties)
             {
+                terminal.SetColor("red");
+                terminal.Write("  ▪ ");
                 terminal.SetColor("white");
-                terminal.WriteLine($"  - {quest.Title}");
+                terminal.WriteLine(bounty.Title ?? bounty.Comment ?? "Unknown Target");
+                terminal.SetColor("yellow");
+                terminal.WriteLine($"    Reward: {bounty.GetRewardDescription()}");
                 terminal.SetColor("gray");
-                terminal.WriteLine($"    {quest.GetRewardDescription()}");
+                terminal.WriteLine($"    {bounty.Comment}");
+                terminal.WriteLine("");
             }
         }
 
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        terminal.WriteLine("Visit the Quest Hall on Main Street to claim bounties.");
         terminal.WriteLine("");
         terminal.SetColor("darkgray");
         terminal.WriteLine("Press any key to continue...");
@@ -2280,6 +2516,16 @@ public class CastleLocation : BaseLocation
         terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
         terminal.WriteLine("");
 
+        // Check level requirement
+        if (currentPlayer.Level < GameConfig.MinLevelKing)
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine($"You must be at least level {GameConfig.MinLevelKing} to claim the throne!");
+            terminal.WriteLine($"Your current level: {currentPlayer.Level}");
+            await Task.Delay(2500);
+            return false;
+        }
+
         terminal.SetColor("white");
         terminal.WriteLine("The Castle seems to be in disarray!");
         terminal.WriteLine("No King or Queen is to be found anywhere. People are just");
@@ -2417,6 +2663,89 @@ public class CastleLocation : BaseLocation
     // DONATION
     // ═══════════════════════════════════════════════════════════════════════════
 
+    private async Task SeekAudience()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║                           SEEK AN AUDIENCE                                  ║");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+
+        if (currentKing == null || !currentKing.IsActive)
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("With no monarch on the throne, there is no one to grant you an audience.");
+            terminal.WriteLine("The throne room stands empty and echoing...");
+            terminal.WriteLine("");
+            terminal.SetColor("darkgray");
+            terminal.WriteLine("Press any key to continue...");
+            await terminal.ReadKeyAsync();
+            return;
+        }
+
+        // Display monarch info
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} sits upon the throne.");
+        terminal.WriteLine("");
+        terminal.SetColor("white");
+        terminal.WriteLine($"Reign: {currentKing.TotalReign} days");
+        terminal.WriteLine($"Royal Treasury: {currentKing.Treasury:N0} gold");
+        terminal.WriteLine($"Royal Guards: {currentKing.Guards.Count}");
+        terminal.WriteLine("");
+
+        // Check if player has good standing
+        long chivalry = currentPlayer.Chivalry;
+        long fame = currentPlayer.Fame;
+        long reputation = (chivalry + fame) / 2;
+
+        if (reputation < 50)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("The guards look at you skeptically.");
+            terminal.WriteLine($"\"Your reputation precedes you, {currentPlayer.DisplayName}. The {currentKing.GetTitle()}");
+            terminal.WriteLine("is not receiving visitors of... your standing today.\"");
+            terminal.WriteLine("");
+            terminal.SetColor("gray");
+            terminal.WriteLine("(Increase your Chivalry and Fame to gain an audience)");
+        }
+        else if (reputation < 100)
+        {
+            terminal.SetColor("cyan");
+            terminal.WriteLine("The royal herald announces your presence.");
+            terminal.WriteLine($"\"The {currentKing.GetTitle()} acknowledges your service to the realm.\"");
+            terminal.WriteLine("");
+            terminal.SetColor("white");
+            terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} nods in your direction.");
+            terminal.WriteLine("\"Continue your good works, and perhaps we shall speak in time.\"");
+        }
+        else
+        {
+            terminal.SetColor("bright_green");
+            terminal.WriteLine("The guards bow respectfully as you approach the throne.");
+            terminal.WriteLine($"\"Welcome, honored {currentPlayer.DisplayName}!\"");
+            terminal.WriteLine("");
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} rises to greet you warmly.");
+            terminal.WriteLine("\"A hero of the realm! Your deeds have not gone unnoticed.\"");
+            terminal.WriteLine("");
+
+            // High reputation bonus
+            if (new Random().NextDouble() < 0.3)
+            {
+                int goldGift = new Random().Next(100, 500) * currentPlayer.Level;
+                currentPlayer.Gold += goldGift;
+                terminal.SetColor("bright_cyan");
+                terminal.WriteLine($"The {currentKing.GetTitle()} bestows a gift of {goldGift:N0} gold upon you!");
+            }
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("darkgray");
+        terminal.WriteLine("Press any key to continue...");
+        await terminal.ReadKeyAsync();
+    }
+
     private async Task DonateToRoyalPurse()
     {
         if (currentKing == null || !currentKing.IsActive)
@@ -2480,7 +2809,100 @@ public class CastleLocation : BaseLocation
         if (currentKing == null && playerIsKing)
         {
             currentKing = King.CreateNewKing(currentPlayer.DisplayName, CharacterAI.Human, currentPlayer.Sex);
+            return;
         }
+
+        // If no king exists at all, trigger NPC succession
+        if (currentKing == null || !currentKing.IsActive)
+        {
+            TriggerNPCSuccession();
+        }
+    }
+
+    /// <summary>
+    /// When throne is empty, find the strongest/most worthy NPC to claim it
+    /// </summary>
+    private void TriggerNPCSuccession()
+    {
+        var npcs = NPCSpawnSystem.Instance.ActiveNPCs;
+        if (npcs == null || npcs.Count == 0)
+        {
+            GD.Print("[Castle] No NPCs available for succession - throne remains empty");
+            return;
+        }
+
+        // Find the most worthy NPC based on level, alignment (good preferred), and class
+        var candidates = npcs
+            .Where(npc => npc.IsAlive && npc.Level >= 10) // Minimum level 10 to be king
+            .OrderByDescending(npc => CalculateSuccessionScore(npc))
+            .ToList();
+
+        if (candidates.Count == 0)
+        {
+            GD.Print("[Castle] No worthy NPCs found for succession - throne remains empty");
+            return;
+        }
+
+        // Crown the highest scoring NPC
+        var newMonarch = candidates.First();
+        CrownNPC(newMonarch);
+
+        // Announce succession
+        NewsSystem.Instance.Newsy(true, $"{newMonarch.DisplayName} has claimed the throne and been crowned {(newMonarch.Sex == CharacterSex.Male ? "King" : "Queen")}!");
+    }
+
+    /// <summary>
+    /// Calculate an NPC's worthiness to become monarch
+    /// </summary>
+    private int CalculateSuccessionScore(NPC npc)
+    {
+        int score = npc.Level * 10;
+
+        // Paladins and Clerics are more worthy
+        if (npc.Class == CharacterClass.Paladin) score += 50;
+        if (npc.Class == CharacterClass.Cleric) score += 30;
+        if (npc.Class == CharacterClass.Warrior) score += 20;
+
+        // Higher charisma = better leader
+        score += (int)(npc.Charisma / 2);
+
+        // Good alignment preferred (Chivalry - Darkness)
+        long alignment = npc.Chivalry - npc.Darkness;
+        if (alignment > 0) score += (int)Math.Min(alignment, 100);
+
+        // Wealth helps
+        score += (int)(npc.Gold / 10000);
+
+        return score;
+    }
+
+    /// <summary>
+    /// Crown an NPC as the new monarch
+    /// </summary>
+    private void CrownNPC(NPC npc)
+    {
+        currentKing = new King
+        {
+            Name = npc.DisplayName,
+            AI = CharacterAI.Computer,
+            Sex = npc.Sex,
+            IsActive = true,
+            CoronationDate = DateTime.Now,
+            Treasury = Math.Max(10000, npc.Gold / 2), // NPC donates half their gold to treasury
+            TotalReign = 0
+        };
+
+        // Record the coronation
+        monarchHistory.Add(new MonarchRecord
+        {
+            Name = npc.DisplayName,
+            Title = npc.Sex == CharacterSex.Male ? "King" : "Queen",
+            CoronationDate = DateTime.Now,
+            DaysReigned = 0,
+            EndReason = ""
+        });
+
+        GD.Print($"[Castle] {npc.DisplayName} has been crowned {(npc.Sex == CharacterSex.Male ? "King" : "Queen")}!");
     }
 
     /// <summary>
@@ -2492,6 +2914,29 @@ public class CastleLocation : BaseLocation
     /// Set the king (for save/load)
     /// </summary>
     public static void SetKing(King king) => currentKing = king;
+
+    /// <summary>
+    /// Set an NPC as the current king (for save restoration)
+    /// </summary>
+    public static void SetCurrentKing(NPC npc)
+    {
+        if (npc == null)
+        {
+            currentKing = null;
+            return;
+        }
+
+        currentKing = new King
+        {
+            Name = npc.Name,
+            AI = CharacterAI.Computer,
+            Sex = npc.Sex,
+            IsActive = true,
+            CoronationDate = DateTime.Now
+        };
+
+        GD.Print($"[Castle] {npc.Name} has been restored as monarch");
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

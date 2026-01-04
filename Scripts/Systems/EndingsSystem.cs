@@ -657,8 +657,9 @@ namespace UsurperRemake.Systems
                 terminal.WriteLine("  Thank you for dreaming.", "bright_cyan");
                 terminal.WriteLine("");
 
-                // TODO: Actually delete save file here
-                // SaveSystem.Instance.DeleteAllSaves(player);
+                // Delete the player's save file - this character's journey is complete
+                string playerName = !string.IsNullOrEmpty(player.Name1) ? player.Name1 : player.Name2;
+                SaveSystem.Instance.DeleteSave(playerName);
 
                 await Task.Delay(3000);
 

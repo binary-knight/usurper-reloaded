@@ -78,11 +78,8 @@ public partial class TempleLocation : BaseLocation
         // Run the temple's custom processing loop
         var destination = await ProcessLocation(player);
 
-        // Handle navigation if needed
-        if (!string.IsNullOrEmpty(destination) && destination != GameLocation.MainStreet.ToString())
-        {
-            throw new LocationChangeException(destination);
-        }
+        // Always throw to navigate back (MainStreet is the default)
+        throw new LocationExitException(GameLocation.MainStreet);
     }
 
     /// <summary>
@@ -203,12 +200,20 @@ public partial class TempleLocation : BaseLocation
         if (!forceDisplay && currentPlayer.Expert) return;
         
         terminal.Clear();
+
+        // Temple header - standardized format
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╔═════════════════════════════════════════════════════════════════════════════╗");
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("║                           TEMPLE OF THE GODS                                ║");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╚═════════════════════════════════════════════════════════════════════════════╝");
         terminal.WriteLine("");
-        terminal.WriteLine("═══ Temple of the Gods ═══", "magenta");
-        terminal.WriteLine("");
-        terminal.WriteLine("The Temple area is crowded with monks, preachers and", "white");
-        terminal.WriteLine("processions of priests on their way to the altars.", "white");
-        terminal.WriteLine("The doomsday prophets are trying to get your attention.", "white");
+
+        terminal.SetColor("white");
+        terminal.WriteLine("The Temple area is crowded with monks, preachers and");
+        terminal.WriteLine("processions of priests on their way to the altars.");
+        terminal.WriteLine("The doomsday prophets are trying to get your attention.");
         terminal.WriteLine("");
         
         string playerGod = godSystem.GetPlayerGod(currentPlayer.Name2);
@@ -222,20 +227,120 @@ public partial class TempleLocation : BaseLocation
         }
         terminal.WriteLine("");
         
-        // Main menu options (Pascal TEMPLE.PAS format + Old Gods)
-        terminal.WriteLine("(W)orship              (D)esecrate altar       (H)oly News", "yellow");
-        terminal.WriteLine("(A)ltars               (C)ontribute            (I)tem Sacrifice", "yellow");
-        terminal.WriteLine("(S)tatus               (G)od ranking           (P)rophecies", "yellow");
+        // Main menu options - standardized format
+        terminal.SetColor("cyan");
+        terminal.WriteLine("Temple Services:");
+        terminal.WriteLine("");
+
+        // Row 1
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_green");
+        terminal.Write("W");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("orship            ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_red");
+        terminal.Write("D");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("esecrate altar    ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_cyan");
+        terminal.Write("H");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("oly News");
+
+        // Row 2
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("A");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("ltars             ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("C");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("ontribute         ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("I");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("tem Sacrifice");
+
+        // Row 3
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_cyan");
+        terminal.Write("S");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("tatus             ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_cyan");
+        terminal.Write("G");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("od ranking        ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_magenta");
+        terminal.Write("P");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("rophecies");
 
         // Deep Temple option - only show if player meets requirements
         if (CanEnterDeepTemple())
         {
-            terminal.WriteLine("(T)he Deep Temple      (R)eturn", "bright_magenta");
+            terminal.SetColor("darkgray");
+            terminal.Write(" [");
+            terminal.SetColor("bright_magenta");
+            terminal.Write("T");
+            terminal.SetColor("darkgray");
+            terminal.Write("]");
+            terminal.SetColor("bright_magenta");
+            terminal.Write("he Deep Temple    ");
         }
         else
         {
-            terminal.WriteLine("(R)eturn", "yellow");
+            terminal.Write("                       ");
         }
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_red");
+        terminal.Write("R");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("eturn");
         terminal.WriteLine("");
     }
     

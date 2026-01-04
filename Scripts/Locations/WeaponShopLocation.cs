@@ -55,10 +55,12 @@ public class WeaponShopLocation : BaseLocation
             return;
         }
 
-        terminal.SetColor("brown");
-        terminal.WriteLine("╔══════════════════════════════════════════════════════╗");
-        terminal.WriteLine("║                    WEAPON SHOP                       ║");
-        terminal.WriteLine("╚══════════════════════════════════════════════════════╝");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╔═════════════════════════════════════════════════════════════════════════════╗");
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("║                             WEAPON SHOP                                     ║");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╚═════════════════════════════════════════════════════════════════════════════╝");
         terminal.WriteLine("");
 
         if (currentCategory.HasValue)

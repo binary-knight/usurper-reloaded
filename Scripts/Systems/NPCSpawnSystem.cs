@@ -166,8 +166,26 @@ namespace UsurperRemake.Systems
 
             npc.MaxHP = npc.HP;
             npc.MaxMana = npc.Mana;
-            npc.Experience = (long)(Math.Pow(level, 2) * 1000);
+            // Use same XP curve as players: level^1.8 * 50 per level
+            npc.Experience = GetExperienceForLevel(level);
             npc.Gold = random.Next(level * 100, level * 500);
+
+            // Add Constitution stat (was missing)
+            npc.Constitution = 10 + (level * 2) + random.Next(-3, 4);
+
+            // CRITICAL: Initialize base stats from current values
+            // This ensures RecalculateStats() works correctly for NPCs
+            npc.BaseStrength = npc.Strength;
+            npc.BaseDexterity = npc.Dexterity;
+            npc.BaseConstitution = npc.Constitution;
+            npc.BaseIntelligence = npc.Intelligence;
+            npc.BaseWisdom = npc.Wisdom;
+            npc.BaseCharisma = npc.Charisma;
+            npc.BaseMaxHP = npc.MaxHP;
+            npc.BaseMaxMana = npc.MaxMana;
+            npc.BaseDefence = npc.Defence;
+            npc.BaseStamina = npc.Stamina;
+            npc.BaseAgility = npc.Agility;
         }
 
         /// <summary>
@@ -477,6 +495,51 @@ namespace UsurperRemake.Systems
             npc.CellDoorOpen = true;
             npc.RescuedBy = rescuerName;
             GD.Print($"[NPCSpawn] Cell door opened for {npc.Name2} by {rescuerName}");
+        }
+
+        /// <summary>
+        /// Clear all NPCs (for loading saves)
+        /// </summary>
+        public void ClearAllNPCs()
+        {
+            spawnedNPCs.Clear();
+            npcsInitialized = false;
+            GD.Print("[NPCSpawn] All NPCs cleared for save restoration");
+        }
+
+        /// <summary>
+        /// Add a restored NPC from save data
+        /// </summary>
+        public void AddRestoredNPC(NPC npc)
+        {
+            if (npc != null)
+            {
+                spawnedNPCs.Add(npc);
+            }
+        }
+
+        /// <summary>
+        /// Mark NPCs as initialized after restoration
+        /// </summary>
+        public void MarkAsInitialized()
+        {
+            npcsInitialized = true;
+            GD.Print($"[NPCSpawn] Marked as initialized with {spawnedNPCs.Count} NPCs");
+        }
+
+        /// <summary>
+        /// Calculate experience points needed for a given level using same curve as players
+        /// Formula: Sum of level^1.8 * 50 for each level from 2 to target
+        /// </summary>
+        private static long GetExperienceForLevel(int level)
+        {
+            if (level <= 1) return 0;
+            long exp = 0;
+            for (int i = 2; i <= level; i++)
+            {
+                exp += (long)(Math.Pow(i, 1.8) * 50);
+            }
+            return exp;
         }
     }
 }

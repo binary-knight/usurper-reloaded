@@ -28,6 +28,7 @@ public static class CombatMessages
     public static DamageTier GetDamageTier(long damage, long maxHP)
     {
         if (damage <= 0) return DamageTier.Miss;
+        if (maxHP <= 0) return DamageTier.Devastating; // Edge case: treat as massive damage
 
         float percentage = (float)damage / maxHP * 100f;
 

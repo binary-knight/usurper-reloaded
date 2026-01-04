@@ -91,6 +91,7 @@ public class Character
      */
     
     public bool AutoHeal { get; set; }              // autoheal in battle?
+    public CombatSpeed CombatSpeed { get; set; } = CombatSpeed.Normal;  // combat text speed
     public CharacterClass Class { get; set; }       // class
     public int Loyalty { get; set; }                // loyalty% (0-100)
     public int Haunt { get; set; }                  // how many demons haunt player
@@ -107,7 +108,10 @@ public class Character
     
     // Spells (from Pascal: array[1..global_maxspells, 1..2] of boolean)
     public List<List<bool>> Spell { get; set; }     // spells [spell][known/mastered]
-    
+
+    // Learned combat abilities (non-caster classes)
+    public HashSet<string> LearnedAbilities { get; set; } = new();
+
     // Close combat skills (from Pascal: array[1..global_maxcombat] of int)
     public List<int> Skill { get; set; }            // close combat skills
     
@@ -134,7 +138,16 @@ public class Character
     public bool Immortal { get; set; }              // never deleted for inactivity
     public string BattleCry { get; set; } = "";     // battle cry
     public int BGuardNr { get; set; }               // number of doorguards
-    
+
+    // Difficulty mode (set at character creation)
+    public DifficultyMode Difficulty { get; set; } = DifficultyMode.Normal;
+
+    // Player statistics tracking
+    public PlayerStatistics Statistics { get; set; } = new PlayerStatistics();
+
+    // Achievement tracking
+    public PlayerAchievements Achievements { get; set; } = new PlayerAchievements();
+
     // Battle temporary flags
     public bool Casted { get; set; }                // used in battles
     public long Punch { get; set; }                 // player punch, temporary
@@ -494,9 +507,17 @@ public class Character
     // New for version 0.18+
     public byte UmanBearTries { get; set; }         // bear taming attempts
     public byte Massage { get; set; }               // massages today
-    public byte GymSessions { get; set; }           // gym sessions left
-    public byte GymOwner { get; set; }              // gym controller
-    public byte GymCard { get; set; }               // free gym card
+
+    // Note: Gym removed - stat training doesn't fit single-player endless format
+    // Legacy gym fields kept for save compatibility but unused
+    public byte GymSessions { get; set; }           // UNUSED
+    public byte GymOwner { get; set; }              // UNUSED
+    public byte GymCard { get; set; }               // UNUSED
+    public DateTime LastStrengthTraining { get; set; } = DateTime.MinValue;  // UNUSED
+    public DateTime LastDexterityTraining { get; set; } = DateTime.MinValue; // UNUSED
+    public DateTime LastTugOfWar { get; set; } = DateTime.MinValue;          // UNUSED
+    public DateTime LastWrestling { get; set; } = DateTime.MinValue;         // UNUSED
+
     public int RoyQuestsToday { get; set; }         // royal quests today
     public byte KingVotePoll { get; set; }          // days since king vote
     public byte KingLastVote { get; set; }          // last vote value
@@ -779,12 +800,13 @@ public class Character
     }
 
     /// <summary>
-    /// Get accuracy modifier from status effects
+    /// Get accuracy modifier from status effects and diseases
     /// </summary>
     public float GetAccuracyModifier()
     {
         float modifier = 1.0f;
-        if (HasStatus(StatusEffect.Blinded)) modifier *= 0.5f;
+        // Check both the disease flag (Blind) and the status effect (Blinded)
+        if (Blind || HasStatus(StatusEffect.Blinded)) modifier *= 0.5f;
         if (HasStatus(StatusEffect.PowerStance)) modifier *= 0.75f;
         if (HasStatus(StatusEffect.Frozen)) modifier *= 0.75f;
         return modifier;
@@ -1223,15 +1245,18 @@ public static class DrugSystem
             character.DrugEffectDays--;
             if (character.DrugEffectDays == 0)
             {
-                messages.Add($"The effects of {character.ActiveDrug} have worn off.");
-                character.ActiveDrug = DrugType.None;
+                // Check drug type BEFORE clearing it for crash effects
+                var expiringDrug = character.ActiveDrug;
+                messages.Add($"The effects of {expiringDrug} have worn off.");
 
                 // Crash effects for some drugs
-                if (character.ActiveDrug == DrugType.DarkEssence)
+                if (expiringDrug == DrugType.DarkEssence)
                 {
                     character.HP = Math.Max(1, character.HP - character.MaxHP / 4);
                     messages.Add("You crash hard from the Dark Essence. Your body aches.");
                 }
+
+                character.ActiveDrug = DrugType.None;
             }
         }
 

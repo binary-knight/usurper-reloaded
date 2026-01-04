@@ -83,6 +83,10 @@ public partial class NPC : Character
     // Missing properties for API compatibility
     public string Id { get; set; } = Guid.NewGuid().ToString();  // Unique identifier
     public string TeamPassword { get; set; } = "";               // Team password for joining
+
+    // Marketplace inventory - items NPC has available to sell (uses global Item class)
+    public List<global::Item> MarketInventory { get; set; } = new();
+    public int MaxMarketInventory => 5 + (Level / 10);  // 5-15 items based on level
     
     /// <summary>
     /// Constructor for creating a new NPC
@@ -773,6 +777,39 @@ public partial class NPC : Character
             case "anchor_road":
             case "anchorroad":
                 return GameLocation.AnchorRoad;
+
+            case "weapon_shop":
+            case "weaponshop":
+            case "weapons":
+                return GameLocation.WeaponShop;
+
+            case "armor_shop":
+            case "armorshop":
+            case "armour_shop":
+            case "armor":
+                return GameLocation.ArmorShop;
+
+            case "magic_shop":
+            case "magicshop":
+            case "magic":
+                return GameLocation.MagicShop;
+
+            case "healer":
+            case "healers":
+                return GameLocation.Healer;
+
+            case "level_master":
+            case "levelmaster":
+            case "master":
+                return GameLocation.Master;
+
+            case "chapel":
+            case "shrine":
+                return GameLocation.Temple;
+
+            case "love_corner":
+            case "lovecorner":
+                return GameLocation.LoveCorner;
 
             default:
                 return GameLocation.NoWhere;

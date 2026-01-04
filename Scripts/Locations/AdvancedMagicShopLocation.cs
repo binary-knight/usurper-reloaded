@@ -239,45 +239,60 @@ public class AdvancedMagicShopLocation : BaseLocation
     /// </summary>
     private async Task IdentifyItem(Character player, TerminalEmulator terminal)
     {
+        // Apply city control discount if player's team controls the city
+        long adjustedCost = CityControlSystem.Instance.ApplyDiscount(identifyCost, player);
+
         terminal.WriteLine($"\n{GameConfig.MagicColor}=== Item Identification ==={GameConfig.TextColor}");
-        terminal.WriteLine($"Identification cost: {GameConfig.GoldColor}{identifyCost:N0}{GameConfig.TextColor} gold");
-        
-        if (player.Gold < identifyCost)
+        if (adjustedCost < identifyCost)
+        {
+            terminal.WriteLine($"Base cost: {GameConfig.GoldColor}{identifyCost:N0}{GameConfig.TextColor} gold");
+            terminal.WriteLine($"City control discount: {GameConfig.SuccessColor}-{identifyCost - adjustedCost:N0}{GameConfig.TextColor} gold");
+            terminal.WriteLine($"Your cost: {GameConfig.GoldColor}{adjustedCost:N0}{GameConfig.TextColor} gold");
+        }
+        else
+        {
+            terminal.WriteLine($"Identification cost: {GameConfig.GoldColor}{adjustedCost:N0}{GameConfig.TextColor} gold");
+        }
+
+        if (player.Gold < adjustedCost)
         {
             terminal.WriteLine($"\n{GameConfig.ErrorColor}You don't have enough gold!{GameConfig.TextColor}");
             await terminal.WaitForKeyPress();
             return;
         }
-        
+
         // Show player's inventory
         var unidentifiedItems = GetUnidentifiedItems(player);
-        
+
         if (unidentifiedItems.Count == 0)
         {
             terminal.WriteLine($"\n{GameConfig.WarningColor}You have no unidentified items!{GameConfig.TextColor}");
             await terminal.WaitForKeyPress();
             return;
         }
-        
+
         terminal.WriteLine("\nUnidentified items:");
         for (int i = 0; i < unidentifiedItems.Count; i++)
         {
             terminal.WriteLine($"{i + 1}. {GameConfig.ItemColor}???{GameConfig.TextColor} (Unknown item)");
         }
-        
+
         terminal.Write($"\nWhich item to identify (1-{unidentifiedItems.Count}, 0 to cancel): ");
         int choice = await terminal.GetNumberInput(0, unidentifiedItems.Count);
-        
+
         if (choice == 0)
         {
             return;
         }
-        
+
         var itemIndex = unidentifiedItems[choice - 1];
-        
+
         // Charge gold
-        player.Gold -= identifyCost;
-        
+        player.Gold -= adjustedCost;
+
+        // Process city tax share from this sale
+        CityControlSystem.Instance.ProcessSaleTax(adjustedCost);
+
         // Identify the item (Pascal identification logic)
         await PerformItemIdentification(player, itemIndex, terminal);
     }
@@ -350,11 +365,23 @@ public class AdvancedMagicShopLocation : BaseLocation
         }
         
         long totalCost = quantity * potionCost;
-        
+
+        // Apply city control discount if player's team controls the city
+        long adjustedCost = CityControlSystem.Instance.ApplyDiscount(totalCost, player);
+
         // Confirm purchase
-        terminal.WriteLine($"\nTotal cost: {GameConfig.GoldColor}{totalCost:N0}{GameConfig.TextColor} gold");
+        if (adjustedCost < totalCost)
+        {
+            terminal.WriteLine($"\nBase cost: {GameConfig.GoldColor}{totalCost:N0}{GameConfig.TextColor} gold");
+            terminal.WriteLine($"City control discount: {GameConfig.SuccessColor}-{totalCost - adjustedCost:N0}{GameConfig.TextColor} gold");
+            terminal.WriteLine($"Final cost: {GameConfig.GoldColor}{adjustedCost:N0}{GameConfig.TextColor} gold");
+        }
+        else
+        {
+            terminal.WriteLine($"\nTotal cost: {GameConfig.GoldColor}{adjustedCost:N0}{GameConfig.TextColor} gold");
+        }
         terminal.Write("Confirm purchase? (Y/N): ");
-        
+
         var confirm = await terminal.GetKeyCharAsync();
         if (char.ToUpper(confirm) != 'Y')
         {
@@ -362,11 +389,14 @@ public class AdvancedMagicShopLocation : BaseLocation
             await terminal.WaitForKeyPress();
             return;
         }
-        
+
         // Process purchase
-        player.Gold -= totalCost;
+        player.Gold -= adjustedCost;
         player.Healing += quantity; // Add to healing potion count
-        
+
+        // Process city tax share from this sale
+        CityControlSystem.Instance.ProcessSaleTax(adjustedCost);
+
         terminal.WriteLine($"\n{GameConfig.SuccessColor}You purchased {quantity} healing potions!{GameConfig.TextColor}");
         terminal.WriteLine($"Remaining gold: {GameConfig.GoldColor}{player.Gold:N0}{GameConfig.TextColor}");
         
@@ -435,14 +465,17 @@ public class AdvancedMagicShopLocation : BaseLocation
         }
         
         var selectedItem = availableItems[choice - 1];
-        
-        if (player.Gold < selectedItem.Price)
+
+        // Apply city control discount if player's team controls the city
+        long adjustedPrice = CityControlSystem.Instance.ApplyDiscount(selectedItem.Price, player);
+
+        if (player.Gold < adjustedPrice)
         {
             terminal.WriteLine($"\n{GameConfig.ErrorColor}You cannot afford this item!{GameConfig.TextColor}");
             await terminal.WaitForKeyPress();
             return;
         }
-        
+
         // Check inventory space
         int emptySlot = FindEmptyInventorySlot(player);
         if (emptySlot == -1)
@@ -451,15 +484,48 @@ public class AdvancedMagicShopLocation : BaseLocation
             await terminal.WaitForKeyPress();
             return;
         }
-        
+
         // Complete purchase
-        player.Gold -= selectedItem.Price;
+        player.Gold -= adjustedPrice;
+
+        // Store in legacy inventory slot
         player.Item[emptySlot] = selectedItem.ItemId;
         player.ItemType[emptySlot] = selectedItem.Type;
-        
-        terminal.WriteLine($"\n{GameConfig.SuccessColor}You purchased the {selectedItem.Name}!{GameConfig.TextColor}");
+
+        // Process city tax share from this sale
+        CityControlSystem.Instance.ProcessSaleTax(adjustedPrice);
+
+        if (adjustedPrice < selectedItem.Price)
+        {
+            terminal.WriteLine($"\n{GameConfig.SuccessColor}You purchased the {selectedItem.Name}!{GameConfig.TextColor}");
+            terminal.WriteLine($"City control discount applied: {GameConfig.SuccessColor}-{selectedItem.Price - adjustedPrice:N0}{GameConfig.TextColor} gold");
+        }
+        else
+        {
+            terminal.WriteLine($"\n{GameConfig.SuccessColor}You purchased the {selectedItem.Name}!{GameConfig.TextColor}");
+        }
         terminal.WriteLine($"Remaining gold: {GameConfig.GoldColor}{player.Gold:N0}{GameConfig.TextColor}");
-        
+
+        // Try to auto-equip the item using the modern Equipment system
+        var equipment = EquipmentDatabase.GetById(selectedItem.ItemId);
+        if (equipment != null)
+        {
+            if (player.EquipItem(equipment, out string equipMessage))
+            {
+                terminal.WriteLine($"{GameConfig.SuccessColor}{equipMessage}{GameConfig.TextColor}");
+                player.RecalculateStats();
+            }
+            else
+            {
+                terminal.WriteLine($"{GameConfig.WarningColor}Item added to inventory. {equipMessage}{GameConfig.TextColor}");
+            }
+        }
+        else
+        {
+            // For items not in EquipmentDatabase, apply power directly based on type
+            ApplyMagicItemStats(player, selectedItem);
+        }
+
         await terminal.WaitForKeyPress();
     }
     
@@ -728,6 +794,48 @@ public class AdvancedMagicShopLocation : BaseLocation
     {
         // Pascal: sell_price := item.value div 2;
         return (int)(item.Value / 2);
+    }
+
+    /// <summary>
+    /// Apply magic item stats directly for items not in EquipmentDatabase
+    /// </summary>
+    private void ApplyMagicItemStats(Character player, MagicShopItem item)
+    {
+        // Apply power based on item type
+        switch (item.Type)
+        {
+            case ObjType.Weapon:
+                player.WeapPow += item.Power;
+                break;
+            case ObjType.Shield:
+            case ObjType.Body:
+            case ObjType.Head:
+            case ObjType.Arms:
+            case ObjType.Hands:
+            case ObjType.Legs:
+            case ObjType.Feet:
+                player.ArmPow += item.Power;
+                break;
+            case ObjType.Neck:
+            case ObjType.Fingers:
+            case ObjType.Waist:
+            case ObjType.Face:
+                // Accessories might boost various stats
+                player.Charisma += item.Power / 2;
+                break;
+            case ObjType.Potion:
+            case ObjType.Magic:
+                // Magic items can boost mana
+                player.MaxMana += item.Power * 2;
+                player.Mana += item.Power * 2;
+                break;
+            default:
+                // General stat boost
+                player.Defence += item.Power / 2;
+                break;
+        }
+
+        player.RecalculateStats();
     }
     
     #endregion

@@ -100,8 +100,7 @@ public class TeamCornerLocation : BaseLocation
         terminal.SetColor("cyan");
         terminal.WriteLine("Communication:");
         terminal.SetColor("white");
-        WriteMenuOption("M", "Message Teammates", "!", "Message Other Team");
-        WriteMenuOption("1", "Send Items", "*", "Resurrect Teammate");
+        WriteMenuOption("M", "Message Teammates", "*", "Resurrect Teammate");
         terminal.WriteLine("");
 
         terminal.SetColor("yellow");
@@ -190,14 +189,6 @@ public class TeamCornerLocation : BaseLocation
 
             case "M":
                 await SendTeamMessage();
-                return false;
-
-            case "!":
-                await SendMessageToOtherTeam();
-                return false;
-
-            case "1":
-                await SendItemsToMember();
                 return false;
 
             case "2":
@@ -1044,61 +1035,6 @@ public class TeamCornerLocation : BaseLocation
                 await terminal.ReadKeyAsync();
             }
         }
-    }
-
-    /// <summary>
-    /// Send message to other team
-    /// </summary>
-    private async Task SendMessageToOtherTeam()
-    {
-        terminal.WriteLine("");
-        terminal.SetColor("cyan");
-        terminal.Write("Send message to which team? ");
-        terminal.SetColor("white");
-        string targetTeam = await terminal.ReadLineAsync();
-
-        if (string.IsNullOrEmpty(targetTeam))
-            return;
-
-        terminal.SetColor("cyan");
-        terminal.WriteLine("Message:");
-        terminal.Write(": ");
-        terminal.SetColor("white");
-        string message = await terminal.ReadLineAsync();
-
-        if (!string.IsNullOrEmpty(message))
-        {
-            terminal.WriteLine("");
-            terminal.SetColor("yellow");
-            terminal.WriteLine($"Message sent to {targetTeam}!");
-            terminal.WriteLine("(Inter-team messaging system placeholder)");
-            terminal.WriteLine("");
-        }
-
-        await Task.Delay(2000);
-    }
-
-    /// <summary>
-    /// Send items to team member
-    /// </summary>
-    private async Task SendItemsToMember()
-    {
-        if (string.IsNullOrEmpty(currentPlayer.Team))
-        {
-            terminal.WriteLine("");
-            terminal.SetColor("red");
-            terminal.WriteLine("You don't belong to a team.");
-            terminal.WriteLine("");
-            await Task.Delay(2000);
-            return;
-        }
-
-        terminal.WriteLine("");
-        terminal.SetColor("yellow");
-        terminal.WriteLine("Item transfer system not yet implemented.");
-        terminal.WriteLine("This will allow sending items to team members.");
-        terminal.WriteLine("");
-        await Task.Delay(2000);
     }
 
     /// <summary>

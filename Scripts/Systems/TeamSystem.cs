@@ -1,4 +1,5 @@
 using UsurperRemake.Utils;
+using UsurperRemake.Systems;
 using Godot;
 using System;
 using System.Collections.Generic;
@@ -622,13 +623,23 @@ public partial class TeamSystem : Node
     }
     
     /// <summary>
-    /// Get all characters in the game
+    /// Get all characters in the game (NPCs from NPCSpawnSystem + any players)
     /// </summary>
     private List<Character> GetAllCharacters()
     {
-        // TODO: Implement character loading from files
-        // This should load from both USERS.DAT and NPCS.DAT
-        return new List<Character>();
+        var characters = new List<Character>();
+
+        // Get all active NPCs from NPCSpawnSystem
+        var npcs = NPCSpawnSystem.Instance?.ActiveNPCs;
+        if (npcs != null)
+        {
+            characters.AddRange(npcs);
+        }
+
+        // TODO: Also load saved players from USERS.DAT if needed for multiplayer
+        // For now, single-player mode only uses NPCs for gang warfare
+
+        return characters;
     }
     
     /// <summary>

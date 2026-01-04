@@ -183,6 +183,19 @@ public class WorldSimulator
             activities.Add(("bank", bankWeight));
         }
 
+        // Marketplace visit - if has items to sell or gold to buy
+        if (npc.Gold > 200 || npc.MarketInventory.Count > 0)
+        {
+            float marketWeight = 0.12f; // Base 12% weight
+            // Higher greed = more likely to trade
+            if (npc.Brain?.Personality != null)
+                marketWeight += npc.Brain.Personality.Greed * 0.06f;
+            // More inventory = more reason to visit
+            if (npc.MarketInventory.Count > 2)
+                marketWeight += 0.05f;
+            activities.Add(("marketplace", marketWeight));
+        }
+
         // Team activities
         if (string.IsNullOrEmpty(npc.Team))
         {
@@ -254,6 +267,9 @@ public class WorldSimulator
                 break;
             case "bank":
                 NPCVisitBank(npc);
+                break;
+            case "marketplace":
+                NPCVisitMarketplace(npc);
                 break;
         }
     }
@@ -475,9 +491,10 @@ public class WorldSimulator
             var dead = teamMembers.Where(m => !m.IsAlive).ToList();
             if (dead.Any())
             {
+                var killerName = monsters.FirstOrDefault()?.Name ?? "dungeon monsters";
                 foreach (var deadMember in dead)
                 {
-                    NewsSystem.Instance.WriteDeathNews(deadMember.Name, monsters.First().Name, "the Dungeon");
+                    NewsSystem.Instance.WriteDeathNews(deadMember.Name, killerName, "the Dungeon");
                 }
                 GD.Print($"[WorldSim] Team '{npc.Team}' was defeated! {dead.Count} members died");
             }
@@ -590,6 +607,14 @@ public class WorldSimulator
             npc.GainExperience(expGain);
             npc.GainGold(goldGain);
 
+            // 20% chance to find loot if has inventory space
+            if (random.NextDouble() < 0.20 && npc.MarketInventory.Count < npc.MaxMarketInventory)
+            {
+                var loot = NPCItemGenerator.GenerateDungeonLoot(npc, dungeonLevel);
+                npc.MarketInventory.Add(loot);
+                GD.Print($"[WorldSim] {npc.Name} found {loot.Name} in the dungeon!");
+            }
+
             // Generate news for notable victories
             if (monster.IsBoss || monster.Level >= npc.Level + 5 || random.NextDouble() < 0.1)
             {
@@ -673,28 +698,36 @@ public class WorldSimulator
         {
             npc.SpendGold(trainingCost);
 
-            // Random stat increase
+            // Random stat increase - update BOTH current and base stats
             int statChoice = random.Next(4);
             string statName = "";
             switch (statChoice)
             {
                 case 0:
-                    npc.Strength++;
+                    npc.BaseStrength++;
                     statName = "Strength";
                     break;
                 case 1:
-                    npc.Defence++;
+                    npc.BaseDefence++;
                     statName = "Defence";
                     break;
                 case 2:
-                    npc.Agility++;
+                    npc.BaseAgility++;
                     statName = "Agility";
                     break;
                 case 3:
-                    npc.MaxHP += 5;
-                    npc.HP = Math.Min(npc.HP + 5, npc.MaxHP);
+                    npc.BaseMaxHP += 5;
                     statName = "Vitality";
                     break;
+            }
+
+            // Recalculate all stats from base values
+            npc.RecalculateStats();
+
+            // Restore HP if vitality was trained
+            if (statChoice == 3)
+            {
+                npc.HP = Math.Min(npc.HP + 5, npc.MaxHP);
             }
 
             GD.Print($"[WorldSim] {npc.Name} trained at the Gym and gained {statName}");
@@ -717,11 +750,16 @@ public class WorldSimulator
         {
             npc.Level++;
 
-            // Stat gains on level up
-            npc.MaxHP += 10 + random.Next(5, 15);
+            // Update base stats on level up (before equipment bonuses)
+            npc.BaseMaxHP += 10 + random.Next(5, 15);
+            npc.BaseStrength += random.Next(1, 3);
+            npc.BaseDefence += random.Next(1, 2);
+
+            // Recalculate all stats with equipment bonuses
+            npc.RecalculateStats();
+
+            // Restore HP to full on level up
             npc.HP = npc.MaxHP;
-            npc.Strength += random.Next(1, 3);
-            npc.Defence += random.Next(1, 2);
 
             // This is always newsworthy!
             NewsSystem.Instance.Newsy(true, $"{npc.Name} has achieved Level {npc.Level}!");
@@ -1073,6 +1111,41 @@ public class WorldSimulator
                 RelationshipSystem.UpdateRelationship(npc, other, 1, 0, false);
                 GD.Print($"[WorldSim] {npc.Name} and {other.Name} chatted at the Bank");
             }
+        }
+    }
+
+    /// <summary>
+    /// NPC visits the Marketplace to list items or browse/buy
+    /// </summary>
+    private void NPCVisitMarketplace(NPC npc)
+    {
+        npc.UpdateLocation("Market");
+        GD.Print($"[WorldSim] {npc.Name} visits the Marketplace");
+
+        // 50% chance to list an item if has inventory
+        if (npc.MarketInventory.Count > 0 && random.NextDouble() < 0.5)
+        {
+            var item = npc.MarketInventory[random.Next(npc.MarketInventory.Count)];
+            MarketplaceSystem.Instance.NPCListItem(npc, item);
+            npc.MarketInventory.Remove(item);
+        }
+
+        // 50% chance to browse and potentially buy
+        if (npc.Gold > 500 && random.NextDouble() < 0.5)
+        {
+            MarketplaceSystem.Instance.NPCBrowseAndBuy(npc);
+        }
+
+        // Meet other NPCs at marketplace for relationship building
+        var otherNPCs = npcs
+            .Where(n => n.IsAlive && n.ID != npc.ID && n.CurrentLocation == "Market")
+            .ToList();
+
+        if (otherNPCs.Any() && random.NextDouble() < 0.2)
+        {
+            var other = otherNPCs[random.Next(otherNPCs.Count)];
+            RelationshipSystem.UpdateRelationship(npc, other, 1, 0, false);
+            GD.Print($"[WorldSim] {npc.Name} and {other.Name} haggled together at the Marketplace");
         }
     }
 

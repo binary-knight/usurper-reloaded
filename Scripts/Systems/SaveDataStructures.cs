@@ -17,6 +17,60 @@ namespace UsurperRemake.Systems
         public List<NPCData> NPCs { get; set; } = new();
         public WorldStateData WorldState { get; set; } = new();
         public DailySettings Settings { get; set; } = new();
+
+        // Story systems
+        public StorySystemsData StorySystems { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Data for all story/narrative systems
+    /// </summary>
+    public class StorySystemsData
+    {
+        // Ocean Philosophy
+        public int AwakeningLevel { get; set; }
+        public List<int> CollectedFragments { get; set; } = new();
+        public List<int> ExperiencedMoments { get; set; } = new();
+
+        // Seven Seals
+        public List<int> CollectedSeals { get; set; } = new();
+
+        // Companions
+        public List<CompanionSaveInfo> Companions { get; set; } = new();
+        public List<int> ActiveCompanionIds { get; set; } = new();
+        public List<CompanionDeathInfo> FallenCompanions { get; set; } = new();
+
+        // Grief state
+        public int GriefStage { get; set; }
+        public int GriefDaysRemaining { get; set; }
+        public string GriefCompanionName { get; set; } = "";
+
+        // Story progression flags
+        public Dictionary<string, bool> StoryFlags { get; set; } = new();
+        public int CurrentCycle { get; set; } = 1;
+    }
+
+    public class CompanionSaveInfo
+    {
+        public int Id { get; set; }
+        public bool IsRecruited { get; set; }
+        public bool IsActive { get; set; }
+        public bool IsDead { get; set; }
+        public int LoyaltyLevel { get; set; }
+        public int TrustLevel { get; set; }
+        public int RomanceLevel { get; set; }
+        public bool PersonalQuestStarted { get; set; }
+        public bool PersonalQuestCompleted { get; set; }
+        public int RecruitedDay { get; set; }
+    }
+
+    public class CompanionDeathInfo
+    {
+        public int CompanionId { get; set; }
+        public int DeathType { get; set; }
+        public string Circumstance { get; set; } = "";
+        public string LastWords { get; set; } = "";
+        public int DeathDay { get; set; }
     }
 
     /// <summary>
@@ -60,6 +114,7 @@ namespace UsurperRemake.Systems
         public CharacterClass Class { get; set; }
         public char Sex { get; set; }
         public int Age { get; set; }
+        public DifficultyMode Difficulty { get; set; } = DifficultyMode.Normal;
         
         // Game state
         public string CurrentLocation { get; set; } = "";
@@ -85,6 +140,14 @@ namespace UsurperRemake.Systems
 
         // NEW: Modern RPG Equipment System
         public Dictionary<int, int> EquippedItems { get; set; } = new(); // EquipmentSlot -> Equipment ID
+
+        // Curse status for equipped items
+        public bool WeaponCursed { get; set; }
+        public bool ArmorCursed { get; set; }
+        public bool ShieldCursed { get; set; }
+
+        // Player inventory (dungeon loot, etc.)
+        public List<InventoryItemData> Inventory { get; set; } = new();
 
         // Base stats (without equipment bonuses)
         public long BaseStrength { get; set; }
@@ -128,6 +191,7 @@ namespace UsurperRemake.Systems
 
         // Character settings
         public bool AutoHeal { get; set; }  // Auto-heal in battle
+        public CombatSpeed CombatSpeed { get; set; } = CombatSpeed.Normal;  // Combat text speed
         public int Loyalty { get; set; }    // Loyalty percentage (0-100)
         public int Haunt { get; set; }      // How many demons haunt player
         public char Master { get; set; }    // Level master player uses
@@ -155,10 +219,75 @@ namespace UsurperRemake.Systems
         
         // Achievements
         public Dictionary<string, bool> Achievements { get; set; } = new();
-        
+
+        // Learned combat abilities (non-caster classes)
+        public List<string> LearnedAbilities { get; set; } = new();
+
+        // Training system
+        public int Trains { get; set; }  // Training sessions available
+        public int TrainingPoints { get; set; }
+        public Dictionary<string, int> SkillProficiencies { get; set; } = new();  // Skill name -> proficiency level
+        public Dictionary<string, int> SkillTrainingProgress { get; set; } = new();  // Skill name -> progress
+
+        // Spells array: [spellIndex][0=known, 1=mastered]
+        public List<List<bool>> Spells { get; set; } = new();
+
+        // Combat skills array
+        public List<int> Skills { get; set; } = new();
+
+        // Legacy equipment slots (for backwards compatibility)
+        public int LHand { get; set; }
+        public int RHand { get; set; }
+        public int Head { get; set; }
+        public int Body { get; set; }
+        public int Arms { get; set; }
+        public int LFinger { get; set; }
+        public int RFinger { get; set; }
+        public int Legs { get; set; }
+        public int Feet { get; set; }
+        public int Waist { get; set; }
+        public int Neck { get; set; }
+        public int Neck2 { get; set; }
+        public int Face { get; set; }
+        public int Shield { get; set; }
+        public int Hands { get; set; }
+        public int ABody { get; set; }
+
+        // Combat flags
+        public bool Immortal { get; set; }
+        public string BattleCry { get; set; } = "";
+        public int BGuardNr { get; set; }  // Number of door guards
+
+        // Kill statistics
+        public int MKills { get; set; }   // Monster kills
+        public int MDefeats { get; set; } // Monster defeats
+        public int PKills { get; set; }   // Player kills
+        public int PDefeats { get; set; } // Player defeats
+
         // Timestamps
         public DateTime LastLogin { get; set; }
         public DateTime AccountCreated { get; set; }
+
+        // Note: Gym removed - these fields kept for save compatibility but unused
+        public DateTime LastStrengthTraining { get; set; }
+        public DateTime LastDexterityTraining { get; set; }
+        public DateTime LastTugOfWar { get; set; }
+        public DateTime LastWrestling { get; set; }
+
+        // Player statistics
+        public PlayerStatistics? Statistics { get; set; }
+
+        // Player achievements
+        public PlayerAchievementsData? AchievementsData { get; set; }
+    }
+
+    /// <summary>
+    /// Player achievements data for save system
+    /// </summary>
+    public class PlayerAchievementsData
+    {
+        public HashSet<string> UnlockedAchievements { get; set; } = new();
+        public Dictionary<string, DateTime> UnlockDates { get; set; } = new();
     }
 
     /// <summary>
@@ -174,15 +303,101 @@ namespace UsurperRemake.Systems
         public string Location { get; set; } = "";
         public long Gold { get; set; }
         public int[] Items { get; set; } = new int[0];
-        
+
+        // Character stats
+        public long Experience { get; set; }
+        public long Strength { get; set; }
+        public long Defence { get; set; }
+        public long Agility { get; set; }
+        public long Dexterity { get; set; }
+        public long Mana { get; set; }
+        public long MaxMana { get; set; }
+        public long WeapPow { get; set; }
+        public long ArmPow { get; set; }
+
+        // Class and race
+        public CharacterClass Class { get; set; }
+        public CharacterRace Race { get; set; }
+        public char Sex { get; set; }
+
+        // Team and political status
+        public string Team { get; set; } = "";
+        public bool IsTeamLeader { get; set; }
+        public bool IsKing { get; set; }
+
+        // Alignment
+        public long Chivalry { get; set; }
+        public long Darkness { get; set; }
+
         // AI state
         public PersonalityData? PersonalityProfile { get; set; }
         public List<MemoryData> Memories { get; set; } = new();
         public List<GoalData> CurrentGoals { get; set; } = new();
         public EmotionalStateData? EmotionalState { get; set; }
-        
+
         // Relationships
         public Dictionary<string, float> Relationships { get; set; } = new();
+
+        // Marketplace inventory - items NPC has to sell
+        public List<MarketItemData> MarketInventory { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Marketplace item data for serialization
+    /// </summary>
+    public class MarketItemData
+    {
+        public string ItemName { get; set; } = "";
+        public long ItemValue { get; set; }
+        public global::ObjType ItemType { get; set; }
+        public int Attack { get; set; }
+        public int Armor { get; set; }
+        public int Strength { get; set; }
+        public int Defence { get; set; }
+        public bool IsCursed { get; set; }
+    }
+
+    /// <summary>
+    /// Player inventory item data for serialization (dungeon loot, etc.)
+    /// </summary>
+    public class InventoryItemData
+    {
+        public string Name { get; set; } = "";
+        public long Value { get; set; }
+        public global::ObjType Type { get; set; }
+        public int Attack { get; set; }
+        public int Armor { get; set; }
+        public int Strength { get; set; }
+        public int Dexterity { get; set; }
+        public int Wisdom { get; set; }
+        public int Defence { get; set; }
+        public int HP { get; set; }
+        public int Mana { get; set; }
+        public int Charisma { get; set; }
+        public int MinLevel { get; set; }
+        public bool IsCursed { get; set; }
+        // Cursed is now an alias for IsCursed for backwards compatibility
+        public bool Cursed
+        {
+            get => IsCursed;
+            set => IsCursed = value;
+        }
+        public bool Shop { get; set; }
+        public bool Dungeon { get; set; }
+        public List<string> Description { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Marketplace listing data for persistence
+    /// </summary>
+    public class MarketListingData
+    {
+        public MarketItemData Item { get; set; } = new();
+        public string Seller { get; set; } = "";
+        public bool IsNPCSeller { get; set; }
+        public string SellerNPCId { get; set; } = "";
+        public long Price { get; set; }
+        public DateTime Posted { get; set; }
     }
 
     /// <summary>
@@ -211,6 +426,9 @@ namespace UsurperRemake.Systems
 
         // God system state
         public Dictionary<string, GodStateData> GodStates { get; set; } = new();
+
+        // Marketplace listings
+        public List<MarketListingData> MarketplaceListings { get; set; } = new();
     }
 
     /// <summary>
@@ -315,10 +533,12 @@ namespace UsurperRemake.Systems
     public class MemoryData
     {
         public string Id { get; set; } = "";
-        public MemoryEventType Type { get; set; }
+        public string Type { get; set; } = "";  // String representation of MemoryType enum
+        public string Description { get; set; } = "";
         public string InvolvedCharacter { get; set; } = "";
         public DateTime Timestamp { get; set; }
         public float Importance { get; set; }
+        public float EmotionalImpact { get; set; }
         public Dictionary<string, object> Details { get; set; } = new();
     }
 
@@ -328,9 +548,13 @@ namespace UsurperRemake.Systems
     public class GoalData
     {
         public string Id { get; set; } = "";
-        public GoalType Type { get; set; }
+        public string Name { get; set; } = "";
+        public string Type { get; set; } = "";  // String representation of GoalType enum
         public float Priority { get; set; }
-        public GoalStatus Status { get; set; }
+        public float Progress { get; set; }
+        public bool IsActive { get; set; }
+        public float TargetValue { get; set; }
+        public float CurrentValue { get; set; }
         public DateTime CreatedTime { get; set; }
         public DateTime? CompletionTime { get; set; }
         public Dictionary<string, object> Parameters { get; set; } = new();

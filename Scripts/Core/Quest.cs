@@ -45,6 +45,9 @@ public partial class Quest
     // Display title used in mails / UI (not part of original Pascal structure but referenced by systems)
     public string Title { get; set; } = "(unnamed quest)";
 
+    // Target NPC name for bounty/assassination quests
+    public string TargetNPCName { get; set; } = "";
+
     // Objective Tracking (for modern quest progress)
     public List<QuestObjective> Objectives { get; set; } = new();
     
@@ -345,6 +348,7 @@ public enum QuestObjectiveType
     DeliverItem = 31,           // Deliver item to NPC
     Assassinate = 32,           // Assassinate target player
     Seduce = 33,                // Seduce target player
+    DefeatNPC = 34,             // Defeat a specific NPC (bounty)
 
     // Exploration objectives
     VisitLocation = 40,         // Visit a specific location

@@ -51,10 +51,7 @@ public class MainStreetLocation : BaseLocation
             "List Characters",     // (L)ist Characters
             "Fame",                // (F)ame
             "Relations",           // (R)elations
-            "Inventory",           // (*) Inventory
-            "Who is Online?",      // (Ctrl+W)
-            "Send Message",        // (Ctrl+T)
-            "Send Stuff"           // (Ctrl+S)
+            "Inventory"            // (*) Inventory
         };
     }
     
@@ -137,6 +134,10 @@ public class MainStreetLocation : BaseLocation
         terminal.WriteLine("║                          -= MAIN STREET =-                                  ║");
         terminal.SetColor("bright_cyan");
         terminal.WriteLine("╠═════════════════════════════════════════════════════════════════════════════╣");
+
+        // Show current objective hint
+        ShowObjectiveHint();
+
         terminal.WriteLine("");
 
         // Row 1 - Primary locations
@@ -230,7 +231,16 @@ public class MainStreetLocation : BaseLocation
         terminal.SetColor("darkgray");
         terminal.Write("]");
         terminal.SetColor("white");
-        terminal.WriteLine(" Marketplace");
+        terminal.Write(" Marketplace ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("2");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine(" Quest Hall");
 
         // Row 4 - Important locations
         terminal.SetColor("darkgray");
@@ -306,7 +316,34 @@ public class MainStreetLocation : BaseLocation
         terminal.SetColor("darkgray");
         terminal.Write("]");
         terminal.SetColor("white");
-        terminal.WriteLine("ist Citizens");
+        terminal.Write("ist Citizens  ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_cyan");
+        terminal.Write("=");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("Stats         ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("!");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("Achievements  ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_magenta");
+        terminal.Write("P");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("rogress");
 
         // Row 6 - Combat & Social
         terminal.SetColor("darkgray");
@@ -420,7 +457,11 @@ public class MainStreetLocation : BaseLocation
             case "1":
                 await NavigateToLocation(GameLocation.Healer);
                 return true;
-                
+
+            case "2":
+                await NavigateToLocation(GameLocation.QuestHall);
+                return true;
+
             case "Q":
                 await QuitGame();
                 return true;
@@ -480,7 +521,15 @@ public class MainStreetLocation : BaseLocation
             case "*":
                 await ShowInventory();
                 return false;
-            
+
+            case "=":
+                await ShowStatistics();
+                return false;
+
+            case "!":
+                await ShowAchievements();
+                return false;
+
             case "9":
                 await TestCombat();
                 return false;
@@ -491,8 +540,8 @@ public class MainStreetLocation : BaseLocation
                 return true;
                 
             case "P":
-                await NavigateToLocation(GameLocation.Prison);
-                return true;
+                await ShowStoryProgress();
+                return false;
                 
             case "O":
                 await NavigateToLocation(GameLocation.Church);
@@ -507,28 +556,8 @@ public class MainStreetLocation : BaseLocation
                 await Task.Delay(1500);
                 throw new LocationExitException(GameLocation.DarkAlley);
                 
-            // Global commands
-            case "CTRL+W":
-            case "!W":
-                await ShowWhoIsOnline();
-                return false;
-                
-            case "CTRL+T":
-            case "!T":
-                await SendMessage();
-                return false;
-                
-            case "CTRL+S":
-            case "!S":
-                await SendStuff();
-                return false;
-                
             case "?":
                 // Menu is always shown
-                return false;
-                
-            case "2":
-                await SendStuff();
                 return false;
                 
             case "3":
@@ -912,7 +941,7 @@ public class MainStreetLocation : BaseLocation
         terminal.WriteLine($"Children: {currentPlayer.Kids}");
         terminal.WriteLine($"Team: {(string.IsNullOrEmpty(currentPlayer.Team) ? "None" : currentPlayer.Team)}");
         terminal.WriteLine("");
-        
+
         if (currentPlayer.Married)
         {
             terminal.WriteLine("Family options:");
@@ -923,36 +952,315 @@ public class MainStreetLocation : BaseLocation
         {
             terminal.WriteLine("You are single. Visit Love Street to find romance!");
         }
-        
+
         terminal.WriteLine("");
         await terminal.PressAnyKey();
     }
 
-    private async Task ShowWhoIsOnline()
+    /// <summary>
+    /// Display comprehensive player statistics
+    /// </summary>
+    private async Task ShowStatistics()
     {
+        var stats = currentPlayer.Statistics;
+        stats.UpdateSessionTime(); // Ensure current session is counted
+
         terminal.ClearScreen();
         terminal.SetColor("bright_cyan");
-        terminal.WriteLine("Who's Online");
-        terminal.WriteLine("============");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║                         PLAYER STATISTICS                                   ║");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
         terminal.WriteLine("");
+
+        // Combat Stats
+        terminal.SetColor("bright_red");
+        terminal.WriteLine("═══ COMBAT ═══");
         terminal.SetColor("white");
-        terminal.WriteLine($"• {currentPlayer.DisplayName} - Main Street (You)");
-        terminal.WriteLine("• Seth Able - The Inn (Drunk)");
-        terminal.WriteLine("• Royal Guard - Castle (On Duty)");
+        terminal.WriteLine($"  Monsters Slain:     {stats.TotalMonstersKilled,10:N0}     Bosses Killed:    {stats.TotalBossesKilled,8:N0}");
+        terminal.WriteLine($"  Unique Monsters:    {stats.TotalUniquesKilled,10:N0}     Combat Win Rate:  {stats.GetCombatWinRate(),7:F1}%");
+        terminal.WriteLine($"  Combats Won:        {stats.TotalCombatsWon,10:N0}     Combats Lost:     {stats.TotalCombatsLost,8:N0}");
+        terminal.WriteLine($"  Times Fled:         {stats.TotalCombatsFled,10:N0}     Player Kills (PvP):{stats.TotalPlayerKills,7:N0}");
         terminal.WriteLine("");
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine($"  Total Damage Dealt: {stats.TotalDamageDealt,10:N0}     Damage Taken:     {stats.TotalDamageTaken,8:N0}");
+        terminal.WriteLine($"  Highest Single Hit: {stats.HighestSingleHit,10:N0}     Critical Hits:    {stats.TotalCriticalHits,8:N0}");
+        terminal.WriteLine("");
+
+        // Economic Stats
+        terminal.SetColor("bright_green");
+        terminal.WriteLine("═══ ECONOMY ═══");
+        terminal.SetColor("white");
+        terminal.WriteLine($"  Total Gold Earned:  {stats.TotalGoldEarned,10:N0}     Gold from Monsters:{stats.TotalGoldFromMonsters,7:N0}");
+        terminal.WriteLine($"  Gold Spent:         {stats.TotalGoldSpent,10:N0}     Peak Gold Held:   {stats.HighestGoldHeld,8:N0}");
+        terminal.WriteLine($"  Items Bought:       {stats.TotalItemsBought,10:N0}     Items Sold:       {stats.TotalItemsSold,8:N0}");
+        terminal.WriteLine("");
+
+        // Experience Stats
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("═══ EXPERIENCE ═══");
+        terminal.SetColor("white");
+        terminal.WriteLine($"  Total XP Earned:    {stats.TotalExperienceEarned,10:N0}     Level Ups:        {stats.TotalLevelUps,8:N0}");
+        terminal.WriteLine($"  Highest Level:      {stats.HighestLevelReached,10}     Current Level:    {currentPlayer.Level,8}");
+        terminal.WriteLine("");
+
+        // Exploration Stats
+        terminal.SetColor("bright_blue");
+        terminal.WriteLine("═══ EXPLORATION ═══");
+        terminal.SetColor("white");
+        terminal.WriteLine($"  Deepest Dungeon:    {stats.DeepestDungeonLevel,10}     Floors Explored:  {stats.TotalDungeonFloorsCovered,8:N0}");
+        terminal.WriteLine($"  Chests Opened:      {stats.TotalChestsOpened,10:N0}     Secrets Found:    {stats.TotalSecretsFound,8:N0}");
+        terminal.WriteLine($"  Traps Triggered:    {stats.TotalTrapsTriggered,10:N0}     Traps Disarmed:   {stats.TotalTrapsDisarmed,8:N0}");
+        terminal.WriteLine("");
+
+        // Survival Stats
+        terminal.SetColor("yellow");
+        terminal.WriteLine("═══ SURVIVAL ═══");
+        terminal.SetColor("white");
+        terminal.WriteLine($"  Deaths (Monster):   {stats.TotalMonsterDeaths,10:N0}     Deaths (PvP):     {stats.TotalPlayerDeaths,8:N0}");
+        terminal.WriteLine($"  Potions Used:       {stats.TotalHealingPotionsUsed,10:N0}     Health Restored:  {stats.TotalHealthRestored,8:N0}");
+        terminal.WriteLine($"  Resurrections:      {stats.TotalTimesResurrected,10:N0}     Diseases Cured:   {stats.TotalDiseasesCured,8:N0}");
+        terminal.WriteLine("");
+
+        // Time Stats
+        terminal.SetColor("gray");
+        terminal.WriteLine("═══ TIME ═══");
+        terminal.SetColor("white");
+        terminal.WriteLine($"  Total Play Time:    {stats.GetFormattedPlayTime(),10}     Sessions Played:  {stats.TotalSessionsPlayed,8:N0}");
+        terminal.WriteLine($"  Character Created:  {stats.CharacterCreated:yyyy-MM-dd}     Current Streak:   {stats.CurrentStreak,8} days");
+        terminal.WriteLine($"  Longest Streak:     {stats.LongestStreak,10} days");
+        terminal.WriteLine("");
+
+        // Difficulty indicator
+        terminal.SetColor(DifficultySystem.GetColor(currentPlayer.Difficulty));
+        terminal.WriteLine($"  Difficulty: {DifficultySystem.GetDisplayName(currentPlayer.Difficulty)}");
+        terminal.WriteLine("");
+
+        terminal.SetColor("gray");
+        terminal.WriteLine("Press any key to continue...");
         await terminal.PressAnyKey();
     }
-    
-    private async Task SendMessage()
+
+    /// <summary>
+    /// Display player achievements
+    /// </summary>
+    private async Task ShowAchievements()
     {
-        terminal.WriteLine("Message system not yet implemented.", "gray");
-        await Task.Delay(1500);
+        // Initialize if needed
+        AchievementSystem.Initialize();
+
+        terminal.ClearScreen();
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║                           ★ ACHIEVEMENTS ★                                  ║");
+        terminal.WriteLine("╠══════════════════════════════════════════════════════════════════════════════╣");
+
+        var achievements = currentPlayer.Achievements;
+        int totalAchievements = AchievementSystem.TotalAchievements;
+        int unlocked = achievements.UnlockedCount;
+
+        // Summary line
+        terminal.SetColor("white");
+        terminal.WriteLine($"║  Unlocked: {unlocked}/{totalAchievements} ({achievements.CompletionPercentage:F1}%)                                            ║");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine($"║  Achievement Points: {achievements.TotalPoints}                                                     ║");
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("╠══════════════════════════════════════════════════════════════════════════════╣");
+
+        // Category selection
+        terminal.SetColor("white");
+        terminal.WriteLine("║  [1] Combat     [2] Progression  [3] Economy    [4] Exploration             ║");
+        terminal.WriteLine("║  [5] Social     [6] Challenge    [7] Secret     [A] All                     ║");
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+
+        terminal.SetColor("cyan");
+        var input = await terminal.GetInput("Select category (or press Enter for All): ");
+        input = input.Trim().ToUpper();
+
+        AchievementCategory? selectedCategory = input switch
+        {
+            "1" => AchievementCategory.Combat,
+            "2" => AchievementCategory.Progression,
+            "3" => AchievementCategory.Economy,
+            "4" => AchievementCategory.Exploration,
+            "5" => AchievementCategory.Social,
+            "6" => AchievementCategory.Challenge,
+            "7" => AchievementCategory.Secret,
+            _ => null
+        };
+
+        // Display achievements
+        terminal.ClearScreen();
+        terminal.SetColor("bright_yellow");
+        var categoryName = selectedCategory?.ToString() ?? "All";
+        terminal.WriteLine($"╔═══════════════════════ {categoryName.ToUpper()} ACHIEVEMENTS ═══════════════════════╗");
+        terminal.WriteLine("");
+
+        var achievementsToShow = selectedCategory.HasValue
+            ? AchievementSystem.GetByCategory(selectedCategory.Value)
+            : AchievementSystem.GetAllAchievements();
+
+        int displayCount = 0;
+        foreach (var achievement in achievementsToShow.OrderBy(a => a.Tier).ThenBy(a => a.Name))
+        {
+            bool isUnlocked = achievements.IsUnlocked(achievement.Id);
+
+            // Show tier symbol and name
+            terminal.SetColor(achievement.GetTierColor());
+            terminal.Write($" {achievement.GetTierSymbol()} ");
+
+            if (isUnlocked)
+            {
+                terminal.SetColor("bright_green");
+                terminal.Write("✓ ");
+                terminal.SetColor("white");
+                terminal.Write(achievement.Name);
+                terminal.SetColor("gray");
+                terminal.WriteLine($" - {achievement.Description}");
+
+                // Show unlock date
+                var unlockDate = achievements.GetUnlockDate(achievement.Id);
+                if (unlockDate.HasValue)
+                {
+                    terminal.SetColor("darkgray");
+                    terminal.WriteLine($"     Unlocked: {unlockDate.Value:yyyy-MM-dd}   +{achievement.PointValue} pts");
+                }
+            }
+            else
+            {
+                terminal.SetColor("darkgray");
+                terminal.Write("○ ");
+
+                if (achievement.IsSecret)
+                {
+                    terminal.SetColor("gray");
+                    terminal.Write("???");
+                    terminal.SetColor("darkgray");
+                    terminal.WriteLine($" - {achievement.SecretHint}");
+                }
+                else
+                {
+                    terminal.SetColor("gray");
+                    terminal.Write(achievement.Name);
+                    terminal.SetColor("darkgray");
+                    terminal.WriteLine($" - {achievement.Description}");
+                }
+            }
+
+            displayCount++;
+
+            // Pagination
+            if (displayCount > 0 && displayCount % 15 == 0)
+            {
+                terminal.WriteLine("");
+                terminal.SetColor("cyan");
+                terminal.WriteLine("Press any key for more, or Q to quit...");
+                var key = await terminal.GetKeyInput();
+                if (key?.ToUpper() == "Q") return;
+                terminal.ClearScreen();
+                terminal.SetColor("bright_yellow");
+                terminal.WriteLine($"╔═══════════════════════ {categoryName.ToUpper()} ACHIEVEMENTS ═══════════════════════╗");
+                terminal.WriteLine("");
+            }
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("gray");
+        terminal.WriteLine("Press any key to continue...");
+        await terminal.PressAnyKey();
     }
-    
-    private async Task SendStuff()
+
+    /// <summary>
+    /// Show the current objective hint to guide players through the core loop
+    /// </summary>
+    private void ShowObjectiveHint()
     {
-        terminal.WriteLine("Item transfer system not yet implemented.", "gray");
-        await Task.Delay(1500);
+        var story = StoryProgressionSystem.Instance;
+        var sealsCollected = story.CollectedSeals?.Count ?? 0;
+        int playerLevel = currentPlayer?.Level ?? 1;
+
+        string hint;
+        string hintColor;
+
+        // Determine the most relevant objective based on progress
+        if (playerLevel < 5)
+        {
+            // New player - guide to dungeon
+            hint = "TIP: Enter the [D]ungeons to fight monsters and gain experience!";
+            hintColor = "bright_green";
+        }
+        else if (currentPlayer?.CurrentHP < currentPlayer?.MaxHP / 3)
+        {
+            // Low health - guide to healer
+            hint = "WARNING: Health low! Visit the [1]Healer or [I]nn to recover.";
+            hintColor = "bright_red";
+        }
+        else if (sealsCollected == 0 && playerLevel >= 10)
+        {
+            // No seals yet - explain seals
+            hint = "QUEST: Explore dungeon floors 15, 30, 45, 60, 80, 99 to find the Seven Seals!";
+            hintColor = "bright_cyan";
+        }
+        else if (sealsCollected > 0 && sealsCollected < 7)
+        {
+            // Partial seals - show progress
+            var nextSealFloor = GetNextSealFloor(story);
+            hint = $"QUEST: Seals collected: {sealsCollected}/7. Next seal on floor {nextSealFloor}.";
+            hintColor = "bright_magenta";
+        }
+        else if (sealsCollected >= 7 && playerLevel < 100)
+        {
+            // All seals, need to reach floor 100
+            hint = "QUEST: All seals collected! Reach floor 100 to face Manwe, the Creator.";
+            hintColor = "bright_yellow";
+        }
+        else if (playerLevel >= 60 && !story.HasStoryFlag("maelketh_encountered"))
+        {
+            // Ready for first god
+            hint = "BOSS: You're strong enough to face Maelketh on floor 60!";
+            hintColor = "bright_red";
+        }
+        else if (playerLevel >= 80 && !story.HasStoryFlag("terravok_encountered"))
+        {
+            // Ready for Terravok
+            hint = "BOSS: Terravok awaits on floor 80. Will you wake the mountain?";
+            hintColor = "yellow";
+        }
+        else if (playerLevel >= 95)
+        {
+            // Endgame
+            hint = "FINALE: The Creator awaits on floor 100. Your choices will determine the ending.";
+            hintColor = "bright_white";
+        }
+        else
+        {
+            // Default - show dungeon progress
+            int suggestedFloor = Math.Min(100, playerLevel + 5);
+            hint = $"TIP: You can safely explore floors up to {suggestedFloor}. Press [D] to enter.";
+            hintColor = "gray";
+        }
+
+        terminal.SetColor(hintColor);
+        terminal.WriteLine($"║ {hint,-75} ║");
+    }
+
+    /// <summary>
+    /// Get the next seal floor the player hasn't collected yet
+    /// </summary>
+    private int GetNextSealFloor(StoryProgressionSystem story)
+    {
+        int[] sealFloors = { 15, 30, 45, 60, 80, 99, 100 };
+        var sealTypes = new[] { SealType.Creation, SealType.FirstWar, SealType.Corruption, SealType.Imprisonment, SealType.Prophecy, SealType.Regret, SealType.Truth };
+
+        for (int i = 0; i < sealFloors.Length; i++)
+        {
+            if (!story.CollectedSeals.Contains(sealTypes[i]))
+            {
+                return sealFloors[i];
+            }
+        }
+        return 100; // Final seal (Truth)
     }
 
     /// <summary>
@@ -1708,5 +2016,227 @@ public class MainStreetLocation : BaseLocation
 
         var devMenu = new DevMenuLocation();
         await devMenu.EnterLocation(currentPlayer, terminal);
+    }
+
+    /// <summary>
+    /// Display the player's story progression - seals, gods, awakening, alignment
+    /// </summary>
+    private async Task ShowStoryProgress()
+    {
+        var story = StoryProgressionSystem.Instance;
+        var ocean = OceanPhilosophySystem.Instance;
+        var grief = GriefSystem.Instance;
+
+        terminal.ClearScreen();
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║                          ✦ YOUR JOURNEY ✦                                   ║");
+        terminal.WriteLine("╠══════════════════════════════════════════════════════════════════════════════╣");
+
+        // === SEALS SECTION ===
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("║                            THE SEVEN SEALS                                   ║");
+        terminal.SetColor("gray");
+        terminal.WriteLine("║  Ancient artifacts that reveal the truth of creation                         ║");
+        terminal.WriteLine("║                                                                              ║");
+
+        // Seal status display
+        var sealTypes = new[] { SealType.Creation, SealType.FirstWar, SealType.Corruption, SealType.Imprisonment, SealType.Prophecy, SealType.Regret, SealType.Truth };
+        var sealFloors = new[] { 15, 30, 45, 60, 80, 99, 100 };
+        var sealNames = new[] { "Creation", "First War", "Corruption", "Imprisonment", "Prophecy", "Regret", "Truth" };
+
+        int sealsCollected = story.CollectedSeals?.Count ?? 0;
+        terminal.SetColor("white");
+        terminal.Write($"║  Seals Collected: {sealsCollected}/7   ");
+
+        for (int i = 0; i < sealTypes.Length; i++)
+        {
+            bool hasIt = story.CollectedSeals?.Contains(sealTypes[i]) ?? false;
+            if (hasIt)
+            {
+                terminal.SetColor("bright_green");
+                terminal.Write("●");
+            }
+            else
+            {
+                terminal.SetColor("darkgray");
+                terminal.Write("○");
+            }
+        }
+        terminal.SetColor("white");
+        terminal.WriteLine($"                                      ║");
+
+        // Show detailed seal info
+        for (int i = 0; i < sealTypes.Length; i++)
+        {
+            bool hasIt = story.CollectedSeals?.Contains(sealTypes[i]) ?? false;
+            string status = hasIt ? "✓" : " ";
+            string color = hasIt ? "bright_green" : "darkgray";
+            terminal.SetColor(color);
+            terminal.WriteLine($"║    {status} Seal of {sealNames[i],-12} (Floor {sealFloors[i],3})                                      ║");
+        }
+
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╠══════════════════════════════════════════════════════════════════════════════╣");
+
+        // === GODS SECTION ===
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("║                             THE OLD GODS                                     ║");
+        terminal.SetColor("gray");
+        terminal.WriteLine("║  Ancient beings you may challenge for power or wisdom                        ║");
+        terminal.WriteLine("║                                                                              ║");
+
+        var godData = new[]
+        {
+            ("Maelketh", "God of War", 60, "maelketh_encountered", "maelketh_defeated"),
+            ("Terravok", "God of Earth", 80, "terravok_encountered", "terravok_defeated"),
+            ("Manwe", "Lord of Air", 100, "manwe_encountered", "manwe_defeated")
+        };
+
+        foreach (var (name, title, floor, encFlag, defFlag) in godData)
+        {
+            bool encountered = story.HasStoryFlag(encFlag);
+            bool defeated = story.HasStoryFlag(defFlag);
+
+            string status;
+            string color;
+            if (defeated)
+            {
+                status = "DEFEATED";
+                color = "bright_green";
+            }
+            else if (encountered)
+            {
+                status = "Encountered";
+                color = "bright_yellow";
+            }
+            else
+            {
+                status = "Unknown";
+                color = "darkgray";
+            }
+
+            terminal.SetColor(color);
+            terminal.WriteLine($"║    {name,-10} {title,-15} Floor {floor,3}  [{status,-12}]              ║");
+        }
+
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╠══════════════════════════════════════════════════════════════════════════════╣");
+
+        // === AWAKENING SECTION ===
+        terminal.SetColor("bright_blue");
+        terminal.WriteLine("║                          OCEAN PHILOSOPHY                                    ║");
+        terminal.SetColor("gray");
+        terminal.WriteLine("║  Your spiritual awakening through grief, sacrifice, and understanding        ║");
+        terminal.WriteLine("║                                                                              ║");
+
+        int awakeningLevel = ocean.AwakeningLevel;
+        string awakeningDesc = awakeningLevel switch
+        {
+            0 => "Unawakened - You see only the surface of things",
+            1 => "Stirring - Something deep within begins to move",
+            2 => "Ripples - You sense connections between all things",
+            3 => "Currents - The depths call to you with ancient whispers",
+            4 => "Depths - You understand the ocean's sorrow",
+            >= 5 => "Enlightened - You are one with the eternal tide",
+            _ => "Unknown"
+        };
+
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine($"║  Awakening Level: {awakeningLevel}/5                                                        ║");
+        terminal.SetColor("white");
+        terminal.WriteLine($"║  {awakeningDesc,-70} ║");
+
+        // Grief status
+        terminal.WriteLine("║                                                                              ║");
+        string griefStatus = grief.CurrentStage switch
+        {
+            GriefStage.None => "At Peace",
+            GriefStage.Denial => "In Denial - Loss seems unreal",
+            GriefStage.Anger => "Angry - Why did this happen?",
+            GriefStage.Bargaining => "Bargaining - If only...",
+            GriefStage.Depression => "Depressed - The weight of loss",
+            GriefStage.Acceptance => "Acceptance - Finding peace",
+            _ => "Unknown"
+        };
+
+        string griefColor = grief.CurrentStage == GriefStage.None || grief.CurrentStage == GriefStage.Acceptance
+            ? "bright_green"
+            : "yellow";
+        terminal.SetColor(griefColor);
+        terminal.WriteLine($"║  Grief: {griefStatus,-66} ║");
+
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╠══════════════════════════════════════════════════════════════════════════════╣");
+
+        // === ALIGNMENT SECTION ===
+        terminal.SetColor("bright_white");
+        terminal.WriteLine("║                              ALIGNMENT                                       ║");
+
+        long chivalry = currentPlayer.Chivalry;
+        string alignmentDesc;
+        string alignColor;
+        if (chivalry >= 100)
+        {
+            alignmentDesc = "Paragon of Virtue";
+            alignColor = "bright_cyan";
+        }
+        else if (chivalry >= 50)
+        {
+            alignmentDesc = "Noble Hero";
+            alignColor = "bright_green";
+        }
+        else if (chivalry >= 20)
+        {
+            alignmentDesc = "Good-Hearted";
+            alignColor = "green";
+        }
+        else if (chivalry >= -20)
+        {
+            alignmentDesc = "Neutral";
+            alignColor = "gray";
+        }
+        else if (chivalry >= -50)
+        {
+            alignmentDesc = "Questionable";
+            alignColor = "yellow";
+        }
+        else if (chivalry >= -100)
+        {
+            alignmentDesc = "Villain";
+            alignColor = "red";
+        }
+        else
+        {
+            alignmentDesc = "Usurper - Embodiment of Darkness";
+            alignColor = "bright_red";
+        }
+
+        terminal.SetColor(alignColor);
+        terminal.WriteLine($"║  Chivalry: {chivalry,4}  -  {alignmentDesc,-55} ║");
+
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+
+        // Next objective hint
+        terminal.WriteLine("");
+        terminal.SetColor("bright_yellow");
+        if (sealsCollected < 7)
+        {
+            int nextFloor = GetNextSealFloor(story);
+            terminal.WriteLine($"  NEXT OBJECTIVE: Find the Seal on Floor {nextFloor}");
+        }
+        else if (!story.HasStoryFlag("manwe_defeated"))
+        {
+            terminal.WriteLine("  NEXT OBJECTIVE: Challenge Manwe, Lord of Air, on Floor 100");
+        }
+        else
+        {
+            terminal.WriteLine("  You have completed your journey. Seek your ending.");
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("gray");
+        await terminal.PressAnyKey("Press any key to return to Main Street...");
     }
 } 

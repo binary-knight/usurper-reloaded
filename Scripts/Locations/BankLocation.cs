@@ -61,22 +61,16 @@ public class BankLocation : BaseLocation
             return;
         }
 
-        // Ornate bank header
+        // Standardized bank header
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╔═════════════════════════════════════════════════════════════════════════════╗");
         terminal.SetColor("bright_yellow");
-        terminal.WriteLine("+==========================================================+");
-        terminal.WriteLine("|                                                          |");
-        terminal.WriteLine("|   $$$$  $$$$$  $$$$  $$  $$ $   $  $$  $  $ $   $$$$$    |");
-        terminal.WriteLine("|    $$   $$ $$  $  $  $$$ $$ $   $ $$ $ $  $ $     $      |");
-        terminal.WriteLine("|    $$   $$$$   $  $  $ $$$$ $   $ $  $$$  $ $     $      |");
-        terminal.WriteLine("|    $$   $$ $$  $  $  $   $$  $ $  $$ $ $  $ $     $      |");
-        terminal.WriteLine("|   $$$$  $$ $$  $$$$  $   $$   $   $  $ $  $$$ $$$$$      |");
-        terminal.WriteLine("|                                                          |");
-        terminal.SetColor("yellow");
-        terminal.WriteLine("|              I R O N V A U L T   B A N K                 |");
+        terminal.WriteLine("║                           THE IRONVAULT BANK                                ║");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╚═════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
         terminal.SetColor("gray");
-        terminal.WriteLine("|         \"Where Your Fortune is Our Foundation\"           |");
-        terminal.SetColor("bright_yellow");
-        terminal.WriteLine("+==========================================================+");
+        terminal.WriteLine("              \"Where Your Fortune is Our Foundation\"");
         terminal.WriteLine("");
 
         // Atmospheric description
@@ -197,12 +191,8 @@ public class BankLocation : BaseLocation
 
     private void DisplayBankMenu()
     {
-        terminal.SetColor("bright_cyan");
-        terminal.WriteLine("=============================================================================");
-        terminal.SetColor("bright_yellow");
-        terminal.WriteLine("                              BANKING SERVICES");
-        terminal.SetColor("bright_cyan");
-        terminal.WriteLine("=============================================================================");
+        terminal.SetColor("cyan");
+        terminal.WriteLine("Banking Services:");
         terminal.WriteLine("");
 
         // Basic services
@@ -788,11 +778,11 @@ public class BankLocation : BaseLocation
     {
         terminal.ClearScreen();
         terminal.SetColor("bright_white");
-        terminal.WriteLine("=== ACCOUNT HISTORY ===");
+        terminal.WriteLine("=== ACCOUNT SUMMARY ===");
         terminal.WriteLine("");
 
         terminal.SetColor("cyan");
-        terminal.WriteLine($"{BankerName} flips through a thick ledger...");
+        terminal.WriteLine($"{BankerName} adjusts his spectacles and reviews your records...");
         terminal.WriteLine("");
 
         terminal.SetColor("white");
@@ -800,22 +790,43 @@ public class BankLocation : BaseLocation
         terminal.WriteLine($"Account Status: {(currentPlayer.Loan > 0 ? "IN DEBT" : "Good Standing")}");
         terminal.WriteLine("");
 
-        terminal.WriteLine("Recent Activity:");
-        terminal.SetColor("gray");
-        terminal.WriteLine("  (Detailed transaction history coming in future update)");
+        terminal.SetColor("cyan");
+        terminal.WriteLine("Financial Overview:");
+        terminal.SetColor("white");
+        terminal.WriteLine($"  Gold on Hand:      {currentPlayer.Gold:N0}");
+        terminal.WriteLine($"  Gold in Bank:      {currentPlayer.BankGold:N0}");
+        terminal.WriteLine($"  Total Net Worth:   {(currentPlayer.Gold + currentPlayer.BankGold - currentPlayer.Loan):N0}");
         terminal.WriteLine("");
 
+        if (currentPlayer.Loan > 0)
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine("Loan Details:");
+            terminal.SetColor("white");
+            terminal.WriteLine($"  Outstanding Loan:  {currentPlayer.Loan:N0} gold");
+            terminal.WriteLine($"  Daily Interest:    {(long)(currentPlayer.Loan * LoanInterestRate):N0} gold (5%)");
+            terminal.WriteLine("");
+        }
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine("Account Statistics:");
         terminal.SetColor("white");
-        terminal.WriteLine("Account Summary:");
-        terminal.WriteLine($"  Current Balance: {currentPlayer.BankGold:N0} gold");
-        terminal.WriteLine($"  Outstanding Loan: {currentPlayer.Loan:N0} gold");
-        terminal.WriteLine($"  Interest Earned: {currentPlayer.Interest:N0} gold (lifetime)");
-        terminal.WriteLine($"  Guard Status: {(currentPlayer.BankGuard ? "Active" : "Inactive")}");
+        terminal.WriteLine($"  Interest Earned:   {currentPlayer.Interest:N0} gold (lifetime)");
+        terminal.WriteLine($"  Daily Interest:    {(long)(currentPlayer.BankGold * DailyInterestRate):N0} gold (0.1%)");
 
         if (currentPlayer.BankGuard)
         {
+            terminal.SetColor("bright_green");
+            terminal.WriteLine("");
+            terminal.WriteLine("Guard Employment:");
+            terminal.SetColor("white");
+            terminal.WriteLine($"  Status: ACTIVE");
             terminal.WriteLine($"  Daily Wage: {currentPlayer.BankWage:N0} gold");
         }
+
+        terminal.WriteLine("");
+        terminal.SetColor("gray");
+        terminal.WriteLine($"\"Your account has been with us since the beginning,\" {BankerName} notes.");
 
         await terminal.PressAnyKey();
     }

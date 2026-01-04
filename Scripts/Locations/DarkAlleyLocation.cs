@@ -84,10 +84,13 @@ namespace UsurperRemake.Locations
         {
             terminal.ClearScreen();
 
-            terminal.SetColor("bright_magenta");
-            terminal.WriteLine("╔══════════════════════════════════════════════╗");
-            terminal.WriteLine("║                THE DARK ALLEY               ║");
-            terminal.WriteLine("╚══════════════════════════════════════════════╝");
+            // Header - standardized format
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine("╔═════════════════════════════════════════════════════════════════════════════╗");
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine("║                              THE DARK ALLEY                                 ║");
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine("╚═════════════════════════════════════════════════════════════════════════════╝");
             terminal.WriteLine("");
 
             terminal.SetColor("gray");
@@ -117,16 +120,78 @@ namespace UsurperRemake.Locations
             }
             terminal.WriteLine("");
 
-            terminal.SetColor("yellow");
+            terminal.SetColor("cyan");
             terminal.WriteLine("Shady establishments:");
-            terminal.SetColor("green");
-            terminal.WriteLine("(D) Drug Palace – questionable stimulants");
-            terminal.WriteLine("(S) Steroid Shop – quick bulk for a price");
-            terminal.WriteLine("(O) Orbs Health Club – mysterious healing orbs");
-            terminal.WriteLine("(G) Groggo's Magic Services – black-market scrolls");
-            terminal.WriteLine("(B) Bob's Beer Hut – cheap booze and rumors");
-            terminal.WriteLine("(A) Alchemist's Heaven – experimental potions");
-            terminal.WriteLine("(Q) Return to Main Street");
+            terminal.WriteLine("");
+
+            // Row 1
+            terminal.SetColor("darkgray");
+            terminal.Write(" [");
+            terminal.SetColor("bright_magenta");
+            terminal.Write("D");
+            terminal.SetColor("darkgray");
+            terminal.Write("]");
+            terminal.SetColor("white");
+            terminal.Write("rug Palace             ");
+
+            terminal.SetColor("darkgray");
+            terminal.Write("[");
+            terminal.SetColor("bright_magenta");
+            terminal.Write("S");
+            terminal.SetColor("darkgray");
+            terminal.Write("]");
+            terminal.SetColor("white");
+            terminal.WriteLine("teroid Shop");
+
+            // Row 2
+            terminal.SetColor("darkgray");
+            terminal.Write(" [");
+            terminal.SetColor("bright_magenta");
+            terminal.Write("O");
+            terminal.SetColor("darkgray");
+            terminal.Write("]");
+            terminal.SetColor("white");
+            terminal.Write("rbs Health Club        ");
+
+            terminal.SetColor("darkgray");
+            terminal.Write("[");
+            terminal.SetColor("bright_magenta");
+            terminal.Write("G");
+            terminal.SetColor("darkgray");
+            terminal.Write("]");
+            terminal.SetColor("white");
+            terminal.WriteLine("roggo's Magic Services");
+
+            // Row 3
+            terminal.SetColor("darkgray");
+            terminal.Write(" [");
+            terminal.SetColor("bright_magenta");
+            terminal.Write("B");
+            terminal.SetColor("darkgray");
+            terminal.Write("]");
+            terminal.SetColor("white");
+            terminal.Write("ob's Beer Hut          ");
+
+            terminal.SetColor("darkgray");
+            terminal.Write("[");
+            terminal.SetColor("bright_magenta");
+            terminal.Write("A");
+            terminal.SetColor("darkgray");
+            terminal.Write("]");
+            terminal.SetColor("white");
+            terminal.WriteLine("lchemist's Heaven");
+
+            terminal.WriteLine("");
+
+            // Navigation
+            terminal.SetColor("darkgray");
+            terminal.Write(" [");
+            terminal.SetColor("bright_red");
+            terminal.Write("Q");
+            terminal.SetColor("darkgray");
+            terminal.Write("]");
+            terminal.SetColor("white");
+            terminal.WriteLine(" Return to Main Street");
             terminal.WriteLine("");
 
             ShowStatusLine();
@@ -146,29 +211,136 @@ namespace UsurperRemake.Locations
 
         private async Task VisitDrugPalace()
         {
+            terminal.ClearScreen();
+            terminal.SetColor("bright_magenta");
+            terminal.WriteLine("╔══════════════════════════════════════════════════════════════════╗");
+            terminal.WriteLine("║                       THE DRUG PALACE                            ║");
+            terminal.WriteLine("╚══════════════════════════════════════════════════════════════════╝");
             terminal.WriteLine("");
-            terminal.WriteLine("You enter a smoky den lined with velvet curtains.", "white");
-            long basePrice = GD.RandRange(250, 750);
-            long price = GetAdjustedPrice(basePrice);
-            terminal.WriteLine($"A shady dealer offers a glittering packet for {price:N0} {GameConfig.MoneyType}.", "cyan");
-            var ans = await terminal.GetInput("Buy it? (Y/N): ");
-            if (ans.ToUpper() != "Y") return;
 
-            if (currentPlayer.Gold < price)
+            terminal.SetColor("gray");
+            terminal.WriteLine("You enter a smoky den lined with velvet curtains. A hooded dealer");
+            terminal.WriteLine("spreads an array of colorful vials and packets across the table.");
+            terminal.WriteLine("");
+
+            if (currentPlayer.OnDrugs)
             {
-                terminal.WriteLine("You don't have that kind of cash!", "red");
+                terminal.SetColor("yellow");
+                terminal.WriteLine($"You're already under the influence of {currentPlayer.ActiveDrug}!");
+                terminal.WriteLine($"Effects will wear off in {currentPlayer.DrugEffectDays} day(s).");
+                terminal.WriteLine("");
+            }
+
+            if (currentPlayer.Addict > 0)
+            {
+                terminal.SetColor("red");
+                terminal.WriteLine($"Addiction Level: {currentPlayer.Addict}/100");
+                terminal.WriteLine("");
+            }
+
+            // Drug menu
+            terminal.SetColor("yellow");
+            terminal.WriteLine("Available substances:");
+            terminal.WriteLine("");
+
+            var drugs = new (DrugType drug, string name, string desc, long basePrice)[]
+            {
+                (DrugType.Steroids, "Steroids", "+STR, +DMG (3 days)", 500),
+                (DrugType.BerserkerRage, "Berserker Rage", "+STR, +ATK, -DEF (1 day)", 300),
+                (DrugType.Haste, "Haste Powder", "+AGI, +Attacks, HP drain (2 days)", 600),
+                (DrugType.QuickSilver, "Quicksilver", "+DEX, +Crit (2 days)", 550),
+                (DrugType.ManaBoost, "Mana Boost", "+Mana, +Spell Power (3 days)", 700),
+                (DrugType.ThirdEye, "Third Eye", "+WIS, +Magic Resist (3 days)", 650),
+                (DrugType.Ironhide, "Ironhide", "+CON, +DEF, -AGI (2 days)", 500),
+                (DrugType.Stoneskin, "Stoneskin", "+Armor, -Speed (2 days)", 450),
+                (DrugType.DarkEssence, "Dark Essence", "+All Stats, HIGH ADDICTION (1 day)", 1500),
+                (DrugType.DemonBlood, "Demon Blood", "+DMG, +Darkness, VERY ADDICTIVE (2 days)", 2000)
+            };
+
+            for (int i = 0; i < drugs.Length; i++)
+            {
+                var d = drugs[i];
+                long price = GetAdjustedPrice(d.basePrice);
+                terminal.SetColor("cyan");
+                terminal.Write($"[{i + 1}] ");
+                terminal.SetColor(d.drug >= DrugType.DarkEssence ? "red" : "white");
+                terminal.Write($"{d.name,-18}");
+                terminal.SetColor("gray");
+                terminal.Write($" {d.desc,-35}");
+                terminal.SetColor("yellow");
+                terminal.WriteLine($" {price:N0}g");
+            }
+
+            terminal.WriteLine("");
+            terminal.SetColor("yellow");
+            terminal.WriteLine("[0] Leave");
+            terminal.WriteLine("");
+
+            var choice = await terminal.GetInput("Your choice: ");
+
+            if (!int.TryParse(choice, out int selection) || selection < 1 || selection > drugs.Length)
+            {
+                return;
+            }
+
+            var selected = drugs[selection - 1];
+            long finalPrice = GetAdjustedPrice(selected.basePrice);
+
+            if (currentPlayer.Gold < finalPrice)
+            {
+                terminal.WriteLine("The dealer laughs. \"Come back when you have real money!\"", "red");
+                await Task.Delay(2000);
+                return;
+            }
+
+            terminal.WriteLine($"Buy {selected.name} for {finalPrice:N0} gold? (Y/N)", "yellow");
+            var confirm = await terminal.GetInput("> ");
+
+            if (confirm.ToUpper() != "Y")
+            {
+                terminal.WriteLine("You back away from the table.", "gray");
                 await Task.Delay(1500);
                 return;
             }
 
-            currentPlayer.Gold -= price;
-            currentPlayer.Addict += 1;
-            currentPlayer.Darkness += 5;
-            currentPlayer.Stamina = Math.Max(1, currentPlayer.Stamina - 2);
-            currentPlayer.Strength += 2;
+            currentPlayer.Gold -= finalPrice;
+            var (success, message) = DrugSystem.UseDrug(currentPlayer, selected.drug);
 
-            terminal.WriteLine("You feel an intense rush coursing through your veins…", "bright_green");
-            await Task.Delay(2000);
+            if (success)
+            {
+                terminal.SetColor("bright_green");
+                terminal.WriteLine("");
+                terminal.WriteLine(message);
+                terminal.WriteLine("");
+
+                // Show effects based on drug type
+                var effects = GetDrugEffectsForType(selected.drug);
+                terminal.SetColor("cyan");
+                if (effects.StrengthBonus > 0) terminal.WriteLine($"  +{effects.StrengthBonus} Strength");
+                if (effects.DexterityBonus > 0) terminal.WriteLine($"  +{effects.DexterityBonus} Dexterity");
+                if (effects.AgilityBonus > 0) terminal.WriteLine($"  +{effects.AgilityBonus} Agility");
+                if (effects.ConstitutionBonus > 0) terminal.WriteLine($"  +{effects.ConstitutionBonus} Constitution");
+                if (effects.WisdomBonus > 0) terminal.WriteLine($"  +{effects.WisdomBonus} Wisdom");
+                if (effects.ManaBonus > 0) terminal.WriteLine($"  +{effects.ManaBonus} Mana");
+                if (effects.DamageBonus > 0) terminal.WriteLine($"  +{effects.DamageBonus}% Damage");
+                if (effects.DefenseBonus > 0) terminal.WriteLine($"  +{effects.DefenseBonus} Defense");
+                if (effects.ExtraAttacks > 0) terminal.WriteLine($"  +{effects.ExtraAttacks} Extra Attacks");
+
+                terminal.SetColor("red");
+                if (effects.DefensePenalty > 0) terminal.WriteLine($"  -{effects.DefensePenalty} Defense");
+                if (effects.AgilityPenalty > 0) terminal.WriteLine($"  -{effects.AgilityPenalty} Agility");
+                if (effects.SpeedPenalty > 0) terminal.WriteLine($"  -{effects.SpeedPenalty} Speed");
+                if (effects.HPDrain > 0) terminal.WriteLine($"  -{effects.HPDrain} HP/round drain");
+
+                currentPlayer.Darkness += 5; // Dark act
+            }
+            else
+            {
+                terminal.SetColor("red");
+                terminal.WriteLine(message);
+            }
+
+            await Task.Delay(2500);
         }
 
         private async Task VisitSteroidShop()
@@ -222,20 +394,77 @@ namespace UsurperRemake.Locations
         {
             terminal.WriteLine("");
             terminal.WriteLine("The infamous gnome Groggo grins widely behind a cluttered desk.", "white");
-            terminal.WriteLine("\"I sell scrolls, charms, secrets – but nothing is cheap!\"", "yellow");
-            long price = GetAdjustedPrice(750);
-            terminal.WriteLine($"A basic identification scroll costs {price:N0} {GameConfig.MoneyType}.");
-            var ans = await terminal.GetInput("Purchase? (Y/N): ");
-            if (ans.ToUpper() != "Y") return;
+            terminal.WriteLine("\"Secrets, charms, and forbidden knowledge! What'll it be?\"", "yellow");
+            terminal.WriteLine("");
 
-            if (currentPlayer.Gold < price)
+            terminal.WriteLine("Groggo's Services:", "cyan");
+            terminal.WriteLine("  (1) Dungeon Intel - 100 gold (reveals monsters on current floor)");
+            terminal.WriteLine("  (2) Fortune Reading - 250 gold (hints about upcoming events)");
+            terminal.WriteLine("  (3) Blessing of Shadows - 500 gold (temporary stealth bonus)");
+            terminal.WriteLine("  (0) Never mind");
+            terminal.WriteLine("");
+
+            var choice = await terminal.GetInput("Your choice: ");
+
+            switch (choice)
             {
-                terminal.WriteLine("Groggo scoffs. \"Come back with real money!\"", "red");
-                await Task.Delay(1500);
-                return;
+                case "1":
+                    long intelPrice = GetAdjustedPrice(100);
+                    if (currentPlayer.Gold < intelPrice)
+                    {
+                        terminal.WriteLine("Groggo scoffs. \"Come back with coin!\"", "red");
+                        break;
+                    }
+                    currentPlayer.Gold -= intelPrice;
+                    int dungeonFloor = Math.Max(1, currentPlayer.Level / 3); // Estimate based on player level
+                    terminal.WriteLine("");
+                    terminal.WriteLine("Groggo whispers dungeon secrets:", "bright_magenta");
+                    terminal.WriteLine($"  \"For someone of your skill, floor {dungeonFloor} should be manageable...\"", "white");
+                    terminal.WriteLine($"  \"Monsters there are around level {dungeonFloor * 2 + 5}.\"", "white");
+                    terminal.WriteLine($"  \"Bring potions. Many potions.\"", "gray");
+                    break;
+
+                case "2":
+                    long fortunePrice = GetAdjustedPrice(250);
+                    if (currentPlayer.Gold < fortunePrice)
+                    {
+                        terminal.WriteLine("Groggo scoffs. \"The future costs money, friend!\"", "red");
+                        break;
+                    }
+                    currentPlayer.Gold -= fortunePrice;
+                    terminal.WriteLine("");
+                    terminal.WriteLine("Groggo peers into a murky crystal ball:", "bright_magenta");
+                    var fortunes = new[] {
+                        "\"I see gold in your future... but also danger.\"",
+                        "\"A powerful enemy watches you from the shadows.\"",
+                        "\"The deeper you go, the greater the rewards.\"",
+                        "\"Trust not the smiling stranger in the Inn.\"",
+                        "\"Your destiny is intertwined with the Seven Seals.\"",
+                        "\"The old gods stir in their prisons...\""
+                    };
+                    terminal.WriteLine($"  {fortunes[GD.RandRange(0, fortunes.Length - 1)]}", "white");
+                    break;
+
+                case "3":
+                    long blessPrice = GetAdjustedPrice(500);
+                    if (currentPlayer.Gold < blessPrice)
+                    {
+                        terminal.WriteLine("Groggo scoffs. \"Shadow magic isn't cheap!\"", "red");
+                        break;
+                    }
+                    currentPlayer.Gold -= blessPrice;
+                    currentPlayer.Dexterity += 3; // Temporary-ish bonus (persists until rest)
+                    terminal.WriteLine("");
+                    terminal.WriteLine("Groggo traces arcane symbols in the air...", "bright_magenta");
+                    terminal.WriteLine("Shadows wrap around you like a cloak!", "white");
+                    terminal.WriteLine("  Dexterity +3 (until next rest)", "bright_green");
+                    break;
+
+                default:
+                    terminal.WriteLine("\"Come back when you need something.\"", "gray");
+                    break;
             }
-            currentPlayer.Gold -= price;
-            terminal.WriteLine("You receive a crumpled parchment covered in runes.", "bright_green");
+
             await Task.Delay(2000);
         }
 
@@ -243,7 +472,12 @@ namespace UsurperRemake.Locations
         {
             terminal.WriteLine("");
             terminal.WriteLine("Bob hands you a frothy mug that smells vaguely of goblin sweat.", "white");
-            long price = GetAdjustedPrice(25);
+            long price = GetAdjustedPrice(10);
+            terminal.WriteLine($"\"Just {price} gold for liquid courage!\" Bob grins.", "yellow");
+
+            var ans = await terminal.GetInput("Drink? (Y/N): ");
+            if (ans.ToUpper() != "Y") return;
+
             if (currentPlayer.Gold < price)
             {
                 terminal.WriteLine("Bob laughs, \"Pay first, friend!\"", "red");
@@ -251,8 +485,26 @@ namespace UsurperRemake.Locations
                 return;
             }
             currentPlayer.Gold -= price;
-            currentPlayer.Stamina = Math.Max(1, currentPlayer.Stamina - 1);
-            terminal.WriteLine("It burns going down, but courage fills your heart!", "bright_green");
+
+            // Small random buff (not a penalty!)
+            int effect = GD.RandRange(1, 4);
+            switch (effect)
+            {
+                case 1:
+                    currentPlayer.HP = Math.Min(currentPlayer.MaxHP, currentPlayer.HP + 10);
+                    terminal.WriteLine("The warmth spreads through you. (+10 HP)", "bright_green");
+                    break;
+                case 2:
+                    terminal.WriteLine("You feel brave! (Nothing happened, but you feel good.)", "bright_green");
+                    break;
+                case 3:
+                    currentPlayer.Gold += 5; // Bob gives you some change back
+                    terminal.WriteLine("Bob winks and slides some coins back. \"For a friend.\" (+5 gold)", "bright_green");
+                    break;
+                default:
+                    terminal.WriteLine("It burns going down! You feel... something.", "yellow");
+                    break;
+            }
             await Task.Delay(1500);
         }
 
@@ -290,6 +542,27 @@ namespace UsurperRemake.Locations
                     break;
             }
             await Task.Delay(2000);
+        }
+
+        /// <summary>
+        /// Get drug effects for a specific drug type (for display purposes)
+        /// </summary>
+        private DrugEffects GetDrugEffectsForType(DrugType drug)
+        {
+            return drug switch
+            {
+                DrugType.Steroids => new DrugEffects { StrengthBonus = 20, DamageBonus = 15 },
+                DrugType.BerserkerRage => new DrugEffects { StrengthBonus = 30, AttackBonus = 25, DefensePenalty = 20 },
+                DrugType.Haste => new DrugEffects { AgilityBonus = 25, ExtraAttacks = 1, HPDrain = 5 },
+                DrugType.QuickSilver => new DrugEffects { DexterityBonus = 20, CritBonus = 15 },
+                DrugType.ManaBoost => new DrugEffects { ManaBonus = 50, SpellPowerBonus = 20 },
+                DrugType.ThirdEye => new DrugEffects { WisdomBonus = 15, MagicResistBonus = 25 },
+                DrugType.Ironhide => new DrugEffects { ConstitutionBonus = 25, DefenseBonus = 20, AgilityPenalty = 10 },
+                DrugType.Stoneskin => new DrugEffects { ArmorBonus = 30, SpeedPenalty = 15 },
+                DrugType.DarkEssence => new DrugEffects { StrengthBonus = 15, AgilityBonus = 15, DexterityBonus = 15, ManaBonus = 25 },
+                DrugType.DemonBlood => new DrugEffects { DamageBonus = 25, DarknessBonus = 10 },
+                _ => new DrugEffects()
+            };
         }
 
         #endregion

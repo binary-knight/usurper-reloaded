@@ -487,19 +487,22 @@ public abstract class BaseLocation
     /// </summary>
     protected virtual void ShowStatusLine()
     {
+        // HP with urgency coloring
         terminal.SetColor("gray");
         terminal.Write("HP: ");
-        terminal.SetColor("red");
+        float hpPercent = currentPlayer.MaxHP > 0 ? (float)currentPlayer.HP / currentPlayer.MaxHP : 0;
+        string hpColor = hpPercent > 0.5f ? "bright_green" : hpPercent > 0.25f ? "yellow" : "bright_red";
+        terminal.SetColor(hpColor);
         terminal.Write($"{currentPlayer.HP}");
         terminal.SetColor("gray");
         terminal.Write("/");
-        terminal.SetColor("red");
+        terminal.SetColor(hpColor);
         terminal.Write($"{currentPlayer.MaxHP}");
 
         terminal.SetColor("gray");
         terminal.Write(" | Gold: ");
         terminal.SetColor("yellow");
-        terminal.Write($"{currentPlayer.Gold}");
+        terminal.Write($"{currentPlayer.Gold:N0}");
 
         if (currentPlayer.MaxMana > 0)
         {
@@ -514,18 +517,65 @@ public abstract class BaseLocation
         }
 
         terminal.SetColor("gray");
-        terminal.Write(" | Level: ");
+        terminal.Write(" | Lv ");
         terminal.SetColor("cyan");
         terminal.Write($"{currentPlayer.Level}");
 
+        // XP progress to next level
+        if (currentPlayer.Level < GameConfig.MaxLevel)
+        {
+            long currentXP = currentPlayer.Experience;
+            long nextLevelXP = GetExperienceForLevel(currentPlayer.Level + 1);
+            long prevLevelXP = GetExperienceForLevel(currentPlayer.Level);
+            long xpIntoLevel = currentXP - prevLevelXP;
+            long xpNeeded = nextLevelXP - prevLevelXP;
+            int xpPercent = xpNeeded > 0 ? (int)((xpIntoLevel * 100) / xpNeeded) : 0;
+            xpPercent = Math.Clamp(xpPercent, 0, 100);
+
+            terminal.SetColor("gray");
+            terminal.Write(" (");
+            terminal.SetColor(xpPercent >= 90 ? "bright_green" : "white");
+            terminal.Write($"{xpPercent}%");
+            terminal.SetColor("gray");
+            terminal.Write(")");
+        }
+
+        // Turns remaining with urgency
+        int turnsRemaining = currentPlayer.TurnsRemaining;
+        int maxTurns = GameConfig.TurnsPerDay;
+        float turnPercent = maxTurns > 0 ? (float)turnsRemaining / maxTurns : 1f;
+
         terminal.SetColor("gray");
-        terminal.Write(" | Turn: ");
-        terminal.SetColor("white");
-        terminal.WriteLine($"{currentPlayer.TurnCount}");
+        terminal.Write(" | Turns: ");
+        string turnColor = turnPercent > 0.5f ? "white" : turnPercent > 0.25f ? "yellow" : "bright_red";
+        terminal.SetColor(turnColor);
+        terminal.Write($"{turnsRemaining}");
+
+        if (turnPercent <= 0.25f && turnsRemaining > 0)
+        {
+            terminal.SetColor("bright_red");
+            terminal.Write("!");
+        }
+
+        terminal.WriteLine("");
         terminal.WriteLine("");
 
         // Quick command bar
         ShowQuickCommandBar();
+    }
+
+    /// <summary>
+    /// Experience required to have the specified level (cumulative)
+    /// </summary>
+    private static long GetExperienceForLevel(int level)
+    {
+        if (level <= 1) return 0;
+        long exp = 0;
+        for (int i = 2; i <= level; i++)
+        {
+            exp += (long)(Math.Pow(i, 1.8) * 50);
+        }
+        return exp;
     }
 
     /// <summary>
@@ -700,8 +750,8 @@ public abstract class BaseLocation
     protected virtual async Task ExecuteLocationAction(int actionIndex)
     {
         // Override in derived classes
-        terminal.WriteLine("This action is not yet implemented.", "gray");
-        await Task.Delay(1500);
+        terminal.WriteLine("Nothing happens.", "gray");
+        await Task.Delay(1000);
     }
     
     /// <summary>
@@ -1742,23 +1792,6 @@ public abstract class BaseLocation
 
         terminal.WriteLine("");
         await terminal.PressAnyKey();
-    }
-
-    /// <summary>
-    /// Calculate experience required for a given level (cumulative)
-    /// Balanced formula: level^1.8 * 50 - achievable progression to level 100
-    /// Level 10: ~3,150 XP, Level 50: ~177,000 XP, Level 100: ~1,000,000 XP
-    /// </summary>
-    private static long GetExperienceForLevel(int level)
-    {
-        if (level <= 1) return 0;
-        long exp = 0;
-        for (int i = 2; i <= level; i++)
-        {
-            // Gentler curve: level^1.8 * 50 instead of level^2.5 * 100
-            exp += (long)(Math.Pow(i, 1.8) * 50);
-        }
-        return exp;
     }
 
     /// <summary>

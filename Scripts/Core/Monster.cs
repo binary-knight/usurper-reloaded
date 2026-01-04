@@ -454,6 +454,7 @@ public class Monster
     /// <summary>
     /// Get experience reward for defeating this monster
     /// Scaled to match the gentler XP requirement curve (level^1.8 * 50)
+    /// Applies difficulty multiplier from DifficultySystem
     /// </summary>
     public long GetExperienceReward()
     {
@@ -475,30 +476,40 @@ public class Monster
             baseExp *= 5;
         }
 
+        // Apply difficulty modifier
+        baseExp = DifficultySystem.ApplyExperienceMultiplier(baseExp);
+
         return Math.Max(15, baseExp);
     }
     
     /// <summary>
     /// Get gold reward for defeating this monster
-    /// Scaled to provide meaningful gold progression
+    /// Scaled to provide meaningful gold progression through endgame
+    /// Formula: (level^1.5) * 12 + random(10, 50)
+    /// This provides gold that scales with equipment costs across all 100 levels
+    /// Applies difficulty multiplier from DifficultySystem
     /// </summary>
     public long GetGoldReward()
     {
-        // Gold scales with level using level^1.3 curve
+        // Gold scales with level using level^1.5 curve (steeper than before for late game)
+        // At level 1: ~22-62g, level 50: ~4,300-4,340g, level 100: ~12,000-12,050g
         int level = Math.Max(1, Level > 0 ? Level : MonsterType);
-        long baseGold = (long)(Math.Pow(level, 1.3) * 8) + GD.RandRange(5, 25);
+        long baseGold = (long)(Math.Pow(level, 1.5) * 12) + GD.RandRange(10, 50);
 
         if (IsBoss)
         {
-            baseGold *= 3;
+            baseGold *= 3; // Boss = 3x gold
         }
 
         if (IsUnique)
         {
-            baseGold *= 5;
+            baseGold *= 5; // Unique = 5x gold (stacks with boss)
         }
 
-        return Math.Max(5, baseGold);
+        // Apply difficulty modifier
+        baseGold = DifficultySystem.ApplyGoldMultiplier(baseGold);
+
+        return Math.Max(10, baseGold);
     }
     
     /// <summary>

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using UsurperRemake.Systems;
 
@@ -13,19 +14,32 @@ public class HealerLocation : BaseLocation
     private const string HealerName = "The Golden Bow, Healing Hut";
     private const string Manager = "Jadu";
 
-    // Disease costs per level (from Pascal)
-    private const int BlindnessCostPerLevel = 5000;
-    private const int PlagueCostPerLevel = 6000;
-    private const int SmallpoxCostPerLevel = 7000;
-    private const int MeaslesCostPerLevel = 7500;
-    private const int LeprosyCostPerLevel = 8500;
-    private const int LoversBaneCostPerLevel = 4000;  // STD from Love Street
-    private const int CursedItemCostPerLevel = 1000;
+    // Disease BASE costs (scaled with diminishing formula to prevent endgame punishment)
+    // Formula: baseCost * (1 + level^0.6) - this gives reasonable scaling:
+    // Level 1: ~2x base, Level 50: ~13x base, Level 100: ~17x base
+    private const int BlindnessBaseCost = 1500;
+    private const int PlagueBaseCost = 2000;
+    private const int SmallpoxBaseCost = 2500;
+    private const int MeaslesBaseCost = 3000;
+    private const int LeprosyBaseCost = 3500;
+    private const int LoversBaneBaseCost = 1000;  // STD from Love Street
+    private const int CursedItemBaseCost = 500;
+    private const int PoisonBaseCost = 200;
 
     // Healing costs
     private const int HealingPotionCost = 50;      // Cost per potion
     private const int FullHealCostPerHP = 2;       // Cost per HP restored
-    private const int PoisonCureCostPerLevel = 500;
+
+    /// <summary>
+    /// Calculate disease/ailment cure cost with diminishing scaling
+    /// Uses level^0.6 curve instead of linear to prevent endgame punishment
+    /// </summary>
+    private long CalculateDiseaseCost(int baseCost, int playerLevel)
+    {
+        // Formula: baseCost * (1 + level^0.6)
+        // Level 1: ~2x, Level 50: ~13x, Level 100: ~17x
+        return (long)(baseCost * (1 + Math.Pow(playerLevel, 0.6)));
+    }
 
     /// <summary>
     /// Get adjusted price with alignment and world event modifiers
@@ -54,10 +68,13 @@ public class HealerLocation : BaseLocation
     protected override void DisplayLocation()
     {
         terminal.ClearScreen();
-        terminal.WriteLine("");
 
-        terminal.SetColor("bright_magenta");
-        terminal.WriteLine($"-*- {HealerName} -*-");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╔═════════════════════════════════════════════════════════════════════════════╗");
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("║                          THE GOLDEN BOW - HEALING HUT                       ║");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╚═════════════════════════════════════════════════════════════════════════════╝");
         terminal.WriteLine("");
 
         terminal.SetColor("gray");
@@ -153,10 +170,82 @@ public class HealerLocation : BaseLocation
 
         terminal.SetColor("cyan");
         terminal.WriteLine("Services Available:");
+        terminal.WriteLine("");
+
+        // Row 1 - Healing services
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_green");
+        terminal.Write("H");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
         terminal.SetColor("white");
-        terminal.WriteLine("(H)eal HP          (F)ull Heal        (B)uy Potions");
-        terminal.WriteLine("(P)oison Cure      (C)ure Disease     (D)ecurse Item");
-        terminal.WriteLine("(S)tatus           (R)eturn to street");
+        terminal.Write("eal HP        ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_green");
+        terminal.Write("F");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("ull Heal       ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_green");
+        terminal.Write("B");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("uy Potions");
+
+        // Row 2 - Disease services
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("P");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("oison Cure    ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("C");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("ure Disease    ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("D");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("ecurse Item");
+
+        // Row 3 - Navigation
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_cyan");
+        terminal.Write("S");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("tatus         ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_red");
+        terminal.Write("R");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("eturn to street");
         terminal.WriteLine("");
     }
 
@@ -175,25 +264,25 @@ public class HealerLocation : BaseLocation
         terminal.WriteLine($"(H)eal HP        - Restore some HP ({FullHealCostPerHP} gold per HP)");
         terminal.WriteLine($"(F)ull Heal      - Restore all HP (costs vary)");
         terminal.WriteLine($"(B)uy Potions    - Purchase healing potions ({HealingPotionCost} gold each)");
-        terminal.WriteLine($"(P)oison Cure    - Remove poison ({PoisonCureCostPerLevel * player.Level:N0} gold)");
+        terminal.WriteLine($"(P)oison Cure    - Remove poison ({CalculateDiseaseCost(PoisonBaseCost, player.Level):N0} gold)");
         terminal.WriteLine("");
 
         terminal.SetColor("cyan");
         terminal.WriteLine("═══ Disease Treatment ═══");
         terminal.SetColor("white");
         terminal.WriteLine($"(C)ure Disease   - Cure afflictions (cost varies by disease)");
-        terminal.WriteLine("                   Blindness:    " + (BlindnessCostPerLevel * player.Level).ToString("N0") + " gold");
-        terminal.WriteLine("                   Plague:       " + (PlagueCostPerLevel * player.Level).ToString("N0") + " gold");
-        terminal.WriteLine("                   Smallpox:     " + (SmallpoxCostPerLevel * player.Level).ToString("N0") + " gold");
-        terminal.WriteLine("                   Measles:      " + (MeaslesCostPerLevel * player.Level).ToString("N0") + " gold");
-        terminal.WriteLine("                   Leprosy:      " + (LeprosyCostPerLevel * player.Level).ToString("N0") + " gold");
-        terminal.WriteLine("                   Lover's Bane: " + (LoversBaneCostPerLevel * player.Level).ToString("N0") + " gold");
+        terminal.WriteLine("                   Blindness:    " + CalculateDiseaseCost(BlindnessBaseCost, player.Level).ToString("N0") + " gold");
+        terminal.WriteLine("                   Plague:       " + CalculateDiseaseCost(PlagueBaseCost, player.Level).ToString("N0") + " gold");
+        terminal.WriteLine("                   Smallpox:     " + CalculateDiseaseCost(SmallpoxBaseCost, player.Level).ToString("N0") + " gold");
+        terminal.WriteLine("                   Measles:      " + CalculateDiseaseCost(MeaslesBaseCost, player.Level).ToString("N0") + " gold");
+        terminal.WriteLine("                   Leprosy:      " + CalculateDiseaseCost(LeprosyBaseCost, player.Level).ToString("N0") + " gold");
+        terminal.WriteLine("                   Lover's Bane: " + CalculateDiseaseCost(LoversBaneBaseCost, player.Level).ToString("N0") + " gold");
         terminal.WriteLine("");
 
         terminal.SetColor("cyan");
         terminal.WriteLine("═══ Other Services ═══");
         terminal.SetColor("white");
-        terminal.WriteLine($"(D)ecurse Item   - Remove curse from equipment ({CursedItemCostPerLevel * player.Level:N0} gold)");
+        terminal.WriteLine($"(D)ecurse Item   - Remove curse from equipment ({CalculateDiseaseCost(CursedItemBaseCost, player.Level):N0} gold)");
         terminal.WriteLine("(S)tatus         - View your current health status");
         terminal.WriteLine("(R)eturn         - Return to Main Street");
         terminal.WriteLine("");
@@ -439,7 +528,7 @@ public class HealerLocation : BaseLocation
             return;
         }
 
-        long cost = PoisonCureCostPerLevel * player.Level;
+        long cost = CalculateDiseaseCost(PoisonBaseCost, player.Level);
 
         terminal.WriteLine($"\"Ah yes, I can see the venom coursing through your veins.\"", "cyan");
         terminal.WriteLine($"\"To purge this poison will cost {cost:N0} gold.\"", "cyan");
@@ -492,17 +581,17 @@ public class HealerLocation : BaseLocation
         var diseases = new Dictionary<string, (string Name, long Cost, Action Cure)>();
 
         if (player.Blind)
-            diseases["B"] = ("Blindness", BlindnessCostPerLevel * player.Level, () => player.Blind = false);
+            diseases["B"] = ("Blindness", CalculateDiseaseCost(BlindnessBaseCost, player.Level), () => player.Blind = false);
         if (player.Plague)
-            diseases["P"] = ("Plague", PlagueCostPerLevel * player.Level, () => player.Plague = false);
+            diseases["P"] = ("Plague", CalculateDiseaseCost(PlagueBaseCost, player.Level), () => player.Plague = false);
         if (player.Smallpox)
-            diseases["S"] = ("Smallpox", SmallpoxCostPerLevel * player.Level, () => player.Smallpox = false);
+            diseases["S"] = ("Smallpox", CalculateDiseaseCost(SmallpoxBaseCost, player.Level), () => player.Smallpox = false);
         if (player.Measles)
-            diseases["M"] = ("Measles", MeaslesCostPerLevel * player.Level, () => player.Measles = false);
+            diseases["M"] = ("Measles", CalculateDiseaseCost(MeaslesBaseCost, player.Level), () => player.Measles = false);
         if (player.Leprosy)
-            diseases["L"] = ("Leprosy", LeprosyCostPerLevel * player.Level, () => player.Leprosy = false);
+            diseases["L"] = ("Leprosy", CalculateDiseaseCost(LeprosyBaseCost, player.Level), () => player.Leprosy = false);
         if (player.LoversBane)
-            diseases["V"] = ("Lover's Bane", LoversBaneCostPerLevel * player.Level, () => player.LoversBane = false);
+            diseases["V"] = ("Lover's Bane", CalculateDiseaseCost(LoversBaneBaseCost, player.Level), () => player.LoversBane = false);
 
         if (diseases.Count == 0)
         {
@@ -642,34 +731,64 @@ public class HealerLocation : BaseLocation
         terminal.WriteLine($", {Manager} says.", "gray");
         terminal.WriteLine("");
 
-        // Check equipped items for curses using the equipment slots
+        // Check equipped items for curses using BOTH legacy and modern equipment systems
         var cursedItems = new List<(string Name, string SlotName, Action RemoveAction)>();
 
-        // Check weapon (RHand slot)
-        if (player.RHand > 0 && player.WeaponCursed)
+        // Check modern EquippedItems system first
+        foreach (var slot in player.EquippedItems.Keys.ToList())
+        {
+            var equipment = player.GetEquipment(slot);
+            if (equipment != null && equipment.IsCursed)
+            {
+                var capturedSlot = slot;
+                var capturedEquipment = equipment;
+                cursedItems.Add((equipment.Name, slot.ToString(), () =>
+                {
+                    // Remove from modern equipment system
+                    player.EquippedItems[capturedSlot] = 0;
+                    // Also clear the curse flags if applicable
+                    if (capturedSlot == EquipmentSlot.MainHand)
+                        player.WeaponCursed = false;
+                    else if (capturedSlot == EquipmentSlot.Body)
+                        player.ArmorCursed = false;
+                    else if (capturedSlot == EquipmentSlot.OffHand)
+                        player.ShieldCursed = false;
+                    player.RecalculateStats();
+                }));
+            }
+        }
+
+        // Also check legacy weapon (RHand slot) if not already found
+        if (player.RHand > 0 && player.WeaponCursed &&
+            !cursedItems.Any(c => c.SlotName == EquipmentSlot.MainHand.ToString()))
         {
             cursedItems.Add((player.WeaponName ?? "Weapon", "weapon", () =>
             {
                 player.RHand = 0;
                 player.WeaponCursed = false;
+                player.RecalculateStats();
             }));
         }
-        // Check armor (Body slot)
-        if (player.Body > 0 && player.ArmorCursed)
+        // Check legacy armor (Body slot)
+        if (player.Body > 0 && player.ArmorCursed &&
+            !cursedItems.Any(c => c.SlotName == EquipmentSlot.Body.ToString()))
         {
             cursedItems.Add((player.ArmorName ?? "Armor", "armor", () =>
             {
                 player.Body = 0;
                 player.ArmorCursed = false;
+                player.RecalculateStats();
             }));
         }
-        // Check shield (Shield slot)
-        if (player.Shield > 0 && player.ShieldCursed)
+        // Check legacy shield (Shield slot)
+        if (player.Shield > 0 && player.ShieldCursed &&
+            !cursedItems.Any(c => c.SlotName == EquipmentSlot.OffHand.ToString()))
         {
             cursedItems.Add(("Shield", "shield", () =>
             {
                 player.Shield = 0;
                 player.ShieldCursed = false;
+                player.RecalculateStats();
             }));
         }
 
@@ -681,7 +800,7 @@ public class HealerLocation : BaseLocation
             return;
         }
 
-        long cost = CursedItemCostPerLevel * player.Level;
+        long cost = CalculateDiseaseCost(CursedItemBaseCost, player.Level);
 
         foreach (var item in cursedItems)
         {

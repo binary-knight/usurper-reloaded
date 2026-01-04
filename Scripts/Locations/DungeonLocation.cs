@@ -54,12 +54,29 @@ public class DungeonLocation : BaseLocation
             currentDungeonLevel = maxDungeonLevel;
 
         // Generate floor for this player's level
-        if (currentFloor == null || currentFloor.Level != currentDungeonLevel)
+        bool isNewFloor = currentFloor == null || currentFloor.Level != currentDungeonLevel;
+        if (isNewFloor)
         {
             currentFloor = DungeonGenerator.GenerateFloor(currentDungeonLevel);
             roomsExploredThisFloor = 0;
             hasRestThisFloor = false;
+
+            // Show dramatic dungeon entrance art for new floors
+            term.ClearScreen();
+            await UsurperRemake.UI.ANSIArt.DisplayArtAnimated(term, UsurperRemake.UI.ANSIArt.DungeonEntrance, 40);
+            term.WriteLine("");
+            term.SetColor("cyan");
+            term.WriteLine($"  Floor {currentDungeonLevel} - {currentFloor.Theme}");
+            term.SetColor("gray");
+            term.WriteLine($"  {GetThemeDescription(currentFloor.Theme)}");
+            term.WriteLine("");
+            term.SetColor("darkgray");
+            term.Write("  Press any key to continue...");
+            await term.ReadKeyAsync();
         }
+
+        // Refresh bounty board quests based on player level
+        QuestSystem.RefreshBountyBoard(player?.Level ?? 1);
 
         // Check for story events at milestone floors
         await CheckFloorStoryEvents(player, term);
@@ -146,6 +163,11 @@ public class DungeonLocation : BaseLocation
                         "The name you have forgotten."
                     }, "bright_cyan");
                 StoryProgressionSystem.Instance.SetStoryFlag("heard_whispers", true);
+                // Moral Paradox: The Possessed Child
+                if (MoralParadoxSystem.Instance.IsParadoxAvailable("possessed_child", player))
+                {
+                    await MoralParadoxSystem.Instance.PresentParadox("possessed_child", player, term);
+                }
                 break;
 
             case 30:
@@ -196,6 +218,39 @@ public class DungeonLocation : BaseLocation
                         "\"WHAT HAVE YOU BECOME?\""
                     }, "bright_cyan");
                 StoryProgressionSystem.Instance.SetStoryFlag("knows_prophecy", true);
+
+                // MAELKETH ENCOUNTER - First Old God boss
+                if (OldGodBossSystem.Instance.CanEncounterBoss(player, OldGodType.Maelketh))
+                {
+                    term.WriteLine("");
+                    term.WriteLine("The ground trembles. An ancient presence stirs...", "bright_red");
+                    await Task.Delay(2000);
+
+                    term.WriteLine("Do you wish to face Maelketh, the Broken Blade? (Y/N)", "yellow");
+                    var response = await term.GetInput("> ");
+                    if (response.Trim().ToUpper().StartsWith("Y"))
+                    {
+                        var result = await OldGodBossSystem.Instance.StartBossEncounter(player, OldGodType.Maelketh, term);
+                        await HandleGodEncounterResult(result, player, term);
+                    }
+                    else
+                    {
+                        term.WriteLine("You sense the god retreating back into slumber... for now.", "gray");
+                    }
+                }
+                break;
+
+            case 65:
+                // Moral Paradox: Veloura's Cure (requires Soulweaver's Loom)
+                if (MoralParadoxSystem.Instance.IsParadoxAvailable("velouras_cure", player))
+                {
+                    await ShowStoryMoment(term, "The Soulweaver's Chamber",
+                        new[] {
+                            "The Soulweaver's Loom pulses with power in your hands.",
+                            "And before you stands someone you never expected to see again...",
+                        }, "bright_magenta");
+                    await MoralParadoxSystem.Instance.PresentParadox("velouras_cure", player, term);
+                }
                 break;
 
             case 75:
@@ -231,6 +286,47 @@ public class DungeonLocation : BaseLocation
                         "",
                         "Even gods can lie to themselves."
                     }, "bright_blue");
+                // Moral Paradox: Free Terravok (alternative to combat)
+                if (MoralParadoxSystem.Instance.IsParadoxAvailable("free_terravok", player))
+                {
+                    await MoralParadoxSystem.Instance.PresentParadox("free_terravok", player, term);
+                }
+                // TERRAVOK ENCOUNTER - God of Earth
+                else if (OldGodBossSystem.Instance.CanEncounterBoss(player, OldGodType.Terravok))
+                {
+                    term.WriteLine("");
+                    term.WriteLine("The mountain itself seems to breathe. Stone shifts like flesh.", "yellow");
+                    await Task.Delay(2000);
+
+                    term.WriteLine("Terravok, the Worldbreaker, senses your presence.", "bright_yellow");
+                    term.WriteLine("Do you wish to wake the Sleeping Mountain? (Y/N)", "yellow");
+                    var response = await term.GetInput("> ");
+                    if (response.Trim().ToUpper().StartsWith("Y"))
+                    {
+                        var result = await OldGodBossSystem.Instance.StartBossEncounter(player, OldGodType.Terravok, term);
+                        await HandleGodEncounterResult(result, player, term);
+                    }
+                    else
+                    {
+                        term.WriteLine("The mountain settles. Terravok slumbers on.", "gray");
+                    }
+                }
+                break;
+
+            case 95:
+                // Moral Paradox: Destroy Darkness (requires Sunforged Blade)
+                if (MoralParadoxSystem.Instance.IsParadoxAvailable("destroy_darkness", player))
+                {
+                    await ShowStoryMoment(term, "The Purging Light",
+                        new[] {
+                            "Aurelion stands before you, radiant with divine light.",
+                            "The Sunforged Blade burns bright in your hands.",
+                            "",
+                            "'You have earned this moment,' the God of Light speaks.",
+                            "'I offer you the power to end all darkness forever.'"
+                        }, "bright_yellow");
+                    await MoralParadoxSystem.Instance.PresentParadox("destroy_darkness", player, term);
+                }
                 break;
 
             case 99:
@@ -271,6 +367,41 @@ public class DungeonLocation : BaseLocation
                         "Choose wisely. This is the only choice that matters."
                     }, "bright_yellow");
                 StoryProgressionSystem.Instance.AdvanceChapter(StoryChapter.FinalConfrontation);
+
+                // MANWE ENCOUNTER - The Creator, Final Boss
+                if (OldGodBossSystem.Instance.CanEncounterBoss(player, OldGodType.Manwe))
+                {
+                    term.WriteLine("");
+                    term.WriteLine("The dream trembles. The Dreamer stirs.", "white");
+                    await Task.Delay(2000);
+
+                    term.WriteLine("Manwe, the Creator of All, awaits your judgment.", "bright_white");
+                    term.WriteLine("");
+                    term.WriteLine("This is the final confrontation. Are you ready? (Y/N)", "bright_yellow");
+                    var response = await term.GetInput("> ");
+                    if (response.Trim().ToUpper().StartsWith("Y"))
+                    {
+                        var result = await OldGodBossSystem.Instance.StartBossEncounter(player, OldGodType.Manwe, term);
+                        await HandleGodEncounterResult(result, player, term);
+
+                        // After Manwe, trigger ending determination
+                        if (result.Outcome != BossOutcome.Fled)
+                        {
+                            var endingType = EndingsSystem.Instance.DetermineEnding(player);
+                            await ShowEnding(endingType, player, term);
+                        }
+                    }
+                    else
+                    {
+                        term.WriteLine("You hesitate at the threshold. The Creator can wait.", "gray");
+                        term.WriteLine("But not forever...", "dark_gray");
+                    }
+                }
+                // Fallback: Moral Paradox if boss not available
+                else if (MoralParadoxSystem.Instance.IsParadoxAvailable("final_choice", player))
+                {
+                    await MoralParadoxSystem.Instance.PresentParadox("final_choice", player, term);
+                }
                 break;
         }
     }
@@ -308,7 +439,316 @@ public class DungeonLocation : BaseLocation
         term.SetColor("gray");
         await term.GetInputAsync("  Press Enter to continue...");
     }
-    
+
+    /// <summary>
+    /// Handle the result of an Old God boss encounter
+    /// </summary>
+    private async Task HandleGodEncounterResult(BossEncounterResult result, Character player, TerminalEmulator term)
+    {
+        if (result == null || !result.Success) return;
+
+        switch (result.Outcome)
+        {
+            case BossOutcome.Defeated:
+                term.WriteLine("");
+                term.WriteLine("The Old God has fallen. Their power flows into you.", "bright_yellow");
+
+                // Grant artifact based on god defeated
+                var artifactType = GetArtifactForGod(result.God);
+                if (artifactType.HasValue)
+                {
+                    term.WriteLine($"You obtained: {artifactType.Value}!", "bright_magenta");
+                    StoryProgressionSystem.Instance.CollectedArtifacts.Add(artifactType.Value);
+                }
+
+                // XP and gold reward
+                if (result.XPGained > 0)
+                {
+                    player.Experience += result.XPGained;
+                    term.WriteLine($"Experience gained: {result.XPGained}", "green");
+                }
+                if (result.GoldGained > 0)
+                {
+                    player.Gold += result.GoldGained;
+                    term.WriteLine($"Gold gained: {result.GoldGained}", "yellow");
+                }
+
+                // Chivalry impact
+                player.Darkness += 100;
+                term.WriteLine("Your darkness deepens. You are becoming the Usurper.", "red");
+
+                // Check achievements
+                AchievementSystem.CheckAchievements(player);
+                await AchievementSystem.ShowPendingNotifications(term);
+                break;
+
+            case BossOutcome.Saved:
+                term.WriteLine("");
+                term.WriteLine("The Old God's corruption lifts. They remember who they were.", "bright_cyan");
+                term.WriteLine("A fragment of divine gratitude fills your heart.", "white");
+
+                player.Chivalry += 150;
+                term.WriteLine("Your chivalry grows. You are becoming the Savior.", "bright_green");
+
+                // Ocean Philosophy moment
+                OceanPhilosophySystem.Instance.CollectFragment(WaveFragment.TheCycle);
+                break;
+
+            case BossOutcome.Allied:
+                term.WriteLine("");
+                term.WriteLine("The Old God sees something in you. An understanding.", "bright_magenta");
+                term.WriteLine("You have forged an alliance beyond mortal comprehension.", "white");
+
+                player.Chivalry += 50;
+                player.Wisdom += 2;
+                break;
+
+            case BossOutcome.Fled:
+                term.WriteLine("");
+                term.WriteLine("You retreat from the divine presence.", "gray");
+                term.WriteLine("The Old God watches you go. They can wait.", "dark_gray");
+                break;
+        }
+
+        await Task.Delay(3000);
+    }
+
+    /// <summary>
+    /// Get the artifact dropped by a specific Old God
+    /// </summary>
+    private ArtifactType? GetArtifactForGod(OldGodType god)
+    {
+        return god switch
+        {
+            OldGodType.Maelketh => ArtifactType.CreatorsEye,
+            OldGodType.Veloura => ArtifactType.SoulweaversLoom,
+            OldGodType.Thorgrim => ArtifactType.ScalesOfLaw,
+            OldGodType.Noctura => ArtifactType.ShadowCrown,
+            OldGodType.Aurelion => ArtifactType.SunforgedBlade,
+            OldGodType.Terravok => ArtifactType.Worldstone,
+            OldGodType.Manwe => null, // Manwe is the creator, no artifact
+            _ => null
+        };
+    }
+
+    /// <summary>
+    /// Display the ending sequence based on ending type
+    /// </summary>
+    private async Task ShowEnding(EndingType ending, Character player, TerminalEmulator term)
+    {
+        term.ClearScreen();
+        term.WriteLine("");
+
+        string color = ending switch
+        {
+            EndingType.Usurper => "bright_red",
+            EndingType.Savior => "bright_green",
+            EndingType.Defiant => "bright_yellow",
+            EndingType.TrueEnding => "bright_cyan",
+            EndingType.Secret => "bright_magenta",
+            _ => "white"
+        };
+
+        string title = ending switch
+        {
+            EndingType.Usurper => "THE USURPER",
+            EndingType.Savior => "THE SAVIOR",
+            EndingType.Defiant => "THE DEFIANT",
+            EndingType.TrueEnding => "THE AWAKENED",
+            EndingType.Secret => "DISSOLUTION",
+            _ => "THE END"
+        };
+
+        term.SetColor(color);
+        term.WriteLine("╔══════════════════════════════════════════════════════════════════╗");
+        term.WriteLine($"║                         {title.PadRight(35)}  ║");
+        term.WriteLine("╚══════════════════════════════════════════════════════════════════╝");
+        term.WriteLine("");
+
+        await Task.Delay(2000);
+
+        // Show ending text based on type
+        switch (ending)
+        {
+            case EndingType.Usurper:
+                await ShowUsurperEnding(term);
+                break;
+            case EndingType.Savior:
+                await ShowSaviorEnding(term);
+                break;
+            case EndingType.Defiant:
+                await ShowDefiantEnding(term);
+                break;
+            case EndingType.TrueEnding:
+                await ShowTrueEnding(term);
+                break;
+            case EndingType.Secret:
+                await ShowSecretEnding(term);
+                break;
+        }
+
+        // Mark the ending
+        StoryProgressionSystem.Instance.SetStoryFlag($"completed_{ending.ToString().ToLower()}", true);
+
+        term.WriteLine("");
+        term.SetColor("gray");
+        term.WriteLine("╔══════════════════════════════════════════════════════════════════╗");
+        term.WriteLine("║                    CONGRATULATIONS                               ║");
+        term.WriteLine("║                                                                  ║");
+        term.WriteLine("║        You have completed Usurper Reborn.                       ║");
+        term.WriteLine("║                                                                  ║");
+        term.WriteLine("║        Your journey is recorded in the annals of time.          ║");
+        term.WriteLine("╚══════════════════════════════════════════════════════════════════╝");
+        term.WriteLine("");
+
+        await term.GetInputAsync("Press Enter to continue...");
+    }
+
+    private async Task ShowUsurperEnding(TerminalEmulator term)
+    {
+        string[] lines = {
+            "You stand where Manwe once stood.",
+            "The power of creation flows through you.",
+            "",
+            "The Old Gods bow to your will.",
+            "The world trembles at your command.",
+            "",
+            "You have become what you were sent to destroy.",
+            "The Usurper. The new Creator.",
+            "",
+            "But power, you discover, is a cold companion.",
+            "And eternity stretches before you, empty and vast.",
+            "",
+            "Was it worth it?",
+            "Only you can answer that now."
+        };
+
+        foreach (var line in lines)
+        {
+            term.SetColor(string.IsNullOrEmpty(line) ? "white" : "red");
+            term.WriteLine($"  {line}");
+            await Task.Delay(300);
+        }
+    }
+
+    private async Task ShowSaviorEnding(TerminalEmulator term)
+    {
+        string[] lines = {
+            "The corruption lifts from the world.",
+            "The Old Gods remember who they were.",
+            "",
+            "Maelketh becomes the god of honorable combat once more.",
+            "Veloura's love heals instead of destroying.",
+            "Thorgrim judges with wisdom instead of tyranny.",
+            "",
+            "And you... you return to mortality.",
+            "But not alone.",
+            "",
+            "Songs are sung of the one who saved the gods.",
+            "Children speak your name with wonder.",
+            "",
+            "When you finally rest, paradise awaits.",
+            "The gods remember their Savior."
+        };
+
+        foreach (var line in lines)
+        {
+            term.SetColor(string.IsNullOrEmpty(line) ? "white" : "bright_green");
+            term.WriteLine($"  {line}");
+            await Task.Delay(300);
+        }
+    }
+
+    private async Task ShowDefiantEnding(TerminalEmulator term)
+    {
+        string[] lines = {
+            "You reject them all.",
+            "Manwe. The Old Gods. The cycles. The power.",
+            "",
+            "\"I am not your pawn,\" you declare.",
+            "\"I am not your child. I am not your successor.\"",
+            "",
+            "\"I am myself. Nothing more. Nothing less.\"",
+            "",
+            "And with that, you walk away.",
+            "Into the sunrise. Into the unknown.",
+            "",
+            "Behind you, the gods become mortal.",
+            "Equals now, instead of masters.",
+            "",
+            "Freedom, you realize, is the greatest power of all."
+        };
+
+        foreach (var line in lines)
+        {
+            term.SetColor(string.IsNullOrEmpty(line) ? "white" : "bright_yellow");
+            term.WriteLine($"  {line}");
+            await Task.Delay(300);
+        }
+    }
+
+    private async Task ShowTrueEnding(TerminalEmulator term)
+    {
+        string[] lines = {
+            "You remember now.",
+            "Not just who you were. What you are.",
+            "",
+            "You are the wave that remembered it was the ocean.",
+            "You are the dream that woke within the Dreamer.",
+            "",
+            "The Seven Seals unlock the final truth:",
+            "You and Manwe are one. Always were.",
+            "",
+            "Not god, not mortal, but something new.",
+            "Something that can bridge the gap.",
+            "",
+            "The cycle doesn't end. It transcends.",
+            "And you carry the best of both within you.",
+            "",
+            "This is not an ending.",
+            "It is a new beginning."
+        };
+
+        foreach (var line in lines)
+        {
+            term.SetColor(string.IsNullOrEmpty(line) ? "white" : "bright_cyan");
+            term.WriteLine($"  {line}");
+            await Task.Delay(300);
+        }
+    }
+
+    private async Task ShowSecretEnding(TerminalEmulator term)
+    {
+        string[] lines = {
+            "Three cycles. Three lifetimes.",
+            "Each time, a little more remembered.",
+            "Each time, the boundaries grew thinner.",
+            "",
+            "And now...",
+            "",
+            "The wave dissolves.",
+            "The ocean remembers.",
+            "",
+            "You are Manwe.",
+            "You always were.",
+            "",
+            "And as the dream ends, you wake.",
+            "Not as a fragment, but as the whole.",
+            "",
+            "The cycle is complete.",
+            "The Dreamer opens their eyes.",
+            "",
+            "Thank you for playing."
+        };
+
+        foreach (var line in lines)
+        {
+            term.SetColor(string.IsNullOrEmpty(line) ? "white" : "bright_magenta");
+            term.WriteLine($"  {line}");
+            await Task.Delay(400);
+        }
+    }
+
     protected override void DisplayLocation()
     {
         terminal.ClearScreen();
@@ -559,8 +999,8 @@ public class DungeonLocation : BaseLocation
             terminal.WriteLine("Fight the monsters");
         }
 
-        // Search for treasure
-        if (room.HasTreasure && !room.TreasureLooted && room.IsCleared)
+        // Search for treasure (available if room is cleared OR has no monsters)
+        if (room.HasTreasure && !room.TreasureLooted && (room.IsCleared || !room.HasMonsters))
         {
             terminal.SetColor("darkgray");
             terminal.Write("  [");
@@ -598,8 +1038,8 @@ public class DungeonLocation : BaseLocation
             terminal.WriteLine("Examine features");
         }
 
-        // Use stairs
-        if (room.HasStairsDown && room.IsCleared)
+        // Use stairs (available if room is cleared OR has no monsters)
+        if (room.HasStairsDown && (room.IsCleared || !room.HasMonsters))
         {
             terminal.SetColor("darkgray");
             terminal.Write("  [");
@@ -611,8 +1051,8 @@ public class DungeonLocation : BaseLocation
             terminal.WriteLine("Descend stairs");
         }
 
-        // Rest (if safe)
-        if (room.IsCleared && !hasRestThisFloor)
+        // Rest (if safe - room cleared or no monsters)
+        if ((room.IsCleared || !room.HasMonsters) && !hasRestThisFloor)
         {
             terminal.SetColor("darkgray");
             terminal.Write("  [");
@@ -717,6 +1157,22 @@ public class DungeonLocation : BaseLocation
         };
     }
 
+    private string GetThemeDescription(DungeonTheme theme)
+    {
+        return theme switch
+        {
+            DungeonTheme.Catacombs => "Ancient burial chambers filled with restless dead",
+            DungeonTheme.Sewers => "Fetid tunnels crawling with vermin and worse",
+            DungeonTheme.Caverns => "Natural caves carved by underground rivers",
+            DungeonTheme.AncientRuins => "Crumbling remnants of a forgotten civilization",
+            DungeonTheme.DemonLair => "Hellish corridors reeking of brimstone",
+            DungeonTheme.FrozenDepths => "Ice-encrusted halls where cold itself hunts",
+            DungeonTheme.VolcanicPit => "Molten rivers and scorching heat await",
+            DungeonTheme.AbyssalVoid => "Reality itself warps in these cursed depths",
+            _ => "Dark passages wind into the unknown"
+        };
+    }
+
     private string GetThemeColor(DungeonTheme theme)
     {
         return theme switch
@@ -740,11 +1196,16 @@ public class DungeonLocation : BaseLocation
     {
         ShowBreadcrumb();
 
+        // Header - standardized format
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╔═════════════════════════════════════════════════════════════════════════════╗");
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine($"║                         DUNGEON LEVEL {currentDungeonLevel.ToString().PadLeft(3)}                                  ║");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╚═════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
         terminal.SetColor(GetThemeColor(currentFloor.Theme));
-        terminal.WriteLine("╔═══════════════════════════════════════════════════════╗");
-        terminal.WriteLine($"║          DUNGEON LEVEL {currentDungeonLevel.ToString().PadLeft(3)}                             ║");
-        terminal.WriteLine($"║          Theme: {currentFloor.Theme.ToString().PadRight(20)}            ║");
-        terminal.WriteLine("╚═══════════════════════════════════════════════════════╝");
+        terminal.WriteLine($"Theme: {currentFloor.Theme}");
         terminal.WriteLine("");
 
         // Floor stats
@@ -776,14 +1237,67 @@ public class DungeonLocation : BaseLocation
             terminal.WriteLine("");
         }
 
-        // Options
+        // Show floor-specific guidance
+        ShowFloorGuidance(currentDungeonLevel);
+
+        // Options - standardized format
+        terminal.SetColor("cyan");
+        terminal.WriteLine("Actions:");
+        terminal.WriteLine("");
+
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_green");
+        terminal.Write("E");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
         terminal.SetColor("white");
-        terminal.WriteLine("[E] Enter the dungeon");
-        terminal.WriteLine("[J] Story Journal - Your quest progress");
-        terminal.WriteLine("[T] Team management");
-        terminal.WriteLine("[S] Your status");
-        terminal.WriteLine("[L] Change level (+/- 10)");
-        terminal.WriteLine("[Q] Return to town");
+        terminal.Write("nter the dungeon      ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_cyan");
+        terminal.Write("J");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("ournal - Quest progress");
+
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("T");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("eam management        ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_cyan");
+        terminal.Write("S");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("tatus");
+
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("L");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("evel change (+/- 10)  ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_red");
+        terminal.Write("Q");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("uit to town");
         terminal.WriteLine("");
     }
 
@@ -801,6 +1315,106 @@ public class DungeonLocation : BaseLocation
             DungeonTheme.AbyssalVoid => "Reality breaks down here. What lurks beyond sanity itself?",
             _ => "Darkness awaits."
         };
+    }
+
+    /// <summary>
+    /// Show floor-specific guidance to help players understand what's coming
+    /// </summary>
+    private void ShowFloorGuidance(int floor)
+    {
+        var story = StoryProgressionSystem.Instance;
+        string hint = null;
+        string color = "gray";
+
+        // Special floor hints
+        if (floor == 15 && !story.CollectedSeals.Contains(SealType.Creation))
+        {
+            hint = "LORE: The First Seal awaits - it reveals the story of creation.";
+            color = "bright_cyan";
+        }
+        else if (floor == 25)
+        {
+            hint = "EVENT: The Possessed Child paradox may appear here. Choose wisely.";
+            color = "bright_magenta";
+        }
+        else if (floor == 30 && !story.CollectedSeals.Contains(SealType.FirstWar))
+        {
+            hint = "LORE: The Second Seal tells of the first conflict between gods.";
+            color = "bright_cyan";
+        }
+        else if (floor == 45 && !story.CollectedSeals.Contains(SealType.Corruption))
+        {
+            hint = "LORE: The Third Seal reveals the corruption of the Old Gods.";
+            color = "bright_cyan";
+        }
+        else if (floor == 60)
+        {
+            if (!story.HasStoryFlag("maelketh_encountered"))
+            {
+                hint = "BOSS: Maelketh, God of War, can be challenged on this floor!";
+                color = "bright_red";
+            }
+            else if (!story.CollectedSeals.Contains(SealType.Imprisonment))
+            {
+                hint = "LORE: The Fourth Seal contains the prophecy of your coming.";
+                color = "bright_cyan";
+            }
+        }
+        else if (floor == 65)
+        {
+            hint = "EVENT: Veloura's Cure paradox may appear if you have the Soulweaver's Loom.";
+            color = "bright_magenta";
+        }
+        else if (floor == 75)
+        {
+            hint = "MEMORY: Your forgotten past will surface here. Pay attention to dreams.";
+            color = "bright_blue";
+        }
+        else if (floor == 80)
+        {
+            if (!story.HasStoryFlag("terravok_encountered"))
+            {
+                hint = "BOSS: Terravok, God of Earth, slumbers here. Will you wake him?";
+                color = "bright_yellow";
+            }
+            else if (!story.CollectedSeals.Contains(SealType.Prophecy))
+            {
+                hint = "LORE: The Fifth Seal shows Manwe's regret for what he did.";
+                color = "bright_cyan";
+            }
+        }
+        else if (floor == 95)
+        {
+            hint = "EVENT: The Destroy Darkness paradox awaits those with the Sunforged Blade.";
+            color = "bright_magenta";
+        }
+        else if (floor == 99 && !story.CollectedSeals.Contains(SealType.Regret))
+        {
+            hint = "LORE: The Sixth Seal reveals the truth about the cycle. You're almost there.";
+            color = "bright_cyan";
+        }
+        else if (floor == 100)
+        {
+            hint = "FINALE: Manwe awaits. Your choices will determine the ending.";
+            color = "bright_white";
+        }
+        else if (floor >= 50 && floor < 60)
+        {
+            hint = $"TIP: Floor 60 has the first Old God. Prepare your equipment!";
+            color = "yellow";
+        }
+        else if (floor >= 70 && floor < 80)
+        {
+            hint = $"TIP: Floor 80 has another Old God. Are you ready?";
+            color = "yellow";
+        }
+
+        if (hint != null)
+        {
+            terminal.SetColor(color);
+            terminal.WriteLine(hint);
+            terminal.WriteLine("");
+        }
     }
 
     protected override string GetBreadcrumbPath()
@@ -1113,7 +1727,7 @@ public class DungeonLocation : BaseLocation
                 return false;
 
             case "T":
-                if (room.HasTreasure && !room.TreasureLooted && room.IsCleared)
+                if (room.HasTreasure && !room.TreasureLooted && (room.IsCleared || !room.HasMonsters))
                 {
                     await CollectTreasure(room);
                 }
@@ -1134,14 +1748,14 @@ public class DungeonLocation : BaseLocation
                 return false;
 
             case "D":
-                if (room.HasStairsDown && room.IsCleared)
+                if (room.HasStairsDown && (room.IsCleared || !room.HasMonsters))
                 {
                     await DescendStairs();
                 }
                 return false;
 
             case "R":
-                if (room.IsCleared && !hasRestThisFloor)
+                if ((room.IsCleared || !room.HasMonsters) && !hasRestThisFloor)
                 {
                     await RestInRoom();
                 }
@@ -1395,6 +2009,9 @@ public class DungeonLocation : BaseLocation
                 player.Experience += bossExp;
 
                 terminal.WriteLine($"Bonus: {bossGold} gold, {bossExp} experience!");
+
+                // Artifact drop chance for specific floor bosses
+                await CheckArtifactDrop(player, currentDungeonLevel);
             }
 
             await Task.Delay(2000);
@@ -1429,8 +2046,9 @@ public class DungeonLocation : BaseLocation
         currentFloor.TreasuresFound++;
 
         terminal.ClearScreen();
-        terminal.SetColor("yellow");
-        terminal.WriteLine("*** TREASURE! ***");
+
+        // Display treasure art
+        await UsurperRemake.UI.ANSIArt.DisplayArtAnimated(terminal, UsurperRemake.UI.ANSIArt.Treasure, 30);
         terminal.WriteLine("");
 
         // Scale rewards with level
@@ -1935,12 +2553,87 @@ public class DungeonLocation : BaseLocation
             terminal.WriteLine("");
         }
 
+        // Show difficulty assessment
+        ShowDifficultyAssessment(monsters, GetCurrentPlayer());
+
         terminal.WriteLine("");
         await Task.Delay(2000);
 
         // Use new PlayerVsMonsters method - ALL monsters fight at once!
         // Monk will appear after ALL monsters are defeated
         await combatEngine.PlayerVsMonsters(GetCurrentPlayer(), monsters, teammates, offerMonkEncounter: true);
+    }
+
+    /// <summary>
+    /// Show difficulty assessment before combat
+    /// </summary>
+    private void ShowDifficultyAssessment(List<Monster> monsters, Character player)
+    {
+        // Calculate total monster threat
+        long totalMonsterHP = monsters.Sum(m => m.HP);
+        long totalMonsterStr = monsters.Sum(m => m.Strength);
+        int avgMonsterLevel = (int)monsters.Average(m => m.Level);
+
+        // Calculate player power
+        long playerPower = player.Strength + player.WeapPow + (player.Level * 5);
+        long monsterPower = totalMonsterStr + avgMonsterLevel * 5;
+
+        // Estimate difficulty
+        float powerRatio = monsterPower > 0 ? (float)playerPower / monsterPower : 2f;
+        float hpRatio = player.MaxHP > 0 ? (float)totalMonsterHP / player.MaxHP : 1f;
+
+        string difficulty;
+        string diffColor;
+        string xpHint;
+
+        // Calculate estimated XP
+        long estXP = monsters.Sum(m => (long)(Math.Pow(m.Level, 1.5) * 15));
+        estXP = DifficultySystem.ApplyExperienceMultiplier(estXP);
+
+        if (powerRatio > 2.0f && hpRatio < 0.5f)
+        {
+            difficulty = "Trivial";
+            diffColor = "darkgray";
+            xpHint = $"~{estXP} XP (not worth your time)";
+        }
+        else if (powerRatio > 1.5f && hpRatio < 1.0f)
+        {
+            difficulty = "Easy";
+            diffColor = "bright_green";
+            xpHint = $"~{estXP} XP";
+        }
+        else if (powerRatio > 1.0f && hpRatio < 1.5f)
+        {
+            difficulty = "Fair";
+            diffColor = "green";
+            xpHint = $"~{estXP} XP";
+        }
+        else if (powerRatio > 0.7f && hpRatio < 2.5f)
+        {
+            difficulty = "Challenging";
+            diffColor = "yellow";
+            xpHint = $"~{estXP} XP (bring potions)";
+        }
+        else if (powerRatio > 0.5f)
+        {
+            difficulty = "Dangerous";
+            diffColor = "bright_yellow";
+            xpHint = $"~{estXP} XP (high risk)";
+        }
+        else
+        {
+            difficulty = "DEADLY";
+            diffColor = "bright_red";
+            xpHint = $"~{estXP} XP (flee recommended!)";
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("gray");
+        terminal.Write("  Threat: ");
+        terminal.SetColor(diffColor);
+        terminal.Write(difficulty);
+        terminal.SetColor("gray");
+        terminal.WriteLine($"  |  {xpHint}");
     }
     
     /// <summary>
@@ -4240,95 +4933,297 @@ public class DungeonLocation : BaseLocation
     private async Task PuzzleEncounter()
     {
         terminal.ClearScreen();
+        var player = GetCurrentPlayer();
+
+        // 50% chance for riddle, 50% for puzzle
+        bool useRiddle = dungeonRandom.Next(100) < 50;
+
+        if (useRiddle)
+        {
+            // Use the full RiddleDatabase
+            await RiddleEncounter(player);
+        }
+        else
+        {
+            // Use the full PuzzleSystem
+            await FullPuzzleEncounter(player);
+        }
+    }
+
+    private async Task RiddleEncounter(Character player)
+    {
+        terminal.SetColor("cyan");
+        terminal.WriteLine("*** RIDDLE GATE ***");
+        terminal.WriteLine("");
+
+        // Get a riddle appropriate for this dungeon level
+        int difficulty = Math.Min(5, 1 + (currentDungeonLevel / 20));
+        var riddle = RiddleDatabase.Instance.GetRandomRiddle(difficulty, currentFloor?.Theme);
+
+        // Present the riddle using the full system
+        var result = await RiddleDatabase.Instance.PresentRiddle(riddle, player, terminal);
+
+        if (result.Solved)
+        {
+            terminal.SetColor("green");
+            terminal.WriteLine("");
+            terminal.WriteLine("The ancient mechanism unlocks!");
+
+            // Rewards scale with difficulty and level
+            long goldReward = currentDungeonLevel * 200 * difficulty;
+            long expReward = currentDungeonLevel * 75 * difficulty;
+            player.Gold += goldReward;
+            player.Experience += expReward;
+            terminal.WriteLine($"You receive {goldReward} gold and {expReward} experience!");
+
+            // Chance for Ocean Philosophy fragment on high difficulty riddles
+            if (difficulty >= 3 && dungeonRandom.Next(100) < 30)
+            {
+                terminal.WriteLine("");
+                terminal.SetColor("bright_cyan");
+                terminal.WriteLine("As you solve the riddle, a deeper truth resonates within you...");
+                // Grant a random uncollected wave fragment
+                var fragments = Enum.GetValues<WaveFragment>()
+                    .Where(f => !OceanPhilosophySystem.Instance.CollectedFragments.Contains(f))
+                    .ToList();
+                if (fragments.Count > 0)
+                {
+                    var fragment = fragments[dungeonRandom.Next(fragments.Count)];
+                    OceanPhilosophySystem.Instance.CollectFragment(fragment);
+                    terminal.WriteLine("You've gained insight into the Ocean's wisdom...", "bright_magenta");
+                }
+            }
+        }
+        else
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine("");
+            terminal.WriteLine("The gate remains sealed.");
+
+            // Take damage on failure
+            int damage = riddle.FailureDamage * currentDungeonLevel / 5;
+            if (damage > 0)
+            {
+                player.HP -= damage;
+                terminal.WriteLine($"A trap activates! You take {damage} damage!");
+            }
+        }
+
+        await terminal.PressAnyKey();
+    }
+
+    private async Task FullPuzzleEncounter(Character player)
+    {
         terminal.SetColor("cyan");
         terminal.WriteLine("*** ANCIENT PUZZLE ***");
         terminal.WriteLine("");
 
-        var player = GetCurrentPlayer();
-        var puzzleType = dungeonRandom.Next(3);
+        // Get puzzle type and difficulty based on floor level
+        int difficulty = Math.Min(5, 1 + (currentDungeonLevel / 15));
+        var puzzleType = PuzzleSystem.Instance.GetRandomPuzzleType(currentDungeonLevel);
+        var theme = currentFloor?.Theme ?? DungeonTheme.Catacombs;
 
-        switch (puzzleType)
+        var puzzle = PuzzleSystem.Instance.GeneratePuzzle(puzzleType, difficulty, theme);
+
+        // Display puzzle description
+        terminal.WriteLine(puzzle.Description, "white");
+        terminal.WriteLine("");
+
+        // Show hints/clues if available
+        if (puzzle.Hints.Count > 0)
         {
-            case 0: // Riddle
-                terminal.WriteLine("An ancient stone door blocks your path.", "white");
-                terminal.WriteLine("Carved letters form a riddle:", "gray");
-                terminal.WriteLine("");
-                terminal.SetColor("yellow");
-                terminal.WriteLine("\"I have cities, but no houses.\"");
-                terminal.WriteLine("\"I have mountains, but no trees.\"");
-                terminal.WriteLine("\"I have water, but no fish.\"");
-                terminal.WriteLine("\"What am I?\"");
-                terminal.WriteLine("");
-
-                var answer = await terminal.GetInput("Your answer: ");
-                if (answer.ToLower().Contains("map"))
-                {
-                    terminal.SetColor("green");
-                    terminal.WriteLine("The door slides open!");
-                    long goldReward = currentDungeonLevel * 300;
-                    long expReward = currentDungeonLevel * 100;
-                    player.Gold += goldReward;
-                    player.Experience += expReward;
-                    terminal.WriteLine($"Behind it: {goldReward} gold and ancient wisdom (+{expReward} exp)!");
-                }
-                else
-                {
-                    terminal.SetColor("red");
-                    terminal.WriteLine("The door remains sealed. Perhaps another time.");
-                }
-                break;
-
-            case 1: // Lever puzzle
-                terminal.WriteLine("Three levers protrude from the wall.", "white");
-                terminal.WriteLine("A plaque reads: \"Two truths, one lie.\"", "gray");
-                terminal.WriteLine("");
-                terminal.WriteLine("[1] Left lever   [2] Middle lever   [3] Right lever");
-
-                var leverChoice = await terminal.GetInput("Pull which lever? ");
-                if (leverChoice == "2")
-                {
-                    terminal.SetColor("green");
-                    terminal.WriteLine("A hidden compartment opens!");
-                    long reward = currentDungeonLevel * 250;
-                    player.Gold += reward;
-                    terminal.WriteLine($"You find {reward} gold!");
-                }
-                else
-                {
-                    terminal.SetColor("red");
-                    terminal.WriteLine("A dart shoots from the wall!");
-                    int damage = currentDungeonLevel * 3;
-                    player.HP -= damage;
-                    terminal.WriteLine($"You take {damage} damage!");
-                }
-                break;
-
-            case 2: // Pattern matching
-                terminal.WriteLine("Glowing runes appear on the floor.", "white");
-                terminal.WriteLine("They flash in sequence: RED, BLUE, RED, BLUE, ???", "gray");
-                terminal.WriteLine("");
-                terminal.WriteLine("[R] Red   [B] Blue   [G] Green");
-
-                var patternChoice = await terminal.GetInput("What comes next? ");
-                if (patternChoice.ToUpper() == "R")
-                {
-                    terminal.SetColor("green");
-                    terminal.WriteLine("The runes glow brightly and a treasure rises from the floor!");
-                    long reward = currentDungeonLevel * 200;
-                    player.Gold += reward;
-                    player.Experience += currentDungeonLevel * 75;
-                    terminal.WriteLine($"You gain {reward} gold and experience!");
-                }
-                else
-                {
-                    terminal.SetColor("yellow");
-                    terminal.WriteLine("The runes fade. Nothing happens.");
-                }
-                break;
+            terminal.SetColor("cyan");
+            foreach (var hint in puzzle.Hints)
+            {
+                // Don't add bullet points - the hint formatting is already handled
+                terminal.WriteLine(hint);
+            }
+            terminal.WriteLine("");
         }
 
-        await Task.Delay(2000);
+        bool solved = false;
+        int attempts = puzzle.AttemptsRemaining;
+
+        while (attempts > 0 && !solved)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"Attempts remaining: {attempts}");
+            terminal.WriteLine("");
+
+            // Handle different puzzle types
+            switch (puzzle.Type)
+            {
+                case PuzzleType.LeverSequence:
+                    solved = await HandleLeverPuzzle(puzzle, player);
+                    break;
+                case PuzzleType.SymbolAlignment:
+                    solved = await HandleSymbolPuzzle(puzzle, player);
+                    break;
+                case PuzzleType.NumberGrid:
+                    solved = await HandleNumberPuzzle(puzzle, player);
+                    break;
+                case PuzzleType.MemoryMatch:
+                    solved = await HandleMemoryPuzzle(puzzle, player);
+                    break;
+                default:
+                    // Fallback to simple choice for other types
+                    solved = await HandleSimplePuzzle(puzzle, player);
+                    break;
+            }
+
+            if (!solved)
+            {
+                attempts--;
+                if (attempts > 0)
+                {
+                    terminal.SetColor("red");
+                    terminal.WriteLine("That's not quite right...");
+                    terminal.WriteLine("");
+                }
+            }
+        }
+
+        if (solved)
+        {
+            terminal.SetColor("green");
+            terminal.WriteLine("");
+            terminal.WriteLine("*** PUZZLE SOLVED! ***");
+
+            long goldReward = currentDungeonLevel * 150 * difficulty;
+            long expReward = puzzle.SuccessXP * currentDungeonLevel / 10;
+            player.Gold += goldReward;
+            player.Experience += expReward;
+            terminal.WriteLine($"You gain {goldReward} gold and {expReward} experience!");
+
+            PuzzleSystem.Instance.MarkPuzzleSolved(currentDungeonLevel, puzzle.Title);
+        }
+        else
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine("");
+            terminal.WriteLine("The puzzle resets. You failed to solve it.");
+
+            int damage = (int)(player.MaxHP * (puzzle.FailureDamagePercent / 100.0));
+            if (damage > 0)
+            {
+                player.HP -= damage;
+                terminal.WriteLine($"A trap springs! You take {damage} damage!");
+            }
+        }
+
         await terminal.PressAnyKey();
+    }
+
+    private async Task<bool> HandleLeverPuzzle(PuzzleInstance puzzle, Character player)
+    {
+        int leverCount = puzzle.Solution.Count;
+        terminal.WriteLine($"There are {leverCount} levers. Enter the sequence (e.g., 1,2,3):", "white");
+
+        var input = await terminal.GetInput("> ");
+        var parts = input.Split(',', ' ').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToList();
+
+        if (parts.Count != leverCount) return false;
+
+        for (int i = 0; i < leverCount; i++)
+        {
+            if (!int.TryParse(parts[i], out int lever)) return false;
+            if ((lever - 1).ToString() != puzzle.Solution[i]) return false;
+        }
+
+        return true;
+    }
+
+    private async Task<bool> HandleSymbolPuzzle(PuzzleInstance puzzle, Character player)
+    {
+        terminal.WriteLine("Available symbols: " + string.Join(", ", puzzle.AvailableChoices), "white");
+        terminal.WriteLine($"Enter {puzzle.Solution.Count} symbols separated by commas:", "white");
+
+        var input = await terminal.GetInput("> ");
+        var parts = input.Split(',', ' ').Select(s => s.Trim().ToLower()).Where(s => !string.IsNullOrEmpty(s)).ToList();
+
+        if (parts.Count != puzzle.Solution.Count) return false;
+
+        for (int i = 0; i < parts.Count; i++)
+        {
+            if (parts[i] != puzzle.Solution[i].ToLower()) return false;
+        }
+
+        return true;
+    }
+
+    private async Task<bool> HandleNumberPuzzle(PuzzleInstance puzzle, Character player)
+    {
+        terminal.WriteLine($"Target sum: {puzzle.TargetNumber}", "white");
+        terminal.WriteLine("Available numbers: " + string.Join(", ", puzzle.AvailableNumbers), "white");
+        terminal.WriteLine("Enter numbers that sum to the target:", "white");
+
+        var input = await terminal.GetInput("> ");
+        var parts = input.Split(',', ' ', '+').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToList();
+
+        int sum = 0;
+        foreach (var part in parts)
+        {
+            if (int.TryParse(part, out int num))
+                sum += num;
+        }
+
+        return sum == puzzle.TargetNumber;
+    }
+
+    private async Task<bool> HandleMemoryPuzzle(PuzzleInstance puzzle, Character player)
+    {
+        // Show the sequence briefly
+        terminal.WriteLine("Memorize this sequence:", "yellow");
+        terminal.WriteLine("");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("  " + string.Join(" - ", puzzle.Solution));
+        await Task.Delay(3000); // Show for 3 seconds
+
+        // Clear the sequence
+        terminal.ClearScreen();
+        terminal.SetColor("cyan");
+        terminal.WriteLine("*** MEMORY PUZZLE ***");
+        terminal.WriteLine("");
+        terminal.WriteLine("Enter the sequence you saw:", "white");
+
+        var input = await terminal.GetInput("> ");
+        var parts = input.Split(',', ' ', '-').Select(s => s.Trim().ToLower()).Where(s => !string.IsNullOrEmpty(s)).ToList();
+
+        if (parts.Count != puzzle.Solution.Count) return false;
+
+        for (int i = 0; i < parts.Count; i++)
+        {
+            if (parts[i] != puzzle.Solution[i].ToLower()) return false;
+        }
+
+        return true;
+    }
+
+    private async Task<bool> HandleSimplePuzzle(PuzzleInstance puzzle, Character player)
+    {
+        // Generic handler for other puzzle types - use Intelligence check
+        terminal.WriteLine("This puzzle requires careful thought...", "white");
+        terminal.WriteLine("");
+        terminal.WriteLine("[1] Examine carefully and deduce the answer", "white");
+        terminal.WriteLine("[2] Try a random approach", "white");
+        terminal.WriteLine("[3] Give up", "white");
+
+        var choice = await terminal.GetInput("> ");
+
+        if (choice == "1")
+        {
+            // Intelligence-based success chance
+            int intBonus = (int)((player.Intelligence - 10) / 2); // Simple INT modifier
+            int baseChance = 40 + intBonus;
+            return dungeonRandom.Next(100) < baseChance;
+        }
+        else if (choice == "2")
+        {
+            // Low random chance
+            return dungeonRandom.Next(100) < 20;
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -4979,6 +5874,43 @@ public class DungeonLocation : BaseLocation
         await sealSystem.CollectSeal(player, currentFloor.SealType.Value, terminal);
 
         return true;
+    }
+
+    /// <summary>
+    /// Check if boss defeat drops an artifact based on floor level
+    /// </summary>
+    private async Task CheckArtifactDrop(Character player, int floorLevel)
+    {
+        // Artifacts drop from specific floor bosses (matching ArtifactSystem.DungeonFloor values)
+        var artifactFloors = new Dictionary<int, UsurperRemake.Systems.ArtifactType>
+        {
+            { 25, UsurperRemake.Systems.ArtifactType.CreatorsEye },      // Maelketh, God of War
+            { 40, UsurperRemake.Systems.ArtifactType.SoulweaversLoom },  // Shadow Realm (Noctura's Domain)
+            { 50, UsurperRemake.Systems.ArtifactType.ScalesOfLaw },      // Thorgrim, God of Law
+            { 60, UsurperRemake.Systems.ArtifactType.ShadowCrown },      // Noctura, Goddess of Shadows
+            { 70, UsurperRemake.Systems.ArtifactType.SunforgedBlade },   // Aurelion, God of Light
+            { 80, UsurperRemake.Systems.ArtifactType.Worldstone }        // Terravok, God of Earth
+        };
+
+        if (!artifactFloors.TryGetValue(floorLevel, out var artifactType))
+            return;
+
+        // Check if already collected
+        if (UsurperRemake.Systems.ArtifactSystem.Instance.HasArtifact(artifactType))
+            return;
+
+        // Collect the artifact!
+        terminal.WriteLine("");
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("══════════════════════════════════════════════════════════════");
+        terminal.WriteLine("      A DIVINE ARTIFACT PULSES WITH POWER!");
+        terminal.WriteLine("══════════════════════════════════════════════════════════════");
+        terminal.WriteLine("");
+
+        await UsurperRemake.Systems.ArtifactSystem.Instance.CollectArtifact(player, artifactType, terminal);
+
+        terminal.WriteLine("");
+        await terminal.PressAnyKey();
     }
 }
 

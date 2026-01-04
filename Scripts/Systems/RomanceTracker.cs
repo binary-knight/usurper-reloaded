@@ -37,6 +37,23 @@ namespace UsurperRemake.Systems
         }
 
         /// <summary>
+        /// Reset all romance data - call when starting new game or loading different player
+        /// </summary>
+        public void Reset()
+        {
+            CurrentLovers.Clear();
+            Spouses.Clear();
+            FriendsWithBenefits.Clear();
+            Exes.Clear();
+            EncounterHistory.Clear();
+            JealousyLevels.Clear();
+            AgreedStructures.Clear();
+            CuckArrangements.Clear();
+            PolyNetworks.Clear();
+            GD.Print("[Romance] Romance tracker reset");
+        }
+
+        /// <summary>
         /// Add a new lover to the tracker
         /// </summary>
         public void AddLover(string npcId, int initialLoveLevel = 30, bool isExclusive = false)

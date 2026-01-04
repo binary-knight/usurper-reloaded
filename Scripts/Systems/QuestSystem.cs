@@ -847,6 +847,394 @@ public partial class QuestSystem : Node
     }
 
     #endregion
+
+    #region Starter Quests
+
+    /// <summary>
+    /// Initialize starter quests for new games or when quest board is empty
+    /// Creates a variety of quests appropriate for different player levels
+    /// </summary>
+    public static void InitializeStarterQuests()
+    {
+        // Don't add if there are already quests
+        if (questDatabase.Count > 0) return;
+
+        GD.Print("[QuestSystem] Initializing starter quests...");
+
+        // Beginner quests (levels 1-10)
+        CreateStarterQuest("The King's Pest Control",
+            "Clear the rats from the castle cellars",
+            QuestTarget.Monster, 1, 1, 10,
+            new[] { ("Giant Rat", 5), ("Sewer Rat", 3) });
+
+        CreateStarterQuest("Goblin Menace",
+            "A goblin tribe has been raiding merchant caravans",
+            QuestTarget.Monster, 1, 1, 15,
+            new[] { ("Goblin", 4), ("Goblin Scout", 2) });
+
+        CreateStarterQuest("Undead Rising",
+            "Skeletons have been spotted near the old cemetery",
+            QuestTarget.Monster, 2, 5, 20,
+            new[] { ("Skeleton", 5), ("Skeleton Warrior", 2) });
+
+        // Intermediate quests (levels 10-30)
+        CreateStarterQuest("The Orc Warlord",
+            "An orc chieftain threatens the northern villages",
+            QuestTarget.Monster, 2, 10, 30,
+            new[] { ("Orc", 6), ("Orc Warrior", 3), ("Orc Shaman", 1) });
+
+        CreateStarterQuest("Troll Bridge",
+            "Trolls have taken control of the eastern bridge",
+            QuestTarget.Monster, 2, 15, 35,
+            new[] { ("Troll", 3), ("Cave Troll", 2) });
+
+        CreateStarterQuest("Dungeon Delve",
+            "Explore the dungeon depths and report back",
+            QuestTarget.ReachFloor, 2, 10, 40,
+            floorTarget: 10);
+
+        // Advanced quests (levels 25-50)
+        CreateStarterQuest("Dragon's Lair",
+            "A young dragon terrorizes the countryside",
+            QuestTarget.ClearBoss, 3, 25, 50,
+            new[] { ("Young Dragon", 1), ("Drake", 2) });
+
+        CreateStarterQuest("The Deep Descent",
+            "Reach the 25th floor of the dungeon",
+            QuestTarget.ReachFloor, 3, 20, 60,
+            floorTarget: 25);
+
+        CreateStarterQuest("Artifact Recovery",
+            "An ancient artifact was lost in the dungeon",
+            QuestTarget.FindArtifact, 3, 25, 55,
+            floorTarget: 15);
+
+        // Expert quests (levels 40+)
+        CreateStarterQuest("The Lich King",
+            "An ancient lich has awakened in the deep dungeon",
+            QuestTarget.ClearBoss, 4, 40, 100,
+            new[] { ("Lich", 1), ("Wraith", 4), ("Specter", 3) });
+
+        CreateStarterQuest("Abyssal Expedition",
+            "Reach the 50th floor of the dungeon",
+            QuestTarget.ReachFloor, 4, 35, 100,
+            floorTarget: 50);
+
+        GD.Print($"[QuestSystem] Created {questDatabase.Count} starter quests");
+    }
+
+    /// <summary>
+    /// Helper to create a starter quest
+    /// </summary>
+    private static void CreateStarterQuest(string title, string description, QuestTarget target,
+        byte difficulty, int minLevel, int maxLevel,
+        (string name, int count)[] monsters = null, int floorTarget = 0)
+    {
+        var quest = new Quest
+        {
+            Title = title,
+            Initiator = "Royal Council",
+            QuestType = QuestType.SingleQuest,
+            QuestTarget = target,
+            Difficulty = difficulty,
+            Comment = description,
+            Date = DateTime.Now,
+            MinLevel = minLevel,
+            MaxLevel = maxLevel,
+            DaysToComplete = 14 // Generous time limit for starter quests
+        };
+
+        // Add monsters if specified
+        if (monsters != null)
+        {
+            foreach (var (name, count) in monsters)
+            {
+                quest.Monsters.Add(new QuestMonster(0, count, name));
+            }
+        }
+
+        // Add objective for floor-based quests
+        if (target == QuestTarget.ReachFloor && floorTarget > 0)
+        {
+            quest.Objectives.Add(new QuestObjective(
+                QuestObjectiveType.ReachDungeonFloor,
+                $"Reach floor {floorTarget}",
+                floorTarget,
+                "",
+                $"Floor {floorTarget}"
+            ));
+        }
+        else if (target == QuestTarget.FindArtifact && floorTarget > 0)
+        {
+            quest.Objectives.Add(new QuestObjective(
+                QuestObjectiveType.FindArtifact,
+                "Find the ancient artifact",
+                1,
+                "",
+                "Ancient Artifact"
+            ));
+        }
+        else if (target == QuestTarget.ClearBoss)
+        {
+            var bossName = monsters?.FirstOrDefault().name ?? "Boss";
+            quest.Objectives.Add(new QuestObjective(
+                QuestObjectiveType.KillBoss,
+                $"Defeat the {bossName}",
+                1,
+                "",
+                bossName
+            ));
+        }
+
+        // Set rewards
+        SetDefaultRewards(quest);
+
+        questDatabase.Add(quest);
+    }
+
+    /// <summary>
+    /// Ensure quests exist - call on game start
+    /// </summary>
+    public static void EnsureQuestsExist()
+    {
+        if (questDatabase.Count == 0)
+        {
+            InitializeStarterQuests();
+        }
+
+        // Also ensure King bounties exist
+        RefreshKingBounties();
+    }
+
+    #endregion
+
+    #region King Bounty System
+
+    private const string KING_BOUNTY_INITIATOR = "The Crown";
+
+    /// <summary>
+    /// Get all bounties posted by the King
+    /// </summary>
+    public static List<Quest> GetKingBounties()
+    {
+        return questDatabase.Where(q =>
+            !q.Deleted &&
+            q.Initiator == KING_BOUNTY_INITIATOR
+        ).ToList();
+    }
+
+    /// <summary>
+    /// Generate bounties posted by the NPC King
+    /// Called periodically by WorldSimulator or on game start
+    /// </summary>
+    public static void RefreshKingBounties()
+    {
+        var king = CastleLocation.GetCurrentKing();
+        if (king == null) return;
+
+        // Remove old unclaimed King bounties (older than 7 days)
+        questDatabase.RemoveAll(q =>
+            q.Initiator == KING_BOUNTY_INITIATOR &&
+            string.IsNullOrEmpty(q.Occupier) &&
+            q.Date < DateTime.Now.AddDays(-7));
+
+        // Count existing King bounties
+        var existingCount = questDatabase.Count(q =>
+            q.Initiator == KING_BOUNTY_INITIATOR &&
+            !q.Deleted);
+
+        // King maintains 3-5 active bounties
+        var targetCount = 3 + random.Next(3);
+
+        while (existingCount < targetCount)
+        {
+            CreateKingBounty(king.Name);
+            existingCount++;
+        }
+
+        GD.Print($"[QuestSystem] King bounties refreshed: {existingCount} active");
+    }
+
+    /// <summary>
+    /// Create a bounty from the King targeting an NPC or criminal
+    /// </summary>
+    private static void CreateKingBounty(string kingName)
+    {
+        // Get list of potential targets (NPCs who aren't the King, guards, or story NPCs)
+        var potentialTargets = NPCSpawnSystem.Instance?.ActiveNPCs?
+            .Where(n => n.IsAlive &&
+                       !n.King &&
+                       !n.IsStoryNPC &&
+                       n.Level >= 5)
+            .ToList() ?? new List<NPC>();
+
+        Quest bounty;
+
+        // 70% chance to target an NPC, 30% chance for generic criminal bounty
+        if (potentialTargets.Count > 0 && random.Next(100) < 70)
+        {
+            // Target a specific NPC
+            var target = potentialTargets[random.Next(potentialTargets.Count)];
+            bounty = CreateNPCBounty(target, kingName);
+        }
+        else
+        {
+            // Generic criminal bounty
+            bounty = CreateGenericBounty(kingName);
+        }
+
+        if (bounty != null)
+        {
+            questDatabase.Add(bounty);
+            NewsSystem.Instance?.Newsy(true, $"The Crown has posted a new bounty: {bounty.Title}");
+        }
+    }
+
+    /// <summary>
+    /// Create a bounty targeting a specific NPC
+    /// </summary>
+    private static Quest CreateNPCBounty(NPC target, string kingName)
+    {
+        var crimes = new[]
+        {
+            "wanted for crimes against the Crown",
+            "accused of treason",
+            "suspected of smuggling contraband",
+            "charged with theft from the Royal Treasury",
+            "wanted for disturbing the King's peace",
+            "accused of dark sorcery",
+            "wanted for assault on a royal guard",
+            "suspected of plotting rebellion"
+        };
+
+        var crime = crimes[random.Next(crimes.Length)];
+        var difficulty = (byte)Math.Min(4, Math.Max(1, target.Level / 15 + 1));
+        var reward = target.Level * 100 * difficulty;
+
+        var bounty = new Quest
+        {
+            Title = $"WANTED: {target.Name}",
+            Initiator = KING_BOUNTY_INITIATOR,
+            QuestType = QuestType.SingleQuest,
+            QuestTarget = QuestTarget.Assassin,
+            Difficulty = difficulty,
+            Comment = $"{target.Name} is {crime}. Bring them to justice!",
+            Date = DateTime.Now,
+            MinLevel = Math.Max(1, target.Level - 10),
+            MaxLevel = 9999,
+            DaysToComplete = 14,
+            Reward = (byte)Math.Min(255, reward / 100),
+            RewardType = QuestRewardType.Money,
+            TargetNPCName = target.Name
+        };
+
+        bounty.Objectives.Add(new QuestObjective(
+            QuestObjectiveType.DefeatNPC,
+            $"Defeat {target.Name}",
+            1,
+            target.Name,
+            target.Name
+        ));
+
+        return bounty;
+    }
+
+    /// <summary>
+    /// Create a generic criminal bounty (not targeting a specific NPC)
+    /// </summary>
+    private static Quest CreateGenericBounty(string kingName)
+    {
+        var bountyTypes = new[]
+        {
+            ("Bandit Leader", "A dangerous bandit leader terrorizes the roads", QuestTarget.Monster, new[] { ("Bandit Leader", 1), ("Bandit", 4) }),
+            ("Escaped Prisoner", "A dangerous criminal has escaped the dungeon", QuestTarget.Monster, new[] { ("Escaped Convict", 1) }),
+            ("Cult Leader", "A dark cult threatens the realm", QuestTarget.Monster, new[] { ("Cult Leader", 1), ("Cultist", 3) }),
+            ("Rogue Mage", "A mage gone mad wreaks havoc", QuestTarget.Monster, new[] { ("Rogue Mage", 1), ("Dark Apprentice", 2) }),
+            ("Orc Warlord", "An orc warlord raids border villages", QuestTarget.Monster, new[] { ("Orc Warlord", 1), ("Orc Warrior", 5) })
+        };
+
+        var (title, desc, target, monsters) = bountyTypes[random.Next(bountyTypes.Length)];
+        var difficulty = (byte)(random.Next(1, 4));
+
+        var bounty = new Quest
+        {
+            Title = $"WANTED: {title}",
+            Initiator = KING_BOUNTY_INITIATOR,
+            QuestType = QuestType.SingleQuest,
+            QuestTarget = target,
+            Difficulty = difficulty,
+            Comment = desc,
+            Date = DateTime.Now,
+            MinLevel = difficulty * 5,
+            MaxLevel = 9999,
+            DaysToComplete = 14
+        };
+
+        foreach (var (name, count) in monsters)
+        {
+            bounty.Monsters.Add(new QuestMonster(0, count, name));
+        }
+
+        SetDefaultRewards(bounty);
+        bounty.Reward = (byte)Math.Min(255, bounty.Reward * 2); // King bounties pay double
+
+        return bounty;
+    }
+
+    /// <summary>
+    /// The King can post a bounty on the player if they commit crimes
+    /// </summary>
+    public static void PostBountyOnPlayer(string playerName, string crime, int bountyAmount)
+    {
+        var king = CastleLocation.GetCurrentKing();
+        if (king == null) return;
+
+        // Check if player already has an active bounty
+        var existingBounty = questDatabase.FirstOrDefault(q =>
+            q.Initiator == KING_BOUNTY_INITIATOR &&
+            q.TargetNPCName == playerName &&
+            !q.Deleted);
+
+        if (existingBounty != null)
+        {
+            // Increase existing bounty
+            existingBounty.Reward = (byte)Math.Min(255, existingBounty.Reward + bountyAmount / 100);
+            existingBounty.Comment += $" Additional charge: {crime}.";
+            NewsSystem.Instance?.Newsy(true, $"The bounty on {playerName} has increased!");
+            return;
+        }
+
+        var bounty = new Quest
+        {
+            Title = $"WANTED: {playerName}",
+            Initiator = KING_BOUNTY_INITIATOR,
+            QuestType = QuestType.SingleQuest,
+            QuestTarget = QuestTarget.Assassin,
+            Difficulty = 4, // Player bounties are always hard
+            Comment = $"{playerName} is wanted for {crime}. Bring them to justice!",
+            Date = DateTime.Now,
+            MinLevel = 1,
+            MaxLevel = 9999,
+            DaysToComplete = 30, // Long duration for player bounties
+            Reward = (byte)Math.Min(255, bountyAmount / 100),
+            RewardType = QuestRewardType.Money,
+            TargetNPCName = playerName
+        };
+
+        bounty.Objectives.Add(new QuestObjective(
+            QuestObjectiveType.DefeatNPC,
+            $"Defeat {playerName}",
+            1,
+            playerName,
+            playerName
+        ));
+
+        questDatabase.Add(bounty);
+        NewsSystem.Instance?.Newsy(true, $"The Crown has posted a bounty on {playerName}!");
+        GD.Print($"[QuestSystem] Bounty posted on player {playerName} for {crime}");
+    }
+
+    #endregion
 }
 
 /// <summary>

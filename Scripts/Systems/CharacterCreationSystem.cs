@@ -53,20 +53,24 @@ public class CharacterCreationSystem
             
             // Step 4: Select class (Pascal class selection with validation)
             character.Class = await SelectClass(character.Race);
-            
-            // Step 5: Roll stats with re-roll option (up to 5 re-rolls)
+
+            // Step 5: Select difficulty mode
+            character.Difficulty = await SelectDifficulty();
+            DifficultySystem.CurrentDifficulty = character.Difficulty;
+
+            // Step 6: Roll stats with re-roll option (up to 5 re-rolls)
             await RollCharacterStats(character);
 
-            // Step 6: Generate physical appearance (Pascal appearance generation)
+            // Step 7: Generate physical appearance (Pascal appearance generation)
             GeneratePhysicalAppearance(character);
-            
-            // Step 7: Set starting equipment and configuration
+
+            // Step 8: Set starting equipment and configuration
             SetStartingConfiguration(character);
-            
-            // Step 8: Player preferences (Pascal configuration questions)
+
+            // Step 9: Player preferences (Pascal configuration questions)
             await ConfigurePlayerPreferences(character);
-            
-            // Step 9: Show character summary and confirm
+
+            // Step 10: Show character summary and confirm
             await ShowCharacterSummary(character);
             
             var confirm = await terminal.GetInputAsync("Create this character? (Y/N): ");
@@ -307,7 +311,75 @@ public class CharacterCreationSystem
             }
         }
     }
-    
+
+    /// <summary>
+    /// Select game difficulty mode
+    /// </summary>
+    private async Task<DifficultyMode> SelectDifficulty()
+    {
+        terminal.Clear();
+        terminal.WriteLine("");
+        terminal.WriteLine("╔════════════════════════════════════════════════════════════════╗", "bright_cyan");
+        terminal.WriteLine("║                   SELECT DIFFICULTY MODE                       ║", "bright_cyan");
+        terminal.WriteLine("╚════════════════════════════════════════════════════════════════╝", "bright_cyan");
+        terminal.WriteLine("");
+
+        while (true)
+        {
+            // Display difficulty options with descriptions
+            terminal.WriteLine("(E)asy      - " + DifficultySystem.GetDescription(DifficultyMode.Easy), DifficultySystem.GetColor(DifficultyMode.Easy));
+            terminal.WriteLine("");
+            terminal.WriteLine("(N)ormal    - " + DifficultySystem.GetDescription(DifficultyMode.Normal), DifficultySystem.GetColor(DifficultyMode.Normal));
+            terminal.WriteLine("");
+            terminal.WriteLine("(H)ard      - " + DifficultySystem.GetDescription(DifficultyMode.Hard), DifficultySystem.GetColor(DifficultyMode.Hard));
+            terminal.WriteLine("");
+            terminal.WriteLine("(!)Nightmare- " + DifficultySystem.GetDescription(DifficultyMode.Nightmare), DifficultySystem.GetColor(DifficultyMode.Nightmare));
+            terminal.WriteLine("");
+
+            var choice = await terminal.GetInputAsync("Choose difficulty (E/N/H/!): ");
+
+            switch (choice.ToUpper())
+            {
+                case "E":
+                    terminal.WriteLine("");
+                    terminal.WriteLine("Easy mode selected - enjoy a relaxed adventure!", DifficultySystem.GetColor(DifficultyMode.Easy));
+                    await Task.Delay(1000);
+                    return DifficultyMode.Easy;
+
+                case "N":
+                    terminal.WriteLine("");
+                    terminal.WriteLine("Normal mode selected - the classic Usurper experience!", DifficultySystem.GetColor(DifficultyMode.Normal));
+                    await Task.Delay(1000);
+                    return DifficultyMode.Normal;
+
+                case "H":
+                    terminal.WriteLine("");
+                    terminal.WriteLine("Hard mode selected - prepare for a challenge!", DifficultySystem.GetColor(DifficultyMode.Hard));
+                    await Task.Delay(1000);
+                    return DifficultyMode.Hard;
+
+                case "!":
+                    terminal.WriteLine("");
+                    terminal.WriteLine("NIGHTMARE MODE - You dare to walk the path of pain?", DifficultySystem.GetColor(DifficultyMode.Nightmare));
+                    var confirm = await terminal.GetInputAsync("Are you SURE? (Y/N): ");
+                    if (confirm.ToUpper() == "Y")
+                    {
+                        terminal.WriteLine("Your fate is sealed. May the gods have mercy.", "bright_red");
+                        await Task.Delay(1500);
+                        return DifficultyMode.Nightmare;
+                    }
+                    terminal.WriteLine("A wise choice. Select another difficulty.", "yellow");
+                    terminal.WriteLine("");
+                    break;
+
+                default:
+                    terminal.WriteLine("Please choose E, N, H, or !.", "red");
+                    terminal.WriteLine("");
+                    break;
+            }
+        }
+    }
+
     /// <summary>
     /// Select character race with help system (Pascal USERHUNC.PAS race selection)
     /// </summary>

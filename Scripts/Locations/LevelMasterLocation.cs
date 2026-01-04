@@ -1,6 +1,8 @@
 using Godot;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
+using UsurperRemake.Systems;
 
 namespace UsurperRemake.Locations;
 
@@ -105,10 +107,17 @@ public class LevelMasterLocation : BaseLocation
     protected override void DisplayLocation()
     {
         terminal.ClearScreen();
+
+        // Header - standardized format
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╔═════════════════════════════════════════════════════════════════════════════╗");
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("║                          LEVEL MASTER'S SANCTUM                             ║");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╚═════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
         terminal.SetColor(currentMaster.Color);
-        terminal.WriteLine("╔════════════════════════════════════════════════════════════════════════════╗");
-        terminal.WriteLine($"║  {currentMaster.Name.ToUpper().PadLeft((76 + currentMaster.Name.Length) / 2).PadRight(76)}║");
-        terminal.WriteLine("╚════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine($"Master: {currentMaster.Name}");
         terminal.WriteLine("");
 
         terminal.SetColor("gray");
@@ -134,16 +143,81 @@ public class LevelMasterLocation : BaseLocation
         // Show XP status
         DisplayExperienceStatus();
 
-        terminal.SetColor("yellow");
+        terminal.SetColor("cyan");
         terminal.WriteLine("Services:");
-        terminal.SetColor("green");
-        terminal.WriteLine("(L) Level Raise – advance if you have earned enough experience");
-        terminal.WriteLine("(A) Abilities – view and learn combat abilities or spells");
-        terminal.WriteLine($"(T) Training – improve your skills (Points: {currentPlayer.TrainingPoints})");
-        terminal.WriteLine("(C) Crystal Ball – scry information about other players (coming soon)");
-        terminal.WriteLine("(H) Help Team Member – assist a teammate in levelling (coming soon)");
-        terminal.WriteLine("(S) Status – view your statistics");
-        terminal.WriteLine("(R) Return to Main Street");
+        terminal.WriteLine("");
+
+        // Row 1
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_green");
+        terminal.Write("L");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("evel Raise – advance if you have earned enough experience");
+
+        // Row 2
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("A");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("bilities – view and learn combat abilities or spells");
+
+        // Row 3
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("T");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine($"raining – improve your skills (Points: {currentPlayer.TrainingPoints})");
+
+        // Row 4
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_cyan");
+        terminal.Write("C");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("rystal Ball – scry information about other characters");
+
+        // Row 5
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_cyan");
+        terminal.Write("H");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("elp Team Member – assist a teammate in levelling");
+
+        // Row 6
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_cyan");
+        terminal.Write("S");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("tatus – view your statistics");
+
+        terminal.WriteLine("");
+
+        // Navigation
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_red");
+        terminal.Write("R");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("eturn to Main Street");
         terminal.WriteLine("");
 
         ShowStatusLine();
@@ -195,12 +269,10 @@ public class LevelMasterLocation : BaseLocation
                 await ShowTrainingMenu();
                 return false;
             case "C":
-                terminal.WriteLine("The crystal ball is cloudy today… (feature not yet implemented)", "gray");
-                await Task.Delay(1500);
+                await UseCrystalBall();
                 return false;
             case "H":
-                terminal.WriteLine("Your master smiles sadly: 'I cannot aid your allies yet.' (feature not implemented)", "gray");
-                await Task.Delay(1500);
+                await HelpTeamMember();
                 return false;
             case "R":
             case "Q":
@@ -297,11 +369,9 @@ public class LevelMasterLocation : BaseLocation
     private async Task DisplayLevelUpCelebration(int levelsRaised, int startLevel, int trainingPointsEarned)
     {
         terminal.ClearScreen();
-        terminal.SetColor("bright_yellow");
-        terminal.WriteLine("");
-        terminal.WriteLine("  ╔══════════════════════════════════════════════════════════════════════╗");
-        terminal.WriteLine("  ║                         * LEVEL UP! *                                ║");
-        terminal.WriteLine("  ╚══════════════════════════════════════════════════════════════════════╝");
+
+        // Display dramatic ANSI art for level up
+        await UsurperRemake.UI.ANSIArt.DisplayArtAnimated(terminal, UsurperRemake.UI.ANSIArt.LevelUp, 30);
         terminal.WriteLine("");
 
         terminal.SetColor("bright_green");
@@ -314,6 +384,9 @@ public class LevelMasterLocation : BaseLocation
             terminal.WriteLine($"  You have advanced {levelsRaised} levels! ({startLevel} → {currentPlayer.Level})");
         }
         terminal.WriteLine("");
+
+        // Check for milestone levels and give bonuses
+        await CheckMilestoneBonuses(startLevel, currentPlayer.Level);
 
         terminal.SetColor(currentMaster.Color);
         switch (playerAlignment)
@@ -347,6 +420,56 @@ public class LevelMasterLocation : BaseLocation
         terminal.WriteLine("");
 
         await terminal.PressAnyKey("  Press any key to continue...");
+    }
+
+    /// <summary>
+    /// Check and award milestone bonuses for key levels
+    /// </summary>
+    private async Task CheckMilestoneBonuses(int startLevel, int endLevel)
+    {
+        // Milestone levels and their bonuses
+        var milestones = new (int level, string title, string hint, long goldBonus, int potionBonus)[]
+        {
+            (5, "Adventurer", "You can now venture deeper into the dungeons!", 500, 3),
+            (10, "Veteran", "The Seven Seals await you on floors 15, 30, 45, 60, 80, 99, and 100!", 1000, 5),
+            (25, "Champion", "Monsters now fear your name!", 5000, 10),
+            (50, "Hero", "You are ready to face the Old Gods!", 25000, 20),
+            (75, "Legend", "Your power rivals the ancient heroes!", 75000, 30),
+            (100, "GODSLAYER", "You have reached the pinnacle of mortal power!", 250000, 50)
+        };
+
+        foreach (var (level, title, hint, goldBonus, potionBonus) in milestones)
+        {
+            // Check if we crossed this milestone
+            if (startLevel < level && endLevel >= level)
+            {
+                terminal.WriteLine("");
+                terminal.SetColor("bright_yellow");
+                terminal.WriteLine("╔═══════════════════════════════════════════════════════════════════╗");
+                terminal.WriteLine($"║              ★ MILESTONE REACHED: Level {level,3} ★                     ║");
+                terminal.WriteLine("╚═══════════════════════════════════════════════════════════════════╝");
+                terminal.WriteLine("");
+
+                terminal.SetColor("bright_white");
+                terminal.WriteLine($"  You have earned the title: {title}!");
+                terminal.WriteLine("");
+
+                terminal.SetColor("bright_cyan");
+                terminal.WriteLine($"  {hint}");
+                terminal.WriteLine("");
+
+                // Award bonuses
+                currentPlayer.Gold += goldBonus;
+                currentPlayer.Healing = Math.Min(currentPlayer.MaxPotions, currentPlayer.Healing + potionBonus);
+
+                terminal.SetColor("bright_green");
+                terminal.WriteLine($"  BONUS: +{goldBonus:N0} Gold!");
+                terminal.WriteLine($"  BONUS: +{potionBonus} Healing Potions!");
+                terminal.WriteLine("");
+
+                await Task.Delay(1000);
+            }
+        }
     }
 
     /// <summary>
@@ -521,6 +644,270 @@ public class LevelMasterLocation : BaseLocation
             exp += (long)(Math.Pow(i, 1.8) * 50);
         }
         return exp;
+    }
+
+    #endregion
+
+    #region Crystal Ball and Team Help
+
+    /// <summary>
+    /// Crystal Ball - Scry information about other characters in the game
+    /// </summary>
+    private async Task UseCrystalBall()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor(currentMaster.Color);
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║                          THE CRYSTAL BALL                                   ║");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"\"{currentMaster.Name}\" gestures to a glowing crystal orb...");
+        terminal.WriteLine("");
+        terminal.WriteLine("\"Gaze into the mists, and tell me who you wish to see...\"");
+        terminal.WriteLine("");
+
+        // Get list of all characters (NPCs)
+        var npcs = NPCSpawnSystem.Instance?.ActiveNPCs;
+        if (npcs == null || npcs.Count == 0)
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("The crystal ball shows only swirling mists... No souls to scry.");
+            await terminal.PressAnyKey();
+            return;
+        }
+
+        terminal.SetColor("white");
+        terminal.WriteLine("Who do you wish to scry?");
+        terminal.WriteLine("");
+
+        // Show numbered list of NPCs
+        for (int i = 0; i < Math.Min(npcs.Count, 20); i++)
+        {
+            var npc = npcs[i];
+            string status = npc.IsAlive ? "" : " [DEAD]";
+            terminal.WriteLine($"{i + 1}. {npc.Name} - Level {npc.Level} {npc.Class}{status}");
+        }
+
+        if (npcs.Count > 20)
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine($"... and {npcs.Count - 20} more souls in the realm.");
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        terminal.Write("Enter number (0 to cancel): ");
+        terminal.SetColor("white");
+
+        string input = await terminal.ReadLineAsync();
+        if (!int.TryParse(input, out int choice) || choice < 1 || choice > Math.Min(npcs.Count, 20))
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("The mists close around the ball once more...");
+            await terminal.PressAnyKey();
+            return;
+        }
+
+        var targetNPC = npcs[choice - 1];
+        await DisplayScryingResult(targetNPC);
+    }
+
+    /// <summary>
+    /// Display detailed information about a scried character
+    /// </summary>
+    private async Task DisplayScryingResult(NPC target)
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║                        VISIONS IN THE CRYSTAL                               ║");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+
+        await Task.Delay(500);
+
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine($"The mists part to reveal: {target.Name}");
+        terminal.WriteLine("");
+
+        terminal.SetColor("white");
+        terminal.WriteLine($"  Class: {target.Class}");
+        terminal.WriteLine($"  Level: {target.Level}");
+        terminal.WriteLine($"  Status: {(target.IsAlive ? "Alive" : "Dead")}");
+        terminal.WriteLine($"  Location: {target.CurrentLocation}");
+        terminal.WriteLine("");
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine("  Combat Stats:");
+        terminal.SetColor("white");
+        terminal.WriteLine($"    Strength: {target.Strength}   Defence: {target.Defence}");
+        terminal.WriteLine($"    Agility: {target.Agility}    Dexterity: {target.Dexterity}");
+        terminal.WriteLine($"    HP: {target.HP}/{target.MaxHP}  Mana: {target.Mana}/{target.MaxMana}");
+        terminal.WriteLine("");
+
+        terminal.SetColor("green");
+        terminal.WriteLine("  Wealth & Status:");
+        terminal.SetColor("white");
+        terminal.WriteLine($"    Gold: {target.Gold:N0}");
+        terminal.WriteLine($"    Team: {(string.IsNullOrEmpty(target.Team) ? "None" : target.Team)}");
+        terminal.WriteLine($"    Alignment: {(target.Chivalry > target.Darkness ? "Good" : target.Darkness > target.Chivalry ? "Evil" : "Neutral")}");
+
+        if (target.Brain != null)
+        {
+            terminal.WriteLine("");
+            terminal.SetColor("cyan");
+            terminal.WriteLine($"  Personality: {target.Brain.Personality}");
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("gray");
+        terminal.WriteLine("The vision fades as the mists return...");
+        await terminal.PressAnyKey();
+    }
+
+    /// <summary>
+    /// Help Team Member - Donate experience or gold to help a teammate level up
+    /// </summary>
+    private async Task HelpTeamMember()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor(currentMaster.Color);
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║                        HELP TEAM MEMBER                                     ║");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+
+        // Check if player is on a team
+        if (string.IsNullOrEmpty(currentPlayer.Team))
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"\"{currentMaster.Name}\" shakes their head sadly...");
+            terminal.WriteLine("");
+            terminal.SetColor("white");
+            terminal.WriteLine("\"You have no allies to aid. Join a team first, then return.\"");
+            await terminal.PressAnyKey();
+            return;
+        }
+
+        // Find teammates
+        var teammates = NPCSpawnSystem.Instance?.ActiveNPCs?
+            .Where(n => n.Team == currentPlayer.Team && n.IsAlive && n.Name != currentPlayer.Name2)
+            .ToList();
+
+        if (teammates == null || teammates.Count == 0)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"\"{currentMaster.Name}\" looks into the distance...");
+            terminal.WriteLine("");
+            terminal.SetColor("white");
+            terminal.WriteLine("\"Your team has no other living members to assist.\"");
+            await terminal.PressAnyKey();
+            return;
+        }
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"\"{currentMaster.Name}\" nods approvingly...");
+        terminal.WriteLine("");
+        terminal.WriteLine("\"Helping your allies grow stronger is a noble pursuit.\"");
+        terminal.WriteLine("\"You may share your wisdom (experience) to help them advance.\"");
+        terminal.WriteLine("");
+
+        terminal.SetColor("white");
+        terminal.WriteLine("Select a teammate to help:");
+        terminal.WriteLine("");
+
+        for (int i = 0; i < teammates.Count; i++)
+        {
+            var tm = teammates[i];
+            long xpToNext = GetExperienceForLevel(tm.Level + 1) - tm.Experience;
+            terminal.WriteLine($"{i + 1}. {tm.Name} - Level {tm.Level} ({xpToNext:N0} XP to next level)");
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        terminal.Write("Select teammate (0 to cancel): ");
+        terminal.SetColor("white");
+
+        string input = await terminal.ReadLineAsync();
+        if (!int.TryParse(input, out int choice) || choice < 1 || choice > teammates.Count)
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("You decide to keep your wisdom for yourself...");
+            await terminal.PressAnyKey();
+            return;
+        }
+
+        var recipient = teammates[choice - 1];
+        long xpNeeded = GetExperienceForLevel(recipient.Level + 1) - recipient.Experience;
+
+        terminal.WriteLine("");
+        terminal.SetColor("yellow");
+        terminal.WriteLine($"{recipient.Name} needs {xpNeeded:N0} experience to reach level {recipient.Level + 1}.");
+        terminal.WriteLine($"You have {currentPlayer.Experience:N0} experience.");
+        terminal.WriteLine("");
+
+        // Calculate max they can give (half their XP, but not more than they have)
+        long maxGive = currentPlayer.Experience / 2;
+        if (maxGive < 1)
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine("You don't have enough experience to share!");
+            await terminal.PressAnyKey();
+            return;
+        }
+
+        terminal.SetColor("cyan");
+        terminal.Write($"How much XP to share (max {maxGive:N0}): ");
+        terminal.SetColor("white");
+
+        string xpInput = await terminal.ReadLineAsync();
+        if (!long.TryParse(xpInput, out long xpToGive) || xpToGive < 1 || xpToGive > maxGive)
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("Invalid amount. No experience shared.");
+            await terminal.PressAnyKey();
+            return;
+        }
+
+        // Transfer experience
+        currentPlayer.Experience -= xpToGive;
+        recipient.Experience += xpToGive;
+
+        terminal.WriteLine("");
+        terminal.SetColor("bright_green");
+        terminal.WriteLine($"You share {xpToGive:N0} experience with {recipient.Name}!");
+
+        // Check if they leveled up
+        if (recipient.Experience >= GetExperienceForLevel(recipient.Level + 1) && recipient.Level < GameConfig.MaxLevel)
+        {
+            recipient.Level++;
+
+            // Update base stats on level up (matches WorldSimulator.NPCLevelUp behavior)
+            recipient.BaseMaxHP += 10 + new Random().Next(5, 15);
+            recipient.BaseStrength += new Random().Next(1, 3);
+            recipient.BaseDefence += new Random().Next(1, 2);
+
+            // Recalculate all stats from base values
+            recipient.RecalculateStats();
+
+            // Restore HP/Mana to full on level up
+            recipient.HP = recipient.MaxHP;
+            recipient.Mana = recipient.MaxMana;
+
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine($"{recipient.Name} has reached level {recipient.Level}!");
+            NewsSystem.Instance?.Newsy(true, $"{recipient.Name} advanced to level {recipient.Level} with help from {currentPlayer.Name2}!");
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"\"{currentMaster.Name}\" smiles warmly...");
+        terminal.SetColor("white");
+        terminal.WriteLine("\"True strength is found in lifting others.\"");
+
+        await terminal.PressAnyKey();
     }
 
     #endregion

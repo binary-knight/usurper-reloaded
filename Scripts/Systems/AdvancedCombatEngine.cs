@@ -490,8 +490,8 @@ public class AdvancedCombatEngine : Node
         {
             terminal.WriteLine($"But you have been spared! {GameConfig.PlayerColor}{defender.Name2}{GameConfig.TextColor} just looks at you with contempt.");
             
-            // Display defender's mercy phrase
-            string mercyPhrase = !string.IsNullOrEmpty(defender.Phrases[4]) ? 
+            // Display defender's mercy phrase (index 4 = spare opponent phrase)
+            string mercyPhrase = (defender.Phrases?.Count > 4 && !string.IsNullOrEmpty(defender.Phrases[4])) ?
                 defender.Phrases[4] : "I don't have time to kill worms like you!";
             terminal.WriteLine($"{GameConfig.TalkColor}{mercyPhrase}{GameConfig.TextColor}");
             terminal.WriteLine("You crawl away, happy to be alive, but with no pride!");
@@ -531,8 +531,8 @@ public class AdvancedCombatEngine : Node
         terminal.WriteLine($"\n{GameConfig.DeathColor}NO MERCY!{GameConfig.TextColor}");
         terminal.WriteLine($"{GameConfig.PlayerColor}{defender.Name2}{GameConfig.TextColor} shows no compassion!");
         
-        // Display defender's kill phrase
-        string killPhrase = !string.IsNullOrEmpty(defender.Phrases[5]) ? 
+        // Display defender's kill phrase (index 5 = don't spare opponent phrase)
+        string killPhrase = (defender.Phrases?.Count > 5 && !string.IsNullOrEmpty(defender.Phrases[5])) ?
             defender.Phrases[5] : "Die, you worthless coward!";
         terminal.WriteLine($"{GameConfig.TalkColor}{killPhrase}{GameConfig.TextColor}");
         

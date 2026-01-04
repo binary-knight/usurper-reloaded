@@ -537,7 +537,7 @@ namespace UsurperRemake.Systems
                         case 1:
                             terminal.SetColor("yellow");
                             terminal.WriteLine("Gold coins fall from your pockets as you dance!");
-                            player.Gold += level * 100;
+                            player.Gold += level * 900;  // Increased from 300 for economic balance  // Increased from 100 for economic balance
                             break;
                         case 2:
                             terminal.SetColor("cyan");
@@ -638,10 +638,10 @@ namespace UsurperRemake.Systems
                         terminal.WriteLine("");
                         terminal.WriteLine("She notices you watching and winks.");
                         terminal.WriteLine("\"Thanks for not interfering. Here's for the show.\"");
-                        player.Gold += level * 50;
+                        player.Gold += level * 150;  // Increased from 50 for economic balance
                         player.Experience += level * 100;
                         terminal.SetColor("yellow");
-                        terminal.WriteLine($"+{level * 50} gold, +{level * 100} exp!");
+                        terminal.WriteLine($"+{level * 150} gold, +{level * 100} exp!");
                     }
                     else
                     {
@@ -737,12 +737,12 @@ namespace UsurperRemake.Systems
                         terminal.WriteLine("\"Actually, princess, I think I'LL ransom you.\"");
                         terminal.WriteLine("");
 
-                        player.Gold += level * 2000;
+                        player.Gold += level * 5000;  // Increased from 2000 for economic balance (major jackpot)
                         player.Darkness += 100;
                         player.Chivalry = Math.Max(0, player.Chivalry - 100);
 
                         terminal.SetColor("yellow");
-                        terminal.WriteLine($"+{level * 2000} gold from ransom!");
+                        terminal.WriteLine($"+{level * 5000} gold from ransom!");
                         terminal.SetColor("magenta");
                         terminal.WriteLine("+100 Darkness, -100 Chivalry");
                         terminal.WriteLine("Your reputation suffers...");
@@ -1307,8 +1307,8 @@ namespace UsurperRemake.Systems
                     terminal.SetColor("green");
                     terminal.WriteLine("You glimpse your future self!");
                     terminal.WriteLine("They hand you a bag of gold and wink.");
-                    player.Gold += level * 500;
-                    terminal.WriteLine($"+{level * 500} gold from your future self!");
+                    player.Gold += level * 1500;  // Increased from 500 for economic balance
+                    terminal.WriteLine($"+{level * 1500} gold from your future self!");
                     break;
 
                 case 1:
@@ -1818,25 +1818,25 @@ namespace UsurperRemake.Systems
                     terminal.WriteLine($"-{damage} HP!");
                     terminal.SetColor("yellow");
                     terminal.WriteLine("But you find ancient treasures within!");
-                    player.Gold += level * 500;
-                    terminal.WriteLine($"+{level * 500} gold!");
+                    player.Gold += level * 1500;  // Increased from 500 for economic balance
+                    terminal.WriteLine($"+{level * 1500} gold!");
                 }
                 else
                 {
                     terminal.SetColor("bright_yellow");
                     terminal.WriteLine("The occupant has long since turned to dust.");
                     terminal.WriteLine("But their treasures remain!");
-                    player.Gold += level * 800;
+                    player.Gold += level * 2400;  // Increased from 800 for economic balance
                     player.Strength += 2;
-                    terminal.WriteLine($"+{level * 800} gold, +2 Strength!");
+                    terminal.WriteLine($"+{level * 2400} gold, +2 Strength!");
                 }
             }
             else if (choice.ToUpper() == "T")
             {
                 terminal.SetColor("yellow");
                 terminal.WriteLine("You carefully gather the loose coins and gems.");
-                player.Gold += level * 200;
-                terminal.WriteLine($"+{level * 200} gold!");
+                player.Gold += level * 600;  // Increased from 200 for economic balance
+                terminal.WriteLine($"+{level * 600} gold!");
             }
 
             await terminal.PressAnyKey();
@@ -1869,9 +1869,9 @@ namespace UsurperRemake.Systems
                 terminal.WriteLine("The rats accept your offering.");
                 terminal.WriteLine("\"YOU MAY PASS, SURFACE DWELLER.\"");
                 terminal.WriteLine("They part, revealing a hidden treasure cache!");
-                player.Gold += level * 300;
+                player.Gold += level * 900;  // Increased from 300 for economic balance
                 terminal.SetColor("green");
-                terminal.WriteLine($"+{level * 300} gold found!");
+                terminal.WriteLine($"+{level * 900} gold found!");
             }
             else if (choice.ToUpper() == "F")
             {
@@ -1885,7 +1885,7 @@ namespace UsurperRemake.Systems
                 {
                     terminal.SetColor("green");
                     terminal.WriteLine("You slay the Rat King!");
-                    player.Gold += level * 400;
+                    player.Gold += level * 1200;  // Increased from 400 for economic balance
                     player.Experience += level * 200;
                 }
             }
@@ -1922,9 +1922,9 @@ namespace UsurperRemake.Systems
                 terminal.WriteLine("You take the child's hand and guide them to safety.");
                 terminal.WriteLine("\"Thank you! My family will reward you!\"");
 
-                player.Gold += level * 200;
+                player.Gold += level * 600;  // Increased from 200 for economic balance
                 player.Chivalry += 100;
-                terminal.WriteLine($"+{level * 200} gold, +100 Chivalry!");
+                terminal.WriteLine($"+{level * 600} gold, +100 Chivalry!");
             }
             else if (choice.ToUpper() == "C")
             {
@@ -2021,9 +2021,9 @@ namespace UsurperRemake.Systems
             {
                 terminal.SetColor("yellow");
                 terminal.WriteLine("You grab valuable alchemical supplies!");
-                player.Gold += level * 300;
+                player.Gold += level * 900;  // Increased from 300 for economic balance
                 player.Healing = Math.Min(player.MaxPotions, player.Healing + 2);
-                terminal.WriteLine($"+{level * 300} gold, +2 potions!");
+                terminal.WriteLine($"+{level * 900} gold, +2 potions!");
             }
 
             await terminal.PressAnyKey();
@@ -2059,22 +2059,22 @@ namespace UsurperRemake.Systems
                     terminal.WriteLine($"-{damage} HP!");
                     terminal.SetColor("yellow");
                     terminal.WriteLine("But you grab what you can!");
-                    player.Gold += level * 300;
+                    player.Gold += level * 900;  // Increased from 300 for economic balance
                 }
                 else
                 {
                     terminal.SetColor("bright_yellow");
                     terminal.WriteLine("Jackpot! You take everything!");
-                    player.Gold += level * 700;
-                    terminal.WriteLine($"+{level * 700} gold!");
+                    player.Gold += level * 2100;  // Increased from 700 for economic balance
+                    terminal.WriteLine($"+{level * 2100} gold!");
                 }
             }
             else if (choice.ToUpper() == "S")
             {
                 terminal.SetColor("yellow");
                 terminal.WriteLine("You carefully pocket some valuables.");
-                player.Gold += level * 200;
-                terminal.WriteLine($"+{level * 200} gold!");
+                player.Gold += level * 600;  // Increased from 200 for economic balance
+                terminal.WriteLine($"+{level * 600} gold!");
             }
             else
             {
@@ -2125,7 +2125,7 @@ namespace UsurperRemake.Systems
             terminal.WriteLine("Gold piled higher than you've ever seen!");
             terminal.WriteLine("The dragon seems to be away...");
 
-            player.Gold += level * 1000;
+            player.Gold += level * 3000;  // Increased from 1000 for economic balance
             terminal.SetColor("bright_yellow");
             terminal.WriteLine($"You grab {level * 1000} gold and RUN!");
             await terminal.PressAnyKey();
@@ -2199,7 +2199,7 @@ namespace UsurperRemake.Systems
             terminal.WriteLine("A sealed container from an ancient civilization.", "white");
             terminal.WriteLine("Inside: treasures from another age!");
 
-            player.Gold += level * 400;
+            player.Gold += level * 1200;  // Increased from 400 for economic balance
             player.Experience += level * 150;
             terminal.SetColor("bright_yellow");
             terminal.WriteLine($"+{level * 400} gold, +{level * 150} exp!");
@@ -2335,7 +2335,7 @@ namespace UsurperRemake.Systems
             terminal.WriteLine("An adventurer is frozen solid in ice.", "white");
             terminal.WriteLine("Their equipment looks valuable...");
 
-            player.Gold += level * 300;
+            player.Gold += level * 900;  // Increased from 300 for economic balance
             player.Healing = Math.Min(player.MaxPotions, player.Healing + 2);
             terminal.SetColor("yellow");
             terminal.WriteLine("You take their supplies. They won't need them.");
@@ -2372,7 +2372,7 @@ namespace UsurperRemake.Systems
                 player.HP -= player.MaxHP / 4;
                 terminal.SetColor("red");
                 terminal.WriteLine("You're mauled! But escape with treasure.");
-                player.Gold += level * 500;
+                player.Gold += level * 1500;  // Increased from 500 for economic balance
             }
             else
             {
@@ -2500,7 +2500,7 @@ namespace UsurperRemake.Systems
 
             if (random.NextDouble() < 0.5)
             {
-                player.Gold += level * 1000;
+                player.Gold += level * 3000;  // Increased from 1000 for economic balance
                 terminal.SetColor("bright_yellow");
                 terminal.WriteLine("You grab treasure from another dimension!");
             }

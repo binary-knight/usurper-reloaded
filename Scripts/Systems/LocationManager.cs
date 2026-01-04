@@ -90,7 +90,12 @@ public class LocationManager
         
         // Phase 12: Relationship System
         locations[GameLocation.LoveCorner] = new LoveStreetLocation();
-        
+
+        // Quest Hall - where players claim and complete quests
+        locations[GameLocation.QuestHall] = new QuestHallLocation(terminal);
+
+        // Note: Gym removed - stat training doesn't fit single-player endless format
+
         GD.Print($"[LocationManager] Initialized {locations.Count} locations");
     }
     
@@ -183,7 +188,9 @@ public class LocationManager
             GameLocation.PrisonWalk,    // loc9 – outside prison grounds
             GameLocation.Home           // loc10 – your home
         };
-        
+
+        // Note: Gym removed from navigation
+
         navigationTable[GameLocation.DarkAlley] = new List<GameLocation>
         {
             GameLocation.MainStreet   // loc1
@@ -497,10 +504,23 @@ public class LocationManager
 public class LocationExitException : Exception
 {
     public GameLocation DestinationLocation { get; }
-    
+
     public LocationExitException(GameLocation destination) : base($"Exiting to {destination}")
     {
         DestinationLocation = destination;
+    }
+}
+
+/// <summary>
+/// Exception thrown when the player wants to quit the game entirely
+/// </summary>
+public class GameExitException : Exception
+{
+    public string Reason { get; }
+
+    public GameExitException(string reason = "Player quit game") : base(reason)
+    {
+        Reason = reason;
     }
 }
 

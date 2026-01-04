@@ -24,6 +24,14 @@ namespace UsurperRemake
         public int Attack { get; set; }              // attack bonus
         public int Dexterity { get; set; }           // dexterity bonus
         public int Wisdom { get; set; }              // wisdom bonus
+        public int Armor { get; set; }               // armor value (for armor items)
+        public int HP { get; set; }                  // HP bonus
+        public int Mana { get; set; }                // Mana bonus
+        public int Charisma { get; set; }            // Charisma bonus
+        public int Constitution { get; set; }        // Constitution bonus
+        public int Intelligence { get; set; }        // Intelligence bonus
+        public int Agility { get; set; }             // Agility bonus
+        public int MinLevel { get; set; }            // Minimum level required to use
         
         // Magic properties
         public MagicProperties MagicProperties { get; set; } = new();
@@ -32,17 +40,44 @@ namespace UsurperRemake
         public bool OnlyForGood { get; set; }        // good alignment only
         public bool OnlyForEvil { get; set; }        // evil alignment only
         public bool IsCursed { get; set; }           // cursed item
-        
+
         public long ArmPow { get; set; }             // armor power
-        public long WeapPow { get; set; }            // weapon power  
+        public long WeapPow { get; set; }            // weapon power
         public string Phrase { get; set; } = "";    // special phrase for the item
-        public bool Cursed { get; set; }             // cursed item?
+
+        // Backwards compatibility alias for IsCursed
+        public bool Cursed
+        {
+            get => IsCursed;
+            set => IsCursed = value;
+        }
         
         // Compatibility member – some shop code expects this
         public long StrengthRequired { get; set; } = 0;
-        
+
+        // Source tracking (for loot system)
+        public bool Shop { get; set; }               // Item from shop
+        public bool Dungeon { get; set; }            // Item from dungeon loot
+
+        // Description for special effects
+        public List<string> Description { get; set; } = new();
+
         // Simple shallow clone required by shop/location code
-        public Item Clone() => (Item) MemberwiseClone();
+        public Item Clone()
+        {
+            var clone = (Item)MemberwiseClone();
+            // Deep clone the lists
+            clone.Description = new List<string>(Description);
+            clone.MagicProperties = new MagicProperties
+            {
+                Mana = MagicProperties.Mana,
+                Wisdom = MagicProperties.Wisdom,
+                Dexterity = MagicProperties.Dexterity,
+                MagicResistance = MagicProperties.MagicResistance,
+                DiseaseImmunity = MagicProperties.DiseaseImmunity
+            };
+            return clone;
+        }
     }
     
     /// <summary>

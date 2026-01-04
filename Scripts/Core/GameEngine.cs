@@ -899,6 +899,9 @@ public partial class GameEngine : Node
     /// </summary>
     private async Task CreateNewGame(string playerName)
     {
+        // Reset singleton systems for new game
+        UsurperRemake.Systems.RomanceTracker.Instance.Reset();
+
         // Create new player using character creation system
         var newCharacter = await CreateNewPlayer(playerName);
         if (newCharacter == null)
@@ -962,6 +965,9 @@ public partial class GameEngine : Node
                 await WorldInitializerSystem.Instance.InitializeWorld(100);
                 terminal.WriteLine("History has been written. Your adventure begins!", "bright_green");
             }
+
+            // Initialize starter quests if none exist
+            QuestSystem.EnsureQuestsExist();
         }
 
         // Check if player is allowed to play
@@ -1042,6 +1048,7 @@ public partial class GameEngine : Node
             Class = playerData.Class,
             Sex = (CharacterSex)playerData.Sex,
             Age = playerData.Age,
+            Difficulty = playerData.Difficulty,
             
             // Game state
             TurnsRemaining = playerData.TurnsRemaining,
@@ -1082,6 +1089,7 @@ public partial class GameEngine : Node
 
             // Character settings
             AutoHeal = playerData.AutoHeal,
+            CombatSpeed = playerData.CombatSpeed,
             Loyalty = playerData.Loyalty,
             Haunt = playerData.Haunt,
             Master = playerData.Master,
@@ -1133,6 +1141,37 @@ public partial class GameEngine : Node
             );
         }
 
+        // Restore curse status for equipped items
+        player.WeaponCursed = playerData.WeaponCursed;
+        player.ArmorCursed = playerData.ArmorCursed;
+        player.ShieldCursed = playerData.ShieldCursed;
+
+        // Restore player inventory (dungeon loot items)
+        if (playerData.Inventory != null && playerData.Inventory.Count > 0)
+        {
+            player.Inventory = playerData.Inventory.Select(itemData => new Item
+            {
+                Name = itemData.Name,
+                Value = itemData.Value,
+                Type = itemData.Type,
+                Attack = itemData.Attack,
+                Armor = itemData.Armor,
+                Strength = itemData.Strength,
+                Dexterity = itemData.Dexterity,
+                Wisdom = itemData.Wisdom,
+                Defence = itemData.Defence,
+                HP = itemData.HP,
+                Mana = itemData.Mana,
+                Charisma = itemData.Charisma,
+                MinLevel = itemData.MinLevel,
+                IsCursed = itemData.IsCursed,
+                Cursed = itemData.Cursed,
+                Shop = itemData.Shop,
+                Dungeon = itemData.Dungeon,
+                Description = itemData.Description?.ToList() ?? new List<string>()
+            }).ToList();
+        }
+
         // Restore base stats
         player.BaseStrength = playerData.BaseStrength > 0 ? playerData.BaseStrength : playerData.Strength;
         player.BaseDexterity = playerData.BaseDexterity > 0 ? playerData.BaseDexterity : playerData.Dexterity;
@@ -1165,6 +1204,99 @@ public partial class GameEngine : Node
         {
             UsurperRemake.Systems.RomanceTracker.Instance.LoadFromSaveData(playerData.RomanceData);
         }
+
+        // Restore learned combat abilities
+        if (playerData.LearnedAbilities?.Count > 0)
+        {
+            player.LearnedAbilities = new HashSet<string>(playerData.LearnedAbilities);
+        }
+
+        // Restore training system
+        player.Trains = playerData.Trains;
+        player.TrainingPoints = playerData.TrainingPoints;
+        if (playerData.SkillProficiencies?.Count > 0)
+        {
+            player.SkillProficiencies = playerData.SkillProficiencies.ToDictionary(
+                kvp => kvp.Key,
+                kvp => (TrainingSystem.ProficiencyLevel)kvp.Value);
+        }
+        if (playerData.SkillTrainingProgress?.Count > 0)
+        {
+            player.SkillTrainingProgress = new Dictionary<string, int>(playerData.SkillTrainingProgress);
+        }
+
+        // Restore spells and skills
+        if (playerData.Spells?.Count > 0)
+        {
+            player.Spell = playerData.Spells;
+        }
+        if (playerData.Skills?.Count > 0)
+        {
+            player.Skill = playerData.Skills;
+        }
+
+        // Restore legacy equipment slots
+        player.LHand = playerData.LHand;
+        player.RHand = playerData.RHand;
+        player.Head = playerData.Head;
+        player.Body = playerData.Body;
+        player.Arms = playerData.Arms;
+        player.LFinger = playerData.LFinger;
+        player.RFinger = playerData.RFinger;
+        player.Legs = playerData.Legs;
+        player.Feet = playerData.Feet;
+        player.Waist = playerData.Waist;
+        player.Neck = playerData.Neck;
+        player.Neck2 = playerData.Neck2;
+        player.Face = playerData.Face;
+        player.Shield = playerData.Shield;
+        player.Hands = playerData.Hands;
+        player.ABody = playerData.ABody;
+
+        // Restore combat flags
+        player.Immortal = playerData.Immortal;
+        player.BattleCry = playerData.BattleCry ?? "";
+        player.BGuardNr = playerData.BGuardNr;
+
+        // Restore gym cooldown timers
+        player.LastStrengthTraining = playerData.LastStrengthTraining;
+        player.LastDexterityTraining = playerData.LastDexterityTraining;
+        player.LastTugOfWar = playerData.LastTugOfWar;
+        player.LastWrestling = playerData.LastWrestling;
+
+        // Set the global difficulty mode based on the loaded player
+        DifficultySystem.CurrentDifficulty = player.Difficulty;
+
+        // Load player statistics (or initialize if not present)
+        if (playerData.Statistics != null)
+        {
+            player.Statistics = playerData.Statistics;
+            player.Statistics.TrackNewSession();
+        }
+        else
+        {
+            player.Statistics = new PlayerStatistics();
+            player.Statistics.TrackNewSession();
+        }
+        StatisticsManager.Current = player.Statistics;
+
+        // Load player achievements (or initialize if not present)
+        if (playerData.AchievementsData != null)
+        {
+            player.Achievements.UnlockedAchievements = new HashSet<string>(playerData.AchievementsData.UnlockedAchievements);
+            player.Achievements.UnlockDates = new Dictionary<string, DateTime>(playerData.AchievementsData.UnlockDates);
+        }
+        else
+        {
+            player.Achievements = new PlayerAchievements();
+        }
+
+        // Initialize achievement system
+        AchievementSystem.Initialize();
+
+        // CRITICAL: Recalculate stats to apply equipment bonuses from loaded items
+        // This ensures WeapPow, ArmPow, and all stat bonuses are correctly applied
+        player.RecalculateStats();
 
         return player;
     }
@@ -1238,6 +1370,13 @@ public partial class GameEngine : Node
             QuestSystem.RestoreFromSaveData(worldState.ActiveQuests);
         }
 
+        // Restore marketplace listings from save data
+        if (worldState.MarketplaceListings != null && worldState.MarketplaceListings.Count > 0)
+        {
+            UsurperRemake.Systems.MarketplaceSystem.Instance.LoadFromSaveData(worldState.MarketplaceListings);
+            GD.Print($"[GameEngine] Restored {worldState.MarketplaceListings.Count} marketplace listings");
+        }
+
         GD.Print($"[GameEngine] World state restored: {worldState.ActiveEvents?.Count ?? 0} active events, {worldState.ActiveQuests?.Count ?? 0} quests");
         await Task.CompletedTask;
     }
@@ -1247,14 +1386,128 @@ public partial class GameEngine : Node
     /// </summary>
     private async Task RestoreNPCs(List<NPCData> npcData)
     {
-        // Note: EnhancedNPCSystem doesn't have an Instance property
-        // In a full implementation, this would restore NPC state including AI memories and relationships
+        if (npcData == null || npcData.Count == 0)
+        {
+            GD.Print("No NPC data to restore - will use fresh NPCs");
+            return;
+        }
+
+        // Clear existing NPCs before restoring
+        NPCSpawnSystem.Instance.ClearAllNPCs();
+
+        NPC kingNpc = null;
+
         foreach (var data in npcData)
         {
-            // Restore NPC state - implementation depends on NPC system architecture
+            // Create NPC from save data
+            var npc = new NPC
+            {
+                Id = data.Id,
+                Name1 = data.Name,
+                Name2 = data.Name,
+                Level = data.Level,
+                HP = data.HP,
+                MaxHP = data.MaxHP,
+                CurrentLocation = data.Location,
+
+                // Stats
+                Experience = data.Experience,
+                Strength = data.Strength,
+                Defence = data.Defence,
+                Agility = data.Agility,
+                Dexterity = data.Dexterity,
+                Mana = data.Mana,
+                MaxMana = data.MaxMana,
+                WeapPow = data.WeapPow,
+                ArmPow = data.ArmPow,
+
+                // Class and race
+                Class = data.Class,
+                Race = data.Race,
+                Sex = (CharacterSex)data.Sex,
+
+                // Team and political status
+                Team = data.Team,
+                CTurf = data.IsTeamLeader,
+
+                // Alignment
+                Chivalry = data.Chivalry,
+                Darkness = data.Darkness,
+
+                // Inventory
+                Gold = data.Gold,
+                AI = CharacterAI.Computer
+            };
+
+            // Restore items
+            if (data.Items != null && data.Items.Length > 0)
+            {
+                npc.Item = data.Items.ToList();
+            }
+
+            // Restore market inventory for NPC trading
+            if (data.MarketInventory != null && data.MarketInventory.Count > 0)
+            {
+                foreach (var itemData in data.MarketInventory)
+                {
+                    var item = new global::Item
+                    {
+                        Name = itemData.ItemName,
+                        Value = itemData.ItemValue,
+                        Type = itemData.ItemType,
+                        Attack = itemData.Attack,
+                        Armor = itemData.Armor,
+                        Strength = itemData.Strength,
+                        Defence = itemData.Defence,
+                        IsCursed = itemData.IsCursed
+                    };
+                    npc.MarketInventory.Add(item);
+                }
+            }
+
+            // Initialize brain with personality if available
+            if (data.PersonalityProfile != null)
+            {
+                // Reconstruct PersonalityProfile from saved PersonalityData
+                var profile = new PersonalityProfile
+                {
+                    Aggression = data.PersonalityProfile.Aggression,
+                    Loyalty = data.PersonalityProfile.Loyalty,
+                    Intelligence = data.PersonalityProfile.Intelligence,
+                    Greed = data.PersonalityProfile.Greed,
+                    Courage = data.PersonalityProfile.Courage,
+                    Ambition = data.PersonalityProfile.Ambition,
+                    Archetype = "Balanced" // Default archetype
+                };
+                npc.Brain = new NPCBrain(npc, profile);
+            }
+            else
+            {
+                npc.Brain = new NPCBrain(npc, PersonalityProfile.GenerateRandom("Balanced"));
+            }
+
+            // Add to spawn system
+            NPCSpawnSystem.Instance.AddRestoredNPC(npc);
+
+            // Track who was king
+            if (data.IsKing)
+            {
+                kingNpc = npc;
+            }
         }
-        
+
+        // Restore the king if there was one
+        if (kingNpc != null)
+        {
+            global::CastleLocation.SetCurrentKing(kingNpc);
+            GD.Print($"Restored king: {kingNpc.Name}");
+        }
+
+        // Mark NPCs as initialized so they don't get re-created
+        NPCSpawnSystem.Instance.MarkAsInitialized();
+
         GD.Print($"Restored {npcData.Count} NPCs from save data");
+        await Task.CompletedTask;
     }
     
     /// <summary>
@@ -1571,15 +1824,18 @@ public partial class GameEngine : Node
     private async Task QuitGame()
     {
         terminal.WriteLine("Saving game...", "yellow");
-        
+
         if (currentPlayer != null)
         {
             SaveManager.SavePlayer(currentPlayer);
         }
-        
+
+        // Stop background simulation threads
+        worldSimulator?.StopSimulation();
+
         terminal.WriteLine("Goodbye!", "green");
         await Task.Delay(1000);
-        
+
         // GetTree().Quit(); // Godot API not available, use alternative
         Environment.Exit(0);
     }

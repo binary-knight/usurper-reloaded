@@ -1,4 +1,3 @@
-using UsurperRemake.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,140 +5,402 @@ using System.Threading.Tasks;
 using Godot;
 
 /// <summary>
-/// Quest Hall Location - Based on Pascal PLYQUEST.PAS
-/// Where players can claim and complete quests
+/// Quest Hall Location - Where players can view and claim quests/bounties
+/// Replaces the old King-created quest system with NPC-generated bounties
 /// </summary>
 public class QuestHallLocation : BaseLocation
 {
     public QuestHallLocation(TerminalEmulator terminal) : base()
     {
+        LocationName = "Quest Hall";
+        LocationDescription = "The royal quest board where bounties and missions are posted.";
     }
-    
-    public new async Task Enter(Character player)
+
+    public override async Task EnterLocation(Character player, TerminalEmulator term)
     {
-        terminal.WriteLine("You enter the Quest Hall.", "white");
-        terminal.WriteLine("The royal clerk Pingon is here to distribute assignments.", "white");
-        terminal.WriteLine("", "white");
-        
+        currentPlayer = player;
+        terminal = term;
+
+        terminal.WriteLine("");
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("╔════════════════════════════════════════╗");
+        terminal.WriteLine("║          THE QUEST HALL                ║");
+        terminal.WriteLine("╚════════════════════════════════════════╝");
+        terminal.SetColor("white");
+        terminal.WriteLine("");
+        terminal.WriteLine("A large board dominates the wall, covered with bounty notices");
+        terminal.WriteLine("and quest postings from the Royal Council and local guilds.");
+        terminal.WriteLine("");
+
         bool leaving = false;
         while (!leaving)
         {
-            ShowMenu(player.Expert);
-            var choice = await terminal.GetInput("Your choice: ");
-            
-            switch (choice.ToUpper())
-            {
-                case "C":
-                    await ClaimQuest(player);
-                    break;
-                case "F":
-                    await FinishQuest(player);
-                    break;
-                case "S":
-                    await ShowStatus(player);
-                    break;
-                case "R":
-                    leaving = true;
-                    break;
-                default:
-                    terminal.WriteLine("Invalid choice.", "red");
-                    break;
-            }
+            leaving = await ShowMenuAndProcess();
         }
-        
-        terminal.WriteLine("You leave the Quest Hall.", "white");
+
+        terminal.WriteLine("You leave the Quest Hall.", "gray");
     }
-    
-    private void ShowMenu(bool expert)
+
+    private async Task<bool> ShowMenuAndProcess()
     {
-        if (!expert)
+        terminal.SetColor("cyan");
+        terminal.WriteLine("─── Quest Hall ───");
+        terminal.SetColor("white");
+
+        // Show active quest count
+        var activeQuests = QuestSystem.GetPlayerQuests(currentPlayer.Name2);
+        var availableQuests = QuestSystem.GetAvailableQuests(currentPlayer);
+
+        terminal.WriteLine($"Active Quests: {activeQuests.Count}  |  Available: {availableQuests.Count}");
+        terminal.WriteLine("");
+
+        terminal.SetColor("bright_cyan");
+        terminal.Write(" [V]");
+        terminal.SetColor("white");
+        terminal.Write("iew Available Quests    ");
+
+        terminal.SetColor("bright_cyan");
+        terminal.Write("[A]");
+        terminal.SetColor("white");
+        terminal.WriteLine("ctive Quests");
+
+        terminal.SetColor("bright_green");
+        terminal.Write(" [C]");
+        terminal.SetColor("white");
+        terminal.Write("laim a Quest           ");
+
+        terminal.SetColor("bright_green");
+        terminal.Write("[T]");
+        terminal.SetColor("white");
+        terminal.WriteLine("urn In Quest");
+
+        terminal.SetColor("bright_yellow");
+        terminal.Write(" [B]");
+        terminal.SetColor("white");
+        terminal.Write("ounty Board            ");
+
+        terminal.SetColor("gray");
+        terminal.Write("[R]");
+        terminal.SetColor("white");
+        terminal.WriteLine("eturn to Street");
+
+        terminal.WriteLine("");
+
+        var choice = await terminal.GetInput("Your choice: ");
+
+        switch (choice.ToUpper().Trim())
         {
-            terminal.WriteLine("-*- Quest Hall -*-", "bright_blue");
-            terminal.WriteLine("(C)laim Quest  (F)inish Quest", "cyan");
-            terminal.WriteLine("(S)tatus       (R)eturn", "cyan");
+            case "V":
+                await ViewAvailableQuests();
+                break;
+            case "A":
+                await ViewActiveQuests();
+                break;
+            case "C":
+                await ClaimQuest();
+                break;
+            case "T":
+                await TurnInQuest();
+                break;
+            case "B":
+                await ViewBountyBoard();
+                break;
+            case "R":
+            case "":
+                return true;
+            default:
+                terminal.WriteLine("Invalid choice.", "red");
+                break;
+        }
+
+        return false;
+    }
+
+    private async Task ViewAvailableQuests()
+    {
+        terminal.WriteLine("");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("═══ Available Quests ═══");
+        terminal.SetColor("white");
+
+        var quests = QuestSystem.GetAvailableQuests(currentPlayer);
+
+        if (quests.Count == 0)
+        {
+            terminal.WriteLine("No quests available for your level.", "yellow");
+            terminal.WriteLine($"(Your level: {currentPlayer.Level})", "gray");
         }
         else
         {
-            terminal.WriteLine("Quest Hall (C,F,S,R) :", "white");
-        }
-    }
-    
-    private async Task ClaimQuest(Character player)
-    {
-        var quests = QuestSystem.GetAvailableQuests(player);
-        if (quests.Count == 0)
-        {
-            terminal.WriteLine("No quests available.", "yellow");
-            return;
-        }
-        
-        terminal.WriteLine("Available Quests:", "cyan");
-        for (int i = 0; i < quests.Count; i++)
-        {
-            var quest = quests[i];
-            terminal.WriteLine($"[{i + 1}] {quest.GetTargetDescription()} - {quest.GetDifficultyString()}", "white");
-        }
-        
-        var input = await terminal.GetInput($"Select quest (1-{quests.Count}): ");
-        if (int.TryParse(input, out int selection) && selection > 0 && selection <= quests.Count)
-        {
-            var quest = quests[selection - 1];
-            var claimResult = QuestSystem.ClaimQuest(player as Player ?? new Player(), quest);
-            if (claimResult == QuestClaimResult.CanClaim)
+            foreach (var quest in quests)
             {
-                terminal.WriteLine("Quest claimed successfully!", "green");
-            }
-            else
-            {
-                terminal.WriteLine("Failed to claim quest.", "red");
+                DisplayQuestSummary(quest);
             }
         }
+
+        terminal.WriteLine("");
+        await terminal.PressAnyKey();
     }
-    
-    private async Task FinishQuest(Character player)
+
+    private async Task ViewActiveQuests()
     {
-        var quests = QuestSystem.GetPlayerQuests(player.Name2);
+        terminal.WriteLine("");
+        terminal.SetColor("bright_green");
+        terminal.WriteLine("═══ Your Active Quests ═══");
+        terminal.SetColor("white");
+
+        var quests = QuestSystem.GetPlayerQuests(currentPlayer.Name2);
+
         if (quests.Count == 0)
         {
             terminal.WriteLine("You have no active quests.", "yellow");
+        }
+        else
+        {
+            foreach (var quest in quests)
+            {
+                DisplayQuestDetails(quest);
+            }
+        }
+
+        terminal.WriteLine("");
+        await terminal.PressAnyKey();
+    }
+
+    private async Task ClaimQuest()
+    {
+        terminal.WriteLine("");
+        var quests = QuestSystem.GetAvailableQuests(currentPlayer);
+
+        if (quests.Count == 0)
+        {
+            terminal.WriteLine("No quests available to claim.", "yellow");
+            await Task.Delay(1000);
             return;
         }
-        
-        terminal.WriteLine("Your Active Quests:", "cyan");
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine("Select a quest to claim:");
+        terminal.SetColor("white");
+
         for (int i = 0; i < quests.Count; i++)
         {
             var quest = quests[i];
-            terminal.WriteLine($"[{i + 1}] {quest.GetTargetDescription()} - {quest.DaysRemaining} days left", "white");
+            var diffColor = quest.Difficulty switch
+            {
+                1 => "green",
+                2 => "yellow",
+                3 => "bright_red",
+                _ => "red"
+            };
+            terminal.Write($" [{i + 1}] ");
+            terminal.SetColor(diffColor);
+            terminal.Write($"[{quest.GetDifficultyString()}] ");
+            terminal.SetColor("white");
+            terminal.WriteLine(quest.Title ?? quest.GetTargetDescription());
         }
-        
-        var input = await terminal.GetInput($"Select quest to complete (1-{quests.Count}): ");
+
+        terminal.WriteLine(" [0] Cancel");
+        terminal.WriteLine("");
+
+        var input = await terminal.GetInput("Select: ");
         if (int.TryParse(input, out int selection) && selection > 0 && selection <= quests.Count)
         {
             var quest = quests[selection - 1];
-            terminal.WriteLine("You embark on your journey...", "white");
-            await Task.Delay(1000);
-            
-            var completionResult = QuestSystem.CompleteQuest(player, quest.Id, terminal);
-            if (completionResult == QuestCompletionResult.Success)
+
+            // Show quest details before confirming
+            terminal.WriteLine("");
+            DisplayQuestDetails(quest);
+            terminal.WriteLine("");
+
+            var confirm = await terminal.GetInput("Accept this quest? (Y/N): ");
+            if (confirm.ToUpper().StartsWith("Y"))
             {
-                terminal.WriteLine("Quest completed successfully!", "green");
+                var result = QuestSystem.ClaimQuest(currentPlayer as Player ?? new Player { Name2 = currentPlayer.Name2 }, quest);
+                if (result == QuestClaimResult.CanClaim)
+                {
+                    terminal.WriteLine("");
+                    terminal.WriteLine("Quest accepted!", "bright_green");
+                    terminal.WriteLine($"You have {quest.DaysToComplete} days to complete this quest.", "cyan");
+                }
+                else
+                {
+                    terminal.WriteLine($"Cannot claim quest: {result}", "red");
+                }
             }
             else
             {
-                terminal.WriteLine("Failed to complete quest.", "red");
+                terminal.WriteLine("Quest not accepted.", "gray");
+            }
+        }
+
+        await Task.Delay(500);
+    }
+
+    private async Task TurnInQuest()
+    {
+        terminal.WriteLine("");
+        var quests = QuestSystem.GetPlayerQuests(currentPlayer.Name2);
+
+        if (quests.Count == 0)
+        {
+            terminal.WriteLine("You have no active quests to turn in.", "yellow");
+            await Task.Delay(1000);
+            return;
+        }
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine("Select a quest to turn in:");
+        terminal.SetColor("white");
+
+        for (int i = 0; i < quests.Count; i++)
+        {
+            var quest = quests[i];
+            var progress = QuestSystem.GetQuestProgressSummary(quest);
+            terminal.WriteLine($" [{i + 1}] {quest.Title ?? quest.GetTargetDescription()}");
+            terminal.WriteLine($"     {progress}", "gray");
+        }
+
+        terminal.WriteLine(" [0] Cancel");
+        terminal.WriteLine("");
+
+        var input = await terminal.GetInput("Select: ");
+        if (int.TryParse(input, out int selection) && selection > 0 && selection <= quests.Count)
+        {
+            var quest = quests[selection - 1];
+            var result = QuestSystem.CompleteQuest(currentPlayer, quest.Id, terminal);
+
+            if (result == QuestCompletionResult.Success)
+            {
+                terminal.WriteLine("");
+                terminal.WriteLine("╔════════════════════════════════════════╗", "bright_yellow");
+                terminal.WriteLine("║         QUEST COMPLETED!               ║", "bright_yellow");
+                terminal.WriteLine("╚════════════════════════════════════════╝", "bright_yellow");
+                terminal.WriteLine("");
+                terminal.WriteLine("The clerk nods approvingly and hands you your reward.", "white");
+            }
+            else if (result == QuestCompletionResult.RequirementsNotMet)
+            {
+                terminal.WriteLine("You haven't completed the quest requirements yet.", "red");
+            }
+            else
+            {
+                terminal.WriteLine($"Cannot complete quest: {result}", "red");
+            }
+        }
+
+        await Task.Delay(500);
+    }
+
+    private async Task ViewBountyBoard()
+    {
+        terminal.WriteLine("");
+        terminal.SetColor("bright_red");
+        terminal.WriteLine("═══ BOUNTY BOARD ═══");
+        terminal.SetColor("white");
+        terminal.WriteLine("Bounties posted by the Crown for dangerous individuals.");
+        terminal.WriteLine("");
+
+        // Get bounties from both the King and the Bounty Board
+        var kingBounties = QuestSystem.GetKingBounties()
+            .Where(q => string.IsNullOrEmpty(q.Occupier))
+            .ToList();
+
+        var otherBounties = QuestSystem.GetAvailableQuests(currentPlayer)
+            .Where(q => q.QuestTarget == QuestTarget.Assassin && q.Initiator != "The Crown")
+            .ToList();
+
+        var allBounties = kingBounties.Concat(otherBounties).ToList();
+
+        if (allBounties.Count == 0)
+        {
+            terminal.WriteLine("No bounties currently posted.", "gray");
+            terminal.WriteLine("Check back later - the King may post new bounties.", "gray");
+        }
+        else
+        {
+            foreach (var bounty in allBounties)
+            {
+                terminal.SetColor("red");
+                terminal.Write("WANTED: ");
+                terminal.SetColor("bright_white");
+                terminal.WriteLine(bounty.Title ?? "Dangerous criminal");
+                terminal.SetColor("white");
+                terminal.WriteLine($"  {bounty.Comment}", "gray");
+                terminal.WriteLine($"  Reward: {bounty.GetRewardDescription()}", "yellow");
+                terminal.WriteLine($"  Difficulty: {bounty.GetDifficultyString()}  |  Posted by: {bounty.Initiator}", "gray");
+                terminal.WriteLine("");
+            }
+        }
+
+        await terminal.PressAnyKey();
+    }
+
+    private void DisplayQuestSummary(Quest quest)
+    {
+        var diffColor = quest.Difficulty switch
+        {
+            1 => "green",
+            2 => "yellow",
+            3 => "bright_red",
+            _ => "red"
+        };
+
+        terminal.SetColor(diffColor);
+        terminal.Write($"[{quest.GetDifficultyString()}] ");
+        terminal.SetColor("bright_white");
+        terminal.WriteLine(quest.Title ?? quest.GetTargetDescription());
+        terminal.SetColor("gray");
+        terminal.WriteLine($"  From: {quest.Initiator}  |  Levels {quest.MinLevel}-{quest.MaxLevel}");
+    }
+
+    private void DisplayQuestDetails(Quest quest)
+    {
+        var diffColor = quest.Difficulty switch
+        {
+            1 => "green",
+            2 => "yellow",
+            3 => "bright_red",
+            _ => "red"
+        };
+
+        terminal.SetColor("bright_white");
+        terminal.WriteLine($"╔═ {quest.Title ?? quest.GetTargetDescription()} ═╗");
+        terminal.SetColor("white");
+
+        if (!string.IsNullOrEmpty(quest.Comment))
+        {
+            terminal.WriteLine($"  \"{quest.Comment}\"", "cyan");
+        }
+
+        terminal.Write("  Difficulty: ");
+        terminal.WriteLine(quest.GetDifficultyString(), diffColor);
+
+        terminal.WriteLine($"  Posted by: {quest.Initiator}");
+        terminal.WriteLine($"  Level range: {quest.MinLevel} - {quest.MaxLevel}");
+        terminal.WriteLine($"  Time limit: {quest.DaysToComplete} days");
+        terminal.WriteLine($"  Reward: {quest.GetRewardDescription()}", "yellow");
+
+        // Show objectives if any
+        if (quest.Objectives.Count > 0)
+        {
+            terminal.WriteLine("  Objectives:", "cyan");
+            foreach (var obj in quest.Objectives)
+            {
+                var status = obj.IsComplete ? "[✓]" : "[ ]";
+                var color = obj.IsComplete ? "green" : "white";
+                terminal.WriteLine($"    {status} {obj.Description} ({obj.CurrentProgress}/{obj.RequiredProgress})", color);
+            }
+        }
+
+        // Show monster targets if any
+        if (quest.Monsters.Count > 0)
+        {
+            terminal.WriteLine("  Targets:", "cyan");
+            foreach (var monster in quest.Monsters)
+            {
+                terminal.WriteLine($"    - {monster.MonsterName} x{monster.Count}");
             }
         }
     }
-    
-    private async Task ShowStatus(Character player)
-    {
-        terminal.WriteLine("Quest Status:", "cyan");
-        terminal.WriteLine($"Quests completed: {player.RoyQuests}", "white");
-        terminal.WriteLine($"Quests today: {player.RoyQuestsToday}", "white");
-        
-        var active = QuestSystem.GetPlayerQuests(player.Name2);
-        terminal.WriteLine($"Active quests: {active.Count}", "white");
-        
-        await terminal.PressAnyKey();
-    }
-} 
+}

@@ -53,7 +53,8 @@ namespace UsurperRemake.Systems
                     Player = SerializePlayer(player),
                     NPCs = await SerializeNPCs(),
                     WorldState = SerializeWorldState(),
-                    Settings = SerializeDailySettings()
+                    Settings = SerializeDailySettings(),
+                    StorySystems = SerializeStorySystems()
                 };
                 
                 var fileName = GetSaveFileName(playerName);
@@ -462,6 +463,7 @@ namespace UsurperRemake.Systems
                 Class = player.Class,
                 Sex = (char)((int)player.Sex),
                 Age = player.Age,
+                Difficulty = player.Difficulty,
                 
                 // Game state
                 CurrentLocation = player.Location.ToString(),
@@ -490,6 +492,34 @@ namespace UsurperRemake.Systems
                     kvp => (int)kvp.Key,
                     kvp => kvp.Value
                 ) ?? new Dictionary<int, int>(),
+
+                // Curse status for equipped items
+                WeaponCursed = player.WeaponCursed,
+                ArmorCursed = player.ArmorCursed,
+                ShieldCursed = player.ShieldCursed,
+
+                // Player inventory (dungeon loot items)
+                Inventory = player.Inventory?.Select(item => new InventoryItemData
+                {
+                    Name = item.Name,
+                    Value = item.Value,
+                    Type = item.Type,
+                    Attack = item.Attack,
+                    Armor = item.Armor,
+                    Strength = item.Strength,
+                    Dexterity = item.Dexterity,
+                    Wisdom = item.Wisdom,
+                    Defence = item.Defence,
+                    HP = item.HP,
+                    Mana = item.Mana,
+                    Charisma = item.Charisma,
+                    MinLevel = item.MinLevel,
+                    IsCursed = item.IsCursed,
+                    Cursed = item.Cursed,
+                    Shop = item.Shop,
+                    Dungeon = item.Dungeon,
+                    Description = item.Description?.ToList() ?? new List<string>()
+                }).ToList() ?? new List<InventoryItemData>(),
 
                 // Base stats
                 BaseStrength = player.BaseStrength,
@@ -533,6 +563,7 @@ namespace UsurperRemake.Systems
 
                 // Character settings
                 AutoHeal = player.AutoHeal,
+                CombatSpeed = player.CombatSpeed,
                 Loyalty = player.Loyalty,
                 Haunt = player.Haunt,
                 Master = player.Master,
@@ -560,64 +591,169 @@ namespace UsurperRemake.Systems
                 
                 // Achievements (for Player type)
                 Achievements = (player as Player)?.Achievements ?? new Dictionary<string, bool>(),
-                
+
+                // Learned combat abilities
+                LearnedAbilities = player.LearnedAbilities?.ToList() ?? new List<string>(),
+
+                // Training system
+                Trains = player.Trains,
+                TrainingPoints = player.TrainingPoints,
+                SkillProficiencies = player.SkillProficiencies?.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => (int)kvp.Value) ?? new Dictionary<string, int>(),
+                SkillTrainingProgress = player.SkillTrainingProgress ?? new Dictionary<string, int>(),
+
+                // Spells and skills
+                Spells = player.Spell ?? new List<List<bool>>(),
+                Skills = player.Skill ?? new List<int>(),
+
+                // Legacy equipment slots
+                LHand = player.LHand,
+                RHand = player.RHand,
+                Head = player.Head,
+                Body = player.Body,
+                Arms = player.Arms,
+                LFinger = player.LFinger,
+                RFinger = player.RFinger,
+                Legs = player.Legs,
+                Feet = player.Feet,
+                Waist = player.Waist,
+                Neck = player.Neck,
+                Neck2 = player.Neck2,
+                Face = player.Face,
+                Shield = player.Shield,
+                Hands = player.Hands,
+                ABody = player.ABody,
+
+                // Combat flags
+                Immortal = player.Immortal,
+                BattleCry = player.BattleCry ?? "",
+                BGuardNr = player.BGuardNr,
+
                 // Timestamps
                 LastLogin = (player as Player)?.LastLogin ?? DateTime.Now,
-                AccountCreated = (player as Player)?.AccountCreated ?? DateTime.Now
+                AccountCreated = (player as Player)?.AccountCreated ?? DateTime.Now,
+
+                // Gym cooldown timers
+                LastStrengthTraining = player.LastStrengthTraining,
+                LastDexterityTraining = player.LastDexterityTraining,
+                LastTugOfWar = player.LastTugOfWar,
+                LastWrestling = player.LastWrestling,
+
+                // Player statistics - update session time before saving
+                Statistics = UpdateAndGetStatistics(player),
+
+                // Player achievements
+                AchievementsData = SerializeAchievements(player)
             };
+        }
+
+        /// <summary>
+        /// Serialize player achievements for saving
+        /// </summary>
+        private PlayerAchievementsData SerializeAchievements(Character player)
+        {
+            return new PlayerAchievementsData
+            {
+                UnlockedAchievements = new HashSet<string>(player.Achievements.UnlockedAchievements),
+                UnlockDates = new Dictionary<string, DateTime>(player.Achievements.UnlockDates)
+            };
+        }
+
+        /// <summary>
+        /// Update statistics session time and return for saving
+        /// </summary>
+        private PlayerStatistics UpdateAndGetStatistics(Character player)
+        {
+            player.Statistics.UpdateSessionTime();
+            return player.Statistics;
         }
         
         private async Task<List<NPCData>> SerializeNPCs()
         {
             var npcData = new List<NPCData>();
-            
-            // Get all NPCs from the world - use GameEngine or WorldSimulator to access NPCs
-            var gameEngine = GameEngine.Instance;
-            if (gameEngine?.CurrentPlayer != null)
+
+            // Get all NPCs from NPCSpawnSystem
+            var worldNPCs = GetWorldNPCs();
+
+            // Get current king for reference
+            var currentKing = global::CastleLocation.GetCurrentKing();
+
+            foreach (var npc in worldNPCs)
             {
-                // For now, we'll create a placeholder implementation
-                // In a full implementation, we'd get NPCs from the world state
-                var worldNPCs = GetWorldNPCs(); // Helper method to get NPCs
-                
-                foreach (var npc in worldNPCs)
+                npcData.Add(new NPCData
                 {
-                    npcData.Add(new NPCData
+                    Id = npc.Id ?? Guid.NewGuid().ToString(),
+                    Name = npc.Name2 ?? npc.Name1,
+                    Level = npc.Level,
+                    HP = npc.HP,
+                    MaxHP = npc.MaxHP,
+                    Location = npc.CurrentLocation ?? npc.Location.ToString(),
+
+                    // Character stats
+                    Experience = npc.Experience,
+                    Strength = npc.Strength,
+                    Defence = npc.Defence,
+                    Agility = npc.Agility,
+                    Dexterity = npc.Dexterity,
+                    Mana = npc.Mana,
+                    MaxMana = npc.MaxMana,
+                    WeapPow = npc.WeapPow,
+                    ArmPow = npc.ArmPow,
+
+                    // Class and race
+                    Class = npc.Class,
+                    Race = npc.Race,
+                    Sex = (char)npc.Sex,
+
+                    // Team and political status - CRITICAL for persistence
+                    Team = npc.Team ?? "",
+                    IsTeamLeader = npc.CTurf,
+                    IsKing = currentKing != null && currentKing.Name == npc.Name,
+
+                    // Alignment
+                    Chivalry = npc.Chivalry,
+                    Darkness = npc.Darkness,
+
+                    // AI state
+                    PersonalityProfile = SerializePersonality(npc.Brain?.Personality),
+                    Memories = SerializeMemories(npc.Brain?.Memory),
+                    CurrentGoals = SerializeGoals(npc.Brain?.Goals),
+                    EmotionalState = SerializeEmotionalState(npc.Brain?.Emotions),
+
+                    // Relationships
+                    Relationships = SerializeNPCRelationships(npc),
+
+                    // Inventory
+                    Gold = npc.Gold,
+                    Items = npc.Item?.ToArray() ?? new int[0],
+
+                    // Market inventory for NPC trading
+                    MarketInventory = npc.MarketInventory?.Select(item => new MarketItemData
                     {
-                        Id = npc.Id ?? Guid.NewGuid().ToString(),
-                        Name = npc.Name2 ?? npc.Name1,
-                        Level = npc.Level,
-                        HP = npc.HP,
-                        MaxHP = npc.MaxHP,
-                        Location = npc.Location.ToString(),
-                        
-                        // AI state
-                        PersonalityProfile = SerializePersonality(npc.Brain?.Personality),
-                        Memories = SerializeMemories(npc.Brain?.Memory),
-                        CurrentGoals = SerializeGoals(npc.Brain?.Goals),
-                        EmotionalState = SerializeEmotionalState(npc.Brain?.Emotions),
-                        
-                        // Relationships
-                        Relationships = SerializeNPCRelationships(npc),
-                        
-                        // Inventory
-                        Gold = npc.Gold,
-                        Items = npc.Item?.ToArray() ?? new int[0]
-                    });
-                }
+                        ItemName = item.Name,
+                        ItemValue = item.Value,
+                        ItemType = item.Type,
+                        Attack = item.Attack,
+                        Armor = item.Armor,
+                        Strength = item.Strength,
+                        Defence = item.Defence,
+                        IsCursed = item.IsCursed
+                    }).ToList() ?? new List<MarketItemData>()
+                });
             }
-            
+
+            await Task.CompletedTask;
             return npcData;
         }
         
         /// <summary>
         /// Helper method to get NPCs from the world
-        /// This would be implemented to access the actual NPC collection
         /// </summary>
         private List<NPC> GetWorldNPCs()
         {
-            // For now, return empty list - in full implementation, this would
-            // access the world's NPC collection through WorldSimulator or similar
-            return new List<NPC>();
+            // Get all active NPCs from NPCSpawnSystem
+            return NPCSpawnSystem.Instance?.ActiveNPCs ?? new List<NPC>();
         }
         
         private WorldStateData SerializeWorldState()
@@ -645,7 +781,10 @@ namespace UsurperRemake.Systems
                 RecentNews = SerializeRecentNews(),
 
                 // God system state
-                GodStates = SerializeGodStates()
+                GodStates = SerializeGodStates(),
+
+                // Marketplace listings
+                MarketplaceListings = MarketplaceSystem.Instance.ToSaveData()
             };
         }
         
@@ -757,14 +896,33 @@ namespace UsurperRemake.Systems
         
         private List<MemoryData> SerializeMemories(MemorySystem? memory)
         {
-            // This would serialize NPC memories
-            return new List<MemoryData>();
+            if (memory == null) return new List<MemoryData>();
+
+            return memory.AllMemories.Select(m => new MemoryData
+            {
+                Type = m.Type.ToString(),
+                Description = m.Description,
+                InvolvedCharacter = m.InvolvedCharacter ?? "",
+                Importance = m.Importance,
+                EmotionalImpact = m.EmotionalImpact,
+                Timestamp = m.Timestamp
+            }).ToList();
         }
-        
+
         private List<GoalData> SerializeGoals(GoalSystem? goals)
         {
-            // This would serialize NPC goals
-            return new List<GoalData>();
+            if (goals == null) return new List<GoalData>();
+
+            return goals.AllGoals.Select(g => new GoalData
+            {
+                Name = g.Name,
+                Type = g.Type.ToString(),
+                Priority = g.Priority,
+                Progress = g.Progress,
+                IsActive = g.IsActive,
+                TargetValue = g.TargetValue,
+                CurrentValue = g.CurrentValue
+            }).ToList();
         }
         
         private EmotionalStateData? SerializeEmotionalState(EmotionalState? state)
@@ -885,6 +1043,78 @@ namespace UsurperRemake.Systems
                 var home = System.Environment.GetEnvironmentVariable("HOME");
                 return Path.Combine(home ?? "/tmp", "Library", "Application Support", appName);
             }
+        }
+
+        /// <summary>
+        /// Serialize all story systems state
+        /// Note: Uses reflection to safely access properties that may or may not exist
+        /// </summary>
+        private StorySystemsData SerializeStorySystems()
+        {
+            var data = new StorySystemsData();
+
+            // Ocean Philosophy - save awakening level and collected fragments
+            try
+            {
+                var ocean = OceanPhilosophySystem.Instance;
+                data.AwakeningLevel = ocean.AwakeningLevel;
+                data.CollectedFragments = ocean.CollectedFragments.Select(f => (int)f).ToList();
+                data.ExperiencedMoments = ocean.ExperiencedMoments.Select(m => (int)m).ToList();
+            }
+            catch { /* System not initialized */ }
+
+            // Grief System - save current stage
+            try
+            {
+                var grief = GriefSystem.Instance;
+                data.GriefStage = (int)grief.CurrentStage;
+            }
+            catch { /* System not initialized */ }
+
+            // Story Progression - save cycle count
+            try
+            {
+                var story = StoryProgressionSystem.Instance;
+                data.CurrentCycle = story.CurrentCycle;
+            }
+            catch { /* System not initialized */ }
+
+            return data;
+        }
+
+        /// <summary>
+        /// Restore story systems state from save data
+        /// Note: Restoration is best-effort - systems may not support all restore operations
+        /// </summary>
+        public void RestoreStorySystems(StorySystemsData? data)
+        {
+            if (data == null) return;
+
+            // Ocean Philosophy - restore fragments one by one
+            try
+            {
+                var ocean = OceanPhilosophySystem.Instance;
+                foreach (var fragmentInt in data.CollectedFragments)
+                {
+                    var fragment = (WaveFragment)fragmentInt;
+                    if (!ocean.CollectedFragments.Contains(fragment))
+                    {
+                        ocean.CollectFragment(fragment);
+                    }
+                }
+                foreach (var momentInt in data.ExperiencedMoments)
+                {
+                    var moment = (AwakeningMoment)momentInt;
+                    if (!ocean.ExperiencedMoments.Contains(moment))
+                    {
+                        ocean.ExperienceMoment(moment);
+                    }
+                }
+            }
+            catch { /* System not available */ }
+
+            // Note: Other systems will need RestoreState methods added
+            // For now, they don't persist - this is acceptable for alpha
         }
     }
 } 

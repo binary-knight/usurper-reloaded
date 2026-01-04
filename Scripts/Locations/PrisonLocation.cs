@@ -49,15 +49,16 @@ public partial class PrisonLocation : BaseLocation
     public new async Task<bool> EnterLocation(Character player)
     {
         if (player == null) return false;
-        
+
         // Check if player is actually imprisoned
         if (player.DaysInPrison <= 0)
         {
             await terminal.WriteLineAsync("You are not imprisoned! Returning to Main Street.");
             await Task.Delay(1000);
-            return false;
+            // Navigate player to Main Street properly
+            throw new LocationExitException(GameLocation.MainStreet);
         }
-        
+
         refreshMenu = true;
         await ShowPrisonInterface(player);
         return true;
@@ -66,41 +67,50 @@ public partial class PrisonLocation : BaseLocation
     private async Task ShowPrisonInterface(Character player)
     {
         char choice = '?';
-        
-        while (choice != 'Q')
+        bool exitPrison = false;
+
+        while (!exitPrison)
         {
+            // Check if sentence is served (days ran out)
+            if (player.DaysInPrison <= 0)
+            {
+                await terminal.WriteLineAsync();
+                await terminal.WriteColorLineAsync("The guards open your cell door.", TerminalEmulator.ColorGreen);
+                await terminal.WriteLineAsync("\"Your sentence has been served. You are free to go.\"");
+                await terminal.WriteColorLineAsync("You are FREE!", TerminalEmulator.ColorGreen);
+                player.CellDoorOpen = false;
+                player.RescuedBy = "";
+                player.HP = Math.Max(player.HP, player.MaxHP / 2); // Restore some health
+                await Task.Delay(1500);
+                throw new LocationExitException(GameLocation.MainStreet);
+            }
+
             // Update location status if needed
             await UpdatePrisonStatus(player);
-            
-            // Check if player can walk out (cell door open)
+
+            // Check if player can walk out (cell door open by rescue)
             if (await CanOpenCellDoor(player))
             {
                 await HandleCellDoorOpen(player);
-                return; // Exit prison
+                throw new LocationExitException(GameLocation.MainStreet);
             }
-            
+
             // Show who else is here if enabled
             if (ShouldShowOthersHere(player))
             {
                 await ShowOthersHere(player);
             }
-            
+
             // Display menu
             await DisplayPrisonMenu(player, true, true);
-            
+
             // Get user input
             choice = await terminal.GetCharAsync();
             choice = char.ToUpper(choice);
-            
-            // Process user choice
-            await ProcessPrisonChoice(player, choice);
+
+            // Process user choice - returns true if player escaped/freed
+            exitPrison = await ProcessPrisonChoice(player, choice);
         }
-        
-        // Quit prison (log out)
-        await terminal.WriteLineAsync();
-        await terminal.WriteLineAsync("You cover yourself with some hay and try to get some sleep.");
-        await terminal.WriteLineAsync("It will be a long and cold night with the rats...");
-        await terminal.WriteLineAsync();
     }
     
     private async Task UpdatePrisonStatus(Character player)
@@ -216,49 +226,40 @@ public partial class PrisonLocation : BaseLocation
         
         // Menu options
         await terminal.WriteLineAsync("(W)ho else is here          (D)emand to be released!");
-        await terminal.WriteLineAsync("(M)essage                   (N)ew mail");
         await terminal.WriteLineAsync("(O)pen cell door            (E)scape!");
         await terminal.WriteLineAsync("(S)tatus                    (A)ctivities - Exercise!");
         await terminal.WriteLineAsync("(Q)uit");
     }
     
-    private async Task ProcessPrisonChoice(Character player, char choice)
+    private async Task<bool> ProcessPrisonChoice(Character player, char choice)
     {
         switch (choice)
         {
             case '?':
                 await HandleMenuDisplay(player);
-                break;
+                return false;
             case 'S':
                 await HandleStatusDisplay(player);
-                break;
+                return false;
             case 'Q':
-                await HandleQuitConfirmation(player);
-                break;
-            case 'M':
-                await HandleSendMessage(player);
-                break;
-            case 'N':
-                await HandleCheckMail(player);
-                break;
+                return await HandleQuitConfirmation(player);
             case 'O':
                 await HandleOpenCellDoor(player);
-                break;
+                return false;
             case 'D':
                 await HandleDemandRelease(player);
-                break;
+                return false;
             case 'E':
-                await HandleEscapeAttempt(player);
-                break;
+                return await HandleEscapeAttempt(player);
             case 'W':
                 await HandleListPrisoners(player);
-                break;
+                return false;
             case 'A':
                 await HandleActivities(player);
-                break;
+                return false;
             default:
                 // Invalid choice, do nothing
-                break;
+                return false;
         }
     }
 
@@ -341,48 +342,27 @@ public partial class PrisonLocation : BaseLocation
         await terminal.GetCharAsync();
     }
     
-    private async Task HandleQuitConfirmation(Character player)
+    private async Task<bool> HandleQuitConfirmation(Character player)
     {
         await terminal.WriteLineAsync();
         await terminal.WriteLineAsync();
-        
-        bool confirmed = await terminal.ConfirmAsync("QUIT game", false);
+
+        bool confirmed = await terminal.ConfirmAsync("QUIT game and rest for the night", false);
         if (!confirmed)
         {
             // Don't quit, continue prison loop
-            return;
+            return false;
         }
-        // If confirmed, the main loop will exit
-    }
-    
-    private async Task HandleSendMessage(Character player)
-    {
+
+        // Player is logging out - display sleep message
         await terminal.WriteLineAsync();
-        await terminal.WriteLineAsync("MESSAGE SYSTEM");
-        await terminal.WriteLineAsync("==============");
-        await terminal.WriteLineAsync("The message system is not yet implemented.");
-        await terminal.WriteLineAsync("You'll have to wait for a future update to send messages from prison.");
+        await terminal.WriteLineAsync("You cover yourself with some hay and try to get some sleep.");
+        await terminal.WriteLineAsync("It will be a long and cold night with the rats...");
         await terminal.WriteLineAsync();
-        await terminal.WriteAsync("Press any key to continue...");
-        await terminal.GetCharAsync();
-    }
-    
-    private async Task HandleCheckMail(Character player)
-    {
-        await terminal.WriteLineAsync();
-        await terminal.WriteLineAsync();
-        await terminal.WriteLineAsync();
-        await terminal.WriteColorLineAsync("Let's see if you have mail waiting ...", TerminalEmulator.ColorYellow);
-        await terminal.WriteLineAsync();
-        
-        await Task.Delay(1000);
-        
-        // TODO: Implement mail system
-        await terminal.WriteLineAsync("The mail system is not yet implemented.");
-        await terminal.WriteLineAsync("You'll have to wait for future updates to receive mail in prison.");
-        await terminal.WriteLineAsync();
-        await terminal.WriteAsync("Press any key to continue...");
-        await terminal.GetCharAsync();
+        await Task.Delay(1500);
+
+        // Save and quit - throw game exit exception
+        throw new GameExitException("Player logging out from prison");
     }
     
     private async Task HandleOpenCellDoor(Character player)
@@ -430,63 +410,72 @@ public partial class PrisonLocation : BaseLocation
         await terminal.WriteLineAsync("(You will probably be released tomorrow)");
     }
     
-    private async Task HandleEscapeAttempt(Character player)
+    private async Task<bool> HandleEscapeAttempt(Character player)
     {
         await terminal.WriteLineAsync();
-        
+
         if (player.PrisonEscapes < 1)
         {
             await terminal.WriteLineAsync();
             await terminal.WriteColorLineAsync("You have no escape attempts left! Try again tomorrow.", TerminalEmulator.ColorRed);
             await Task.Delay(1000);
-            return;
+            return false;
         }
-        
+
         await terminal.WriteLineAsync();
         bool confirmed = await terminal.ConfirmAsync("Jail-Break", true);
-        
+
         if (!confirmed)
         {
-            return;
+            return false;
         }
-        
+
         // Use escape attempt
         player.PrisonEscapes--;
-        
+
         await terminal.WriteLineAsync();
         await Task.Delay(GameConfig.PrisonEscapeDelay);
-        
-        // 50% chance of success (Pascal: x := random(2))
+
+        // Escape chance based on dexterity and level (better than 50/50)
         var random = new System.Random();
-        bool success = random.Next(2) == 1;
-        
+        int escapeChance = 40 + (int)(player.Dexterity / 3) + (player.Level / 2);
+        escapeChance = Math.Clamp(escapeChance, 30, 80); // 30-80% chance
+        bool success = random.Next(100) < escapeChance;
+
         if (!success)
         {
             await terminal.WriteColorLineAsync("You failed!", TerminalEmulator.ColorRed);
-            
-            // TODO: Add news system integration
+
+            // Generate news about failed escape
+            NewsSystem.Instance.Newsy(true, $"{player.DisplayName} failed to escape from the Royal Prison!");
+
             await terminal.WriteLineAsync("The guards heard your escape attempt!");
-            await Task.Delay(1000);
+            await terminal.WriteLineAsync("Your sentence has been extended by 1 day!");
+            player.DaysInPrison++;
+            await Task.Delay(1500);
+            return false;
         }
         else
         {
             await terminal.WriteColorLineAsync("Success! You are FREE!", TerminalEmulator.ColorGreen);
-            
-            // TODO: Add news system integration
-            // TODO: Inform king of escape
-            // TODO: Inform other nodes
-            
+
+            // Generate news about successful escape
+            NewsSystem.Instance.Newsy(true, $"{player.DisplayName} has escaped from the Royal Prison!");
+
             await terminal.WriteLineAsync();
             await Task.Delay(1000);
-            
+
             // Free the player
             player.HP = player.MaxHP;
             player.DaysInPrison = 0;
-            
+            player.CellDoorOpen = false;
+
             await terminal.WriteLineAsync("You have successfully escaped from prison!");
             await terminal.WriteLineAsync("You are now free to return to your adventures!");
-            
-            return; // Exit prison
+            await Task.Delay(1500);
+
+            // Navigate to Main Street
+            throw new LocationExitException(GameLocation.MainStreet);
         }
     }
     
@@ -582,14 +571,12 @@ public partial class PrisonLocation : BaseLocation
             "? - Show menu",
             "W - Who else is here",
             "D - Demand to be released",
-            "M - Send message",
-            "N - Check new mail",
             "O - Try to open cell door",
             "E - Attempt escape",
-            "S - Show status", 
+            "S - Show status",
             "Q - Quit game"
         };
-        
+
         return commands;
     }
     

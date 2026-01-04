@@ -80,12 +80,13 @@ public class InnLocation : BaseLocation
     {
         terminal.ClearScreen();
         
-        // Inn header with ASCII art
+        // Inn header - standardized format
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╔═════════════════════════════════════════════════════════════════════════════╗");
         terminal.SetColor("bright_yellow");
-        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
-        terminal.WriteLine("║                                THE INN                                      ║");
-        terminal.WriteLine("║                          'The Drunken Dragon'                               ║");
-        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("║                         THE INN - 'The Drunken Dragon'                      ║");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╚═════════════════════════════════════════════════════════════════════════════╝");
         terminal.WriteLine("");
         
         // Atmospheric description
@@ -199,6 +200,15 @@ public class InnLocation : BaseLocation
         terminal.WriteLine("Order food (10 gold)");
         terminal.WriteLine("");
 
+        // Check for recruitable companions
+        var recruitableCompanions = CompanionSystem.Instance.GetRecruitableCompanions(currentPlayer?.Level ?? 1).ToList();
+        if (recruitableCompanions.Any())
+        {
+            terminal.SetColor("bright_magenta");
+            terminal.WriteLine("A mysterious stranger catches your eye from a shadowy corner...");
+            terminal.WriteLine("");
+        }
+
         terminal.SetColor("cyan");
         terminal.WriteLine("Special Areas:");
 
@@ -219,6 +229,19 @@ public class InnLocation : BaseLocation
         terminal.Write("] ");
         terminal.SetColor("white");
         terminal.WriteLine("Hall of Recruitment");
+
+        // Show companion option if available
+        if (recruitableCompanions.Any())
+        {
+            terminal.SetColor("darkgray");
+            terminal.Write("[");
+            terminal.SetColor("bright_magenta");
+            terminal.Write("A");
+            terminal.SetColor("darkgray");
+            terminal.Write("] ");
+            terminal.SetColor("bright_magenta");
+            terminal.WriteLine($"Approach the stranger ({recruitableCompanions.Count} available)");
+        }
         terminal.WriteLine("");
 
         terminal.SetColor("yellow");
@@ -301,7 +324,11 @@ public class InnLocation : BaseLocation
             case "H":
                 await NavigateToLocation(GameLocation.Recruit);
                 return true;
-                
+
+            case "A":
+                await ApproachCompanions();
+                return false;
+
             case "Q":
             case "M":
                 await NavigateToLocation(GameLocation.MainStreet);
@@ -969,7 +996,140 @@ public class InnLocation : BaseLocation
             currentPlayer.HP += healing;
             terminal.WriteLine($"You also recover {healing} HP from the nourishing meal.", "green");
         }
-        
+
         await Task.Delay(2500);
+    }
+
+    /// <summary>
+    /// Approach potential companions in the inn
+    /// </summary>
+    private async Task ApproachCompanions()
+    {
+        var recruitableCompanions = CompanionSystem.Instance.GetRecruitableCompanions(currentPlayer.Level).ToList();
+
+        if (!recruitableCompanions.Any())
+        {
+            terminal.WriteLine("There are no strangers looking for adventuring partners right now.", "gray");
+            await terminal.PressAnyKey();
+            return;
+        }
+
+        terminal.ClearScreen();
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║                        POTENTIAL COMPANIONS                                  ║");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+
+        terminal.SetColor("white");
+        terminal.WriteLine("In the shadowy corners of the inn, several figures seem to be watching you...");
+        terminal.WriteLine("");
+
+        int index = 1;
+        foreach (var companion in recruitableCompanions)
+        {
+            terminal.SetColor("yellow");
+            terminal.Write($"[{index}] ");
+            terminal.SetColor("bright_cyan");
+            terminal.Write($"{companion.Name} - {companion.Title}");
+            terminal.SetColor("gray");
+            terminal.WriteLine($" ({companion.CombatRole})");
+            terminal.SetColor("dark_gray");
+            terminal.WriteLine($"    {companion.Description.Substring(0, Math.Min(70, companion.Description.Length))}...");
+            terminal.WriteLine($"    Level Req: {companion.RecruitLevel} | Trust: {companion.TrustLevel}%");
+            terminal.WriteLine("");
+            index++;
+        }
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine("[0] Return to the bar");
+        terminal.WriteLine("");
+
+        var choice = await terminal.GetInput("Approach who? ");
+
+        if (int.TryParse(choice, out int selection) && selection > 0 && selection <= recruitableCompanions.Count)
+        {
+            var selectedCompanion = recruitableCompanions[selection - 1];
+            await AttemptCompanionRecruitment(selectedCompanion);
+        }
+    }
+
+    /// <summary>
+    /// Attempt to recruit a specific companion
+    /// </summary>
+    private async Task AttemptCompanionRecruitment(Companion companion)
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine($"You approach {companion.Name}, {companion.Title}...");
+        terminal.WriteLine("");
+
+        // Show companion's introduction from DialogueHints
+        terminal.SetColor("white");
+        if (companion.DialogueHints.Length > 0)
+        {
+            terminal.WriteLine($"\"{companion.DialogueHints[0]}\"");
+        }
+        else
+        {
+            terminal.WriteLine($"\"Greetings, traveler. You look like someone who could use help...\"");
+        }
+        terminal.WriteLine("");
+
+        // Show companion details
+        terminal.SetColor("gray");
+        terminal.WriteLine($"Background: {companion.BackstoryBrief}");
+        terminal.WriteLine("");
+        terminal.SetColor("yellow");
+        terminal.WriteLine($"Combat Role: {companion.CombatRole}");
+        terminal.WriteLine($"Abilities: {string.Join(", ", companion.Abilities)}");
+        terminal.WriteLine("");
+
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("[R] Recruit this companion");
+        terminal.WriteLine("[T] Talk more to learn about them");
+        terminal.WriteLine("[0] Leave them be");
+        terminal.WriteLine("");
+
+        var choice = await terminal.GetInput("Your choice: ");
+
+        switch (choice.ToUpper())
+        {
+            case "R":
+                bool success = await CompanionSystem.Instance.RecruitCompanion(companion.Id, currentPlayer, terminal);
+                if (success)
+                {
+                    terminal.SetColor("bright_green");
+                    terminal.WriteLine("");
+                    terminal.WriteLine($"{companion.Name} has joined you as a companion!");
+                    terminal.WriteLine("They will accompany you in the dungeons and fight by your side.");
+                    terminal.WriteLine("");
+                    terminal.SetColor("yellow");
+                    terminal.WriteLine("WARNING: Companions can die permanently. Guard them well.");
+                }
+                break;
+
+            case "T":
+                terminal.WriteLine("");
+                terminal.SetColor("cyan");
+                terminal.WriteLine($"{companion.Name} shares their story...");
+                terminal.WriteLine("");
+                terminal.SetColor("white");
+                terminal.WriteLine(companion.BackstoryBrief);
+                if (!string.IsNullOrEmpty(companion.PersonalQuestDescription))
+                {
+                    terminal.WriteLine("");
+                    terminal.SetColor("bright_magenta");
+                    terminal.WriteLine($"Personal Quest: {companion.PersonalQuestName}");
+                    terminal.WriteLine($"\"{companion.PersonalQuestDescription}\"");
+                }
+                break;
+
+            default:
+                terminal.WriteLine($"You nod to {companion.Name} and return to the bar.", "gray");
+                break;
+        }
+
+        await terminal.PressAnyKey();
     }
 } 
