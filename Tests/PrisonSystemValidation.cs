@@ -598,8 +598,7 @@ public static class PrisonSystemValidation
             MaxHP = level * 10,
             DaysInPrison = 0,
             PrisonEscapes = 0,
-            Expert = false,
-            AutoMenu = true
+            Expert = false
         };
     }
     

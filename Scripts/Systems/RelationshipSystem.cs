@@ -70,7 +70,7 @@ public partial class RelationshipSystem
     /// Update relationship between two characters
     /// Pascal equivalent: Update_Relation procedure
     /// </summary>
-    public static void UpdateRelationship(Character character1, Character character2, int direction, int steps = 1, bool overrideAutoHate = false, bool overrideMaxFeeling = false)
+    public static void UpdateRelationship(Character character1, Character character2, int direction, int steps = 1, bool _unused = false, bool overrideMaxFeeling = false)
     {
         var relation = GetOrCreateRelationship(character1, character2);
         
@@ -96,8 +96,8 @@ public partial class RelationshipSystem
     /// <summary>
     /// Convenience overload accepting the compatibility enum
     /// </summary>
-    public static void UpdateRelationship(Character character1, Character character2, UsurperRemake.RelationshipType relationChange, int steps = 1, bool overrideAutoHate = false, bool overrideMaxFeeling = false)
-        => UpdateRelationship(character1, character2, (int)relationChange, steps, overrideAutoHate, overrideMaxFeeling);
+    public static void UpdateRelationship(Character character1, Character character2, UsurperRemake.RelationshipType relationChange, int steps = 1, bool _unused = false, bool overrideMaxFeeling = false)
+        => UpdateRelationship(character1, character2, (int)relationChange, steps, _unused, overrideMaxFeeling);
     
     /// <summary>
     /// Check if two characters are married

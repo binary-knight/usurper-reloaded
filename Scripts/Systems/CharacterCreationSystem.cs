@@ -67,10 +67,7 @@ public class CharacterCreationSystem
             // Step 8: Set starting equipment and configuration
             SetStartingConfiguration(character);
 
-            // Step 9: Player preferences (Pascal configuration questions)
-            await ConfigurePlayerPreferences(character);
-
-            // Step 10: Show character summary and confirm
+            // Step 9: Show character summary and confirm
             await ShowCharacterSummary(character);
             
             var confirm = await terminal.GetInputAsync("Create this character? (Y/N): ");
@@ -580,24 +577,59 @@ public class CharacterCreationSystem
 
             // Calculate total stat points for comparison
             long totalStats = character.Strength + character.Defence + character.Stamina +
-                              character.Agility + character.Charisma + character.Dexterity + character.Wisdom;
+                              character.Agility + character.Charisma + character.Dexterity +
+                              character.Wisdom + character.Intelligence + character.Constitution;
 
             terminal.WriteLine("Your rolled attributes:", "cyan");
             terminal.WriteLine("");
-            terminal.WriteLine($"  Hit Points:  {character.HP,3}", GetStatColor(character.HP, 15, 25));
-            terminal.WriteLine($"  Strength:    {character.Strength,3}", GetStatColor(character.Strength, 6, 12));
-            terminal.WriteLine($"  Defence:     {character.Defence,3}", GetStatColor(character.Defence, 5, 10));
-            terminal.WriteLine($"  Stamina:     {character.Stamina,3}", GetStatColor(character.Stamina, 5, 10));
-            terminal.WriteLine($"  Agility:     {character.Agility,3}", GetStatColor(character.Agility, 5, 10));
-            terminal.WriteLine($"  Charisma:    {character.Charisma,3}", GetStatColor(character.Charisma, 5, 10));
-            terminal.WriteLine($"  Dexterity:   {character.Dexterity,3}", GetStatColor(character.Dexterity, 5, 10));
-            terminal.WriteLine($"  Wisdom:      {character.Wisdom,3}", GetStatColor(character.Wisdom, 5, 10));
+            terminal.Write($"  Hit Points:    ");
+            terminal.Write($"{character.HP,3}", GetStatColor(character.HP, 15, 25));
+            terminal.WriteLine("  - Your life force", "gray");
+
+            terminal.Write($"  Strength:      ");
+            terminal.Write($"{character.Strength,3}", GetStatColor(character.Strength, 6, 12));
+            terminal.WriteLine("  - Melee damage bonus", "gray");
+
+            terminal.Write($"  Defence:       ");
+            terminal.Write($"{character.Defence,3}", GetStatColor(character.Defence, 5, 10));
+            terminal.WriteLine("  - Reduces damage taken", "gray");
+
+            terminal.Write($"  Stamina:       ");
+            terminal.Write($"{character.Stamina,3}", GetStatColor(character.Stamina, 5, 10));
+            terminal.WriteLine("  - Combat ability pool", "gray");
+
+            terminal.Write($"  Agility:       ");
+            terminal.Write($"{character.Agility,3}", GetStatColor(character.Agility, 5, 10));
+            terminal.WriteLine("  - Dodge chance, extra attacks", "gray");
+
+            terminal.Write($"  Dexterity:     ");
+            terminal.Write($"{character.Dexterity,3}", GetStatColor(character.Dexterity, 5, 10));
+            terminal.WriteLine("  - Hit chance, critical hits", "gray");
+
+            terminal.Write($"  Constitution:  ");
+            terminal.Write($"{character.Constitution,3}", GetStatColor(character.Constitution, 5, 10));
+            terminal.WriteLine("  - Bonus HP, poison resist", "gray");
+
+            terminal.Write($"  Intelligence:  ");
+            terminal.Write($"{character.Intelligence,3}", GetStatColor(character.Intelligence, 5, 10));
+            terminal.WriteLine("  - Spell damage, mana pool", "gray");
+
+            terminal.Write($"  Wisdom:        ");
+            terminal.Write($"{character.Wisdom,3}", GetStatColor(character.Wisdom, 5, 10));
+            terminal.WriteLine("  - Mana efficiency, magic resist", "gray");
+
+            terminal.Write($"  Charisma:      ");
+            terminal.Write($"{character.Charisma,3}", GetStatColor(character.Charisma, 5, 10));
+            terminal.WriteLine("  - Shop prices, NPC reactions", "gray");
+
             if (character.MaxMana > 0)
             {
-                terminal.WriteLine($"  Mana:        {character.Mana,3}/{character.MaxMana}", "cyan");
+                terminal.Write($"  Mana:          ");
+                terminal.Write($"{character.Mana,3}/{character.MaxMana}", "cyan");
+                terminal.WriteLine("  - Spellcasting resource", "gray");
             }
             terminal.WriteLine("");
-            terminal.WriteLine($"  Total Stats: {totalStats}", totalStats >= 50 ? "bright_green" : totalStats >= 40 ? "yellow" : "red");
+            terminal.WriteLine($"  Total Stats: {totalStats}", totalStats >= 70 ? "bright_green" : totalStats >= 55 ? "yellow" : "red");
             terminal.WriteLine("");
 
             if (rerollsRemaining > 0)
@@ -685,14 +717,26 @@ public class CharacterCreationSystem
         character.Charisma = Roll3d6() + classAttrib.Charisma;
         character.Dexterity = Roll3d6() + classAttrib.Dexterity;
         character.Wisdom = Roll3d6() + classAttrib.Wisdom;
+        character.Intelligence = Roll3d6() + classAttrib.Intelligence;
+        character.Constitution = Roll3d6() + classAttrib.Constitution;
 
-        // HP is rolled differently - 2d6 + class HP bonus + race HP bonus
-        character.HP = Roll2d6() + (classAttrib.HP * 3) + raceAttrib.HPBonus;
+        // Store base values for equipment bonus tracking
+        character.BaseStrength = character.Strength;
+        character.BaseDexterity = character.Dexterity;
+        character.BaseConstitution = character.Constitution;
+        character.BaseIntelligence = character.Intelligence;
+        character.BaseWisdom = character.Wisdom;
+        character.BaseCharisma = character.Charisma;
+
+        // HP is rolled differently - 2d6 + class HP bonus + race HP bonus + Constitution bonus
+        int constitutionBonus = (int)(character.Constitution / 3); // Constitution adds to HP
+        character.HP = Roll2d6() + (classAttrib.HP * 3) + raceAttrib.HPBonus + constitutionBonus;
         character.MaxHP = character.HP;
 
-        // Mana for spellcasters - fixed from class
-        character.Mana = classAttrib.Mana;
-        character.MaxMana = classAttrib.MaxMana;
+        // Mana for spellcasters - base from class + Intelligence bonus
+        int intelligenceBonus = (int)(character.Intelligence / 4); // Intelligence adds to mana
+        character.Mana = classAttrib.Mana + intelligenceBonus;
+        character.MaxMana = classAttrib.MaxMana + intelligenceBonus;
     }
 
     /// <summary>
@@ -786,7 +830,6 @@ public class CharacterCreationSystem
         character.BankWage = 0;
         character.WeapHag = 3;
         character.ArmHag = 3;
-        character.AutoMenu = true; // Pascal: player.auto_meny := True
         character.RoyTaxPaid = 0;
         character.Wrestlings = 3;
         character.DrinksLeft = 3;
@@ -804,7 +847,6 @@ public class CharacterCreationSystem
         character.IntimacyActs = 5;
         character.Pregnancy = 0;
         character.FatherID = "";
-        character.AutoHate = 1;
         character.TaxRelief = false;
         character.MarriedTimes = 0;
         character.BardSongsLeft = 5;
@@ -821,45 +863,7 @@ public class CharacterCreationSystem
         // Set last on date to current (Pascal: packed_date)
         character.LastOn = DateTimeOffset.Now.ToUnixTimeSeconds();
     }
-    
-    /// <summary>
-    /// Configure player preferences (Pascal USERHUNC.PAS configuration questions)
-    /// </summary>
-    private async Task ConfigurePlayerPreferences(Character character)
-    {
-        terminal.WriteLine("");
-        terminal.WriteLine("I will now ask you a few questions on how", "cyan");
-        terminal.WriteLine("you would like your character to behave.", "cyan");
-        terminal.WriteLine("You can always change these options later on.", "cyan");
-        terminal.WriteLine("");
-        
-        // Auto-display menus (Pascal question)
-        terminal.WriteLine("Would you like to auto-display menus? (Y/N)", "yellow");
-        var autoMenu = await terminal.GetInputAsync("");
-        character.AutoMenu = autoMenu.ToUpper() != "N";
-        
-        if (character.AutoMenu)
-        {
-            terminal.WriteLine("Auto-Display menus is ON.", "green");
-        }
-        else
-        {
-            terminal.WriteLine("Auto-Display menus is OFF.", "green");
-        }
-        
-        terminal.WriteLine("");
-        
-        // Auto-hate setting (Pascal attitude question)
-        terminal.WriteLine("Attitude when attacked:", "cyan");
-        terminal.WriteLine("When you are attacked, do you want your relation", "white");
-        terminal.WriteLine("with the attacker to automatically deteriorate?", "white");
-        
-        var autoHate = await terminal.GetInputAsync("(Y/N): ");
-        character.AutoHate = (byte)(autoHate.ToUpper() == "Y" ? 1 : 0);
-        
-        terminal.WriteLine("");
-    }
-    
+
     /// <summary>
     /// Show character summary before creation (Pascal display)
     /// </summary>
@@ -883,9 +887,11 @@ public class CharacterCreationSystem
         terminal.WriteLine($"Defence: {character.Defence}", "white");
         terminal.WriteLine($"Stamina: {character.Stamina}", "white");
         terminal.WriteLine($"Agility: {character.Agility}", "white");
-        terminal.WriteLine($"Charisma: {character.Charisma}", "white");
         terminal.WriteLine($"Dexterity: {character.Dexterity}", "white");
+        terminal.WriteLine($"Constitution: {character.Constitution}", "white");
+        terminal.WriteLine($"Intelligence: {character.Intelligence}", "white");
         terminal.WriteLine($"Wisdom: {character.Wisdom}", "white");
+        terminal.WriteLine($"Charisma: {character.Charisma}", "white");
         if (character.MaxMana > 0)
         {
             terminal.WriteLine($"Mana: {character.Mana}/{character.MaxMana}", "cyan");

@@ -132,6 +132,8 @@ jobs:
           dotnet publish usurper-reloaded.csproj -c Release -r win-x64 -o build/windows \
             -p:PublishSingleFile=true -p:SelfContained=true -p:InvariantGlobalization=true
           if [ -f "build/windows/UsurperRemake.exe" ]; then
+            # Copy Windows launcher
+            cp launchers/UsurperReborn.bat build/windows/
             echo "✅ Windows publish successful"
           else
             echo "Windows publish failed"
@@ -145,8 +147,11 @@ jobs:
           dotnet publish usurper-reloaded.csproj -c Release -r linux-x64 -o build/linux \
             -p:PublishSingleFile=true -p:SelfContained=true -p:InvariantGlobalization=true
           if [ -f "build/linux/UsurperRemake" ]; then
-            mv "build/linux/UsurperRemake" "build/linux/usurper-reloaded.x86_64"
-            chmod +x "build/linux/usurper-reloaded.x86_64"
+            # Keep original name for launcher compatibility
+            chmod +x "build/linux/UsurperRemake"
+            # Copy Linux launcher
+            cp launchers/usurper-reborn.sh build/linux/
+            chmod +x build/linux/usurper-reborn.sh
             echo "✅ Linux publish successful"
           else
             echo "Linux publish failed"
@@ -192,11 +197,15 @@ jobs:
           </plist>
           EOF
             
+            # Copy macOS launcher (alternative to app bundle)
+            cp launchers/usurper-reborn-mac.command build/mac/
+            chmod +x build/mac/usurper-reborn-mac.command
+
             # Create zip file
             cd "build/mac"
-            zip -r "usurper-reloaded.zip" "usurper-reloaded.app"
+            zip -r "usurper-reloaded.zip" "usurper-reloaded.app" "usurper-reborn-mac.command"
             cd "../.."
-            
+
             echo "✅ macOS build successful"
           else
             echo "ERROR: macOS build failed - executable not created"
@@ -335,6 +344,35 @@ jobs:
               }
             }
           }
+          EOF
+
+      - name: Create Steam launch configuration guide
+        run: |
+          cat > steam-build/STEAM_LAUNCH_CONFIG.md << 'EOF'
+          # Steam Launch Configuration for Usurper Reborn
+
+          ## Launch Targets (set in Steamworks Partner)
+
+          ### Windows
+          - **Executable:** `UsurperReborn.bat`
+          - **Arguments:** (none needed)
+          - **Launch Type:** Launch (Default)
+
+          ### Linux
+          - **Executable:** `usurper-reborn.sh`
+          - **Arguments:** (none needed)
+          - **Launch Type:** Launch (Default)
+
+          ### macOS
+          - **Executable:** `usurper-reborn-mac.command`
+          - **Arguments:** (none needed)
+          - **Launch Type:** Launch (Default)
+
+          ## Notes
+          - The launchers spawn terminal windows to run the console game
+          - Linux launcher auto-detects available terminal emulators
+          - macOS .command files auto-open in Terminal.app
+          - Windows .bat files open in cmd.exe
           EOF
 
       - name: Create release notes

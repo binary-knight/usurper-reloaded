@@ -1063,7 +1063,6 @@ public class AdvancedCombatSystemValidation : Node
             Allowed = true,
             PKills = 0,
             PDefeats = 0,
-            AutoMenu = true,
             Ear = 0,
             Casted = false,
             UsedItem = false,

@@ -1461,6 +1461,11 @@ public class DungeonLocation : BaseLocation
                 {
                     entranceRoom.IsExplored = true;
                     roomsExploredThisFloor++;
+                    // Auto-clear rooms without monsters
+                    if (!entranceRoom.HasMonsters)
+                    {
+                        entranceRoom.IsCleared = true;
+                    }
                 }
                 terminal.WriteLine("You enter the dungeon...", "gray");
                 await Task.Delay(1500);
@@ -1812,6 +1817,12 @@ public class DungeonLocation : BaseLocation
         {
             targetRoom.IsExplored = true;
             roomsExploredThisFloor++;
+
+            // Auto-clear rooms without monsters
+            if (!targetRoom.HasMonsters)
+            {
+                targetRoom.IsCleared = true;
+            }
 
             // Room discovery message
             terminal.SetColor(GetThemeColor(currentFloor.Theme));
@@ -2379,6 +2390,11 @@ public class DungeonLocation : BaseLocation
         {
             entranceRoom.IsExplored = true;
             roomsExploredThisFloor++;
+            // Auto-clear rooms without monsters
+            if (!entranceRoom.HasMonsters)
+            {
+                entranceRoom.IsCleared = true;
+            }
         }
 
         terminal.SetColor(GetThemeColor(currentFloor.Theme));
@@ -2880,7 +2896,7 @@ public class DungeonLocation : BaseLocation
     private async Task StrangersEncounter()
     {
         terminal.SetColor("red");
-        terminal.WriteLine("⚔ STRANGERS APPROACH ⚔");
+        terminal.WriteLine("=== STRANGERS APPROACH ===");
         terminal.WriteLine("");
 
         var currentPlayer = GetCurrentPlayer();
@@ -3321,7 +3337,7 @@ public class DungeonLocation : BaseLocation
     private async Task GamblingGhostEncounter()
     {
         terminal.SetColor("bright_white");
-        terminal.WriteLine("👻 GAMBLING GHOST 👻");
+        terminal.WriteLine("=== GAMBLING GHOST ===");
         terminal.WriteLine("");
 
         terminal.WriteLine("A spectral figure materializes before you!", "cyan");
@@ -3922,7 +3938,7 @@ public class DungeonLocation : BaseLocation
     private async Task WitchDoctorEncounter()
     {
         terminal.SetColor("magenta");
-        terminal.WriteLine("🔮 WITCH DOCTOR ENCOUNTER 🔮");
+        terminal.WriteLine("=== WITCH DOCTOR ENCOUNTER ===");
         terminal.WriteLine("");
         
         var currentPlayer = GetCurrentPlayer();
@@ -4742,12 +4758,12 @@ public class DungeonLocation : BaseLocation
             else if (room.HasStairsDown)
             {
                 terminal.SetColor("blue");
-                terminal.Write("[↓]");
+                terminal.Write("[v]");
             }
             else if (room.IsCleared)
             {
                 terminal.SetColor("green");
-                terminal.Write("[✓]");
+                terminal.Write("[+]");
             }
             else if (room.HasMonsters && room.IsExplored)
             {
@@ -4757,7 +4773,7 @@ public class DungeonLocation : BaseLocation
             else if (room.IsExplored)
             {
                 terminal.SetColor("cyan");
-                terminal.Write("[·]");
+                terminal.Write("[.]");
             }
             else
             {
@@ -4773,7 +4789,7 @@ public class DungeonLocation : BaseLocation
             if (room.IsExplored)
             {
                 terminal.SetColor("darkgray");
-                terminal.Write(" → ");
+                terminal.Write(" - ");
                 foreach (var exit in room.Exits)
                 {
                     terminal.Write($"{GetDirectionKey(exit.Key)} ");
@@ -4785,7 +4801,7 @@ public class DungeonLocation : BaseLocation
 
         terminal.WriteLine("");
         terminal.SetColor("gray");
-        terminal.WriteLine("Legend: [B]=Boss [↓]=Stairs [✓]=Cleared [!]=Danger [·]=Safe [?]=Unknown");
+        terminal.WriteLine("Legend: [B]=Boss [v]=Stairs [+]=Cleared [!]=Danger [.]=Safe [?]=Unknown");
         terminal.WriteLine("        >> = Your location");
         terminal.WriteLine("");
 
@@ -5327,6 +5343,11 @@ public class DungeonLocation : BaseLocation
                 var randomRoom = currentFloor.Rooms[dungeonRandom.Next(currentFloor.Rooms.Count)];
                 currentFloor.CurrentRoomId = randomRoom.Id;
                 randomRoom.IsExplored = true;
+                // Auto-clear rooms without monsters
+                if (!randomRoom.HasMonsters)
+                {
+                    randomRoom.IsCleared = true;
+                }
                 terminal.WriteLine($"You are transported to: {randomRoom.Name}!", "yellow");
                 break;
 

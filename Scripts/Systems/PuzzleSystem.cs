@@ -788,7 +788,7 @@ namespace UsurperRemake.Systems
             for (int i = 0; i < puzzle.CurrentState.Count; i++)
             {
                 bool lit = puzzle.CurrentState[i] == "lit";
-                string display = lit ? "🔥 LIT   " : "💨 UNLIT ";
+                string display = lit ? "* LIT *  " : "  UNLIT  ";
                 string color = lit ? "bright_yellow" : "dark_gray";
                 terminal.Write($"    Torch {i + 1}: ");
                 terminal.WriteLine(display, color);

@@ -488,8 +488,7 @@ public class Character
     public byte WeapHag { get; set; } = 3;          // weapon shop haggling attempts left
     public byte ArmHag { get; set; } = 3;           // armor shop haggling attempts left
     public int RecNr { get; set; }                  // file record number
-    public bool AutoMenu { get; set; }              // auto draw menus
-    
+
     // New for version 0.14+
     public int Quests { get; set; }                 // completed missions/quests
     public bool Deleted { get; set; }               // is record deleted
@@ -528,7 +527,6 @@ public class Character
     public int IntimacyActs { get; set; }           // intimacy acts left today
     public byte Pregnancy { get; set; }             // pregnancy days (0=not pregnant)
     public string FatherID { get; set; } = "";      // father's unique ID
-    public byte AutoHate { get; set; }              // auto-worsen relations
     public string ID { get; set; } = "";            // unique player ID
     public bool TaxRelief { get; set; }             // free from tax
     

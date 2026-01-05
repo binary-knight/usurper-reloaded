@@ -138,8 +138,6 @@ public class CharacterCreationLocation : BaseLocation
         target.PFights = source.PFights;
         target.DarkNr = source.DarkNr;
         target.ChivNr = source.ChivNr;
-        target.AutoMenu = source.AutoMenu;
-        target.AutoHate = source.AutoHate;
         target.Loyalty = source.Loyalty;
         target.Mental = source.Mental;
         target.TFights = source.TFights;

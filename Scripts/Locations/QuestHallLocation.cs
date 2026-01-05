@@ -39,6 +39,10 @@ public class QuestHallLocation : BaseLocation
         }
 
         terminal.WriteLine("You leave the Quest Hall.", "gray");
+        await Task.Delay(500);
+
+        // Return to Main Street via exception (standard navigation pattern)
+        throw new LocationExitException(GameLocation.MainStreet);
     }
 
     private async Task<bool> ShowMenuAndProcess()

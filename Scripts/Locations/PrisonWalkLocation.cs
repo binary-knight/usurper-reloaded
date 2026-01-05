@@ -105,7 +105,7 @@ public partial class PrisonWalkLocation : BaseLocation
         {
             if (!player.Expert)
             {
-                if (refreshMenu && player.AutoMenu)
+                if (refreshMenu)
                 {
                     refreshMenu = false;
                     await ShowPrisonWalkMenuFull();

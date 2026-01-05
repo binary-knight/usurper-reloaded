@@ -179,7 +179,7 @@ public partial class PrisonLocation : BaseLocation
         {
             if (!player.Expert)
             {
-                if (refreshMenu && player.AutoMenu)
+                if (refreshMenu)
                 {
                     refreshMenu = false;
                     await ShowPrisonMenuFull();

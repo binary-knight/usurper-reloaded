@@ -96,7 +96,7 @@ public class AdvancedMagicShopLocation : BaseLocation
         {
             if (!player.Expert)
             {
-                if (refreshMenu && player.AutoMenu)
+                if (refreshMenu)
                 {
                     refreshMenu = false;
                     await ShowFullMenu(player, terminal);

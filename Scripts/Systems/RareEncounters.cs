@@ -817,7 +817,7 @@ namespace UsurperRemake.Systems
             terminal.ClearScreen();
             terminal.SetColor("bright_white");
             terminal.WriteLine("╔═══════════════════════════════════════════════════════╗");
-            terminal.WriteLine("║              👻 GHOSTLY APPARITION 👻                  ║");
+            terminal.WriteLine("║              * GHOSTLY APPARITION *                    ║");
             terminal.WriteLine("╚═══════════════════════════════════════════════════════╝");
             terminal.WriteLine("");
 
@@ -1139,7 +1139,7 @@ namespace UsurperRemake.Systems
         {
             terminal.ClearScreen();
             terminal.SetColor("magenta");
-            terminal.WriteLine("💰 MYSTERIOUS MERCHANT 💰");
+            terminal.WriteLine("=== MYSTERIOUS MERCHANT ===");
             terminal.WriteLine("");
 
             terminal.SetColor("white");
@@ -1441,7 +1441,7 @@ namespace UsurperRemake.Systems
         {
             terminal.ClearScreen();
             terminal.SetColor("bright_cyan");
-            terminal.WriteLine("✨ WISHING WELL ✨");
+            terminal.WriteLine("=== WISHING WELL ===");
             terminal.WriteLine("");
 
             terminal.SetColor("white");
@@ -1554,7 +1554,7 @@ namespace UsurperRemake.Systems
         {
             terminal.ClearScreen();
             terminal.SetColor("red");
-            terminal.WriteLine("⚔ ARENA PORTAL ⚔");
+            terminal.WriteLine("=== ARENA PORTAL ===");
             terminal.WriteLine("");
 
             terminal.SetColor("white");
@@ -1645,7 +1645,7 @@ namespace UsurperRemake.Systems
         {
             terminal.ClearScreen();
             terminal.SetColor("gray");
-            terminal.WriteLine("💀 THE BONE ORACLE 💀");
+            terminal.WriteLine("=== THE BONE ORACLE ===");
             terminal.WriteLine("");
 
             terminal.SetColor("white");
@@ -1699,7 +1699,7 @@ namespace UsurperRemake.Systems
         {
             terminal.ClearScreen();
             terminal.SetColor("bright_white");
-            terminal.WriteLine("👻 RESTLESS SPIRITS 👻");
+            terminal.WriteLine("=== RESTLESS SPIRITS ===");
             terminal.WriteLine("");
 
             terminal.SetColor("white");
@@ -2033,7 +2033,7 @@ namespace UsurperRemake.Systems
         {
             terminal.ClearScreen();
             terminal.SetColor("bright_yellow");
-            terminal.WriteLine("💎 TREASURE HOARD 💎");
+            terminal.WriteLine("=== TREASURE HOARD ===");
             terminal.WriteLine("");
 
             terminal.SetColor("white");
@@ -2092,7 +2092,7 @@ namespace UsurperRemake.Systems
         {
             terminal.ClearScreen();
             terminal.SetColor("bright_cyan");
-            terminal.WriteLine("💎 CRYSTAL CAVE 💎");
+            terminal.WriteLine("=== CRYSTAL CAVE ===");
             terminal.WriteLine("");
             terminal.SetColor("white");
             terminal.WriteLine("Massive crystals hum with power.");
@@ -2119,7 +2119,7 @@ namespace UsurperRemake.Systems
         {
             terminal.ClearScreen();
             terminal.SetColor("red");
-            terminal.WriteLine("🐉 DRAGON'S HOARD 🐉");
+            terminal.WriteLine("=== DRAGON'S HOARD ===");
             terminal.WriteLine("");
             terminal.SetColor("white");
             terminal.WriteLine("Gold piled higher than you've ever seen!");
@@ -2386,7 +2386,7 @@ namespace UsurperRemake.Systems
         {
             terminal.ClearScreen();
             terminal.SetColor("bright_magenta");
-            terminal.WriteLine("✨ AURORA VISION ✨");
+            terminal.WriteLine("=== AURORA VISION ===");
             terminal.WriteLine("");
             terminal.WriteLine("The northern lights dance even underground here.", "white");
             terminal.WriteLine("You feel at peace...");

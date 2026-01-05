@@ -540,23 +540,6 @@ public abstract class BaseLocation
             terminal.Write(")");
         }
 
-        // Turns remaining with urgency
-        int turnsRemaining = currentPlayer.TurnsRemaining;
-        int maxTurns = GameConfig.TurnsPerDay;
-        float turnPercent = maxTurns > 0 ? (float)turnsRemaining / maxTurns : 1f;
-
-        terminal.SetColor("gray");
-        terminal.Write(" | Turns: ");
-        string turnColor = turnPercent > 0.5f ? "white" : turnPercent > 0.25f ? "yellow" : "bright_red";
-        terminal.SetColor(turnColor);
-        terminal.Write($"{turnsRemaining}");
-
-        if (turnPercent <= 0.25f && turnsRemaining > 0)
-        {
-            terminal.SetColor("bright_red");
-            terminal.Write("!");
-        }
-
         terminal.WriteLine("");
         terminal.WriteLine("");
 

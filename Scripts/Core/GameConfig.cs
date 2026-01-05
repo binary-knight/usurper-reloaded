@@ -577,19 +577,21 @@ public static partial class GameConfig
     public const int DefaultAssassinAttempts = 3; // assa
 
     // Character Class Starting Attributes (Pascal USERHUNC.PAS case statements)
+    // Intelligence affects spell damage, mana pool, spell crit chance, XP bonus
+    // Constitution affects bonus HP, poison/disease resistance
     public static readonly Dictionary<CharacterClass, CharacterAttributes> ClassStartingAttributes = new()
     {
-        [CharacterClass.Alchemist] = new() { HP = 1, Strength = 2, Defence = 1, Stamina = 1, Agility = 2, Charisma = 4, Dexterity = 3, Wisdom = 5, Mana = 0, MaxMana = 0 },
-        [CharacterClass.Assassin] = new() { HP = 3, Strength = 4, Defence = 3, Stamina = 3, Agility = 4, Charisma = 2, Dexterity = 5, Wisdom = 2, Mana = 0, MaxMana = 0 },
-        [CharacterClass.Barbarian] = new() { HP = 5, Strength = 5, Defence = 4, Stamina = 5, Agility = 4, Charisma = 1, Dexterity = 2, Wisdom = 1, Mana = 0, MaxMana = 0 },
-        [CharacterClass.Bard] = new() { HP = 3, Strength = 4, Defence = 3, Stamina = 3, Agility = 3, Charisma = 4, Dexterity = 4, Wisdom = 3, Mana = 0, MaxMana = 0 },
-        [CharacterClass.Cleric] = new() { HP = 3, Strength = 3, Defence = 2, Stamina = 2, Agility = 2, Charisma = 4, Dexterity = 2, Wisdom = 4, Mana = 20, MaxMana = 20 },
-        [CharacterClass.Jester] = new() { HP = 2, Strength = 3, Defence = 2, Stamina = 2, Agility = 5, Charisma = 3, Dexterity = 5, Wisdom = 1, Mana = 0, MaxMana = 0 },
-        [CharacterClass.Magician] = new() { HP = 2, Strength = 1, Defence = 1, Stamina = 1, Agility = 2, Charisma = 5, Dexterity = 2, Wisdom = 4, Mana = 40, MaxMana = 40 },
-        [CharacterClass.Paladin] = new() { HP = 4, Strength = 4, Defence = 3, Stamina = 4, Agility = 2, Charisma = 2, Dexterity = 3, Wisdom = 3, Mana = 0, MaxMana = 0 },
-        [CharacterClass.Ranger] = new() { HP = 3, Strength = 3, Defence = 3, Stamina = 4, Agility = 3, Charisma = 2, Dexterity = 4, Wisdom = 3, Mana = 0, MaxMana = 0 },
-        [CharacterClass.Sage] = new() { HP = 1, Strength = 1, Defence = 2, Stamina = 2, Agility = 2, Charisma = 3, Dexterity = 3, Wisdom = 5, Mana = 40, MaxMana = 40 },
-        [CharacterClass.Warrior] = new() { HP = 4, Strength = 4, Defence = 4, Stamina = 4, Agility = 3, Charisma = 2, Dexterity = 2, Wisdom = 2, Mana = 0, MaxMana = 0 }
+        [CharacterClass.Alchemist] = new() { HP = 1, Strength = 2, Defence = 1, Stamina = 1, Agility = 2, Charisma = 4, Dexterity = 3, Wisdom = 5, Intelligence = 5, Constitution = 1, Mana = 0, MaxMana = 0 },
+        [CharacterClass.Assassin] = new() { HP = 3, Strength = 4, Defence = 3, Stamina = 3, Agility = 4, Charisma = 2, Dexterity = 5, Wisdom = 2, Intelligence = 3, Constitution = 3, Mana = 0, MaxMana = 0 },
+        [CharacterClass.Barbarian] = new() { HP = 5, Strength = 5, Defence = 4, Stamina = 5, Agility = 4, Charisma = 1, Dexterity = 2, Wisdom = 1, Intelligence = 1, Constitution = 5, Mana = 0, MaxMana = 0 },
+        [CharacterClass.Bard] = new() { HP = 3, Strength = 4, Defence = 3, Stamina = 3, Agility = 3, Charisma = 4, Dexterity = 4, Wisdom = 3, Intelligence = 3, Constitution = 3, Mana = 0, MaxMana = 0 },
+        [CharacterClass.Cleric] = new() { HP = 3, Strength = 3, Defence = 2, Stamina = 2, Agility = 2, Charisma = 4, Dexterity = 2, Wisdom = 4, Intelligence = 3, Constitution = 3, Mana = 20, MaxMana = 20 },
+        [CharacterClass.Jester] = new() { HP = 2, Strength = 3, Defence = 2, Stamina = 2, Agility = 5, Charisma = 3, Dexterity = 5, Wisdom = 1, Intelligence = 2, Constitution = 2, Mana = 0, MaxMana = 0 },
+        [CharacterClass.Magician] = new() { HP = 2, Strength = 1, Defence = 1, Stamina = 1, Agility = 2, Charisma = 5, Dexterity = 2, Wisdom = 4, Intelligence = 5, Constitution = 1, Mana = 40, MaxMana = 40 },
+        [CharacterClass.Paladin] = new() { HP = 4, Strength = 4, Defence = 3, Stamina = 4, Agility = 2, Charisma = 2, Dexterity = 3, Wisdom = 3, Intelligence = 2, Constitution = 4, Mana = 0, MaxMana = 0 },
+        [CharacterClass.Ranger] = new() { HP = 3, Strength = 3, Defence = 3, Stamina = 4, Agility = 3, Charisma = 2, Dexterity = 4, Wisdom = 3, Intelligence = 2, Constitution = 3, Mana = 0, MaxMana = 0 },
+        [CharacterClass.Sage] = new() { HP = 1, Strength = 1, Defence = 2, Stamina = 2, Agility = 2, Charisma = 3, Dexterity = 3, Wisdom = 5, Intelligence = 5, Constitution = 1, Mana = 40, MaxMana = 40 },
+        [CharacterClass.Warrior] = new() { HP = 4, Strength = 4, Defence = 4, Stamina = 4, Agility = 3, Charisma = 2, Dexterity = 2, Wisdom = 2, Intelligence = 2, Constitution = 4, Mana = 0, MaxMana = 0 }
     };
 
     // Character Race Bonuses (Pascal USERHUNC.PAS race case statements)
@@ -1021,6 +1023,8 @@ public class CharacterAttributes
     public int Charisma { get; set; }
     public int Dexterity { get; set; }
     public int Wisdom { get; set; }
+    public int Intelligence { get; set; }
+    public int Constitution { get; set; }
     public int Mana { get; set; }
     public int MaxMana { get; set; }
 }

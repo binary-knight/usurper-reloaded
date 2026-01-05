@@ -176,7 +176,7 @@ namespace UsurperRemake.UI
             "     ║[bright_red]  ░░░   ░░░   ░░░   COMBAT   ░░░   ░░░   ░░░  [red]║",
             "     ╠══════════════════════════════════════════════════╣",
             "     ║                                                  ║",
-            "     ║    [white]⚔️  A challenger approaches!  ⚔️[red]              ║",
+            "     ║    [white]*  A challenger approaches!  *[red]              ║",
             "     ║                                                  ║",
             "     ╚══════════════════════════════════════════════════╝[/]"
         };
