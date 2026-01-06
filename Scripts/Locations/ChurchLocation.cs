@@ -15,8 +15,6 @@ namespace UsurperRemake.Locations
     /// </summary>
     public partial class ChurchLocation : BaseLocation
     {
-        private bool refreshMenu = true;
-
         // Church staff and configuration
         private readonly string bishopName;
         private readonly string priestName;
@@ -454,35 +452,35 @@ namespace UsurperRemake.Locations
             
             if (currentPlayer.HP < currentPlayer.MaxHP)
             {
-                terminal.WriteLine($"• Restore health: {healingCost / 2:N0} {GameConfig.MoneyType}");
+                terminal.WriteLine($"- Restore health: {healingCost / 2:N0} {GameConfig.MoneyType}");
             }
             
             if (currentPlayer.Blind)
             {
-                terminal.WriteLine($"• Cure blindness: {healingCost:N0} {GameConfig.MoneyType}");
+                terminal.WriteLine($"- Cure blindness: {healingCost:N0} {GameConfig.MoneyType}");
             }
             
             if (currentPlayer.Plague)
             {
-                terminal.WriteLine($"• Cure plague: {healingCost * 2:N0} {GameConfig.MoneyType}");
+                terminal.WriteLine($"- Cure plague: {healingCost * 2:N0} {GameConfig.MoneyType}");
             }
             
             if (currentPlayer.Smallpox)
             {
-                terminal.WriteLine($"• Cure smallpox: {healingCost:N0} {GameConfig.MoneyType}");
+                terminal.WriteLine($"- Cure smallpox: {healingCost:N0} {GameConfig.MoneyType}");
             }
             
             if (currentPlayer.Measles)
             {
-                terminal.WriteLine($"• Cure measles: {healingCost:N0} {GameConfig.MoneyType}");
+                terminal.WriteLine($"- Cure measles: {healingCost:N0} {GameConfig.MoneyType}");
             }
             
             if (currentPlayer.Leprosy)
             {
-                terminal.WriteLine($"• Cure leprosy: {healingCost * 3:N0} {GameConfig.MoneyType}");
+                terminal.WriteLine($"- Cure leprosy: {healingCost * 3:N0} {GameConfig.MoneyType}");
             }
             
-            terminal.WriteLine($"• Complete healing (all conditions): {healingCost * 3:N0} {GameConfig.MoneyType}");
+            terminal.WriteLine($"- Complete healing (all conditions): {healingCost * 3:N0} {GameConfig.MoneyType}");
             terminal.WriteLine("");
             
             var choice = await terminal.GetInput("What healing do you seek? (H)ealth, (B)lindness, (P)lague, (S)mallpox, (M)easles, (L)eprosy, (A)ll, (N)one: ");
@@ -674,9 +672,9 @@ namespace UsurperRemake.Locations
             terminal.WriteLine("");
             
             terminal.WriteLine("Marriage ceremony services:", "cyan");
-            terminal.WriteLine($"• Standard ceremony: {GameConfig.MarriageCost:N0} {GameConfig.MoneyType}");
-            terminal.WriteLine($"• Elaborate ceremony: {GameConfig.MarriageCost * 2:N0} {GameConfig.MoneyType}");
-            terminal.WriteLine($"• Royal ceremony: {GameConfig.MarriageCost * 5:N0} {GameConfig.MoneyType}");
+            terminal.WriteLine($"- Standard ceremony: {GameConfig.MarriageCost:N0} {GameConfig.MoneyType}");
+            terminal.WriteLine($"- Elaborate ceremony: {GameConfig.MarriageCost * 2:N0} {GameConfig.MoneyType}");
+            terminal.WriteLine($"- Royal ceremony: {GameConfig.MarriageCost * 5:N0} {GameConfig.MoneyType}");
             terminal.WriteLine("");
             
             var partnerName = await terminal.GetInput("Who do you wish to marry? (Enter name): ");
@@ -818,20 +816,20 @@ namespace UsurperRemake.Locations
             
             // Player's church history
             terminal.WriteLine("Your Church History:", "yellow");
-            terminal.WriteLine($"• Total donations made: {currentPlayer.ChurchDonations:N0} {GameConfig.MoneyType}");
-            terminal.WriteLine($"• Blessings received: {currentPlayer.BlessingsReceived}");
-            terminal.WriteLine($"• Healings received: {currentPlayer.HealingsReceived}");
-            terminal.WriteLine($"• Current chivalry: {currentPlayer.Chivalry}");
-            terminal.WriteLine($"• Current darkness: {currentPlayer.Darkness}");
-            terminal.WriteLine($"• Moral alignment: {GetAlignmentDescription(currentPlayer)}");
+            terminal.WriteLine($"- Total donations made: {currentPlayer.ChurchDonations:N0} {GameConfig.MoneyType}");
+            terminal.WriteLine($"- Blessings received: {currentPlayer.BlessingsReceived}");
+            terminal.WriteLine($"- Healings received: {currentPlayer.HealingsReceived}");
+            terminal.WriteLine($"- Current chivalry: {currentPlayer.Chivalry}");
+            terminal.WriteLine($"- Current darkness: {currentPlayer.Darkness}");
+            terminal.WriteLine($"- Moral alignment: {GetAlignmentDescription(currentPlayer)}");
             terminal.WriteLine("");
             
             // Church statistics (placeholder for now)
             terminal.WriteLine("Church Statistics:", "cyan");
-            terminal.WriteLine($"• Total church donations this month: {GD.RandRange(50000, 200000):N0} {GameConfig.MoneyType}");
-            terminal.WriteLine($"• Marriages performed this month: {GD.RandRange(5, 25)}");
-            terminal.WriteLine($"• Blessings given this month: {GD.RandRange(100, 500)}");
-            terminal.WriteLine($"• Souls saved from darkness: {GD.RandRange(50, 200)}");
+            terminal.WriteLine($"- Total church donations this month: {GD.RandRange(50000, 200000):N0} {GameConfig.MoneyType}");
+            terminal.WriteLine($"- Marriages performed this month: {GD.RandRange(5, 25)}");
+            terminal.WriteLine($"- Blessings given this month: {GD.RandRange(100, 500)}");
+            terminal.WriteLine($"- Souls saved from darkness: {GD.RandRange(50, 200)}");
             terminal.WriteLine("");
             
             await terminal.PressAnyKey();

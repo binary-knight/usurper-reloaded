@@ -19,8 +19,7 @@ public class AdvancedMagicShopLocation : BaseLocation
     private string ownerName = "Ravanella"; // Pascal default gnome name
     private long identifyCost = 1500; // Pascal default ID cost
     private bool refreshMenu = true;
-    private int counter = 0;
-    
+
     // Pascal magic shop items and constants
     private const string BanditName = "Rugwar"; // Pascal bandit name
     private const string StrangerName = "Rodrik"; // Pascal stranger name
@@ -69,7 +68,7 @@ public class AdvancedMagicShopLocation : BaseLocation
     /// <summary>
     /// Main magic shop menu - Pascal MAGIC.PAS Meny procedure
     /// </summary>
-    public new async Task ShowLocationMenu(Character player)
+    public async Task ShowLocationMenu(Character player)
     {
         var terminal = GetNode<TerminalEmulator>("/root/TerminalEmulator");
         

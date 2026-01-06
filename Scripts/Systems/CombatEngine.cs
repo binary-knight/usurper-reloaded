@@ -17,8 +17,6 @@ public partial class CombatEngine
     private Random random = new Random();
     
     // Combat state
-    private bool globalPlayerInFight = false;
-    private bool globalKilled = false;
     private bool globalBegged = false;
     private bool globalEscape = false;
     private bool globalNoBeg = false;
@@ -83,7 +81,6 @@ public partial class CombatEngine
         await ShowPvPIntroduction(attacker, defender, result);
         
         // Main PvP combat loop
-        bool toDeath = false;
         
         while (attacker.IsAlive && defender.IsAlive && !globalEscape)
         {
@@ -134,6 +131,12 @@ public partial class CombatEngine
         // Initialize combat stamina for player and teammates
         player.InitializeCombatStamina();
 
+        // Ensure abilities are learned based on current level (fixes abilities not showing)
+        if (!ClassAbilitySystem.IsSpellcaster(player.Class))
+        {
+            ClassAbilitySystem.GetAvailableAbilities(player);
+        }
+
         var result = new CombatResult
         {
             Player = player,
@@ -143,8 +146,6 @@ public partial class CombatEngine
         };
 
         // Initialize combat state
-        globalPlayerInFight = true;
-        globalKilled = false;
         globalBegged = false;
         globalEscape = false;
 
@@ -182,7 +183,7 @@ public partial class CombatEngine
                 if (teammate.IsAlive)
                 {
                     teammate.InitializeCombatStamina(); // Initialize teammate stamina
-                    terminal.WriteLine($"  • {teammate.DisplayName} (Level {teammate.Level})");
+                    terminal.WriteLine($"  - {teammate.DisplayName} (Level {teammate.Level})");
                 }
             }
         }
@@ -326,7 +327,6 @@ public partial class CombatEngine
             await HandleVictoryMultiMonster(result, offerMonkEncounter);
         }
 
-        globalPlayerInFight = false;
         return result;
     }
 
@@ -358,7 +358,7 @@ public partial class CombatEngine
             {
                 if (teammate.IsAlive)
                 {
-                    terminal.WriteLine($"  • {teammate.DisplayName} (Level {teammate.Level})");
+                    terminal.WriteLine($"  - {teammate.DisplayName} (Level {teammate.Level})");
                 }
             }
         }
@@ -784,6 +784,25 @@ public partial class CombatEngine
         // Apply difficulty modifier to player damage
         attackPower = DifficultySystem.ApplyPlayerDamageMultiplier(attackPower);
 
+        // Apply divine blessing bonus damage
+        int divineBonusDamage = DivineBlessingSystem.Instance.CalculateBonusDamage(attacker, target, (int)attackPower);
+        if (divineBonusDamage > 0)
+        {
+            attackPower += divineBonusDamage;
+        }
+
+        // Apply divine critical hit bonus
+        int divineCritBonus = DivineBlessingSystem.Instance.GetCriticalHitBonus(attacker);
+        if (divineCritBonus > 0 && !attackRoll.IsCriticalSuccess && !dexCrit)
+        {
+            // Extra chance for divine crit based on god's blessing
+            if (random.Next(100) < divineCritBonus)
+            {
+                attackPower = (long)(attackPower * 1.5f);
+                terminal.WriteLine($"Divine fury guides your strike!", "bright_magenta");
+            }
+        }
+
         // Show critical hit message
         if (attackRoll.IsCriticalSuccess)
         {
@@ -838,6 +857,14 @@ public partial class CombatEngine
         terminal.WriteLine($"{target.Name} takes {actualDamage} damage!");
 
         result.CombatLog.Add($"Player attacks {target.Name} for {actualDamage} damage (roll: {attackRoll.NaturalRoll})");
+
+        // Apply divine lifesteal
+        int lifesteal = DivineBlessingSystem.Instance.CalculateLifesteal(attacker, (int)actualDamage);
+        if (lifesteal > 0)
+        {
+            attacker.HP = Math.Min(attacker.MaxHP, attacker.HP + lifesteal);
+            terminal.WriteLine($"Dark power drains {lifesteal} life from your enemy!", "dark_magenta");
+        }
 
         // Chance to improve basic attack skill from successful use
         if (TrainingSystem.TryImproveFromUse(attacker, "basic_attack", random))
@@ -1114,6 +1141,16 @@ public partial class CombatEngine
             return;
         }
 
+        // === COMPANION TARGETING ===
+        // 30% chance monster attacks a companion instead of player (if companions present)
+        var aliveCompanions = result.Teammates?.Where(t => t.IsCompanion && t.IsAlive).ToList();
+        if (aliveCompanions != null && aliveCompanions.Count > 0 && random.Next(100) < 30)
+        {
+            var targetCompanion = aliveCompanions[random.Next(aliveCompanions.Count)];
+            await MonsterAttacksCompanion(monster, targetCompanion, result);
+            return;
+        }
+
         // === MONSTER SPECIAL ABILITIES ===
         // Chance for monster to use a special ability instead of normal attack
         bool usedSpecialAbility = await TryMonsterSpecialAbility(monster, player, result);
@@ -1241,6 +1278,36 @@ public partial class CombatEngine
             actualDamage = (long)Math.Ceiling(actualDamage / 2.0);
         }
 
+        // Apply divine damage reduction
+        int divineReduction = DivineBlessingSystem.Instance.CalculateDamageReduction(player, (int)actualDamage);
+        if (divineReduction > 0)
+        {
+            actualDamage = Math.Max(1, actualDamage - divineReduction);
+            terminal.WriteLine($"Divine protection absorbs {divineReduction} damage!", "bright_cyan");
+        }
+
+        // Check for divine intervention (save from lethal hit)
+        bool wouldDie = player.HP - actualDamage <= 0;
+        if (wouldDie && DivineBlessingSystem.Instance.CheckDivineIntervention(player, (int)actualDamage))
+        {
+            var blessing = DivineBlessingSystem.Instance.GetBlessings(player);
+            terminal.WriteLine($"{blessing.GodName} intervenes!", "bright_magenta");
+            terminal.WriteLine("Divine light surrounds you, turning death aside!", "bright_white");
+            actualDamage = player.HP - 1; // Survive with 1 HP
+            wouldDie = false;
+        }
+
+        // Check for companion sacrifice (if player would still die)
+        if (wouldDie && result.Teammates != null)
+        {
+            var sacrificeResult = await CheckCompanionSacrifice(player, (int)actualDamage, result);
+            if (sacrificeResult.SacrificeOccurred)
+            {
+                // Companion took the damage instead
+                actualDamage = 0;
+            }
+        }
+
         // Apply damage
         player.HP = Math.Max(0, player.HP - actualDamage);
 
@@ -1263,13 +1330,8 @@ public partial class CombatEngine
 
         result.CombatLog.Add($"{monster.Name} attacks player for {actualDamage} damage (roll: {monsterRoll.NaturalRoll})");
 
-        // Defend stance expires after the first enemy attack
-        if (player.IsDefending)
-        {
-            player.IsDefending = false;
-            if (player.HasStatus(StatusEffect.Defending))
-                player.ActiveStatuses.Remove(StatusEffect.Defending);
-        }
+        // Note: Defend status is now cleared at end of round in ProcessEndOfRoundAbilityEffects
+        // so it protects against ALL monster attacks in the round, not just the first one
 
         await Task.Delay(GetCombatDelay(2000));
     }
@@ -1439,13 +1501,19 @@ public partial class CombatEngine
         terminal.WriteLine("");
         QuestSystem.OnMonsterKilled(result.Player, result.Monster.Name, isBoss);
 
-        // Calculate rewards (Pascal-compatible) with world event modifiers
+        // Calculate rewards (Pascal-compatible) with world event and difficulty modifiers
         long baseExpReward = result.Monster.GetExperienceReward();
         long baseGoldReward = result.Monster.GetGoldReward();
 
         // Apply world event modifiers
         long expReward = WorldEventSystem.Instance.GetAdjustedXP(baseExpReward);
         long goldReward = WorldEventSystem.Instance.GetAdjustedGold(baseGoldReward);
+
+        // Apply difficulty modifiers
+        float xpMult = DifficultySystem.GetExperienceMultiplier(DifficultySystem.CurrentDifficulty);
+        float goldMult = DifficultySystem.GetGoldMultiplier(DifficultySystem.CurrentDifficulty);
+        expReward = (long)(expReward * xpMult);
+        goldReward = (long)(goldReward * goldMult);
 
         // Spouse XP bonus - 10% if married and spouse is alive
         long spouseBonus = 0;
@@ -1457,6 +1525,15 @@ public partial class CombatEngine
                 spouseBonus = expReward / 10; // 10% bonus
                 expReward += spouseBonus;
             }
+        }
+
+        // Divine blessing XP bonus
+        int divineXPBonus = DivineBlessingSystem.Instance.GetXPBonus(result.Player);
+        long divineXPAmount = 0;
+        if (divineXPBonus > 0)
+        {
+            divineXPAmount = (long)(expReward * divineXPBonus / 100f);
+            expReward += divineXPAmount;
         }
 
         result.Player.Experience += expReward;
@@ -1490,7 +1567,15 @@ public partial class CombatEngine
             terminal.SetColor("bright_magenta");
             terminal.WriteLine($"  (Spouse love bonus: +{spouseBonus} XP) <3");
         }
-        
+
+        // Show divine blessing bonus if applicable
+        if (divineXPAmount > 0)
+        {
+            var blessing = DivineBlessingSystem.Instance.GetBlessings(result.Player);
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine($"  ({blessing.GodName}'s favor: +{divineXPAmount} XP)");
+        }
+
         // Offer weapon pickup
         if (result.Monster.GrabWeap && !string.IsNullOrEmpty(result.Monster.Weapon))
         {
@@ -1717,17 +1802,17 @@ public partial class CombatEngine
             case LootGenerator.ItemRarity.Legendary:
             case LootGenerator.ItemRarity.Artifact:
                 terminal.WriteLine("╔════════════════════════════════════════════════════════╗");
-                terminal.WriteLine("║           ★★★ LEGENDARY DROP! ★★★                ║");
+                terminal.WriteLine("║           *** LEGENDARY DROP! ***                ║");
                 terminal.WriteLine("╚════════════════════════════════════════════════════════╝");
                 break;
             case LootGenerator.ItemRarity.Epic:
                 terminal.WriteLine("═══════════════════════════════════════");
-                terminal.WriteLine("      ★★ EPIC DROP! ★★");
+                terminal.WriteLine("      ** EPIC DROP! **");
                 terminal.WriteLine("═══════════════════════════════════════");
                 break;
             case LootGenerator.ItemRarity.Rare:
                 terminal.WriteLine("═════════════════════════════");
-                terminal.WriteLine("     ★ RARE DROP! ★");
+                terminal.WriteLine("     * RARE DROP! *");
                 terminal.WriteLine("═════════════════════════════");
                 break;
             default:
@@ -2475,15 +2560,22 @@ public partial class CombatEngine
                     await Task.Delay(GetCombatDelay(500));
                     continue; // Show menu again
 
-                // Class-specific abilities (numbered 1-3)
+                // Class-specific abilities (numbered 1-9)
                 case "1":
                 case "2":
                 case "3":
+                case "4":
+                case "5":
+                case "6":
+                case "7":
+                case "8":
+                case "9":
                     var classAction = await HandleClassSpecificAction(player, input.Trim(), monsters);
                     if (classAction.HasValue)
                     {
                         action.Type = classAction.Value.type;
                         action.TargetIndex = classAction.Value.target;
+                        action.AbilityId = classAction.Value.abilityId;
                         return (action, false);
                     }
                     continue; // Invalid or cancelled, show menu again
@@ -2642,6 +2734,11 @@ public partial class CombatEngine
 
             case CombatActionType.Taunt:
                 await ExecuteTauntMultiMonster(player, monsters, action.TargetIndex, result);
+                break;
+
+            case CombatActionType.UseAbility:
+            case CombatActionType.ClassAbility:
+                await ExecuteUseAbilityMultiMonster(player, monsters, action, result);
                 break;
 
             case CombatActionType.None:
@@ -2876,6 +2973,355 @@ public partial class CombatEngine
     }
 
     /// <summary>
+    /// Execute class ability in multi-monster combat
+    /// This is the main entry point for learned abilities from ClassAbilitySystem
+    /// </summary>
+    private async Task ExecuteUseAbilityMultiMonster(Character player, List<Monster> monsters, CombatAction action, CombatResult result)
+    {
+        // If we have a specific ability ID, use it directly
+        if (!string.IsNullOrEmpty(action.AbilityId))
+        {
+            var ability = ClassAbilitySystem.GetAbility(action.AbilityId);
+            if (ability == null)
+            {
+                terminal.WriteLine("Unknown ability!", "red");
+                await Task.Delay(GetCombatDelay(1000));
+                return;
+            }
+
+            // Check stamina
+            if (!player.HasEnoughStamina(ability.StaminaCost))
+            {
+                terminal.WriteLine($"Not enough stamina! Need {ability.StaminaCost}, have {player.CurrentCombatStamina}.", "red");
+                await Task.Delay(GetCombatDelay(1000));
+                return;
+            }
+
+            // Check cooldown
+            if (abilityCooldowns.TryGetValue(action.AbilityId, out int cd) && cd > 0)
+            {
+                terminal.WriteLine($"{ability.Name} is on cooldown for {cd} more rounds!", "red");
+                await Task.Delay(GetCombatDelay(1000));
+                return;
+            }
+
+            // Spend stamina
+            player.SpendStamina(ability.StaminaCost);
+
+            // Execute the ability
+            var abilityResult = ClassAbilitySystem.UseAbility(player, action.AbilityId, random);
+
+            // Display ability use
+            terminal.WriteLine("");
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine($"» {player.Name2} uses {ability.Name}! (-{ability.StaminaCost} stamina)");
+            terminal.SetColor("gray");
+            terminal.WriteLine($"  (Stamina: {player.CurrentCombatStamina}/{player.MaxCombatStamina})");
+            await Task.Delay(GetCombatDelay(500));
+
+            // Get target for damage abilities
+            Monster target = null;
+            if (action.TargetIndex.HasValue && action.TargetIndex.Value < monsters.Count)
+            {
+                target = monsters[action.TargetIndex.Value];
+            }
+            else
+            {
+                target = GetRandomLivingMonster(monsters);
+            }
+
+            // Apply ability effects
+            await ApplyAbilityEffectsMultiMonster(player, target, monsters, abilityResult, result);
+
+            // Set cooldown
+            if (abilityResult.CooldownApplied > 0)
+            {
+                abilityCooldowns[action.AbilityId] = abilityResult.CooldownApplied;
+                terminal.SetColor("gray");
+                terminal.WriteLine($"  ({ability.Name} cooldown: {abilityResult.CooldownApplied} rounds)");
+            }
+
+            // Log the action
+            result.CombatLog.Add($"{player.DisplayName} uses {ability.Name}");
+
+            await Task.Delay(GetCombatDelay(800));
+        }
+        else
+        {
+            // No specific ability - show menu (fallback to old behavior)
+            await ShowAbilityMenuAndExecute(player, monsters, result);
+        }
+    }
+
+    /// <summary>
+    /// Apply ability effects in multi-monster combat
+    /// </summary>
+    private async Task ApplyAbilityEffectsMultiMonster(Character player, Monster target, List<Monster> monsters, ClassAbilityResult abilityResult, CombatResult result)
+    {
+        var ability = abilityResult.AbilityUsed;
+        if (ability == null) return;
+
+        // Apply damage
+        if (abilityResult.Damage > 0 && target != null && target.IsAlive)
+        {
+            long actualDamage = abilityResult.Damage;
+
+            // Handle special damage effects
+            if (abilityResult.SpecialEffect == "execute" && target.HP < target.MaxHP * 0.3)
+            {
+                actualDamage *= 2;
+                terminal.SetColor("bright_red");
+                terminal.WriteLine("EXECUTION! Double damage to wounded enemy!");
+            }
+            else if (abilityResult.SpecialEffect == "last_stand" && player.HP < player.MaxHP * 0.25)
+            {
+                actualDamage = (long)(actualDamage * 1.5);
+                terminal.SetColor("bright_red");
+                terminal.WriteLine("LAST STAND! Desperation fuels your attack!");
+            }
+            else if (abilityResult.SpecialEffect == "armor_pierce")
+            {
+                terminal.SetColor("green");
+                terminal.WriteLine("The attack ignores armor!");
+            }
+            else if (abilityResult.SpecialEffect == "backstab")
+            {
+                actualDamage = (long)(actualDamage * 1.5);
+                terminal.SetColor("bright_yellow");
+                terminal.WriteLine("Critical strike from the shadows!");
+            }
+            else if (abilityResult.SpecialEffect == "aoe")
+            {
+                // AoE abilities hit all monsters
+                terminal.SetColor("bright_red");
+                terminal.WriteLine("The attack strikes all enemies!");
+                await ApplyAoEDamage(monsters, actualDamage, result, ability.Name);
+                // Skip single target damage since we did AoE
+                actualDamage = 0;
+            }
+
+            // Apply single target damage (unless AoE)
+            if (actualDamage > 0)
+            {
+                // Apply defense unless armor_pierce
+                if (abilityResult.SpecialEffect != "armor_pierce")
+                {
+                    long defense = target.Defence / 2; // Abilities partially bypass defense
+                    actualDamage = Math.Max(1, actualDamage - defense);
+                }
+
+                target.HP -= actualDamage;
+                result.TotalDamageDealt += actualDamage;
+
+                terminal.SetColor("bright_red");
+                terminal.WriteLine($"You deal {actualDamage} damage to {target.Name}!");
+
+                if (target.HP <= 0)
+                {
+                    terminal.SetColor("bright_green");
+                    terminal.WriteLine($"{target.Name} is slain!");
+                }
+            }
+        }
+
+        // Apply healing
+        if (abilityResult.Healing > 0)
+        {
+            long actualHealing = Math.Min(abilityResult.Healing, player.MaxHP - player.HP);
+            player.HP += actualHealing;
+
+            terminal.SetColor("bright_green");
+            terminal.WriteLine($"You recover {actualHealing} HP!");
+        }
+
+        // Apply buffs
+        if (abilityResult.AttackBonus > 0)
+        {
+            player.TempAttackBonus = abilityResult.AttackBonus;
+            player.TempAttackBonusDuration = abilityResult.Duration;
+            terminal.SetColor("cyan");
+            terminal.WriteLine($"Attack increased by {abilityResult.AttackBonus} for {abilityResult.Duration} rounds!");
+        }
+
+        if (abilityResult.DefenseBonus > 0)
+        {
+            player.TempDefenseBonus = abilityResult.DefenseBonus;
+            player.TempDefenseBonusDuration = abilityResult.Duration;
+            terminal.SetColor("cyan");
+            terminal.WriteLine($"Defense increased by {abilityResult.DefenseBonus} for {abilityResult.Duration} rounds!");
+        }
+        else if (abilityResult.DefenseBonus < 0)
+        {
+            // Rage reduces defense
+            player.TempDefenseBonus = abilityResult.DefenseBonus;
+            player.TempDefenseBonusDuration = abilityResult.Duration;
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"Defense reduced by {-abilityResult.DefenseBonus} (rage)!");
+        }
+
+        // Handle special effects
+        switch (abilityResult.SpecialEffect)
+        {
+            case "escape":
+                terminal.SetColor("magenta");
+                terminal.WriteLine("You vanish in a puff of smoke!");
+                globalEscape = true;
+                break;
+
+            case "stun":
+                if (target != null && target.IsAlive && random.Next(100) < 60)
+                {
+                    target.Stunned = true;
+                    terminal.SetColor("yellow");
+                    terminal.WriteLine($"{target.Name} is stunned!");
+                }
+                break;
+
+            case "poison":
+                if (target != null && target.IsAlive)
+                {
+                    target.Poisoned = true;
+                    terminal.SetColor("green");
+                    terminal.WriteLine($"{target.Name} is poisoned!");
+                }
+                break;
+
+            case "distract":
+                if (target != null && target.IsAlive)
+                {
+                    target.Distracted = true;
+                    terminal.SetColor("yellow");
+                    terminal.WriteLine($"{target.Name} is distracted and will have reduced accuracy!");
+                }
+                break;
+
+            case "charm":
+                if (target != null && target.IsAlive && random.Next(100) < 40)
+                {
+                    target.Charmed = true;
+                    terminal.SetColor("magenta");
+                    terminal.WriteLine($"{target.Name} is charmed and may hesitate to attack!");
+                }
+                break;
+
+            case "smoke":
+                terminal.SetColor("gray");
+                terminal.WriteLine("A cloud of smoke obscures you from attack!");
+                player.TempDefenseBonus += 40;
+                player.TempDefenseBonusDuration = Math.Max(player.TempDefenseBonusDuration, 2);
+                break;
+
+            case "rage":
+                player.IsRaging = true;
+                terminal.SetColor("bright_red");
+                terminal.WriteLine("BERSERKER RAGE! You enter a blood fury!");
+                break;
+
+            case "dodge_next":
+                player.DodgeNextAttack = true;
+                terminal.SetColor("cyan");
+                terminal.WriteLine("You prepare to dodge the next attack!");
+                break;
+
+            case "inspire":
+                terminal.SetColor("bright_yellow");
+                terminal.WriteLine("Your inspiring melody bolsters your allies!");
+                // Could buff teammates if they exist
+                break;
+
+            case "resist_all":
+                terminal.SetColor("bright_white");
+                terminal.WriteLine("Your will becomes unbreakable! You resist all effects!");
+                break;
+        }
+
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Show ability selection menu and execute chosen ability (fallback for UseAbility without ID)
+    /// </summary>
+    private async Task ShowAbilityMenuAndExecute(Character player, List<Monster> monsters, CombatResult result)
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("═══ COMBAT ABILITIES ═══");
+        terminal.WriteLine("");
+
+        var availableAbilities = ClassAbilitySystem.GetAvailableAbilities(player);
+
+        if (availableAbilities.Count == 0)
+        {
+            terminal.WriteLine("You haven't learned any abilities yet!", "red");
+            terminal.WriteLine("Train at the Level Master to unlock abilities as you level up.", "yellow");
+            await Task.Delay(GetCombatDelay(2000));
+            return;
+        }
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"Combat Stamina: {player.CurrentCombatStamina}/{player.MaxCombatStamina}");
+        terminal.WriteLine("");
+        terminal.WriteLine("Available Abilities:", "white");
+        terminal.WriteLine("");
+
+        int displayIndex = 1;
+        var selectableAbilities = new List<ClassAbilitySystem.ClassAbility>();
+
+        foreach (var ability in availableAbilities)
+        {
+            bool canUse = ClassAbilitySystem.CanUseAbility(player, ability.Id, abilityCooldowns);
+            bool hasStamina = player.HasEnoughStamina(ability.StaminaCost);
+            bool onCooldown = abilityCooldowns.TryGetValue(ability.Id, out int cooldownLeft) && cooldownLeft > 0;
+
+            string statusText = "";
+            string color = "white";
+
+            if (onCooldown)
+            {
+                statusText = $" [Cooldown: {cooldownLeft} rounds]";
+                color = "dark_gray";
+            }
+            else if (!hasStamina)
+            {
+                statusText = $" [Need {ability.StaminaCost} stamina]";
+                color = "dark_gray";
+            }
+
+            terminal.SetColor(color);
+            terminal.WriteLine($"  {displayIndex}. {ability.Name} - {ability.StaminaCost} stamina{statusText}");
+            terminal.SetColor("gray");
+            terminal.WriteLine($"     {ability.Description}");
+
+            selectableAbilities.Add(ability);
+            displayIndex++;
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("yellow");
+        terminal.Write("Enter ability number (0 to cancel): ");
+        string input = terminal.GetInputSync();
+
+        if (!int.TryParse(input, out int choice) || choice < 1 || choice > selectableAbilities.Count)
+        {
+            terminal.WriteLine("Cancelled.", "gray");
+            await Task.Delay(GetCombatDelay(500));
+            return;
+        }
+
+        var selectedAbility = selectableAbilities[choice - 1];
+
+        // Execute the selected ability
+        var abilityAction = new CombatAction
+        {
+            Type = CombatActionType.ClassAbility,
+            AbilityId = selectedAbility.Id,
+            TargetIndex = null // Will pick random target
+        };
+
+        await ExecuteUseAbilityMultiMonster(player, monsters, abilityAction, result);
+    }
+
+    /// <summary>
     /// Execute spell in multi-monster combat (handles AoE and single target)
     /// </summary>
     private async Task ExecuteSpellMultiMonster(Character player, List<Monster> monsters, CombatAction action, CombatResult result)
@@ -2964,6 +3410,172 @@ public partial class CombatEngine
     }
 
     /// <summary>
+    /// Check if any companion will sacrifice themselves to save the player
+    /// </summary>
+    private async Task<(bool SacrificeOccurred, UsurperRemake.Systems.CompanionId? CompanionId)> CheckCompanionSacrifice(
+        Character player, int incomingDamage, CombatResult result)
+    {
+        var companionSystem = UsurperRemake.Systems.CompanionSystem.Instance;
+
+        // Find companions in teammates
+        var companionTeammates = result.Teammates?.Where(t => t.IsCompanion && t.CompanionId.HasValue).ToList();
+        if (companionTeammates == null || companionTeammates.Count == 0)
+            return (false, null);
+
+        // Check if any companion will sacrifice
+        var sacrificingCompanion = companionSystem.CheckForSacrifice(player, incomingDamage);
+        if (sacrificingCompanion == null)
+            return (false, null);
+
+        // Companion sacrifices themselves!
+        terminal.WriteLine("");
+        await Task.Delay(500);
+
+        terminal.SetColor("bright_red");
+        terminal.WriteLine("╔════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║              COMPANION SACRIFICE                    ║");
+        terminal.WriteLine("╚════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        terminal.SetColor("bright_white");
+        terminal.WriteLine($"As the killing blow descends upon you...");
+        await Task.Delay(800);
+
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine($"{sacrificingCompanion.Name} throws themselves in the way!");
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        // Show their sacrifice dialogue
+        string sacrificeLine = sacrificingCompanion.Id switch
+        {
+            UsurperRemake.Systems.CompanionId.Aldric =>
+                "\"NOT THIS TIME!\" Aldric roars, shield raised high.",
+            UsurperRemake.Systems.CompanionId.Lyris =>
+                "\"I finally understand why I found you...\" Lyris whispers, stepping forward.",
+            UsurperRemake.Systems.CompanionId.Mira =>
+                "\"Perhaps... this is what I was seeking all along.\" Mira smiles gently.",
+            UsurperRemake.Systems.CompanionId.Vex =>
+                "\"Heh. Always wanted to go out doing something that mattered.\" Vex grins.",
+            _ => $"\"{sacrificingCompanion.Name} leaps to your defense!\""
+        };
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine(sacrificeLine);
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        // The companion takes the full damage and dies
+        terminal.SetColor("dark_red");
+        terminal.WriteLine($"The blow strikes {sacrificingCompanion.Name} instead...");
+        await Task.Delay(1000);
+
+        // Remove companion from teammates
+        var companionChar = companionTeammates.FirstOrDefault(t => t.CompanionId == sacrificingCompanion.Id);
+        if (companionChar != null)
+        {
+            companionChar.HP = 0;
+            result.Teammates?.Remove(companionChar);
+        }
+
+        // Kill the companion permanently
+        await companionSystem.KillCompanion(
+            sacrificingCompanion.Id,
+            UsurperRemake.Systems.DeathType.Sacrifice,
+            $"Sacrificed themselves to save {player.DisplayName} from a killing blow",
+            terminal);
+
+        // Player survives with 1 HP
+        player.HP = 1;
+
+        terminal.SetColor("gray");
+        terminal.WriteLine("You are alive. But at what cost?");
+        terminal.WriteLine("");
+        await Task.Delay(2000);
+
+        // Increase loyalty with remaining companions (they witnessed the sacrifice)
+        foreach (var remaining in companionSystem.GetActiveCompanions())
+        {
+            if (remaining != null && !remaining.IsDead)
+            {
+                companionSystem.ModifyLoyalty(remaining.Id, 20,
+                    $"Witnessed {sacrificingCompanion.Name}'s sacrifice");
+            }
+        }
+
+        return (true, sacrificingCompanion.Id);
+    }
+
+    /// <summary>
+    /// Handle monster attacking a companion instead of the player
+    /// </summary>
+    private async Task MonsterAttacksCompanion(Monster monster, Character companion, CombatResult result)
+    {
+        terminal.SetColor("red");
+        terminal.WriteLine($"The {monster.Name} turns its attention to {companion.DisplayName}!");
+        await Task.Delay(GetCombatDelay(500));
+
+        // Calculate monster damage
+        long monsterAttack = monster.GetAttackPower();
+        monsterAttack += random.Next(0, 10);
+
+        // Apply difficulty modifier
+        monsterAttack = DifficultySystem.ApplyMonsterDamageMultiplier(monsterAttack);
+
+        // Calculate companion defense
+        long companionDefense = companion.Defence + companion.ArmPow / 2;
+
+        long actualDamage = Math.Max(1, monsterAttack - companionDefense);
+
+        // Apply damage to companion
+        companion.HP = Math.Max(0, companion.HP - actualDamage);
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine($"{companion.DisplayName} takes {actualDamage} damage! ({companion.HP}/{companion.MaxHP} HP)");
+
+        result.CombatLog.Add($"{monster.Name} attacks {companion.DisplayName} for {actualDamage} damage");
+
+        // Check if companion died
+        if (!companion.IsAlive && companion.IsCompanion && companion.CompanionId.HasValue)
+        {
+            await HandleCompanionDeath(companion, monster.Name, result);
+        }
+
+        // Sync companion HP back to CompanionSystem
+        var companionSystem = UsurperRemake.Systems.CompanionSystem.Instance;
+        companionSystem.SyncCompanionHP(companion);
+
+        await Task.Delay(GetCombatDelay(1000));
+    }
+
+    /// <summary>
+    /// Handle a companion dying in combat
+    /// </summary>
+    private async Task HandleCompanionDeath(Character companion, string killerName, CombatResult result)
+    {
+        if (!companion.CompanionId.HasValue) return;
+
+        var companionSystem = UsurperRemake.Systems.CompanionSystem.Instance;
+
+        terminal.WriteLine("");
+        terminal.SetColor("dark_red");
+        terminal.WriteLine($"{companion.DisplayName} falls!");
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        // Remove from teammates
+        result.Teammates?.Remove(companion);
+
+        // Kill the companion permanently
+        await companionSystem.KillCompanion(
+            companion.CompanionId.Value,
+            UsurperRemake.Systems.DeathType.Combat,
+            $"Slain by {killerName} in combat",
+            terminal);
+    }
+
+    /// <summary>
     /// Handle victory over multiple monsters
     /// </summary>
     private async Task HandleVictoryMultiMonster(CombatResult result, bool offerMonkEncounter)
@@ -3011,6 +3623,12 @@ public partial class CombatEngine
         // Apply world event modifiers
         long adjustedExp = WorldEventSystem.Instance.GetAdjustedXP(totalExp);
         long adjustedGold = WorldEventSystem.Instance.GetAdjustedGold(totalGold);
+
+        // Apply difficulty modifiers
+        float xpMult = DifficultySystem.GetExperienceMultiplier(DifficultySystem.CurrentDifficulty);
+        float goldMult = DifficultySystem.GetGoldMultiplier(DifficultySystem.CurrentDifficulty);
+        adjustedExp = (long)(adjustedExp * xpMult);
+        adjustedGold = (long)(adjustedGold * goldMult);
 
         // Apply rewards
         result.Player.Experience += adjustedExp;
@@ -3085,6 +3703,12 @@ public partial class CombatEngine
         // Apply world event modifiers
         long adjustedExp = WorldEventSystem.Instance.GetAdjustedXP(totalExp);
         long adjustedGold = WorldEventSystem.Instance.GetAdjustedGold(totalGold);
+
+        // Apply difficulty modifiers
+        float xpMult = DifficultySystem.GetExperienceMultiplier(DifficultySystem.CurrentDifficulty);
+        float goldMult = DifficultySystem.GetGoldMultiplier(DifficultySystem.CurrentDifficulty);
+        adjustedExp = (long)(adjustedExp * xpMult);
+        adjustedGold = (long)(adjustedGold * goldMult);
 
         result.Player.Experience += adjustedExp;
         result.Player.Gold += adjustedGold;
@@ -3959,6 +4583,15 @@ public partial class CombatEngine
                 player.TempDefenseBonus = 0;
             }
         }
+
+        // Clear defending status at end of round (after all monsters have attacked)
+        // This ensures defend protects against ALL monster attacks in a round
+        if (player.IsDefending)
+        {
+            player.IsDefending = false;
+            if (player.HasStatus(StatusEffect.Defending))
+                player.ActiveStatuses.Remove(StatusEffect.Defending);
+        }
     }
 
     private async Task ShowPvPIntroduction(Character attacker, Character defender, CombatResult result)
@@ -4050,13 +4683,25 @@ public partial class CombatEngine
         {
             result.Outcome = CombatOutcome.PlayerDied;
             terminal.WriteLine($"{result.Player.DisplayName} has been defeated!", "red");
+
+            // Track death to another player
+            result.Player.Statistics?.RecordDeath(toPlayer: true);
+
+            // Track kill for the opponent if they're a player
+            result.Opponent?.Statistics?.RecordPlayerKill();
         }
         else if (!result.Opponent.IsAlive)
         {
             result.Outcome = CombatOutcome.Victory;
             terminal.WriteLine($"{result.Player.DisplayName} is victorious!", "green");
+
+            // Track PvP kill for the player
+            result.Player.Statistics?.RecordPlayerKill();
+
+            // Track death for the opponent
+            result.Opponent?.Statistics?.RecordDeath(toPlayer: true);
         }
-        
+
         await Task.Delay(GetCombatDelay(2000));
     }
 
@@ -4147,11 +4792,10 @@ public partial class CombatEngine
         {
             target.HP = Math.Max(0, target.HP - spellResult.Damage);
             terminal.WriteLine($"{target.Name} takes {spellResult.Damage} damage!", "red");
-            
+
             if (target.HP <= 0)
             {
                 terminal.WriteLine($"{target.Name} has been slain by magic!", "dark_red");
-                globalPlayerInFight = false;
             }
         }
         
@@ -4182,7 +4826,7 @@ public partial class CombatEngine
     /// <summary>
     /// Handle special spell effects
     /// </summary>
-    private void HandleSpecialSpellEffect(Character caster, Monster target, string effect)
+    private void HandleSpecialSpellEffect(Character caster, Monster? target, string effect)
     {
         switch (effect.ToLower())
         {
@@ -4324,7 +4968,7 @@ public partial class CombatEngine
                 terminal.WriteLine($"{caster.DisplayName} examines their belongings carefully...", "bright_white");
                 foreach (var itm in caster.Inventory)
                 {
-                    terminal.WriteLine($" • {itm.Name}  (Type: {itm.Type}, Pow: {itm.Attack}/{itm.Armor})", "white");
+                    terminal.WriteLine($" - {itm.Name}  (Type: {itm.Type}, Pow: {itm.Attack}/{itm.Armor})", "white");
                 }
                 break;
         }
@@ -4689,7 +5333,7 @@ public partial class CombatEngine
                 break;
         }
 
-        return (0, null);
+        return (0, "");
     }
 
     /// <summary>
@@ -4851,9 +5495,9 @@ public partial class CombatEngine
 
     /// <summary>
     /// Handle class-specific action input using learned abilities
-    /// Returns the action type and target index if valid, null if invalid
+    /// Returns the action type, target index, and ability ID if valid, null if invalid
     /// </summary>
-    private async Task<(CombatActionType type, int? target)?> HandleClassSpecificAction(Character player, string key, List<Monster> monsters)
+    private async Task<(CombatActionType type, int? target, string abilityId)?> HandleClassSpecificAction(Character player, string key, List<Monster> monsters)
     {
         // Get the learned abilities with their key mappings
         var learnedActions = GetLearnedAbilityActions(player, abilityCooldowns);
@@ -4874,9 +5518,9 @@ public partial class CombatEngine
             var ability = ClassAbilitySystem.GetAbility(matchedAction.abilityId);
             if (ability != null)
             {
-                if (player.Stamina < ability.StaminaCost)
+                if (player.CurrentCombatStamina < ability.StaminaCost)
                 {
-                    terminal.WriteLine($"Not enough stamina! Need {ability.StaminaCost}, have {player.Stamina}.", "red");
+                    terminal.WriteLine($"Not enough stamina! Need {ability.StaminaCost}, have {player.CurrentCombatStamina}.", "red");
                 }
                 else if (abilityCooldowns.TryGetValue(matchedAction.abilityId, out int cd) && cd > 0)
                 {
@@ -4887,8 +5531,8 @@ public partial class CombatEngine
             return null;
         }
 
-        // Use the ability via ClassAbilitySystem
-        return (CombatActionType.ClassAbility, null); // Return special type that triggers ability execution
+        // Return the ability ID so it can be executed
+        return (CombatActionType.ClassAbility, null, matchedAction.abilityId);
     }
 
     /// <summary>

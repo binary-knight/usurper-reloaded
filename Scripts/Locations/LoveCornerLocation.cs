@@ -1,4 +1,6 @@
+#pragma warning disable CS0618 // ReadLine/ReadKey obsolete - TODO: convert to async
 using UsurperRemake.Utils;
+using UsurperRemake.Systems;
 using Godot;
 using System;
 using System.Collections.Generic;
@@ -19,7 +21,7 @@ public class LoveCornerLocation : BaseLocation
         ShowLocationDescription(player);
     }
 
-    public new bool HandleCommand(Character player, string command)
+    public bool HandleCommand(Character player, string command)
     {
         return command.ToUpper() switch
         {
@@ -258,26 +260,12 @@ public class LoveCornerLocation : BaseLocation
         terminal.WriteLine("Marriage Ceremony", TerminalEmulator.ColorYellow);
         terminal.WriteLine("==================");
         terminal.WriteLine();
-        
-        if (player.IsMarried)
-        {
-            terminal.WriteLine($"You are already married to {player.SpouseName}!", TerminalEmulator.ColorRed);
-            terminal.WriteLine("You must divorce first before remarrying.");
-            return WaitForKey();
-        }
-        
-        if (player.Age < GameConfig.MinimumAgeToMarry)
-        {
-            terminal.WriteLine($"You must be at least {GameConfig.MinimumAgeToMarry} years old to marry!", TerminalEmulator.ColorRed);
-            return WaitForKey();
-        }
-        
-        if (player.IntimacyActs < 1)
-        {
-            terminal.WriteLine("You have no intimacy acts left today!", TerminalEmulator.ColorRed);
-            return WaitForKey();
-        }
-        
+
+        // Try to find the target character (NPC)
+        var targetNPC = NPCSpawnSystem.Instance?.ActiveNPCs?.Find(n =>
+            n.Name2.Equals(targetName, StringComparison.OrdinalIgnoreCase) ||
+            n.Name1.Equals(targetName, StringComparison.OrdinalIgnoreCase));
+
         long weddingCost = GameConfig.WeddingCostBase;
         if (player.Gold < weddingCost)
         {
@@ -285,39 +273,63 @@ public class LoveCornerLocation : BaseLocation
             terminal.WriteLine($"You only have {player.Gold} gold.");
             return WaitForKey();
         }
-        
+
         terminal.WriteLine($"Wedding ceremony with {targetName}:");
         terminal.WriteLine($"Cost: {weddingCost} gold");
         terminal.WriteLine();
         terminal.Write("Proceed with the ceremony? (Y/N): ");
-        
+
         string confirm = terminal.ReadLine()?.ToUpper();
         if (confirm != "Y")
         {
             terminal.WriteLine("Wedding ceremony cancelled.");
             return WaitForKey();
         }
-        
-        // Perform wedding ceremony
+
+        // Pay wedding cost regardless of outcome
         player.Gold -= weddingCost;
-        player.IsMarried = true;
-        player.Married = true;
-        player.SpouseName = targetName;
-        player.MarriedTimes++;
-        player.IntimacyActs--;
-        
-        var ceremonyMessages = GameConfig.WeddingCeremonyMessages;
-        var random = new Random();
-        string ceremonyMessage = ceremonyMessages[random.Next(ceremonyMessages.Length)];
-        
-        terminal.WriteLine();
-        terminal.WriteLine("*** WEDDING CEREMONY ***", TerminalEmulator.ColorYellow);
-        terminal.WriteLine();
-        terminal.WriteLine($"{player.Name} and {targetName} are now married!", TerminalEmulator.ColorGreen);
-        terminal.WriteLine(ceremonyMessage);
-        terminal.WriteLine();
-        terminal.WriteLine("Congratulations! (go home and make babies)", TerminalEmulator.ColorCyan);
-        
+
+        // Use RelationshipSystem.PerformMarriage for proper tracking if we have the target
+        if (targetNPC != null)
+        {
+            if (RelationshipSystem.PerformMarriage(player, targetNPC, out string message))
+            {
+                terminal.WriteLine();
+                terminal.WriteLine("*** WEDDING CEREMONY ***", TerminalEmulator.ColorYellow);
+                terminal.WriteLine();
+                terminal.WriteLine(message, TerminalEmulator.ColorGreen);
+            }
+            else
+            {
+                terminal.WriteLine();
+                terminal.WriteLine(message, TerminalEmulator.ColorRed);
+                // Refund on failure
+                player.Gold += weddingCost;
+            }
+        }
+        else
+        {
+            // Fallback for when target NPC not found (e.g., offline player or unknown name)
+            // Manually set marriage flags for compatibility
+            player.IsMarried = true;
+            player.Married = true;
+            player.SpouseName = targetName;
+            player.MarriedTimes++;
+            player.IntimacyActs--;
+
+            var ceremonyMessages = GameConfig.WeddingCeremonyMessages;
+            var random = new Random();
+            string ceremonyMessage = ceremonyMessages[random.Next(ceremonyMessages.Length)];
+
+            terminal.WriteLine();
+            terminal.WriteLine("*** WEDDING CEREMONY ***", TerminalEmulator.ColorYellow);
+            terminal.WriteLine();
+            terminal.WriteLine($"{player.Name} and {targetName} are now married!", TerminalEmulator.ColorGreen);
+            terminal.WriteLine(ceremonyMessage);
+            terminal.WriteLine();
+            terminal.WriteLine("Congratulations! (go home and make babies)", TerminalEmulator.ColorCyan);
+        }
+
         return WaitForKey();
     }
 
@@ -506,30 +518,24 @@ public class LoveCornerLocation : BaseLocation
         terminal.WriteLine();
         terminal.WriteLine("<3<3<3 Married Couples <3<3<3", TerminalEmulator.ColorMagenta);
         terminal.WriteLine();
-        
-        // In full implementation, would use RelationshipSystem.GetMarriedCouples()
-        var sampleCouples = new List<string>
-        {
-            "Alice and Bob have been married for 15 days.",
-            "Catherine and David have been married for 142 days.",
-            "Eve and Frank have been married for 3 days."
-        };
-        
-        if (sampleCouples.Count == 0)
+
+        // Get married couples from the relationship system
+        var marriedCouples = RelationshipSystem.GetMarriedCouples();
+
+        if (marriedCouples.Count == 0)
         {
             terminal.WriteLine("No married couples in the realm at this time.");
         }
         else
         {
-            foreach (var couple in sampleCouples)
+            foreach (var couple in marriedCouples)
             {
                 terminal.WriteLine(couple);
             }
         }
-        
+
         terminal.WriteLine();
-        terminal.WriteLine("(This will show actual married couples from the relationship system)");
-        
+
         return WaitForKey();
     }
 

@@ -9,14 +9,14 @@ namespace UsurperRemake.Locations;
 /// <summary>
 /// The Level Master – lets players advance in level when they have enough experience.
 /// Features three alignment-based masters with hidden stat bonuses:
-///  • Good Master: Grants bonus Wisdom and Charisma
-///  • Neutral Master: Grants bonus Intelligence and Dexterity
-///  • Evil Master: Grants bonus Strength and Constitution
+///  - Good Master: Grants bonus Wisdom and Charisma
+///  - Neutral Master: Grants bonus Intelligence and Dexterity
+///  - Evil Master: Grants bonus Strength and Constitution
 ///
 /// Each class also receives stat bonuses appropriate to their role:
-///  • Magic classes (Magician, Cleric, Sage, Alchemist): +Intelligence, +Wisdom, +Mana
-///  • Warrior classes (Warrior, Barbarian, Paladin): +Strength, +Constitution, +HP
-///  • Agile classes (Assassin, Ranger, Jester, Bard): +Dexterity, +Agility, +Stamina
+///  - Magic classes (Magician, Cleric, Sage, Alchemist): +Intelligence, +Wisdom, +Mana
+///  - Warrior classes (Warrior, Barbarian, Paladin): +Strength, +Constitution, +HP
+///  - Agile classes (Assassin, Ranger, Jester, Bard): +Dexterity, +Agility, +Stamina
 /// </summary>
 public class LevelMasterLocation : BaseLocation
 {
@@ -358,6 +358,12 @@ public class LevelMasterLocation : BaseLocation
             currentPlayer.HP = currentPlayer.MaxHP;
             currentPlayer.Mana = currentPlayer.MaxMana;
 
+            // Track statistics for each level gained
+            for (int i = 0; i < levelsRaised; i++)
+            {
+                currentPlayer.Statistics.RecordLevelUp(startLevel + i + 1);
+            }
+
             // Display level up celebration with training points earned
             await DisplayLevelUpCelebration(levelsRaised, startLevel, totalTrainingPoints);
         }
@@ -381,7 +387,7 @@ public class LevelMasterLocation : BaseLocation
         }
         else
         {
-            terminal.WriteLine($"  You have advanced {levelsRaised} levels! ({startLevel} → {currentPlayer.Level})");
+            terminal.WriteLine($"  You have advanced {levelsRaised} levels! ({startLevel} -> {currentPlayer.Level})");
         }
         terminal.WriteLine("");
 
@@ -446,7 +452,7 @@ public class LevelMasterLocation : BaseLocation
                 terminal.WriteLine("");
                 terminal.SetColor("bright_yellow");
                 terminal.WriteLine("╔═══════════════════════════════════════════════════════════════════╗");
-                terminal.WriteLine($"║              ★ MILESTONE REACHED: Level {level,3} ★                     ║");
+                terminal.WriteLine($"║              * MILESTONE REACHED: Level {level,3} *                     ║");
                 terminal.WriteLine("╚═══════════════════════════════════════════════════════════════════╝");
                 terminal.WriteLine("");
 

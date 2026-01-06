@@ -62,8 +62,8 @@ namespace UsurperRemake.Data
                 Agility = 80,
                 AttacksPerRound = 3,
 
-                EncounterLocation = "Dungeon Floor 60",
-                DungeonFloor = 60,
+                EncounterLocation = "Dungeon Floor 25",
+                DungeonFloor = 25,
 
                 Description = "Once the noble god of honorable combat, now a broken shell consumed by endless war.",
 
@@ -150,8 +150,8 @@ namespace UsurperRemake.Data
                 Charisma = 300,
                 AttacksPerRound = 2,
 
-                EncounterLocation = "Love Corner / Home",
-                DungeonFloor = 0, // Not in dungeon
+                EncounterLocation = "Dungeon Floor 40",
+                DungeonFloor = 40,
 
                 Description = "The goddess of love fades with each broken heart. She can still be saved.",
 
@@ -255,8 +255,8 @@ namespace UsurperRemake.Data
                 Agility = 60,
                 AttacksPerRound = 2,
 
-                EncounterLocation = "Castle Throne Room",
-                DungeonFloor = 0,
+                EncounterLocation = "Dungeon Floor 55",
+                DungeonFloor = 55,
 
                 Description = "The god of justice became the god of tyranny. His scales weigh only power now.",
 
@@ -346,8 +346,8 @@ namespace UsurperRemake.Data
                 Charisma = 150,
                 AttacksPerRound = 4,
 
-                EncounterLocation = "Dark Alley / Hidden Sanctum",
-                DungeonFloor = 0,
+                EncounterLocation = "Dungeon Floor 70",
+                DungeonFloor = 70,
 
                 Description = "The mysterious orchestrator. She set these events in motion. Her true motives remain hidden.",
 
@@ -457,8 +457,8 @@ namespace UsurperRemake.Data
                 Wisdom = 250,
                 AttacksPerRound = 2,
 
-                EncounterLocation = "Temple / Deep Temple",
-                DungeonFloor = 0,
+                EncounterLocation = "Dungeon Floor 85",
+                DungeonFloor = 85,
 
                 Description = "The god of truth speaks only in whispers now. His light dims with every lie.",
 
@@ -563,8 +563,8 @@ namespace UsurperRemake.Data
                 Agility = 20,
                 AttacksPerRound = 1,
 
-                EncounterLocation = "Dungeon Floor 80",
-                DungeonFloor = 80,
+                EncounterLocation = "Dungeon Floor 95",
+                DungeonFloor = 95,
 
                 Description = "The oldest god sleeps beneath the dungeon. He can be awakened... but should he be?",
 

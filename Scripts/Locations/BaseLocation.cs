@@ -53,6 +53,9 @@ public abstract class BaseLocation
         // Update player location
         player.Location = (int)LocationId;
 
+        // Track location visit statistics
+        player.Statistics?.RecordLocationVisit(Name);
+
         // Ensure NPCs are initialized (safety check)
         if (NPCSpawnSystem.Instance.ActiveNPCs.Count == 0)
         {
@@ -204,10 +207,10 @@ public abstract class BaseLocation
             GameLocation.ArmorShop => "Armor Shop",
             GameLocation.MagicShop => "Magic Shop",
             GameLocation.Marketplace => "Market",
-            GameLocation.Steroids => "Gym",
+            GameLocation.Steroids => "Level Master",
             GameLocation.DarkAlley => "Dark Alley",
-            GameLocation.Orbs => "Tavern",
-            GameLocation.BobsBeer => "Tavern",
+            GameLocation.Orbs => "Inn",
+            GameLocation.BobsBeer => "Inn",
             GameLocation.Bank => "Bank",
             GameLocation.Healer => "Healer",
             GameLocation.Dungeons => "Dungeon",
@@ -450,33 +453,33 @@ public abstract class BaseLocation
     protected virtual string GetBreadcrumbPath()
     {
         // Default: just show location name
-        // Subclasses can override for more complex paths (e.g., "Main Street → Dungeons → Level 3")
+        // Subclasses can override for more complex paths (e.g., "Main Street > Dungeons > Level 3")
         switch (LocationId)
         {
             case GameLocation.MainStreet:
                 return "Main Street";
             case GameLocation.Home:
-                return "Anchor Road → Your Home";
+                return "Anchor Road > Your Home";
             case GameLocation.AnchorRoad:
-                return "Main Street → Anchor Road";
+                return "Main Street > Anchor Road";
             case GameLocation.WeaponShop:
-                return "Main Street → Weapon Shop";
+                return "Main Street > Weapon Shop";
             case GameLocation.ArmorShop:
-                return "Main Street → Armor Shop";
+                return "Main Street > Armor Shop";
             case GameLocation.MagicShop:
-                return "Main Street → Magic Shop";
+                return "Main Street > Magic Shop";
             case GameLocation.TheInn:
-                return "Main Street → The Inn";
+                return "Main Street > The Inn";
             case GameLocation.DarkAlley:
-                return "Main Street → Dark Alley";
+                return "Main Street > Dark Alley";
             case GameLocation.Church:
-                return "Main Street → Church";
+                return "Main Street > Church";
             case GameLocation.Bank:
-                return "Main Street → Bank";
+                return "Main Street > Bank";
             case GameLocation.Castle:
-                return "Main Street → Royal Castle";
+                return "Main Street > Royal Castle";
             case GameLocation.Prison:
-                return "Anchor Road → Outside Prison";
+                return "Anchor Road > Outside Prison";
             default:
                 return Name ?? "Unknown";
         }
@@ -1461,22 +1464,22 @@ public abstract class BaseLocation
             if (currentPlayer.MagicACBonus > 0)
             {
                 terminal.SetColor("magenta");
-                terminal.WriteLine($"  • Magic AC Bonus: +{currentPlayer.MagicACBonus}");
+                terminal.WriteLine($"  - Magic AC Bonus: +{currentPlayer.MagicACBonus}");
             }
             if (currentPlayer.DamageAbsorptionPool > 0)
             {
                 terminal.SetColor("magenta");
-                terminal.WriteLine($"  • Stoneskin: {currentPlayer.DamageAbsorptionPool} damage absorption");
+                terminal.WriteLine($"  - Stoneskin: {currentPlayer.DamageAbsorptionPool} damage absorption");
             }
             if (currentPlayer.IsRaging)
             {
                 terminal.SetColor("bright_red");
-                terminal.WriteLine("  • RAGING! (+Strength, +HP, -AC)");
+                terminal.WriteLine("  - RAGING! (+Strength, +HP, -AC)");
             }
             if (currentPlayer.SmiteChargesRemaining > 0)
             {
                 terminal.SetColor("yellow");
-                terminal.WriteLine($"  • Smite Evil: {currentPlayer.SmiteChargesRemaining} charges");
+                terminal.WriteLine($"  - Smite Evil: {currentPlayer.SmiteChargesRemaining} charges");
             }
             terminal.WriteLine("");
         }
@@ -1603,7 +1606,7 @@ public abstract class BaseLocation
             terminal.SetColor("white");
             foreach (var ability in abilities)
             {
-                terminal.WriteLine($"    • {ability}");
+                terminal.WriteLine($"    - {ability}");
             }
         }
         terminal.WriteLine("");
@@ -1620,7 +1623,7 @@ public abstract class BaseLocation
         if (currentPlayer.King)
         {
             terminal.SetColor("bright_yellow");
-            terminal.WriteLine("👑 REIGNING MONARCH 👑");
+            terminal.WriteLine("*** REIGNING MONARCH ***");
         }
         terminal.WriteLine("");
 
@@ -1729,42 +1732,42 @@ public abstract class BaseLocation
             if (currentPlayer.Blind)
             {
                 terminal.SetColor("red");
-                terminal.WriteLine("  • Blind");
+                terminal.WriteLine("  - Blind");
             }
             if (currentPlayer.Plague)
             {
                 terminal.SetColor("red");
-                terminal.WriteLine("  • Plague");
+                terminal.WriteLine("  - Plague");
             }
             if (currentPlayer.Smallpox)
             {
                 terminal.SetColor("red");
-                terminal.WriteLine("  • Smallpox");
+                terminal.WriteLine("  - Smallpox");
             }
             if (currentPlayer.Measles)
             {
                 terminal.SetColor("red");
-                terminal.WriteLine("  • Measles");
+                terminal.WriteLine("  - Measles");
             }
             if (currentPlayer.Leprosy)
             {
                 terminal.SetColor("red");
-                terminal.WriteLine("  • Leprosy");
+                terminal.WriteLine("  - Leprosy");
             }
             if (currentPlayer.Poison > 0)
             {
                 terminal.SetColor("red");
-                terminal.WriteLine($"  • Poisoned (Level {currentPlayer.Poison})");
+                terminal.WriteLine($"  - Poisoned (Level {currentPlayer.Poison})");
             }
             if (currentPlayer.Addict > 0)
             {
                 terminal.SetColor("red");
-                terminal.WriteLine($"  • Addicted (Level {currentPlayer.Addict})");
+                terminal.WriteLine($"  - Addicted (Level {currentPlayer.Addict})");
             }
             if (currentPlayer.Haunt > 0)
             {
                 terminal.SetColor("red");
-                terminal.WriteLine($"  • Haunted by {currentPlayer.Haunt} demon(s)");
+                terminal.WriteLine($"  - Haunted by {currentPlayer.Haunt} demon(s)");
             }
             terminal.WriteLine("");
         }

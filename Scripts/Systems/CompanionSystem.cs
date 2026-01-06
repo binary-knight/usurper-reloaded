@@ -424,6 +424,182 @@ namespace UsurperRemake.Systems
 
         #endregion
 
+        #region Combat Integration
+
+        // Track companion HP during combat (companions use BaseStats.HP as max, this tracks current)
+        private Dictionary<CompanionId, int> companionCurrentHP = new();
+
+        /// <summary>
+        /// Get active companions as Character objects for the combat system
+        /// Creates lightweight Character wrappers that the CombatEngine can use
+        /// </summary>
+        public List<Character> GetCompanionsAsCharacters()
+        {
+            var result = new List<Character>();
+
+            foreach (var companion in GetActiveCompanions())
+            {
+                if (companion == null || companion.IsDead) continue;
+
+                // Initialize HP if needed
+                if (!companionCurrentHP.ContainsKey(companion.Id))
+                {
+                    companionCurrentHP[companion.Id] = companion.BaseStats.HP;
+                }
+
+                var charWrapper = new Character
+                {
+                    Name2 = companion.Name,
+                    Level = Math.Max(1, companion.RecruitLevel + 5), // Companions scale slightly above recruit level
+                    HP = companionCurrentHP[companion.Id],
+                    MaxHP = companion.BaseStats.HP,
+                    Strength = companion.BaseStats.Attack,
+                    Defence = companion.BaseStats.Defense,
+                    Dexterity = companion.BaseStats.Speed,
+                    Intelligence = companion.BaseStats.MagicPower,
+                    Wisdom = companion.BaseStats.HealingPower,
+                    WeapPow = companion.BaseStats.Attack / 2,
+                    ArmPow = companion.BaseStats.Defense / 2,
+                    Class = companion.CombatRole switch
+                    {
+                        CombatRole.Tank => CharacterClass.Warrior,
+                        CombatRole.Healer => CharacterClass.Cleric,
+                        CombatRole.Damage => CharacterClass.Assassin,
+                        CombatRole.Hybrid => CharacterClass.Paladin,
+                        _ => CharacterClass.Warrior
+                    }
+                };
+
+                // Store companion ID in the character for tracking
+                charWrapper.CompanionId = companion.Id;
+                charWrapper.IsCompanion = true;
+
+                result.Add(charWrapper);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Apply damage to a companion (called from CombatEngine)
+        /// Returns true if companion died
+        /// </summary>
+        public bool DamageCompanion(CompanionId id, int damage, out bool triggeredSacrifice)
+        {
+            triggeredSacrifice = false;
+
+            if (!companions.TryGetValue(id, out var companion) || companion.IsDead)
+                return false;
+
+            if (!companionCurrentHP.ContainsKey(id))
+                companionCurrentHP[id] = companion.BaseStats.HP;
+
+            companionCurrentHP[id] = Math.Max(0, companionCurrentHP[id] - damage);
+
+            if (companionCurrentHP[id] <= 0)
+            {
+                // Companion would die from combat
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Heal a companion
+        /// </summary>
+        public void HealCompanion(CompanionId id, int amount)
+        {
+            if (!companions.TryGetValue(id, out var companion) || companion.IsDead)
+                return;
+
+            if (!companionCurrentHP.ContainsKey(id))
+                companionCurrentHP[id] = companion.BaseStats.HP;
+
+            companionCurrentHP[id] = Math.Min(companion.BaseStats.HP, companionCurrentHP[id] + amount);
+        }
+
+        /// <summary>
+        /// Get current HP for a companion
+        /// </summary>
+        public int GetCompanionHP(CompanionId id)
+        {
+            if (!companionCurrentHP.ContainsKey(id))
+            {
+                if (companions.TryGetValue(id, out var c))
+                    companionCurrentHP[id] = c.BaseStats.HP;
+                else
+                    return 0;
+            }
+            return companionCurrentHP[id];
+        }
+
+        /// <summary>
+        /// Restore all active companions to full HP (after dungeon exit, rest, etc.)
+        /// </summary>
+        public void RestoreCompanionHP()
+        {
+            foreach (var companion in GetActiveCompanions())
+            {
+                if (companion != null && !companion.IsDead)
+                {
+                    companionCurrentHP[companion.Id] = companion.BaseStats.HP;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Sync companion HP from Character wrapper after combat
+        /// </summary>
+        public void SyncCompanionHP(Character charWrapper)
+        {
+            if (charWrapper.IsCompanion && charWrapper.CompanionId.HasValue)
+            {
+                companionCurrentHP[charWrapper.CompanionId.Value] = (int)charWrapper.HP;
+            }
+        }
+
+        /// <summary>
+        /// Check if any companion can sacrifice to save the player
+        /// Returns the companion willing to sacrifice, or null
+        /// </summary>
+        public Companion? CheckForSacrifice(Character player, int incomingDamage)
+        {
+            // Only trigger if damage would kill the player
+            if (player.HP - incomingDamage > 0)
+                return null;
+
+            foreach (var companion in GetActiveCompanions())
+            {
+                if (companion == null || companion.IsDead) continue;
+
+                // Check if companion has Sacrifice ability
+                if (!companion.Abilities.Contains("Sacrifice")) continue;
+
+                // Check if companion has enough loyalty/trust to sacrifice
+                // Higher loyalty = more likely to sacrifice
+                int sacrificeChance = companion.LoyaltyLevel;
+
+                // Aldric always sacrifices if loyalty > 50 (his nature)
+                if (companion.Id == CompanionId.Aldric && companion.LoyaltyLevel > 50)
+                    sacrificeChance = 100;
+
+                // Romance increases sacrifice chance
+                if (companion.RomanceLevel > 5)
+                    sacrificeChance += 30;
+
+                var random = new Random();
+                if (random.Next(100) < sacrificeChance)
+                {
+                    return companion;
+                }
+            }
+
+            return null;
+        }
+
+        #endregion
+
         #region Relationship Management
 
         /// <summary>
@@ -741,6 +917,11 @@ namespace UsurperRemake.Systems
         private async Task DisplayDeathScene(Companion companion, DeathType type, string circumstance, TerminalEmulator terminal)
         {
             terminal.Clear();
+            await Task.Delay(1500);
+
+            // Slow, solemn header
+            terminal.WriteLine("");
+            await Task.Delay(500);
             terminal.WriteLine("╔══════════════════════════════════════════════════════════════════╗", "dark_red");
             terminal.WriteLine("║                                                                    ║", "dark_red");
             terminal.WriteLine("║                    F   A   L   L   E   N                          ║", "dark_red");
@@ -748,35 +929,177 @@ namespace UsurperRemake.Systems
             terminal.WriteLine("╚══════════════════════════════════════════════════════════════════╝", "dark_red");
             terminal.WriteLine("");
 
-            await Task.Delay(1000);
+            await Task.Delay(2000);
 
-            terminal.WriteLine($"  {companion.Name}", "white");
-            terminal.WriteLine($"  \"{companion.Title}\"", "gray");
+            terminal.WriteLine($"  {companion.Name}", "bright_white");
+            terminal.WriteLine($"  \"{companion.Title}\"", "cyan");
             terminal.WriteLine("");
 
-            await Task.Delay(500);
+            await Task.Delay(1000);
 
+            // The circumstance of death
             terminal.WriteLine($"  {circumstance}", "white");
-            terminal.WriteLine("");
-
-            await Task.Delay(1000);
-
-            string lastWords = GetLastWords(companion, type);
-            terminal.WriteLine($"  \"{lastWords}\"", "dark_cyan");
             terminal.WriteLine("");
 
             await Task.Delay(1500);
 
-            terminal.WriteLine("  They are gone.", "gray");
-            terminal.WriteLine("  There is no resurrection. No second chance.", "gray");
-            terminal.WriteLine("  Only memory remains.", "gray");
+            // Their final words
+            string lastWords = GetLastWords(companion, type);
+            terminal.SetColor("dark_cyan");
+            terminal.WriteLine($"  \"{lastWords}\"");
             terminal.WriteLine("");
 
-            // Ocean philosophy moment
-            terminal.WriteLine("  The wave returns to the ocean...", "dark_magenta");
+            await Task.Delay(2000);
+
+            // The moment of passing
+            terminal.SetColor("gray");
+            terminal.WriteLine("  Their eyes close.");
+            await Task.Delay(800);
+            terminal.WriteLine("  Their breath stills.");
+            await Task.Delay(800);
+            terminal.WriteLine("  And then... silence.");
             terminal.WriteLine("");
 
-            await terminal.GetInputAsync("Press Enter to continue...");
+            await Task.Delay(2000);
+
+            // Philosophical moment based on companion and death type
+            await DisplayDeathPhilosophy(companion, type, terminal);
+
+            await Task.Delay(1500);
+
+            // Final message
+            terminal.SetColor("gray");
+            terminal.WriteLine("  They are gone.");
+            terminal.WriteLine("  There is no resurrection. No second chance.");
+            terminal.WriteLine("  Death is not a door that opens twice.");
+            terminal.WriteLine("");
+
+            await Task.Delay(1500);
+
+            // Memory persists - varied by companion
+            terminal.SetColor("bright_cyan");
+            string memoryLine = companion.Id switch
+            {
+                CompanionId.Lyris => "  But their light remains. Look up. Remember.",
+                CompanionId.Aldric => "  But what grew from their sacrifice lives on. In you.",
+                CompanionId.Mira => "  But the warmth they gave... that never fades.",
+                CompanionId.Vex => "  But the song echoes. Listen. It's still playing.",
+                _ => "  But memory persists. They live on in what they changed."
+            };
+            terminal.WriteLine(memoryLine);
+            terminal.SetColor("white");
+            terminal.WriteLine("");
+
+            await terminal.GetInputAsync("  Press Enter when you are ready...");
+        }
+
+        /// <summary>
+        /// Display philosophical content unique to each companion's death
+        /// Each companion embodies a different metaphor/lesson
+        /// </summary>
+        private async Task DisplayDeathPhilosophy(Companion companion, DeathType type, TerminalEmulator terminal)
+        {
+            terminal.WriteLine("");
+
+            switch (companion.Id)
+            {
+                case CompanionId.Lyris:
+                    // Lyris - STARLIGHT metaphor (love transcends death)
+                    terminal.SetColor("bright_magenta");
+                    terminal.WriteLine("  In her final moment, you feel it:");
+                    terminal.WriteLine("  A connection that transcended words.");
+                    terminal.WriteLine("  Love is not possession. It is recognition.");
+                    terminal.WriteLine("  Two souls seeing themselves in each other.");
+                    terminal.WriteLine("");
+                    await Task.Delay(1500);
+                    terminal.SetColor("cyan");
+                    terminal.WriteLine("  She was the star that guided you.");
+                    terminal.WriteLine("  Stars die - but their light travels forever.");
+                    terminal.WriteLine("  The light you see tonight left its source");
+                    terminal.WriteLine("  a thousand years ago.");
+                    terminal.WriteLine("");
+                    await Task.Delay(1000);
+                    terminal.SetColor("bright_white");
+                    terminal.WriteLine("  Every time you look up, she will still be shining.");
+                    terminal.WriteLine("  That is the nature of light.");
+                    terminal.WriteLine("  It never truly stops.");
+                    break;
+
+                case CompanionId.Aldric:
+                    // Aldric - SEED/TREE metaphor (sacrifice enables growth)
+                    terminal.SetColor("bright_yellow");
+                    terminal.WriteLine("  All his life, Aldric carried the weight of those he couldn't save.");
+                    terminal.WriteLine("  The ghosts of the fallen followed him everywhere.");
+                    await Task.Delay(1000);
+                    terminal.SetColor("white");
+                    terminal.WriteLine("");
+                    terminal.WriteLine("  But in this final act...");
+                    terminal.WriteLine("  The ghosts released him.");
+                    terminal.WriteLine("  He did not fail this time.");
+                    terminal.WriteLine("");
+                    await Task.Delay(1000);
+                    terminal.SetColor("bright_green");
+                    terminal.WriteLine("  A seed must break open to become a tree.");
+                    terminal.WriteLine("  The shell dies so the life within can grow.");
+                    terminal.WriteLine("  Aldric was a shield that shattered");
+                    terminal.WriteLine("  so that you could stand.");
+                    terminal.WriteLine("");
+                    terminal.SetColor("white");
+                    terminal.WriteLine("  His sacrifice was not an ending.");
+                    terminal.WriteLine("  It was a beginning - yours.");
+                    break;
+
+                case CompanionId.Mira:
+                    // Mira - CANDLE metaphor (giving light by burning)
+                    terminal.SetColor("bright_green");
+                    terminal.WriteLine("  She spent so long asking: 'Does healing matter?'");
+                    terminal.WriteLine("  Her faith was broken. Her temple, destroyed.");
+                    terminal.WriteLine("  She healed others because she didn't know what else to do.");
+                    terminal.WriteLine("");
+                    await Task.Delay(1500);
+                    terminal.SetColor("white");
+                    terminal.WriteLine("  And now, at the end...");
+                    terminal.WriteLine("  She finally understands.");
+                    terminal.WriteLine("");
+                    await Task.Delay(1000);
+                    terminal.SetColor("bright_yellow");
+                    terminal.WriteLine("  A candle gives light by burning itself.");
+                    terminal.WriteLine("  It doesn't ask if the light matters.");
+                    terminal.WriteLine("  It simply shines, because that is its nature.");
+                    terminal.WriteLine("");
+                    terminal.SetColor("bright_cyan");
+                    terminal.WriteLine("  Mira was a candle.");
+                    terminal.WriteLine("  The meaning was never in the result.");
+                    terminal.WriteLine("  It was in the giving itself.");
+                    break;
+
+                case CompanionId.Vex:
+                    // Vex - MUSIC metaphor (beauty in transience)
+                    terminal.SetColor("bright_yellow");
+                    terminal.WriteLine("  He knew. He always knew.");
+                    terminal.WriteLine("  The disease was a clock, ticking down.");
+                    terminal.WriteLine("  Others would have despaired. He chose to laugh.");
+                    terminal.WriteLine("");
+                    await Task.Delay(1500);
+                    terminal.SetColor("white");
+                    terminal.WriteLine("  'Life's too short to take seriously,' he said.");
+                    terminal.WriteLine("  And he was right.");
+                    terminal.WriteLine("");
+                    await Task.Delay(1000);
+                    terminal.SetColor("bright_magenta");
+                    terminal.WriteLine("  A song is beautiful BECAUSE it ends.");
+                    terminal.WriteLine("  If it played forever, it would become noise.");
+                    terminal.WriteLine("  The silence after is part of the music.");
+                    terminal.WriteLine("");
+                    terminal.SetColor("cyan");
+                    terminal.WriteLine("  Vex didn't fight death. He danced with it.");
+                    terminal.WriteLine("  He made his life a song worth hearing.");
+                    terminal.WriteLine("  And now... the silence.");
+                    terminal.WriteLine("  Listen. Can you still hear the echo?");
+                    break;
+            }
+
+            terminal.WriteLine("");
         }
 
         #endregion

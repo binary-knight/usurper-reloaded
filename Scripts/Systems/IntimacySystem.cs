@@ -131,14 +131,14 @@ namespace UsurperRemake.Systems
             if (roll < pregnancyChance)
             {
                 // Pregnancy!
-                await AnnouncePregancy(partner, romanceType == RomanceRelationType.Lover);
+                await AnnouncePregnancy(partner, romanceType == RomanceRelationType.Lover);
             }
         }
 
         /// <summary>
         /// Announce pregnancy and create child
         /// </summary>
-        private async Task AnnouncePregancy(NPC partner, bool isBastard)
+        private async Task AnnouncePregnancy(NPC partner, bool isBastard)
         {
             terminal!.ClearScreen();
 

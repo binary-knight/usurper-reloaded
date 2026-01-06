@@ -190,7 +190,7 @@ public partial class GoalSystem
         var summary = "Active Goals:\n";
         foreach (var goal in activeGoals.Take(3))
         {
-            summary += $"  • {goal.Name} (Priority: {goal.GetEffectivePriority():F2})\n";
+            summary += $"  - {goal.Name} (Priority: {goal.GetEffectivePriority():F2})\n";
         }
         
         return summary.TrimEnd();

@@ -13,6 +13,10 @@ public class WorldSimulator
 
     private const float SIMULATION_INTERVAL = 60.0f; // seconds between simulation steps
     private const int MAX_TEAM_SIZE = 5; // Maximum members per team (from Pascal)
+    private const int NPC_RESPAWN_TICKS = 10; // Respawn dead NPCs after 10 simulation ticks (~10 min)
+
+    // Track dead NPCs for respawn
+    private Dictionary<string, int> deadNPCRespawnTimers = new();
 
     // Team name generators for NPC-formed teams - Ocean/Manwe themed for lore
     private static readonly string[] TeamNamePrefixes = new[]
@@ -35,7 +39,7 @@ public class WorldSimulator
     private static readonly string[] GameLocations = new[]
     {
         "Main Street", "Dungeon", "Weapon Shop", "Armor Shop", "Magic Shop",
-        "Healer", "Inn", "Temple", "Gym", "Tavern", "Market", "Castle", "Love Street", "Bank"
+        "Healer", "Inn", "Temple", "Church", "Market", "Castle", "Love Street", "Bank"
     };
     
     public void StartSimulation(List<NPC> worldNPCs)
@@ -73,6 +77,9 @@ public class WorldSimulator
     {
         if (!isRunning || npcs == null) return;
 
+        // Handle NPC respawns
+        ProcessNPCRespawns();
+
         var worldState = new WorldState(npcs);
 
         // Process each NPC's AI
@@ -92,11 +99,60 @@ public class WorldSimulator
             }
         }
 
+        // Track dead NPCs for respawn
+        foreach (var npc in npcs.Where(n => !n.IsAlive))
+        {
+            if (!deadNPCRespawnTimers.ContainsKey(npc.Name))
+            {
+                deadNPCRespawnTimers[npc.Name] = NPC_RESPAWN_TICKS;
+                GD.Print($"[WorldSim] {npc.Name} added to respawn queue ({NPC_RESPAWN_TICKS} ticks)");
+            }
+        }
+
         // Process world events
         ProcessWorldEvents();
 
         // Update relationships and social dynamics
         UpdateSocialDynamics();
+    }
+
+    /// <summary>
+    /// Process NPC respawns - resurrect dead NPCs after a cooldown period
+    /// </summary>
+    private void ProcessNPCRespawns()
+    {
+        if (npcs == null) return;
+
+        var toRespawn = new List<string>();
+
+        foreach (var kvp in deadNPCRespawnTimers.ToList())
+        {
+            deadNPCRespawnTimers[kvp.Key] = kvp.Value - 1;
+
+            if (deadNPCRespawnTimers[kvp.Key] <= 0)
+            {
+                toRespawn.Add(kvp.Key);
+            }
+        }
+
+        foreach (var npcName in toRespawn)
+        {
+            var npc = npcs.FirstOrDefault(n => n.Name == npcName);
+            if (npc != null)
+            {
+                // Respawn the NPC
+                npc.HP = npc.MaxHP;
+                npc.UpdateLocation("Main Street");
+
+                // Lose some gold and XP as death penalty
+                npc.Gold = Math.Max(0, npc.Gold / 2);
+
+                NewsSystem.Instance.Newsy(true, $"{npc.Name} has returned from the realm of the dead!");
+                GD.Print($"[WorldSim] {npc.Name} respawned!");
+            }
+
+            deadNPCRespawnTimers.Remove(npcName);
+        }
     }
 
     /// <summary>
@@ -687,11 +743,11 @@ public class WorldSimulator
     }
 
     /// <summary>
-    /// NPC trains at the gym
+    /// NPC trains to improve stats
     /// </summary>
     private void NPCTrainAtGym(NPC npc)
     {
-        npc.UpdateLocation("Gym");
+        // Training can happen anywhere - NPC stays at current location
 
         int trainingCost = npc.Level * 10 + 50;
         if (npc.Gold >= trainingCost)
@@ -1444,7 +1500,7 @@ public class WorldSimulator
         foreach (var member in teamMembers)
         {
             // Low loyalty or betrayal-prone personality
-            bool likelyToLeave = member.Brain?.Personality?.IsLikelyToBetrray() == true ||
+            bool likelyToLeave = member.Brain?.Personality?.IsLikelyToBetray() == true ||
                                  member.Loyalty < 30;
 
             if (likelyToLeave && random.NextDouble() < 0.01) // 1% chance per tick
@@ -1629,7 +1685,7 @@ public class WorldSimulator
         
         foreach (var member in gangMembers)
         {
-            if (member.Brain?.Personality?.IsLikelyToBetrray() == true && GD.Randf() < 0.02f) // 2% chance
+            if (member.Brain?.Personality?.IsLikelyToBetray() == true && GD.Randf() < 0.02f) // 2% chance
             {
                 var gangLeader = npcs.FirstOrDefault(npc => npc.Id == member.GangId);
                 if (gangLeader != null)

@@ -396,7 +396,7 @@ namespace UsurperRemake.Systems
                 terminal.SetColor("green");
                 foreach (var stat in stats)
                 {
-                    terminal.WriteLine($"  • {stat}");
+                    terminal.WriteLine($"  - {stat}");
                 }
             }
 

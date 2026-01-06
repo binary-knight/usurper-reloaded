@@ -48,7 +48,7 @@ public static class SpellLearningSystem
 
                 string color = known ? "bright_green" : (canLearn ? "white" : "dark_gray");
                 string knownStr = known ? "YES" : (canLearn ? "---" : "   ");
-                string levelMark = canLearn ? "✓" : " ";
+                string levelMark = canLearn ? "+" : " ";
 
                 // Truncate description to fit
                 string shortDesc = spell.Description.Length > 35 ? spell.Description.Substring(0, 32) + "..." : spell.Description;
@@ -57,7 +57,7 @@ public static class SpellLearningSystem
             }
 
             terminal.WriteLine("");
-            terminal.WriteLine("✓ = You meet the level requirement to learn this spell", "gray");
+            terminal.WriteLine("+ = You meet the level requirement to learn this spell", "gray");
             terminal.WriteLine("");
             terminal.WriteLine("Enter spell level number to learn/forget, or [X] to exit.", "yellow");
             var input = await terminal.GetInput("> ");

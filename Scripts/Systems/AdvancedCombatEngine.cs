@@ -19,7 +19,6 @@ public class AdvancedCombatEngine : Node
     private RelationshipSystem relationshipSystem;
     
     // Pascal global variables from PLVSMON.PAS
-    private bool globalPlayerInFight = false;
     private bool globalKilled = false;
     private bool globalBegged = false;
     private bool globalEscape = false;
@@ -62,8 +61,7 @@ public class AdvancedCombatEngine : Node
             MonsterMode = monsterMode
         };
         
-        // Set Pascal combat flag
-        globalPlayerInFight = true;
+        // Reset Pascal combat state
         globalKilled = false;
         globalBegged = false;
         globalEscape = false;
@@ -119,8 +117,7 @@ public class AdvancedCombatEngine : Node
         
         // Determine final outcome
         await DetermineMonsterCombatOutcome(result, terminal);
-        
-        globalPlayerInFight = false;
+
         return result;
     }
     
@@ -385,9 +382,8 @@ public class AdvancedCombatEngine : Node
             OfflineKill = offlineKill
         };
         
-        globalPlayerInFight = true;
         globalBegged = false;
-        
+
         var terminal = GetNode<TerminalEmulator>("/root/TerminalEmulator");
         
         // Initialize PvP combat
@@ -396,7 +392,6 @@ public class AdvancedCombatEngine : Node
         // Main PvP combat loop
         bool toDeath = false;
         bool expertPress = false;
-        bool fastGame = false;
         
         while (!result.IsComplete && attacker.IsAlive && defender.IsAlive)
         {
@@ -428,7 +423,7 @@ public class AdvancedCombatEngine : Node
                 await ProcessPvPAction(action, attacker, defender, result, terminal);
                 
                 // Check for special outcomes (beg for mercy, fight to death)
-                if (action.Type == PvPActionType.BegForMercy)
+                if (action.Type == PvPActionType.BegForMercy && !globalBegged)
                 {
                     await ProcessBegForMercy(attacker, defender, result, terminal);
                     break;
@@ -463,8 +458,7 @@ public class AdvancedCombatEngine : Node
         
         // Determine PvP outcome
         await DeterminePvPOutcome(attacker, defender, result, terminal);
-        
-        globalPlayerInFight = false;
+
         return result;
     }
     
@@ -631,7 +625,8 @@ public class AdvancedCombatEngine : Node
         if (!attacker.Expert || expertPress)
         {
             terminal.WriteLine("\n(A)ttack  (H)eal  (Q)uick Heal  (F)ight to Death");
-            terminal.WriteLine("(S)tatus  (B)eg for Mercy  (U)se Item");
+            // Only show Beg for Mercy if not already begged this combat
+            terminal.WriteLine(globalBegged ? "(S)tatus  (U)se Item" : "(S)tatus  (B)eg for Mercy  (U)se Item");
             
             if (attacker.Class == CharacterClass.Cleric || attacker.Class == CharacterClass.Magician || attacker.Class == CharacterClass.Sage)
             {

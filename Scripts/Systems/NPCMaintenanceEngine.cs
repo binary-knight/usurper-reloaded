@@ -19,9 +19,10 @@ public class NPCMaintenanceEngine : Node
     
     // Pascal maintenance settings
     private bool npcMaintEnabled = true;
-    private bool npcShoppingEnabled = true;
-    private bool npcBelieverSystemEnabled = true;
-    private bool npcGangManagementEnabled = true;
+    // Future feature flags (currently unused):
+    // private bool npcShoppingEnabled = true;
+    // private bool npcBelieverSystemEnabled = true;
+    // private bool npcGangManagementEnabled = true;
     
     // Shopping AI data (Pascal NPCMAINT.PAS shopping logic)
     private Dictionary<string, NPCShoppingProfile> shoppingProfiles = new();
@@ -287,7 +288,7 @@ public class NPCMaintenanceEngine : Node
         if (npc.IsInConversation) return false; // Busy
         
         // Check if in a location with shops
-        var shoppingLocations = new[] { "main_street", "weapon_shop", "armor_shop", "magic_shop" };
+        var shoppingLocations = new[] { "Main Street", "Weapon Shop", "Armor Shop", "Magic Shop" };
         if (!shoppingLocations.Contains(npc.CurrentLocation)) return false;
         
         // Personality-based shopping frequency
@@ -416,7 +417,7 @@ public class NPCMaintenanceEngine : Node
             .ToList();
 
         // Territory locations that can be controlled
-        var territories = new[] { "Dark Alley", "Tavern", "Market", "Docks", "Slums", "Warehouse District" };
+        var territories = new[] { "Dark Alley", "Inn", "Market", "Love Street", "Prison", "Castle" };
 
         foreach (var gang in gangs)
         {
@@ -591,11 +592,11 @@ public class NPCMaintenanceEngine : Node
         int baseIncome = territory switch
         {
             "Dark Alley" => 50,
-            "Tavern" => 100,
+            "Inn" => 100,
             "Market" => 200,
-            "Docks" => 150,
-            "Slums" => 30,
-            "Warehouse District" => 120,
+            "Love Street" => 150,
+            "Prison" => 30,
+            "Castle" => 120,
             _ => 50
         };
 

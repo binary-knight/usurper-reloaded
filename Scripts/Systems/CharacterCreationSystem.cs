@@ -1,4 +1,5 @@
 using UsurperRemake.Utils;
+using UsurperRemake.Systems;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -25,6 +26,9 @@ public class CharacterCreationSystem
     /// </summary>
     public async Task<Character> CreateNewCharacter(string playerName)
     {
+        // Reset all story progress for a fresh start (seals, artifacts, etc.)
+        StoryProgressionSystem.Instance.FullReset();
+
         terminal.WriteLine("");
         terminal.WriteLine("--- CHARACTER CREATION ---", "bright_green");
         terminal.WriteLine("");

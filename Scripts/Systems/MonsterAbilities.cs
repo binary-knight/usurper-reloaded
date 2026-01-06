@@ -265,10 +265,20 @@ public static class MonsterAbilities
                 break;
 
             case AbilityType.ArmorHarden:
-                monster.ArmPow += monster.Level / 2;
+                // Prevent infinite stacking - can only harden once per combat
+                if (!monster.HasHardenedArmor)
+                {
+                    monster.ArmPow += monster.Level / 2;
+                    monster.HasHardenedArmor = true;
+                    result.Message = $"{monster.Name}'s armor hardens!";
+                    result.MessageColor = "gray";
+                }
+                else
+                {
+                    result.Message = $"{monster.Name}'s armor is already hardened!";
+                    result.MessageColor = "darkgray";
+                }
                 result.SkipNormalAttack = true;
-                result.Message = $"{monster.Name}'s armor hardens!";
-                result.MessageColor = "gray";
                 break;
 
             case AbilityType.Vanish:
@@ -399,10 +409,21 @@ public static class MonsterAbilities
                 break;
 
             case AbilityType.Backstab:
-                // Extra damage if player didn't see it coming (first round or hidden)
-                result.DamageMultiplier = 2.5f;
-                result.Message = $"{monster.Name} strikes from the shadows!";
-                result.MessageColor = "darkgray";
+                // Extra damage only on first round (surprise attack)
+                if (!monster.HasUsedBackstab && monster.CombatRound <= 1)
+                {
+                    monster.HasUsedBackstab = true;
+                    result.DamageMultiplier = 2.5f;
+                    result.Message = $"{monster.Name} strikes from the shadows!";
+                    result.MessageColor = "darkgray";
+                }
+                else
+                {
+                    // Normal attack after the element of surprise is gone
+                    result.DamageMultiplier = 1.0f;
+                    result.Message = $"{monster.Name} attacks!";
+                    result.MessageColor = "white";
+                }
                 break;
 
             case AbilityType.CallForHelp:
@@ -415,8 +436,17 @@ public static class MonsterAbilities
 
             case AbilityType.Enrage:
                 result.DamageMultiplier = 1.5f;
-                monster.Strength += 5;
-                result.Message = $"{monster.Name} becomes enraged!";
+                // Prevent infinite stacking - permanent strength boost only once per combat
+                if (!monster.HasEnraged)
+                {
+                    monster.Strength += 5;
+                    monster.HasEnraged = true;
+                    result.Message = $"{monster.Name} becomes enraged!";
+                }
+                else
+                {
+                    result.Message = $"{monster.Name} rages furiously!";
+                }
                 result.MessageColor = "red";
                 break;
 

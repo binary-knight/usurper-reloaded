@@ -395,7 +395,7 @@ namespace UsurperRemake.Systems
 
                 foreach (var motivation in profile.Motivations)
                 {
-                    terminal.WriteLine($"  • {motivation}", "gray");
+                    terminal.WriteLine($"  - {motivation}", "gray");
                     await Task.Delay(500);
                 }
             }

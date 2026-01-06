@@ -526,7 +526,7 @@ public class AnchorRoadLocation : BaseLocation
                 foreach (var quest in playerQuests)
                 {
                     terminal.SetColor("white");
-                    terminal.WriteLine($"  • {quest.Title ?? quest.GetTargetDescription()}");
+                    terminal.WriteLine($"  - {quest.Title ?? quest.GetTargetDescription()}");
                     terminal.SetColor("darkgray");
                     terminal.WriteLine($"    Days remaining: {quest.DaysToComplete - quest.OccupiedDays}");
                 }

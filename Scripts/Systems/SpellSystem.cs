@@ -284,6 +284,9 @@ public static class SpellSystem
     {
         var availableSpells = new List<SpellInfo>();
 
+        if (character == null)
+            return availableSpells;
+
         if (!SpellBook.TryGetValue(character.Class, out var classSpells))
             return availableSpells;
 
@@ -326,9 +329,12 @@ public static class SpellSystem
     /// </summary>
     public static bool CanCastSpell(Character character, int spellLevel)
     {
+        if (character == null)
+            return false;
+
         if (spellLevel < 1 || spellLevel > GameConfig.MaxSpellLevel)
             return false;
-            
+
         // Must be magic-using class
         if (character.Class != CharacterClass.Cleric &&
             character.Class != CharacterClass.Magician &&
@@ -349,7 +355,7 @@ public static class SpellSystem
     /// <summary>
     /// Cast spell - main spell casting function (Pascal CAST.PAS recreation)
     /// </summary>
-    public static SpellResult CastSpell(Character caster, int spellLevel, Character target = null, List<Character> allTargets = null)
+    public static SpellResult CastSpell(Character caster, int spellLevel, Character? target = null, List<Character>? allTargets = null)
     {
         var result = new SpellResult();
         var random = new Random();

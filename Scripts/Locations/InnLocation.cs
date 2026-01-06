@@ -58,7 +58,7 @@ public class InnLocation : BaseLocation
             IsSpecialNPC = true,
             SpecialScript = "drunk_fighter",
             IsHostile = false,
-            CurrentLocation = "inn"
+            CurrentLocation = "Inn"
         };
         
         // Set Seth Able's stats (he's tough!)
@@ -76,6 +76,194 @@ public class InnLocation : BaseLocation
         AddNPC(sethAble);
     }
     
+    /// <summary>
+    /// Override entry to check for Aldric's bandit defense event
+    /// </summary>
+    public override async Task EnterLocation(Character player, TerminalEmulator term)
+    {
+        await base.EnterLocation(player, term);
+
+        // Check if Aldric bandit event should trigger (only once per session)
+        await CheckAldricBanditEvent();
+    }
+
+    /// <summary>
+    /// Flag to track if bandit event already triggered this session
+    /// </summary>
+    private bool aldricBanditEventTriggered = false;
+
+    /// <summary>
+    /// Check if Aldric's recruitment event should trigger
+    /// Aldric defends the player from bandits in the tavern
+    /// </summary>
+    private async Task CheckAldricBanditEvent()
+    {
+        // Only trigger if:
+        // 1. Player is at least level 10 (Aldric's recruit level)
+        // 2. Aldric has NOT been recruited yet
+        // 3. Aldric is NOT dead
+        // 4. Event hasn't triggered this session
+        // 5. 20% chance each visit
+        if (aldricBanditEventTriggered) return;
+
+        var aldric = CompanionSystem.Instance.GetCompanion(CompanionId.Aldric);
+        if (aldric == null || aldric.IsRecruited || aldric.IsDead) return;
+        if (currentPlayer.Level < aldric.RecruitLevel) return;
+
+        // 20% chance to trigger the event
+        var random = new Random();
+        if (random.NextDouble() > 0.20) return;
+
+        aldricBanditEventTriggered = true;
+        await TriggerAldricBanditEvent(aldric);
+    }
+
+    /// <summary>
+    /// Trigger the Aldric bandit defense event
+    /// </summary>
+    private async Task TriggerAldricBanditEvent(Companion aldric)
+    {
+        terminal.ClearScreen();
+
+        // Dramatic encounter
+        terminal.SetColor("red");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║                          TROUBLE AT THE INN!                                  ║");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+
+        await Task.Delay(1000);
+
+        terminal.SetColor("white");
+        terminal.WriteLine("You're sitting at the bar when the door bursts open.");
+        terminal.WriteLine("Three rough-looking bandits swagger in, their eyes fixing on you.");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        terminal.SetColor("red");
+        terminal.WriteLine("BANDIT LEADER: \"Well, well... looks like we found ourselves an adventurer.\"");
+        terminal.WriteLine("               \"Hand over your gold, and maybe we'll let you keep your teeth.\"");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        terminal.SetColor("white");
+        terminal.WriteLine("The bandits draw their weapons and move to surround you.");
+        terminal.WriteLine("The other patrons quickly move away, not wanting to get involved.");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        // Aldric intervenes
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("Suddenly, a chair scrapes loudly against the floor.");
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine("A tall, broad-shouldered man rises from a shadowy corner.");
+        terminal.WriteLine("He wears the tattered remains of what was once fine armor,");
+        terminal.WriteLine("and carries a battered but well-maintained shield.");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("ALDRIC: \"Three against one? That's hardly sporting.\"");
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        terminal.SetColor("red");
+        terminal.WriteLine("BANDIT LEADER: \"Stay out of this, old man, unless you want trouble.\"");
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("ALDRIC: \"Son, I AM trouble.\"");
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        // Battle description
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("The stranger moves with practiced efficiency.");
+        terminal.WriteLine("His shield deflects the first bandit's clumsy swing.");
+        terminal.WriteLine("A quick strike sends the second sprawling.");
+        terminal.WriteLine("The leader takes one look at his fallen companions and flees.");
+        terminal.WriteLine("");
+        await Task.Delay(2000);
+
+        terminal.SetColor("white");
+        terminal.WriteLine("The stranger turns to you, wiping a trickle of blood from his lip.");
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine($"ALDRIC: \"You alright? {currentPlayer.Name2 ?? currentPlayer.Name1}, isn't it?\"");
+        terminal.WriteLine("         \"I've heard about your exploits. You've got a reputation.\"");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine("He extends a calloused hand.");
+        terminal.WriteLine("");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("ALDRIC: \"Name's Aldric. Used to be captain of the King's Guard.\"");
+        terminal.WriteLine("         \"These days I'm just... looking for a purpose.\"");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        terminal.SetColor("white");
+        terminal.WriteLine("He glances at you appraisingly.");
+        terminal.WriteLine("");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("ALDRIC: \"You seem like someone who could use a shield at their back.\"");
+        terminal.WriteLine("         \"And I... could use someone worth protecting again.\"");
+        terminal.WriteLine("");
+
+        await Task.Delay(1000);
+
+        // Recruitment choice
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("[Y] Accept Aldric as a companion");
+        terminal.WriteLine("[N] Thank him but decline");
+        terminal.WriteLine("");
+
+        var choice = await terminal.GetInput("Your choice: ");
+
+        if (choice.ToUpper() == "Y")
+        {
+            bool success = await CompanionSystem.Instance.RecruitCompanion(CompanionId.Aldric, currentPlayer, terminal);
+            if (success)
+            {
+                terminal.SetColor("bright_green");
+                terminal.WriteLine("");
+                terminal.WriteLine("Aldric nods solemnly.");
+                terminal.WriteLine("");
+                terminal.SetColor("bright_cyan");
+                terminal.WriteLine("ALDRIC: \"Then let's see what trouble we can find together.\"");
+                terminal.WriteLine("         \"I've got your back. That's a promise.\"");
+                terminal.WriteLine("");
+                terminal.SetColor("yellow");
+                terminal.WriteLine("Aldric, The Unbroken Shield, has joined your party!");
+                terminal.WriteLine("");
+                terminal.SetColor("gray");
+                terminal.WriteLine("(Aldric is a tank-type companion who excels at protecting you in combat)");
+            }
+        }
+        else
+        {
+            terminal.SetColor("cyan");
+            terminal.WriteLine("");
+            terminal.WriteLine("Aldric nods, a hint of disappointment in his eyes.");
+            terminal.WriteLine("");
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine("ALDRIC: \"I understand. Not everyone wants a broken old soldier.\"");
+            terminal.WriteLine("         \"But if you change your mind, I'll be around.\"");
+            terminal.WriteLine("");
+            terminal.SetColor("gray");
+            terminal.WriteLine("(You can still recruit Aldric by approaching strangers in the Inn)");
+        }
+
+        await terminal.PressAnyKey();
+    }
+
     protected override void DisplayLocation()
     {
         terminal.ClearScreen();
@@ -920,7 +1108,7 @@ public class InnLocation : BaseLocation
         terminal.SetColor("white");
         for (int i = 0; i < 3; i++)
         {
-            terminal.WriteLine($"• {rumors[GD.RandRange(0, rumors.Length - 1)]}");
+            terminal.WriteLine($"- {rumors[GD.RandRange(0, rumors.Length - 1)]}");
         }
         
         terminal.WriteLine("");
@@ -940,11 +1128,11 @@ public class InnLocation : BaseLocation
         
         terminal.SetColor("white");
         terminal.WriteLine("NOTICES:");
-        terminal.WriteLine("• WANTED: Brave adventurers for dungeon exploration");
-        terminal.WriteLine("• REWARD: 500 gold for information on the missing merchant");
-        terminal.WriteLine("• WARNING: Increased bandit activity on eastern roads");
-        terminal.WriteLine("• FOR SALE: Enchanted leather armor, contact Gareth");
-        terminal.WriteLine("• TEAM RECRUITMENT: The Iron Wolves are seeking members");
+        terminal.WriteLine("- WANTED: Brave adventurers for dungeon exploration");
+        terminal.WriteLine("- REWARD: 500 gold for information on the missing merchant");
+        terminal.WriteLine("- WARNING: Increased bandit activity on eastern roads");
+        terminal.WriteLine("- FOR SALE: Enchanted leather armor, contact Gareth");
+        terminal.WriteLine("- TEAM RECRUITMENT: The Iron Wolves are seeking members");
         terminal.WriteLine("");
         
         await terminal.PressAnyKey();

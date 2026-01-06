@@ -20,9 +20,7 @@ public partial class MagicShopLocation : BaseLocation
     
     // Available magic items for sale
     private static List<Item> _magicInventory = new List<Item>();
-    
-    private Player currentPlayer;
-    private List<Item> shopInventory;
+
     private Random random = new Random();
     
     // Local list to hold shop NPCs (replaces legacy global variable reference)

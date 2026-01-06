@@ -77,7 +77,7 @@ namespace UsurperRemake.UI
         public static readonly string[] BossVictory = new[]
         {
             "[yellow]",
-            "           ★  ★  ★  ★  ★  ★  ★  ★  ★  ★  ★  ★",
+            "           *  *  *  *  *  *  *  *  *  *  *  *",
             "        ╔══════════════════════════════════════════╗",
             "        ║[bright_yellow]  ██╗   ██╗██╗ ██████╗████████╗ ██████╗ ██████╗ ██╗   ██╗  [yellow]║",
             "        ║[bright_yellow]  ██║   ██║██║██╔════╝╚══██╔══╝██╔═══██╗██╔══██╗╚██╗ ██╔╝  [yellow]║",
@@ -86,7 +86,7 @@ namespace UsurperRemake.UI
             "        ║[bright_yellow]   ╚████╔╝ ██║╚██████╗   ██║   ╚██████╔╝██║  ██║   ██║     [yellow]║",
             "        ║[bright_yellow]    ╚═══╝  ╚═╝ ╚═════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝   ╚═╝     [yellow]║",
             "        ╚══════════════════════════════════════════╝",
-            "           ★  ★  ★  ★  ★  ★  ★  ★  ★  ★  ★  ★",
+            "           *  *  *  *  *  *  *  *  *  *  *  *",
             "[white]              The beast has been vanquished![/]"
         };
 
@@ -156,7 +156,7 @@ namespace UsurperRemake.UI
             "               ╔═══════════════════════════╗",
             "              ╔╝[bright_yellow]░░░░░░░░░░░░░░░░░░░░░░░░░[yellow]╚╗",
             "             ╔╝[bright_yellow]░[yellow]╔═══════════════════════╗[bright_yellow]░[yellow]╚╗",
-            "            ╔╝[bright_yellow]░░[yellow]║[bright_yellow]  ★ ★ ★ TREASURE ★ ★ ★  [yellow]║[bright_yellow]░░[yellow]╚╗",
+            "            ╔╝[bright_yellow]░░[yellow]║[bright_yellow]  * * * TREASURE * * *  [yellow]║[bright_yellow]░░[yellow]╚╗",
             "            ║[bright_yellow]░░░[yellow]║[bright_yellow]    ╔═══════════╗      [yellow]║[bright_yellow]░░░[yellow]║",
             "            ║[bright_yellow]░░░[yellow]║[bright_yellow]    ║[white]$$$$$$$$$$$[bright_yellow]║      [yellow]║[bright_yellow]░░░[yellow]║",
             "            ║[bright_yellow]░░░[yellow]║[bright_yellow]    ╚═══════════╝      [yellow]║[bright_yellow]░░░[yellow]║",
@@ -217,7 +217,7 @@ namespace UsurperRemake.UI
             "    ║                                                     ║",
             "    ║   [white]A NEW HERO RISES[bright_cyan]                                ║",
             "    ║                                                     ║",
-            "    ║        [yellow]★[bright_cyan]     [yellow]★[bright_cyan]     [yellow]★[bright_cyan]     [yellow]★[bright_cyan]     [yellow]★[bright_cyan]              ║",
+            "    ║        [yellow]*[bright_cyan]     [yellow]*[bright_cyan]     [yellow]*[bright_cyan]     [yellow]*[bright_cyan]     [yellow]*[bright_cyan]              ║",
             "    ║                                                     ║",
             "    ║   [gray]The Halls of Avarice await your arrival.[bright_cyan]        ║",
             "    ║   [gray]Will you seek glory, wealth, or power?[bright_cyan]          ║",

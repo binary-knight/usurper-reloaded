@@ -1362,7 +1362,7 @@ public class LoveStreetLocation : BaseLocation
         await terminal.WaitForKey();
     }
 
-    private async Task ShowCurrentRomances()
+    private Task ShowCurrentRomances()
     {
         terminal.SetColor("magenta");
         terminal.WriteLine("\n\"Ah, the tangled webs of love...\"\n");
@@ -1396,9 +1396,11 @@ public class LoveStreetLocation : BaseLocation
         {
             terminal.WriteLine("\"Not much happening in the romance department lately...\"");
         }
+
+        return Task.CompletedTask;
     }
 
-    private async Task ShowRecentMarriages()
+    private Task ShowRecentMarriages()
     {
         terminal.SetColor("bright_magenta");
         terminal.WriteLine("\n\"Recent wedding bells...\"\n");
@@ -1419,9 +1421,11 @@ public class LoveStreetLocation : BaseLocation
         {
             terminal.WriteLine("\"No recent marriages to report...\"");
         }
+
+        return Task.CompletedTask;
     }
 
-    private async Task ShowAffairs()
+    private Task ShowAffairs()
     {
         terminal.SetColor("red");
         terminal.WriteLine("\n\"Scandalous behavior, you say?\"\n");
@@ -1439,16 +1443,18 @@ public class LoveStreetLocation : BaseLocation
         {
             foreach (var news in scandalous)
             {
-                terminal.WriteLine($"• {news}");
+                terminal.WriteLine($"- {news}");
             }
         }
         else
         {
             terminal.WriteLine("\"Everyone's been remarkably well-behaved lately... how boring!\"");
         }
+
+        return Task.CompletedTask;
     }
 
-    private async Task InvestigatePerson(string name)
+    private Task InvestigatePerson(string name)
     {
         var npc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(
             n => n.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
@@ -1457,7 +1463,7 @@ public class LoveStreetLocation : BaseLocation
         {
             terminal.SetColor("gray");
             terminal.WriteLine($"\"I don't know anyone by that name...\"");
-            return;
+            return Task.CompletedTask;
         }
 
         terminal.SetColor("magenta");
@@ -1480,6 +1486,8 @@ public class LoveStreetLocation : BaseLocation
         int relation = RelationshipSystem.GetRelationshipStatus(currentPlayer, npc);
         terminal.WriteLine("");
         terminal.WriteLine($"Their opinion of you: {GetRelationDescription(relation)}");
+
+        return Task.CompletedTask;
     }
 
     #endregion

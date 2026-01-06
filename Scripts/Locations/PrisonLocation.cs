@@ -1,4 +1,5 @@
 using UsurperRemake.Utils;
+using UsurperRemake.Systems;
 using Godot;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -13,7 +14,7 @@ using System;
 public partial class PrisonLocation : BaseLocation
 {
     private readonly GameEngine gameEngine;
-    private readonly TerminalEmulator terminal;
+    private new readonly TerminalEmulator terminal;
     private bool refreshMenu = true;
     
     public PrisonLocation(GameEngine engine, TerminalEmulator term) : base("prison")
@@ -46,7 +47,7 @@ public partial class PrisonLocation : BaseLocation
         }
     }
     
-    public new async Task<bool> EnterLocation(Character player)
+    public async Task<bool> EnterLocation(Character player)
     {
         if (player == null) return false;
 
@@ -228,7 +229,37 @@ public partial class PrisonLocation : BaseLocation
         await terminal.WriteLineAsync("(W)ho else is here          (D)emand to be released!");
         await terminal.WriteLineAsync("(O)pen cell door            (E)scape!");
         await terminal.WriteLineAsync("(S)tatus                    (A)ctivities - Exercise!");
+
+        // Check for Vex companion availability - get player from game engine
+        var currentPlayer = gameEngine?.CurrentPlayer;
+        if (currentPlayer != null && CanMeetVex(currentPlayer))
+        {
+            await terminal.WriteColorAsync("(V)", TerminalEmulator.ColorYellow);
+            await terminal.WriteColorLineAsync("oice in the darkness     (A peculiar prisoner whispers...)", TerminalEmulator.ColorCyan);
+        }
+
         await terminal.WriteLineAsync("(Q)uit");
+    }
+
+    /// <summary>
+    /// Check if Vex can be encountered in prison
+    /// </summary>
+    private bool CanMeetVex(Character player)
+    {
+        var companionSystem = UsurperRemake.Systems.CompanionSystem.Instance;
+        var vex = companionSystem.GetCompanion(UsurperRemake.Systems.CompanionId.Vex);
+
+        if (vex == null || vex.IsRecruited || vex.IsDead)
+            return false;
+
+        if (player.Level < vex.RecruitLevel)
+            return false;
+
+        var story = StoryProgressionSystem.Instance;
+        if (story.HasStoryFlag("vex_prison_encounter_complete"))
+            return false;
+
+        return true;
     }
     
     private async Task<bool> ProcessPrisonChoice(Character player, char choice)
@@ -257,6 +288,8 @@ public partial class PrisonLocation : BaseLocation
             case 'A':
                 await HandleActivities(player);
                 return false;
+            case 'V':
+                return await HandleVexEncounter(player);
             default:
                 // Invalid choice, do nothing
                 return false;
@@ -564,7 +597,7 @@ public partial class PrisonLocation : BaseLocation
         return false;
     }
     
-    public new async Task<List<string>> GetLocationCommands(Character player)
+    public async Task<List<string>> GetLocationCommands(Character player)
     {
         var commands = new List<string>
         {
@@ -580,16 +613,263 @@ public partial class PrisonLocation : BaseLocation
         return commands;
     }
     
-    public new async Task<bool> CanEnterLocation(Character player)
+    public async Task<bool> CanEnterLocation(Character player)
     {
         // Can only enter if actually imprisoned
         return player.DaysInPrison > 0;
     }
     
-    public new async Task<string> GetLocationStatus(Character player)
+    public async Task<string> GetLocationStatus(Character player)
     {
         int daysLeft = player.DaysInPrison;
         string dayStr = daysLeft == 1 ? "day" : "days";
         return $"Imprisoned - {daysLeft} {dayStr} remaining, {player.PrisonEscapes} escape attempts left";
     }
+
+    #region Vex Companion Recruitment
+
+    /// <summary>
+    /// Handle encountering Vex in prison - he can help you escape
+    /// Returns true if player escaped (exits prison)
+    /// </summary>
+    private async Task<bool> HandleVexEncounter(Character player)
+    {
+        if (!CanMeetVex(player))
+        {
+            await terminal.WriteLineAsync();
+            await terminal.WriteColorLineAsync("You don't see anyone unusual nearby.", TerminalEmulator.ColorDarkGray);
+            await Task.Delay(1500);
+            return false;
+        }
+
+        var companionSystem = UsurperRemake.Systems.CompanionSystem.Instance;
+        var vex = companionSystem.GetCompanion(UsurperRemake.Systems.CompanionId.Vex);
+
+        await terminal.ClearScreenAsync();
+        await terminal.WriteLineAsync();
+        await terminal.WriteColorLineAsync("╔══════════════════════════════════════════════════════════════════╗", TerminalEmulator.ColorCyan);
+        await terminal.WriteColorLineAsync("║                 VOICE IN THE DARKNESS                            ║", TerminalEmulator.ColorCyan);
+        await terminal.WriteColorLineAsync("╚══════════════════════════════════════════════════════════════════╝", TerminalEmulator.ColorCyan);
+        await terminal.WriteLineAsync();
+        await Task.Delay(1000);
+
+        await terminal.WriteLineAsync("A voice drifts from the cell next to yours:");
+        await terminal.WriteLineAsync();
+        await Task.Delay(500);
+
+        await terminal.WriteColorLineAsync("\"Psst. Hey. You. The one with the look of someone", TerminalEmulator.ColorYellow);
+        await terminal.WriteColorLineAsync(" who doesn't belong here.\"", TerminalEmulator.ColorYellow);
+        await terminal.WriteLineAsync();
+        await Task.Delay(1500);
+
+        await terminal.WriteLineAsync("You peer through the bars. In the adjacent cell,");
+        await terminal.WriteLineAsync("a lean figure lounges against the wall with improbable comfort.");
+        await terminal.WriteLineAsync("He's grinning - actually grinning - in a place like this.");
+        await terminal.WriteLineAsync();
+        await Task.Delay(1500);
+
+        await terminal.WriteColorAsync($"\"{vex.DialogueHints[0]}\"", TerminalEmulator.ColorCyan);
+        await terminal.WriteLineAsync();
+        await terminal.WriteLineAsync();
+        await Task.Delay(2000);
+
+        await terminal.WriteLineAsync("He produces a bent piece of metal from nowhere.");
+        await terminal.WriteLineAsync("\"I've been picking locks since before I could walk.\"");
+        await terminal.WriteLineAsync("\"Which is good, because I probably won't be walking much longer.\"");
+        await terminal.WriteLineAsync();
+        await Task.Delay(1500);
+
+        await terminal.WriteColorAsync($"\"{vex.DialogueHints[1]}\"", TerminalEmulator.ColorCyan);
+        await terminal.WriteLineAsync();
+        await terminal.WriteLineAsync();
+        await Task.Delay(1500);
+
+        // Show his details
+        await terminal.WriteColorLineAsync($"This is {vex.Name}, {vex.Title}.", TerminalEmulator.ColorYellow);
+        await terminal.WriteColorLineAsync($"Role: {vex.CombatRole}", TerminalEmulator.ColorYellow);
+        await terminal.WriteColorLineAsync($"Abilities: {string.Join(", ", vex.Abilities)}", TerminalEmulator.ColorYellow);
+        await terminal.WriteLineAsync();
+
+        await terminal.WriteColorLineAsync(vex.BackstoryBrief, TerminalEmulator.ColorDarkGray);
+        await terminal.WriteLineAsync();
+        await Task.Delay(1500);
+
+        await terminal.WriteColorLineAsync("[E] Let him help you escape (and recruit him)", TerminalEmulator.ColorGreen);
+        await terminal.WriteColorLineAsync("[T] Talk more about his \"condition\"", TerminalEmulator.ColorCyan);
+        await terminal.WriteColorLineAsync("[L] Leave him be", TerminalEmulator.ColorDarkGray);
+        await terminal.WriteLineAsync();
+
+        await terminal.WriteAsync("Your choice: ");
+        string choice = await terminal.ReadLineAsync();
+
+        switch (choice.ToUpper())
+        {
+            case "E":
+                return await VexHelpsEscape(player, vex);
+
+            case "T":
+                await TalkToVex(player, vex);
+                return false;
+
+            default:
+                await terminal.WriteLineAsync();
+                await terminal.WriteColorLineAsync("You shake your head and return to your own cell.", TerminalEmulator.ColorDarkGray);
+                await terminal.WriteLineAsync();
+                await terminal.WriteColorLineAsync("\"Your loss!\" he calls cheerfully.", TerminalEmulator.ColorYellow);
+                await terminal.WriteColorAsync($"\"{vex.DialogueHints[2]}\"", TerminalEmulator.ColorCyan);
+                await terminal.WriteLineAsync();
+                await Task.Delay(2000);
+                break;
+        }
+
+        // Mark encounter as complete
+        StoryProgressionSystem.Instance.SetStoryFlag("vex_prison_encounter_complete", true);
+        refreshMenu = true;
+        return false;
+    }
+
+    /// <summary>
+    /// Vex helps the player escape from prison
+    /// </summary>
+    private async Task<bool> VexHelpsEscape(Character player, UsurperRemake.Systems.Companion vex)
+    {
+        var companionSystem = UsurperRemake.Systems.CompanionSystem.Instance;
+
+        await terminal.WriteLineAsync();
+        await terminal.WriteColorLineAsync("\"Excellent choice!\" Vex grins wider.", TerminalEmulator.ColorYellow);
+        await terminal.WriteLineAsync();
+        await Task.Delay(1000);
+
+        await terminal.WriteLineAsync("He works the lock with practiced ease.");
+        await terminal.WriteLineAsync("*click* *click* *clack*");
+        await terminal.WriteLineAsync();
+        await Task.Delay(1500);
+
+        await terminal.WriteLineAsync("\"You know what the trick is?\" he whispers.");
+        await terminal.WriteLineAsync("\"It's not about forcing things. It's about listening.\"");
+        await terminal.WriteLineAsync("\"Every lock wants to be opened. You just have to ask nicely.\"");
+        await terminal.WriteLineAsync();
+        await Task.Delay(1500);
+
+        await terminal.WriteColorLineAsync("*CLICK*", TerminalEmulator.ColorGreen);
+        await terminal.WriteLineAsync();
+        await terminal.WriteLineAsync("Your cell door swings silently open.");
+        await terminal.WriteLineAsync();
+        await Task.Delay(1000);
+
+        await terminal.WriteLineAsync("Vex is already beside you, moving like smoke.");
+        await terminal.WriteColorLineAsync("\"Come on. I know a way out. Built this place's sewers", TerminalEmulator.ColorYellow);
+        await terminal.WriteColorLineAsync(" for a job once. Long story.\"", TerminalEmulator.ColorYellow);
+        await terminal.WriteLineAsync();
+        await Task.Delay(1500);
+
+        await terminal.WriteLineAsync("As you move through the dark passages, he talks.");
+        await terminal.WriteLineAsync("It's compulsive - like he can't stand silence.");
+        await terminal.WriteLineAsync();
+        await Task.Delay(1000);
+
+        await terminal.WriteColorLineAsync("\"I'm dying, by the way,\" he mentions casually.", TerminalEmulator.ColorCyan);
+        await terminal.WriteColorLineAsync("\"Wasting disease. Got maybe a month left.\"", TerminalEmulator.ColorCyan);
+        await terminal.WriteColorLineAsync("\"So I figure - might as well spend it doing something fun.\"", TerminalEmulator.ColorCyan);
+        await terminal.WriteLineAsync();
+        await Task.Delay(2000);
+
+        await terminal.WriteLineAsync("He glances at you, and for just a moment,");
+        await terminal.WriteLineAsync("the mask slips. You see something real beneath the jokes.");
+        await terminal.WriteLineAsync();
+        await Task.Delay(1000);
+
+        await terminal.WriteColorLineAsync("\"You seem interesting. Mind if I tag along?\"", TerminalEmulator.ColorYellow);
+        await terminal.WriteLineAsync();
+        await Task.Delay(1500);
+
+        // Recruit Vex
+        bool success = await companionSystem.RecruitCompanion(
+            UsurperRemake.Systems.CompanionId.Vex, player, terminal);
+
+        if (success)
+        {
+            await terminal.WriteColorLineAsync($"{vex.Name} has joined you as a companion!", TerminalEmulator.ColorGreen);
+            await terminal.WriteLineAsync();
+            await terminal.WriteColorLineAsync("WARNING: Vex is dying. His time is limited.", TerminalEmulator.ColorRed);
+            await terminal.WriteColorLineAsync("Make the most of the days you have together.", TerminalEmulator.ColorYellow);
+            await terminal.WriteLineAsync();
+
+            // Generate news
+            NewsSystem.Instance.Newsy(true, $"{player.DisplayName} escaped from the Royal Prison with {vex.Name}'s help!");
+        }
+
+        // Free the player
+        player.HP = player.MaxHP;
+        player.DaysInPrison = 0;
+        player.CellDoorOpen = false;
+
+        await terminal.WriteColorLineAsync("You emerge from the sewers into the night air.", TerminalEmulator.ColorWhite);
+        await terminal.WriteColorLineAsync("You are FREE!", TerminalEmulator.ColorGreen);
+        await terminal.WriteLineAsync();
+
+        // Mark encounter as complete
+        StoryProgressionSystem.Instance.SetStoryFlag("vex_prison_encounter_complete", true);
+
+        await terminal.WriteAsync("Press any key to continue...");
+        await terminal.GetCharAsync();
+
+        // Navigate to Main Street
+        throw new LocationExitException(GameLocation.MainStreet);
+    }
+
+    /// <summary>
+    /// Have a deeper conversation with Vex about his condition
+    /// </summary>
+    private async Task TalkToVex(Character player, UsurperRemake.Systems.Companion vex)
+    {
+        await terminal.WriteLineAsync();
+        await terminal.WriteLineAsync("\"The condition?\" He laughs, but there's an edge to it.");
+        await terminal.WriteLineAsync();
+        await Task.Delay(1000);
+
+        await terminal.WriteColorLineAsync(vex.Description, TerminalEmulator.ColorWhite);
+        await terminal.WriteLineAsync();
+        await Task.Delay(1500);
+
+        await terminal.WriteColorLineAsync("\"Born with it. Wasting disease. No cure.\"", TerminalEmulator.ColorCyan);
+        await terminal.WriteColorLineAsync("\"Every healer I've seen says the same thing:\"", TerminalEmulator.ColorCyan);
+        await terminal.WriteColorLineAsync("\"'Sorry, nothing we can do. Go enjoy your time.'\"", TerminalEmulator.ColorCyan);
+        await terminal.WriteLineAsync();
+        await Task.Delay(2000);
+
+        await terminal.WriteLineAsync("He spins his lockpick between his fingers.");
+        await terminal.WriteLineAsync("\"So I did. Became the best thief in the kingdom.\"");
+        await terminal.WriteLineAsync("\"Stole from kings. Robbed temples. Picked pockets at my own funeral.\"");
+        await terminal.WriteLineAsync("\"...That last one was a practice run.\"");
+        await terminal.WriteLineAsync();
+        await Task.Delay(2000);
+
+        if (!string.IsNullOrEmpty(vex.PersonalQuestDescription))
+        {
+            await terminal.WriteColorLineAsync($"Personal Quest: {vex.PersonalQuestName}", TerminalEmulator.ColorMagenta);
+            await terminal.WriteColorLineAsync($"\"{vex.PersonalQuestDescription}\"", TerminalEmulator.ColorMagenta);
+            await terminal.WriteLineAsync();
+        }
+
+        await terminal.WriteColorLineAsync("\"Life's too short to take seriously. Trust me, I know.\"", TerminalEmulator.ColorYellow);
+        await terminal.WriteLineAsync();
+        await Task.Delay(1500);
+
+        await terminal.WriteAsync("Let him help you escape? (Y/N): ");
+        string answer = await terminal.ReadLineAsync();
+
+        if (answer.ToUpper() == "Y")
+        {
+            await VexHelpsEscape(player, vex);
+        }
+        else
+        {
+            await terminal.WriteLineAsync();
+            await terminal.WriteColorLineAsync("\"Suit yourself. Offer stands if you change your mind.\"", TerminalEmulator.ColorYellow);
+            await Task.Delay(1500);
+        }
+    }
+
+    #endregion
 } 

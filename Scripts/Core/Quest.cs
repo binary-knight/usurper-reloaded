@@ -201,9 +201,20 @@ public partial class Quest
     }
 
     /// <summary>
-    /// Check if all objectives are complete
+    /// Check if all required (non-optional) objectives are complete
+    /// Optional objectives don't block quest completion
     /// </summary>
     public bool AreAllObjectivesComplete()
+    {
+        if (Objectives == null || Objectives.Count == 0) return true;
+        // Only require non-optional objectives to be complete
+        return Objectives.Where(o => !o.IsOptional).All(o => o.IsComplete);
+    }
+
+    /// <summary>
+    /// Check if ALL objectives (including optional) are complete
+    /// </summary>
+    public bool AreAllObjectivesIncludingOptionalComplete()
     {
         if (Objectives == null || Objectives.Count == 0) return true;
         return Objectives.All(o => o.IsComplete);
@@ -291,7 +302,10 @@ public enum QuestTarget
     ReachFloor = 12,            // Reach a specific floor in the dungeon
     ClearFloor = 13,            // Clear all monsters on a dungeon floor
     RescueNPC = 14,             // Rescue an NPC trapped in the dungeon
-    SurviveDungeon = 15         // Survive X floors without returning to town
+    SurviveDungeon = 15,        // Survive X floors without returning to town
+
+    // NPC-related quest types
+    DefeatNPC = 20              // Defeat a specific NPC (bounty system)
 }
 
 /// <summary>

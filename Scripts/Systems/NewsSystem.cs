@@ -19,10 +19,6 @@ public partial class NewsSystem
     private readonly Dictionary<GameConfig.NewsCategory, List<string>> _dailyNews;
     private readonly object _newsLock = new object();
 
-    // Pascal-compatible file handles (simulated)
-    private bool _newsFileAnsiOpen = false;
-    private bool _newsFileAsciiOpen = false;
-
     public static NewsSystem Instance
     {
         get
@@ -515,10 +511,30 @@ public partial class NewsSystem
     private void ArchiveOldNewsFiles()
     {
         // Archive logic for old news files (beyond MaxNewsAge days)
-        string archiveDate = DateTime.Now.AddDays(-GameConfig.MaxNewsAge).ToString("yyyyMMdd");
-        
-        // Implementation would archive files older than MaxNewsAge
-        // This is a placeholder for full archive functionality
+        // In single-player mode, we trim the in-memory daily news to prevent unbounded growth
+        // The actual file-based news remains on disk for historical reference
+
+        int archivedCount = 0;
+        int maxEntriesPerCategory = 100; // Keep last 100 entries per category
+
+        lock (_newsLock)
+        {
+            foreach (var category in _dailyNews.Keys.ToList())
+            {
+                var items = _dailyNews[category];
+                if (items.Count > maxEntriesPerCategory)
+                {
+                    int toRemove = items.Count - maxEntriesPerCategory;
+                    items.RemoveRange(0, toRemove);
+                    archivedCount += toRemove;
+                }
+            }
+        }
+
+        if (archivedCount > 0)
+        {
+            GD.Print($"NewsSystem: Archived {archivedCount} old news entries");
+        }
     }
 
     private string StripAnsiCodes(string text)

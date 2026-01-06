@@ -12,8 +12,7 @@ using System.Threading.Tasks;
 /// </summary>
 public class EnhancedNPCBehaviorSystem : Node
 {
-    // MailSystem is static - no need to instantiate
-    private RelationshipSystem relationshipSystem;
+    // MailSystem and RelationshipSystem are static - no need to instantiate
     private Random random = new Random();
     
     // Pascal constants from NPCMAINT.PAS
@@ -48,7 +47,7 @@ public class EnhancedNPCBehaviorSystem : Node
     {
         // Pascal function signature: Check_Inventory(var gubbe: UserRec; onr: longint; otyp: objtype; shout: boolean; location: byte): byte;
         
-        if (GameConfig.ClassicMode) return 0; // Pascal classic mode check
+        // ClassicMode check removed - const false makes code unreachable
         
         var result = 0; // Pascal return codes: 0=not touched, 1=starts using, 2=swapped
         
@@ -307,7 +306,7 @@ public class EnhancedNPCBehaviorSystem : Node
     /// </summary>
     private async Task ProcessNPCBelieverSystem(List<Character> npcs)
     {
-        if (GameConfig.NPCBelievers == 0) return;
+        // NPCBelievers check removed - const 50 makes code unreachable
         
         foreach (var npc in npcs.Where(n => n.AI == CharacterAI.Computer && n.IsAlive))
         {
@@ -505,7 +504,7 @@ public class EnhancedNPCBehaviorSystem : Node
     /// </summary>
     public async Task ValidateAllRelationships(List<Character> npcs)
     {
-        var relationships = await relationshipSystem.GetAllRelationships();
+        var relationships = await RelationshipSystem.Instance.GetAllRelationships();
         
         foreach (var relationship in relationships)
         {
@@ -597,7 +596,32 @@ public class EnhancedNPCBehaviorSystem : Node
     private async Task SaveCharacter(Character character) { }
     private async Task<BattleResult> ConductComputerVsComputerBattle(Character fighter1, Character fighter2) { return new BattleResult(); }
     private async Task SendGangBattleMail(BattleResult battleResult) { }
-    private async Task UpdateKilledByStats(Character killer, Character victim) { }
+    /// <summary>
+    /// Update statistics and news when one character kills another
+    /// </summary>
+    private async Task UpdateKilledByStats(Character killer, Character victim)
+    {
+        if (killer == null || victim == null) return;
+
+        // Use the relationship system's UpdateKillStats for core tracking
+        RelationshipSystem.Instance.UpdateKillStats(killer, victim);
+
+        // Additional NPC-specific tracking
+        if (victim is NPC npcVictim)
+        {
+            // Mark NPC as dead
+            npcVictim.HP = 0;
+
+            // Generate news about the kill
+            string victimName = victim.Name2 ?? victim.Name1;
+            string killerName = killer.Name2 ?? killer.Name1;
+            string location = victim.CurrentLocation ?? "Unknown Location";
+
+            NewsSystem.Instance.WriteDeathNews(victimName, killerName, location);
+        }
+
+        await Task.CompletedTask;
+    }
     private async Task DetermineGangWarOutcome(List<Character> team1, List<Character> team2, GangWarResult result, bool turfWar) { }
     private async Task AttemptNPCMarriage(Character npc, List<Character> npcs) { }
     private async Task ProcessNewChild(Character npc) { }

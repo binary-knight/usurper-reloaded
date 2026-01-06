@@ -138,7 +138,7 @@ namespace UsurperRemake.Systems
             terminal.ClearScreen();
             terminal.SetColor("yellow");
             terminal.WriteLine("╔═══════════════════════════════════════════════════════╗");
-            terminal.WriteLine("║            ★ THE WAYWARD WANDERER ★                   ║");
+            terminal.WriteLine("║            * THE WAYWARD WANDERER *                   ║");
             terminal.WriteLine("║              A Hidden Tavern                          ║");
             terminal.WriteLine("╚═══════════════════════════════════════════════════════╝");
             terminal.WriteLine("");
@@ -1040,7 +1040,7 @@ namespace UsurperRemake.Systems
         {
             terminal.ClearScreen();
             terminal.SetColor("gray");
-            terminal.WriteLine("🧙 AN OLD HERMIT 🧙");
+            terminal.WriteLine("=== AN OLD HERMIT ===");
             terminal.WriteLine("");
 
             terminal.SetColor("white");
@@ -2346,7 +2346,7 @@ namespace UsurperRemake.Systems
         {
             terminal.ClearScreen();
             terminal.SetColor("bright_white");
-            terminal.WriteLine("👑 THE ICE QUEEN 👑");
+            terminal.WriteLine("*** THE ICE QUEEN ***");
             terminal.WriteLine("");
             terminal.WriteLine("A beautiful but cold figure sits on a throne of ice.", "white");
             terminal.WriteLine("\"Bow before me, mortal.\"");

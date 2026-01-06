@@ -12,6 +12,9 @@ namespace UsurperRemake.Systems
     {
         private static Random random = new Random();
 
+        // Seal floors where Seven Seals are found
+        private static readonly int[] SealFloors = { 15, 30, 45, 60, 80, 99 };
+
         /// <summary>
         /// Generate a complete dungeon floor with interconnected rooms
         /// </summary>
@@ -29,8 +32,9 @@ namespace UsurperRemake.Systems
             int roomCount = 15 + (level / 8);
             roomCount = Math.Clamp(roomCount, 15, 25);
 
-            // Generate rooms
-            GenerateRooms(floor, roomCount);
+            // Generate rooms (seal floors get special treatment)
+            bool isSealFloor = SealFloors.Contains(level);
+            GenerateRooms(floor, roomCount, isSealFloor);
 
             // Connect rooms into a navigable layout
             ConnectRooms(floor);
@@ -69,7 +73,7 @@ namespace UsurperRemake.Systems
             return Math.Min(10, 1 + (level / 10));
         }
 
-        private static void GenerateRooms(DungeonFloor floor, int count)
+        private static void GenerateRooms(DungeonFloor floor, int count, bool isSealFloor = false)
         {
             // Standard room types (weighted for variety)
             var standardRoomTypes = new List<RoomType>
@@ -100,9 +104,21 @@ namespace UsurperRemake.Systems
             int meditationRooms = floor.Level >= 10 ? 1 : 0; // Meditation after level 10
             int memoryRooms = floor.Level >= 20 && floor.Level % 15 == 0 ? 1 : 0; // Memory fragments on specific floors
 
+            // SEAL FLOORS: Guarantee extra seal-discovery rooms (Shrines and SecretVaults)
+            // These room types trigger guaranteed seal discovery when entered
+            int sealRooms = isSealFloor ? 3 : 0; // Add 3 extra seal-appropriate rooms
+
             // Generate standard rooms first
-            int standardCount = count - puzzleRooms - secretRooms - loreRooms - meditationRooms - memoryRooms;
+            int standardCount = count - puzzleRooms - secretRooms - loreRooms - meditationRooms - memoryRooms - sealRooms;
             standardCount = Math.Max(standardCount, count / 2); // At least half are standard
+
+            // Room types that can reveal seals (for seal floors)
+            var sealRoomTypes = new List<RoomType>
+            {
+                RoomType.Shrine,
+                RoomType.SecretVault,
+                RoomType.MeditationChamber
+            };
 
             for (int i = 0; i < count; i++)
             {
@@ -136,6 +152,9 @@ namespace UsurperRemake.Systems
                         roomType = RoomType.MeditationChamber;
                     else if (specialIndex < puzzleRooms + secretRooms + loreRooms + meditationRooms + memoryRooms)
                         roomType = RoomType.MemoryFragment;
+                    else if (specialIndex < puzzleRooms + secretRooms + loreRooms + meditationRooms + memoryRooms + sealRooms)
+                        // Seal rooms - guaranteed seal-discovery room types for seal floors
+                        roomType = sealRoomTypes[random.Next(sealRoomTypes.Count)];
                     else
                         roomType = specialRoomTypes[random.Next(specialRoomTypes.Count)];
                 }

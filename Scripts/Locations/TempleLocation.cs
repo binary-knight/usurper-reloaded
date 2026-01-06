@@ -18,11 +18,11 @@ using Godot;
 /// </summary>
 public partial class TempleLocation : BaseLocation
 {
-    private readonly TerminalEmulator terminal;
+    private new readonly TerminalEmulator terminal;
     private readonly LocationManager locationManager;
     private readonly GodSystem godSystem;
     private bool refreshMenu = true;
-    private Character currentPlayer;
+    private new Character currentPlayer;
     private Random random = new Random();
 
     // Old Gods integration
@@ -143,12 +143,24 @@ public partial class TempleLocation : BaseLocation
                         await DisplayOldGodsProphecies();
                         break;
 
+                    case "Y": // Daily prayer
+                        await ProcessDailyPrayer();
+                        break;
+
                     case "I": // Item sacrifice
                         await ProcessItemSacrifice();
                         break;
 
                     case "T": // Deep Temple (Aurelion encounter)
                         await EnterDeepTemple();
+                        break;
+
+                    case "E": // Examine ancient stones (Seal of Creation)
+                        await ExamineAncientStones();
+                        break;
+
+                    case "M": // Meditation Chapel (Mira companion recruitment)
+                        await VisitMeditationChapel();
                         break;
 
                     case GameConfig.TempleMenuReturn: // "R"
@@ -214,8 +226,19 @@ public partial class TempleLocation : BaseLocation
         terminal.WriteLine("The Temple area is crowded with monks, preachers and");
         terminal.WriteLine("processions of priests on their way to the altars.");
         terminal.WriteLine("The doomsday prophets are trying to get your attention.");
+
+        // Hint at ancient stones if seal not collected
+        var storyForHint = StoryProgressionSystem.Instance;
+        if (!storyForHint.CollectedSeals.Contains(UsurperRemake.Systems.SealType.Creation))
+        {
+            terminal.WriteLine("");
+            terminal.SetColor("gray");
+            terminal.WriteLine("In the far corner, ancient stones form the temple's foundation...");
+            terminal.WriteLine("They seem older than any altar here.");
+        }
+
         terminal.WriteLine("");
-        
+
         string playerGod = godSystem.GetPlayerGod(currentPlayer.Name2);
         if (!string.IsNullOrEmpty(playerGod))
         {
@@ -314,27 +337,87 @@ public partial class TempleLocation : BaseLocation
         terminal.SetColor("darkgray");
         terminal.Write("]");
         terminal.SetColor("white");
-        terminal.WriteLine("rophecies");
+        terminal.Write("rophecies         ");
 
-        // Deep Temple option - only show if player meets requirements
-        if (CanEnterDeepTemple())
+        // Daily prayer option - show if player worships a god
+        string prayerGod = godSystem.GetPlayerGod(currentPlayer.Name2);
+        if (!string.IsNullOrEmpty(prayerGod))
+        {
+            bool canPray = UsurperRemake.Systems.DivineBlessingSystem.Instance.CanPrayToday(currentPlayer.Name2);
+            if (canPray)
+            {
+                terminal.SetColor("darkgray");
+                terminal.Write("[");
+                terminal.SetColor("bright_green");
+                terminal.Write("Y");
+                terminal.SetColor("darkgray");
+                terminal.Write("]");
+                terminal.SetColor("bright_green");
+                terminal.WriteLine(" Pray");
+            }
+            else
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine("(Prayed today)");
+            }
+        }
+        else
+        {
+            terminal.WriteLine("");
+        }
+
+        // Ancient stones option - only show if Seal of Creation not collected
+        var story = StoryProgressionSystem.Instance;
+        if (!story.CollectedSeals.Contains(UsurperRemake.Systems.SealType.Creation))
         {
             terminal.SetColor("darkgray");
             terminal.Write(" [");
-            terminal.SetColor("bright_magenta");
-            terminal.Write("T");
+            terminal.SetColor("bright_yellow");
+            terminal.Write("E");
             terminal.SetColor("darkgray");
             terminal.Write("]");
-            terminal.SetColor("bright_magenta");
-            terminal.Write("he Deep Temple    ");
+            terminal.SetColor("white");
+            terminal.Write("xamine Stones     ");
         }
         else
         {
             terminal.Write("                       ");
         }
 
+        // Deep Temple option - only show if player meets requirements
+        if (CanEnterDeepTemple())
+        {
+            terminal.SetColor("darkgray");
+            terminal.Write("[");
+            terminal.SetColor("bright_magenta");
+            terminal.Write("T");
+            terminal.SetColor("darkgray");
+            terminal.Write("]");
+            terminal.SetColor("bright_magenta");
+            terminal.WriteLine("he Deep Temple");
+        }
+        else
+        {
+            terminal.WriteLine("");
+        }
+
+        // Mira companion option - only show if she can be recruited
+        if (CanMeetMira())
+        {
+            terminal.SetColor("darkgray");
+            terminal.Write(" [");
+            terminal.SetColor("bright_green");
+            terminal.Write("M");
+            terminal.SetColor("darkgray");
+            terminal.Write("]");
+            terminal.SetColor("bright_green");
+            terminal.Write("editation Chapel ");
+            terminal.SetColor("gray");
+            terminal.WriteLine("(someone prays alone...)");
+        }
+
         terminal.SetColor("darkgray");
-        terminal.Write("[");
+        terminal.Write(" [");
         terminal.SetColor("bright_red");
         terminal.Write("R");
         terminal.SetColor("darkgray");
@@ -791,36 +874,55 @@ public partial class TempleLocation : BaseLocation
     {
         terminal.WriteLine("");
         var goldStr = await terminal.GetInputAsync("Amount of gold to sacrifice: ");
-        
+
         if (!long.TryParse(goldStr, out long goldAmount) || goldAmount <= 0)
         {
             terminal.WriteLine("Invalid amount.", "red");
             await Task.Delay(1000);
             return;
         }
-        
+
         if (goldAmount > currentPlayer.Gold)
         {
             terminal.WriteLine("You don't have that much gold!", "red");
             await Task.Delay(1000);
             return;
         }
-        
+
         var choice = await terminal.GetInputAsync($"Sacrifice {goldAmount} gold to {god.Name}? (Y/N) ");
         if (choice.ToUpper() != "Y") return;
-        
+
         // Process sacrifice
         currentPlayer.Gold -= goldAmount;
         var powerGained = godSystem.ProcessGoldSacrifice(god.Name, goldAmount, currentPlayer.Name2);
-        
+
         terminal.WriteLine("");
         terminal.WriteLine($"{god.Name}'s power is growing!", "yellow");
         terminal.WriteLine("You can feel it...Your reward will come.", "white");
         terminal.WriteLine($"Power increased by {powerGained} points!", "cyan");
-        
+
+        // Grant temporary blessing from sacrifice (if worshipping this god)
+        string playerGod = godSystem.GetPlayerGod(currentPlayer.Name2);
+        if (!wrongGod && playerGod == god.Name && goldAmount >= 100)
+        {
+            var tempBlessing = UsurperRemake.Systems.DivineBlessingSystem.Instance.GrantSacrificeBlessing(
+                currentPlayer, goldAmount, god.Name);
+
+            if (tempBlessing != null)
+            {
+                terminal.WriteLine("");
+                terminal.SetColor("bright_magenta");
+                terminal.WriteLine($"*** {tempBlessing.Name} ***");
+                terminal.SetColor("white");
+                terminal.WriteLine(tempBlessing.Description);
+                var duration = tempBlessing.ExpiresAt - DateTime.Now;
+                terminal.WriteLine($"Duration: {duration.TotalMinutes:F0} minutes", "gray");
+            }
+        }
+
         // Use good deed
         currentPlayer.ChivNr--;
-        
+
         await Task.Delay(3000);
     }
     
@@ -1453,6 +1555,437 @@ public partial class TempleLocation : BaseLocation
         NewsSystem.Instance.Newsy(true, $"{currentPlayer.Name2} desecrated the altar of {god.Name}! The gods are furious!");
 
         await Task.Delay(3000);
+    }
+
+    /// <summary>
+    /// Examine the ancient stones in the temple - discover the Seal of Creation
+    /// "Where prayers echo in golden halls, seek the stone that predates the temple itself."
+    /// </summary>
+    private async Task ExamineAncientStones()
+    {
+        var story = StoryProgressionSystem.Instance;
+
+        // Already collected
+        if (story.CollectedSeals.Contains(UsurperRemake.Systems.SealType.Creation))
+        {
+            terminal.WriteLine("");
+            terminal.WriteLine("The ancient stones still stand, but their secret has been revealed.", "gray");
+            terminal.WriteLine("You remember the truth of creation...", "gray");
+            await Task.Delay(1500);
+            return;
+        }
+
+        terminal.WriteLine("");
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        terminal.WriteLine("You walk past the busy altars, past the crowds of worshippers,");
+        terminal.WriteLine("to the far corner of the temple where few tread.");
+        terminal.SetColor("white");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        terminal.WriteLine("Here, massive stones form the foundation of the building.");
+        terminal.WriteLine("They are older than the temple itself - older than any god");
+        terminal.WriteLine("whose altar stands above.");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        terminal.SetColor("gray");
+        terminal.WriteLine("The monks say these stones were here before the city was built.");
+        terminal.WriteLine("Before mortals came to this land.");
+        terminal.WriteLine("Before even the gods walked the earth.");
+        terminal.SetColor("white");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        var choice = await terminal.GetInputAsync("Touch the ancient stone? (Y/N) ");
+
+        if (choice.ToUpper() != "Y")
+        {
+            terminal.WriteLine("");
+            terminal.WriteLine("You step back from the stones.", "gray");
+            terminal.WriteLine("Perhaps another time...", "gray");
+            await Task.Delay(1000);
+            return;
+        }
+
+        // Discovery sequence
+        terminal.WriteLine("");
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("Your hand touches the cold stone...");
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        terminal.SetColor("white");
+        terminal.WriteLine("At first, nothing.");
+        terminal.WriteLine("");
+        await Task.Delay(800);
+
+        terminal.WriteLine("Then warmth. A pulse, like a heartbeat.");
+        terminal.WriteLine("");
+        await Task.Delay(800);
+
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("The stone GLOWS beneath your palm.");
+        terminal.WriteLine("Ancient symbols flare to life - a language");
+        terminal.WriteLine("older than any spoken by mortal or god.");
+        terminal.SetColor("white");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("A voice speaks directly into your mind:");
+        terminal.WriteLine("");
+        terminal.SetColor("bright_white");
+        terminal.WriteLine("  \"You seek truth. So few do anymore.\"");
+        terminal.WriteLine("  \"This is the First Seal - the story of creation.\"");
+        terminal.WriteLine("  \"Remember it well, for understanding begins here.\"");
+        terminal.SetColor("white");
+        terminal.WriteLine("");
+        await Task.Delay(2000);
+
+        // Collect the seal
+        var sealSystem = UsurperRemake.Systems.SevenSealsSystem.Instance;
+        await sealSystem.CollectSeal(currentPlayer, UsurperRemake.Systems.SealType.Creation, terminal);
+
+        // Generate news
+        NewsSystem.Instance.Newsy(true, $"{currentPlayer.Name2} discovered the Seal of Creation in the Temple!");
+
+        refreshMenu = true;
+    }
+
+    /// <summary>
+    /// Process daily prayer - grants a temporary blessing once per day
+    /// </summary>
+    private async Task ProcessDailyPrayer()
+    {
+        string playerGod = godSystem.GetPlayerGod(currentPlayer.Name2);
+
+        if (string.IsNullOrEmpty(playerGod))
+        {
+            terminal.WriteLine("");
+            terminal.WriteLine("You must worship a god before you can pray for blessings.", "yellow");
+            terminal.WriteLine("Visit (W)orship to choose a deity.", "gray");
+            await Task.Delay(2000);
+            return;
+        }
+
+        if (!UsurperRemake.Systems.DivineBlessingSystem.Instance.CanPrayToday(currentPlayer.Name2))
+        {
+            terminal.WriteLine("");
+            terminal.WriteLine("You have already prayed today.", "gray");
+            terminal.WriteLine("Return tomorrow for another blessing.", "gray");
+            await Task.Delay(1500);
+            return;
+        }
+
+        var god = godSystem.GetGod(playerGod);
+        if (god == null)
+        {
+            terminal.WriteLine("Your god no longer exists...", "red");
+            await Task.Delay(1500);
+            return;
+        }
+
+        terminal.WriteLine("");
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"You kneel before the altar of {playerGod}...");
+        await Task.Delay(1000);
+
+        terminal.SetColor("white");
+        terminal.WriteLine("Your prayers rise like incense to the heavens...");
+        await Task.Delay(1000);
+
+        // Determine prayer response based on god's alignment
+        float alignment = (float)(god.Goodness - god.Darkness) / Math.Max(1, god.Goodness + god.Darkness);
+
+        if (alignment > 0.3f)
+        {
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine("Warm light fills the chamber as your god hears you.");
+        }
+        else if (alignment < -0.3f)
+        {
+            terminal.SetColor("dark_magenta");
+            terminal.WriteLine("Shadows coil around you as your god acknowledges your devotion.");
+        }
+        else
+        {
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine("A sense of balance and clarity washes over you.");
+        }
+        await Task.Delay(1000);
+
+        // Grant the daily prayer blessing
+        var blessing = UsurperRemake.Systems.DivineBlessingSystem.Instance.GrantPrayerBlessing(currentPlayer);
+
+        if (blessing != null)
+        {
+            terminal.WriteLine("");
+            terminal.SetColor("bright_magenta");
+            terminal.WriteLine($"*** {blessing.Name} ***");
+            terminal.SetColor("white");
+            terminal.WriteLine(blessing.Description);
+            terminal.WriteLine("");
+
+            if (blessing.DamageBonus > 0)
+                terminal.WriteLine($"  Damage: +{blessing.DamageBonus}%", "red");
+            if (blessing.DefenseBonus > 0)
+                terminal.WriteLine($"  Defense: +{blessing.DefenseBonus}%", "cyan");
+            if (blessing.XPBonus > 0)
+                terminal.WriteLine($"  XP Bonus: +{blessing.XPBonus}%", "yellow");
+
+            var duration = blessing.ExpiresAt - DateTime.Now;
+            terminal.WriteLine($"  Duration: {duration.TotalMinutes:F0} minutes", "gray");
+
+            terminal.WriteLine("");
+            terminal.SetColor("white");
+            terminal.WriteLine($"{playerGod}'s blessing is upon you!");
+        }
+        else
+        {
+            terminal.WriteLine("");
+            terminal.WriteLine("Your prayers go unanswered today...", "gray");
+        }
+
+        await Task.Delay(2000);
+        refreshMenu = true;
+    }
+
+    #endregion
+
+    #region Mira Companion Recruitment
+
+    /// <summary>
+    /// Check if Mira can be met at the temple
+    /// </summary>
+    private bool CanMeetMira()
+    {
+        var companionSystem = UsurperRemake.Systems.CompanionSystem.Instance;
+        var mira = companionSystem.GetCompanion(UsurperRemake.Systems.CompanionId.Mira);
+
+        // Check requirements
+        if (mira == null || mira.IsRecruited || mira.IsDead)
+            return false;
+
+        // Level requirement
+        if (currentPlayer.Level < mira.RecruitLevel)
+            return false;
+
+        // Already completed the encounter (declined)
+        var story = StoryProgressionSystem.Instance;
+        if (story.HasStoryFlag("mira_temple_encounter_complete"))
+            return false;
+
+        return true;
+    }
+
+    /// <summary>
+    /// Visit the Meditation Chapel - Mira recruitment location
+    /// </summary>
+    private async Task VisitMeditationChapel()
+    {
+        var companionSystem = UsurperRemake.Systems.CompanionSystem.Instance;
+        var mira = companionSystem.GetCompanion(UsurperRemake.Systems.CompanionId.Mira);
+
+        if (!CanMeetMira())
+        {
+            terminal.WriteLine("");
+            terminal.WriteLine("The meditation chapel is empty.", "gray");
+            terminal.WriteLine("Only silence and candle smoke fill the small room.", "gray");
+            await Task.Delay(1500);
+            refreshMenu = true;
+            return;
+        }
+
+        terminal.Clear();
+        terminal.SetColor("bright_green");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║                    MEDITATION CHAPEL                              ║");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        terminal.SetColor("white");
+        terminal.WriteLine("You step into a small, quiet chapel off the main temple.");
+        terminal.WriteLine("A single candle illuminates a woman kneeling before an empty altar.");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        terminal.SetColor("gray");
+        terminal.WriteLine("She wears the faded robes of a priestess, though they bear no symbol.");
+        terminal.WriteLine("Her hands are clasped, but her lips do not move.");
+        terminal.WriteLine("She prays to... nothing. An empty space where faith once lived.");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        // First dialogue
+        terminal.SetColor("cyan");
+        terminal.WriteLine("She notices you watching.");
+        terminal.WriteLine("");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine($"\"{mira.DialogueHints[0]}\"");
+        terminal.WriteLine("");
+        await Task.Delay(2000);
+
+        terminal.SetColor("white");
+        terminal.WriteLine("She turns back to the empty altar.");
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"\"{mira.DialogueHints[1]}\"");
+        terminal.WriteLine("");
+        await Task.Delay(2000);
+
+        // Show her details
+        terminal.SetColor("yellow");
+        terminal.WriteLine($"This is {mira.Name}, {mira.Title}.");
+        terminal.WriteLine($"Role: {mira.CombatRole}");
+        terminal.WriteLine($"Abilities: {string.Join(", ", mira.Abilities)}");
+        terminal.WriteLine("");
+
+        terminal.SetColor("gray");
+        terminal.WriteLine(mira.BackstoryBrief);
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("[R] Ask her to join you");
+        terminal.WriteLine("[T] Talk about her past");
+        terminal.WriteLine("[L] Leave her to her prayers");
+        terminal.WriteLine("");
+
+        var choice = await terminal.GetInputAsync("Your choice: ");
+
+        switch (choice.ToUpper())
+        {
+            case "R":
+                await AttemptMiraRecruitment(mira);
+                break;
+
+            case "T":
+                await TalkToMira(mira);
+                break;
+
+            default:
+                terminal.SetColor("gray");
+                terminal.WriteLine("");
+                terminal.WriteLine("You leave her to her silent vigil.");
+                terminal.WriteLine("As you reach the door, she speaks without turning:");
+                terminal.SetColor("cyan");
+                terminal.WriteLine($"\"{mira.DialogueHints[2]}\"");
+                break;
+        }
+
+        // Mark encounter as complete
+        StoryProgressionSystem.Instance.SetStoryFlag("mira_temple_encounter_complete", true);
+        await terminal.GetInputAsync("Press Enter to continue...");
+        refreshMenu = true;
+    }
+
+    /// <summary>
+    /// Attempt to recruit Mira
+    /// </summary>
+    private async Task AttemptMiraRecruitment(UsurperRemake.Systems.Companion mira)
+    {
+        var companionSystem = UsurperRemake.Systems.CompanionSystem.Instance;
+
+        terminal.WriteLine("");
+        terminal.SetColor("white");
+        terminal.WriteLine("\"The dungeons are dangerous,\" you say. \"A healer would be invaluable.\"");
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"{mira.Name} looks at you for a long moment.");
+        terminal.WriteLine("Something flickers in her eyes. Not hope - something smaller.");
+        terminal.WriteLine("A question, perhaps.");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("\"You want me to heal,\" she says.");
+        terminal.WriteLine("\"I can do that. I've always been able to do that.\"");
+        terminal.WriteLine("\"But will it matter? Will any of it matter?\"");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        terminal.SetColor("white");
+        terminal.WriteLine("She doesn't wait for an answer.");
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        terminal.WriteLine("\"Perhaps if I help you long enough, I'll find out.\"");
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        bool success = await companionSystem.RecruitCompanion(
+            UsurperRemake.Systems.CompanionId.Mira, currentPlayer, terminal);
+
+        if (success)
+        {
+            terminal.SetColor("bright_green");
+            terminal.WriteLine("");
+            terminal.WriteLine($"{mira.Name} rises from the empty altar.");
+            terminal.WriteLine("The candle behind her flickers - but does not go out.");
+            terminal.WriteLine("");
+            terminal.SetColor("yellow");
+            terminal.WriteLine("WARNING: Companions can die permanently. She may find her answer in sacrifice.");
+
+            // Generate news
+            NewsSystem.Instance.Newsy(false, $"{currentPlayer.Name2} found {mira.Name} praying at an empty altar in the Temple.");
+        }
+    }
+
+    /// <summary>
+    /// Have a deeper conversation with Mira about her past
+    /// </summary>
+    private async Task TalkToMira(UsurperRemake.Systems.Companion mira)
+    {
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        terminal.WriteLine("You sit beside her. The silence stretches between you.");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        terminal.SetColor("white");
+        terminal.WriteLine(mira.Description);
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine("\"I was a healer at Veloura's temple,\" she says finally.");
+        terminal.WriteLine("\"When the corruption came... the healers became something else.\"");
+        terminal.WriteLine("\"I escaped. But I left my faith behind.\"");
+        terminal.WriteLine("");
+        await Task.Delay(2000);
+
+        if (!string.IsNullOrEmpty(mira.PersonalQuestDescription))
+        {
+            terminal.SetColor("bright_magenta");
+            terminal.WriteLine($"Personal Quest: {mira.PersonalQuestName}");
+            terminal.WriteLine($"\"{mira.PersonalQuestDescription}\"");
+            terminal.WriteLine("");
+        }
+
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("\"I keep praying,\" she whispers.");
+        terminal.WriteLine("\"To an empty altar. To nothing.\"");
+        terminal.WriteLine("\"Because if I stop... I don't know what I am anymore.\"");
+        terminal.WriteLine("");
+        await Task.Delay(2000);
+
+        var followUp = await terminal.GetInputAsync("Ask her to join you? (Y/N): ");
+        if (followUp.ToUpper() == "Y")
+        {
+            await AttemptMiraRecruitment(mira);
+        }
+        else
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("");
+            terminal.WriteLine("You squeeze her shoulder gently and leave.");
+            terminal.WriteLine("Perhaps another time.");
+        }
     }
 
     #endregion

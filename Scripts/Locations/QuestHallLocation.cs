@@ -391,7 +391,7 @@ public class QuestHallLocation : BaseLocation
             terminal.WriteLine("  Objectives:", "cyan");
             foreach (var obj in quest.Objectives)
             {
-                var status = obj.IsComplete ? "[✓]" : "[ ]";
+                var status = obj.IsComplete ? "[+]" : "[ ]";
                 var color = obj.IsComplete ? "green" : "white";
                 terminal.WriteLine($"    {status} {obj.Description} ({obj.CurrentProgress}/{obj.RequiredProgress})", color);
             }

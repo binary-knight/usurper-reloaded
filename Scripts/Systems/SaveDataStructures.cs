@@ -48,6 +48,9 @@ namespace UsurperRemake.Systems
         // Story progression flags
         public Dictionary<string, bool> StoryFlags { get; set; } = new();
         public int CurrentCycle { get; set; } = 1;
+
+        // God worship - player name -> god name
+        public Dictionary<string, string> PlayerGods { get; set; } = new();
     }
 
     public class CompanionSaveInfo
@@ -174,6 +177,9 @@ namespace UsurperRemake.Systems
         public long Darkness { get; set; }
         public int Mental { get; set; }
         public int Poison { get; set; }
+
+        // Active status effects (StatusEffect -> remaining duration in rounds)
+        public Dictionary<int, int> ActiveStatuses { get; set; } = new();
         public int GnollP { get; set; }  // Gnoll poison (temporary)
         public int Addict { get; set; }  // Drug addiction level
         public int SteroidDays { get; set; }  // Days remaining on steroids

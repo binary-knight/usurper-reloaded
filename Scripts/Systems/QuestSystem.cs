@@ -121,7 +121,19 @@ public partial class QuestSystem : Node
         player.RoyQuests++;
         player.RoyQuestsToday++;
         player.ActiveQuests.Remove(quest);
-        
+
+        // Update global statistics tracking
+        StatisticsManager.Current.RecordQuestComplete();
+
+        // Track bounty completion separately for achievements
+        if (quest.Initiator == KING_BOUNTY_INITIATOR || quest.QuestTarget == QuestTarget.DefeatNPC)
+        {
+            StatisticsManager.Current.RecordBountyComplete();
+        }
+
+        // Check quest achievements
+        CheckQuestAchievements(player);
+
         // Send completion notification to king (Pascal: King notification)
         SendQuestCompletionMail(player, quest, rewardAmount);
         
@@ -466,24 +478,48 @@ public partial class QuestSystem : Node
     
     /// <summary>
     /// Validate quest completion requirements
-    /// Pascal: Quest completion validation
+    /// Uses the modern objective-based system if objectives exist,
+    /// otherwise falls back to legacy QuestTarget-based validation
     /// </summary>
     private static bool ValidateQuestCompletion(Character player, Quest quest)
     {
+        // If quest has objectives, use modern validation
+        if (quest.Objectives != null && quest.Objectives.Count > 0)
+        {
+            // Check if all required (non-optional) objectives are complete
+            return quest.Objectives
+                .Where(o => !o.IsOptional)
+                .All(o => o.IsComplete);
+        }
+
+        // Legacy validation for quests without objectives
         switch (quest.QuestTarget)
         {
             case QuestTarget.Monster:
-                // Check if player killed enough monsters (simplified)
-                return player.MKills >= quest.Monsters.Sum(m => m.Count);
-                
+                // Check if player killed enough monsters
+                if (quest.Monsters != null && quest.Monsters.Count > 0)
+                {
+                    return player.MKills >= quest.Monsters.Sum(m => m.Count);
+                }
+                return true;
+
             case QuestTarget.Assassin:
                 // Check assassination mission completion
-                return player.Assa > 0; // Has assassination attempts
-                
+                return player.Assa > 0;
+
             case QuestTarget.Seduce:
-                // Check seduction mission completion  
-                return player.IntimacyActs > 0; // Has intimacy acts
-                
+                // Check seduction mission completion
+                return player.IntimacyActs > 0;
+
+            case QuestTarget.DefeatNPC:
+                // NPC defeat quest - check if target NPC was defeated
+                if (!string.IsNullOrEmpty(quest.TargetNPCName))
+                {
+                    // Quest is complete if NPC was marked as defeated
+                    return quest.Deleted || quest.OccupiedDays > 0;
+                }
+                return true;
+
             default:
                 return true; // Other quest types auto-complete for now
         }
@@ -1232,6 +1268,39 @@ public partial class QuestSystem : Node
         questDatabase.Add(bounty);
         NewsSystem.Instance?.Newsy(true, $"The Crown has posted a bounty on {playerName}!");
         GD.Print($"[QuestSystem] Bounty posted on player {playerName} for {crime}");
+    }
+
+    #endregion
+
+    #region Achievement Tracking
+
+    /// <summary>
+    /// Check and unlock quest-related achievements
+    /// </summary>
+    private static void CheckQuestAchievements(Character player)
+    {
+        if (player is not Player p) return;
+
+        var stats = StatisticsManager.Current;
+        if (stats == null) return;
+
+        // Quest Starter - first quest completed
+        if (stats.QuestsCompleted >= 1)
+        {
+            AchievementSystem.TryUnlock(p, "quest_starter");
+        }
+
+        // Quest Master - 25 quests completed
+        if (stats.QuestsCompleted >= 25)
+        {
+            AchievementSystem.TryUnlock(p, "quest_master");
+        }
+
+        // Bounty Hunter - 10 bounty quests completed
+        if (stats.BountiesCompleted >= 10)
+        {
+            AchievementSystem.TryUnlock(p, "bounty_hunter");
+        }
     }
 
     #endregion

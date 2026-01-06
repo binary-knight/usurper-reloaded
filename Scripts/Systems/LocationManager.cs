@@ -336,10 +336,10 @@ public class LocationManager
 
         terminal.SetColor("yellow");
         if (expLoss > 0)
-            terminal.WriteLine($"  • Lost {expLoss:N0} experience points");
+            terminal.WriteLine($"  - Lost {expLoss:N0} experience points");
         if (goldLoss > 0)
-            terminal.WriteLine($"  • Lost {goldLoss:N0} gold (dropped upon death)");
-        terminal.WriteLine($"  • Monster defeats: {player.MDefeats}");
+            terminal.WriteLine($"  - Lost {goldLoss:N0} gold (dropped upon death)");
+        terminal.WriteLine($"  - Monster defeats: {player.MDefeats}");
         terminal.WriteLine("");
 
         // Resurrect player at the Inn with half HP
@@ -534,7 +534,7 @@ public class PlaceholderLocation : BaseLocation
     {
     }
     
-    protected virtual void SetupLocation()
+    protected new virtual void SetupLocation()
     {
         // Basic exits - most locations can return to main street
         PossibleExits = new List<GameLocation>
@@ -549,7 +549,7 @@ public class PlaceholderLocation : BaseLocation
         };
     }
     
-    protected virtual async Task<bool> ProcessChoice(string choice)
+    protected new virtual async Task<bool> ProcessChoice(string choice)
     {
         var upperChoice = choice.ToUpper().Trim();
         
@@ -572,7 +572,7 @@ public class PlaceholderLocation : BaseLocation
         }
     }
     
-    protected virtual void DisplayLocation()
+    protected new virtual void DisplayLocation()
     {
         terminal.ClearScreen();
         

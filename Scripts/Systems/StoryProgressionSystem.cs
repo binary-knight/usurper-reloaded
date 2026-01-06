@@ -35,7 +35,7 @@ namespace UsurperRemake.Systems
         public Dictionary<string, int> KeyNPCRelationships { get; private set; } = new();
 
         // Prestige/Cycle tracking
-        public int CurrentCycle { get; private set; } = 1;
+        public int CurrentCycle { get; internal set; } = 1;
         public HashSet<EndingType> CompletedEndings { get; private set; } = new();
         public List<string> CycleCarryoverItems { get; private set; } = new();
 
@@ -446,6 +446,32 @@ namespace UsurperRemake.Systems
             });
 
             GD.Print($"[Story] Completed ending: {ending}");
+        }
+
+        /// <summary>
+        /// Full reset for new character - clears ALL story state including seals
+        /// Call this when creating a brand new character (not New Game+)
+        /// </summary>
+        public void FullReset()
+        {
+            CurrentChapter = StoryChapter.Awakening;
+            CurrentAct = StoryAct.Act1_TheNewcomer;
+            StoryFlags = 0;
+            CurrentGameDay = 1;
+            CurrentCycle = 1;
+
+            MajorChoices.Clear();
+            CollectedArtifacts.Clear();
+            CollectedSeals.Clear(); // Clear seals for new character
+            StringStoryFlags.Clear();
+            CompletedEndings.Clear();
+            CycleCarryoverItems.Clear();
+            EventLog.Clear();
+
+            InitializeOldGods();
+            InitializeKeyNPCs();
+
+            GD.Print("[Story] Full reset - new character started");
         }
 
         /// <summary>

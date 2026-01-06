@@ -88,6 +88,11 @@ public class Monster
     public int StunRounds { get; set; } = 0;
     public int WeakenRounds { get; set; } = 0;
 
+    // Ability use tracking to prevent infinite stacking
+    public bool HasHardenedArmor { get; set; } = false;
+    public bool HasEnraged { get; set; } = false;
+    public bool HasUsedBackstab { get; set; } = false;
+
     // Conversion/Charm effects
     public bool Fled { get; set; } = false;           // Monster has fled from combat
     public bool IsFriendly { get; set; } = false;     // Monster is temporarily friendly (pacified/charmed)

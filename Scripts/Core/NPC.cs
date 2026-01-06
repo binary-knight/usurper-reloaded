@@ -1,4 +1,5 @@
 using UsurperRemake.Utils;
+using UsurperRemake.Systems;
 using Godot;
 using System;
 using System.Collections.Generic;
@@ -42,7 +43,7 @@ public partial class NPC : Character
     
     // NPC behavior settings
     public string Archetype { get; set; } = "citizen";        // thug, merchant, guard, priest, etc.
-    public string CurrentLocation { get; set; } = "main_street";
+    public override string CurrentLocation { get; set; } = "Main Street";
     public bool IsSpecialNPC { get; set; } = false;           // Special scripted NPCs like Seth Able
     public string SpecialScript { get; set; } = "";           // Name of special behavior script
 
@@ -65,8 +66,8 @@ public partial class NPC : Character
     
     // Pascal compatibility flags
     public bool CanInteract => IsAwake && IsAvailable && !IsInConversation;
-    public string Location => CurrentLocation;  // Pascal compatibility
-    public bool IsNPC => true;                  // For compatibility checks
+    public new string Location => CurrentLocation;  // Pascal compatibility
+    public new bool IsNPC => true;                  // For compatibility checks
     
     /// <summary>
     /// Alias for King property for compatibility with GoalSystem
@@ -78,11 +79,11 @@ public partial class NPC : Character
     public List<string> Enemies { get; set; } = new();
     public List<string> GangMembers { get; set; } = new();
     public string GangId { get; set; } = "";
-    public bool ControlsTurf { get; set; }
+    public new bool ControlsTurf { get; set; }
     
     // Missing properties for API compatibility
     public string Id { get; set; } = Guid.NewGuid().ToString();  // Unique identifier
-    public string TeamPassword { get; set; } = "";               // Team password for joining
+    public new string TeamPassword { get; set; } = "";               // Team password for joining
 
     // Marketplace inventory - items NPC has available to sell (uses global Item class)
     public List<global::Item> MarketInventory { get; set; } = new();
@@ -241,39 +242,39 @@ public partial class NPC : Character
         switch (Archetype.ToLower())
         {
             case "thug":
-                CurrentLocation = "tavern";
+                CurrentLocation = "Inn";
                 Race = (CharacterRace)GD.RandRange(0, 9); // Random race
                 Sex = (CharacterSex)GD.RandRange(1, 2);
                 IsHostile = GD.Randf() < 0.3f; // 30% chance of being hostile
                 break;
-                
+
             case "guard":
-                CurrentLocation = GD.RandRange(0, 2) == 0 ? "castle" : "main_street";
+                CurrentLocation = GD.RandRange(0, 2) == 0 ? "Castle" : "Main Street";
                 Race = CharacterRace.Human; // Guards are usually human
                 Sex = (CharacterSex)GD.RandRange(1, 2);
                 break;
-                
+
             case "merchant":
-                CurrentLocation = "market";
+                CurrentLocation = "Market";
                 Race = CharacterRace.Human;
                 Sex = (CharacterSex)GD.RandRange(1, 2);
                 break;
-                
+
             case "priest":
-                CurrentLocation = "chapel";
+                CurrentLocation = "Temple";
                 Race = CharacterRace.Human;
                 Sex = (CharacterSex)GD.RandRange(1, 2);
                 Chivalry = Level * 10; // Priests start with chivalry
                 break;
-                
+
             case "mystic":
-                CurrentLocation = "magic_shop";
+                CurrentLocation = "Magic Shop";
                 Race = CharacterRace.Elf;
                 Sex = (CharacterSex)GD.RandRange(1, 2);
                 break;
-                
+
             default:
-                CurrentLocation = "main_street";
+                CurrentLocation = "Main Street";
                 Race = (CharacterRace)GD.RandRange(0, 9);
                 Sex = (CharacterSex)GD.RandRange(1, 2);
                 break;
@@ -384,7 +385,7 @@ public partial class NPC : Character
     /// </summary>
     private void ProcessShoppingBehavior()
     {
-        var shoppingLocations = new[] { "main_street", "weapon_shop", "armor_shop", "magic_shop" };
+        var shoppingLocations = new[] { "Main Street", "Weapon Shop", "Armor Shop", "Magic Shop" };
         
         if (shoppingLocations.Contains(CurrentLocation))
         {
@@ -570,7 +571,7 @@ public partial class NPC : Character
                 
             case "guard":
                 // Guards patrol
-                var locations = new[] { "main_street", "castle", "market" };
+                var locations = new[] { "Main Street", "Castle", "Market" };
                 CurrentLocation = locations[GD.RandRange(0, locations.Length - 1)];
                 break;
                 
@@ -614,10 +615,12 @@ public partial class NPC : Character
         {
             return GetSpecialGreeting(player);
         }
-        
+
         // Use personality and relationship to generate greeting
-        var relationship = Relationships.GetRelationshipWith(player.Name2);
-        return Brain.GenerateGreeting(player, relationship);
+        // Null checks for safety: Relationships or player.Name2 could be null
+        string playerName = player?.Name2 ?? player?.Name1 ?? "stranger";
+        int relationship = Relationships?.GetRelationshipWith(playerName) ?? 0;
+        return Brain?.GenerateGreeting(player, relationship) ?? "Hello there.";
     }
     
     /// <summary>
@@ -665,14 +668,59 @@ public partial class NPC : Character
     // Helper methods for world state
     private List<string> GetPlayersInLocation(string location)
     {
-        // This would query the game engine for players in the location
-        return new List<string>();
+        var players = new List<string>();
+
+        // In single-player mode, check if current player is in this location
+        try
+        {
+            var currentPlayer = GameEngine.Instance?.CurrentPlayer;
+            if (currentPlayer != null)
+            {
+                // Player's current location can be checked via GameEngine's location manager
+                // For now, we use the player's tracked location string if available
+                var playerLocation = currentPlayer.CurrentLocation;
+                if (!string.IsNullOrEmpty(playerLocation) &&
+                    playerLocation.Equals(location, StringComparison.OrdinalIgnoreCase))
+                {
+                    players.Add(currentPlayer.Name2 ?? currentPlayer.Name1);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // GameEngine not ready - return empty list
+            GD.PrintErr($"[NPC] GetPlayersInLocation error: {ex.Message}");
+        }
+
+        return players;
     }
-    
+
     private List<string> GetNPCsInLocation(string location)
     {
-        // This would query the game engine for NPCs in the location
-        return new List<string>();
+        var npcNames = new List<string>();
+
+        try
+        {
+            // Query NPCSpawnSystem for NPCs at this location
+            var npcs = NPCSpawnSystem.Instance?.GetNPCsAtLocation(location);
+            if (npcs != null)
+            {
+                foreach (var npc in npcs)
+                {
+                    if (npc.IsAlive && npc != this) // Exclude self
+                    {
+                        npcNames.Add(npc.Name2 ?? npc.Name1);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // NPCSpawnSystem not ready - return empty list
+            GD.PrintErr($"[NPC] GetNPCsInLocation error: {ex.Message}");
+        }
+
+        return npcNames;
     }
     
     private float CalculateDangerLevel()
@@ -680,10 +728,10 @@ public partial class NPC : Character
         // Calculate danger based on location, time, etc.
         return CurrentLocation switch
         {
-            "dungeon" => 0.8f,
-            "tavern" => 0.3f,
-            "main_street" => 0.1f,
-            "castle" => 0.2f,
+            "Dungeon" => 0.8f,
+            "Inn" => 0.3f,
+            "Main Street" => 0.1f,
+            "Castle" => 0.2f,
             _ => 0.1f
         };
     }
@@ -720,9 +768,11 @@ public partial class NPC : Character
                 LocationManager.Instance.AddNPCToLocation(newLocId, this);
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Swallow errors in case LocationManager not ready – will be corrected on next movement
+            // Log error but continue - LocationManager may not be ready during initialization
+            // Will be corrected on next movement attempt
+            GD.PrintErr($"[NPC] UpdateLocation error for {Name2}: {ex.Message}");
             CurrentLocation = newLocation;
         }
     }

@@ -43,6 +43,9 @@ namespace UsurperRemake.Systems
         {
             try
             {
+                // Create backup of existing save before overwriting
+                CreateBackup(playerName);
+
                 var saveData = new SaveGameData
                 {
                     Version = GameConfig.SaveVersion,
@@ -546,6 +549,13 @@ namespace UsurperRemake.Systems
                 Darkness = player.Darkness,
                 Mental = player.Mental,
                 Poison = player.Poison,
+
+                // Active status effects (convert enum keys to int)
+                ActiveStatuses = player.ActiveStatuses?.ToDictionary(
+                    kvp => (int)kvp.Key,
+                    kvp => kvp.Value
+                ) ?? new Dictionary<int, int>(),
+
                 GnollP = player.GnollP,
                 Addict = player.Addict,
                 SteroidDays = player.SteroidDays,
@@ -560,6 +570,12 @@ namespace UsurperRemake.Systems
                 Measles = player.Measles,
                 Leprosy = player.Leprosy,
                 LoversBane = player.LoversBane,
+
+                // Combat statistics (kill/death counts)
+                MKills = (int)player.MKills,
+                MDefeats = (int)player.MDefeats,
+                PKills = (int)player.PKills,
+                PDefeats = (int)player.PDefeats,
 
                 // Character settings
                 AutoHeal = player.AutoHeal,
@@ -806,7 +822,7 @@ namespace UsurperRemake.Systems
             return new Dictionary<string, float>();
         }
         
-        private List<QuestData> SerializeActiveQuests(Character player)
+        private List<QuestData> SerializeActiveQuests(Character? player)
         {
             var questDataList = new List<QuestData>();
 
@@ -1071,13 +1087,60 @@ namespace UsurperRemake.Systems
             }
             catch { /* System not initialized */ }
 
-            // Story Progression - save cycle count
+            // Story Progression - save cycle count, seals, and story flags
             try
             {
                 var story = StoryProgressionSystem.Instance;
                 data.CurrentCycle = story.CurrentCycle;
+                data.CollectedSeals = story.CollectedSeals.Select(s => (int)s).ToList();
+                data.StoryFlags = new Dictionary<string, bool>(story.StoryFlags);
             }
             catch { /* System not initialized */ }
+
+            // God System - save player worship data
+            try
+            {
+                var godSystem = UsurperRemake.GodSystemSingleton.Instance;
+                var godData = godSystem.ToDictionary();
+                if (godData.ContainsKey("PlayerGods") && godData["PlayerGods"] is Dictionary<string, string> playerGodDict)
+                {
+                    data.PlayerGods = new Dictionary<string, string>(playerGodDict);
+                }
+            }
+            catch { /* System not initialized */ }
+
+            // Companion System - save companion states
+            try
+            {
+                var companionData = CompanionSystem.Instance.Serialize();
+
+                // Convert CompanionSaveData to CompanionSaveInfo for storage
+                data.Companions = companionData.CompanionStates.Select(c => new CompanionSaveInfo
+                {
+                    Id = (int)c.Id,
+                    IsRecruited = c.IsRecruited,
+                    IsActive = c.IsActive,
+                    IsDead = c.IsDead,
+                    LoyaltyLevel = c.LoyaltyLevel,
+                    TrustLevel = c.TrustLevel,
+                    RomanceLevel = c.RomanceLevel,
+                    PersonalQuestStarted = c.PersonalQuestStarted,
+                    PersonalQuestCompleted = c.PersonalQuestCompleted,
+                    RecruitedDay = c.RecruitedDay
+                }).ToList();
+
+                data.ActiveCompanionIds = companionData.ActiveCompanions.Select(c => (int)c).ToList();
+
+                data.FallenCompanions = companionData.FallenCompanions.Select(d => new CompanionDeathInfo
+                {
+                    CompanionId = (int)d.CompanionId,
+                    DeathType = (int)d.Type,
+                    Circumstance = d.Circumstance,
+                    LastWords = d.LastWords,
+                    DeathDay = d.DeathDay
+                }).ToList();
+            }
+            catch { /* Companion system not initialized */ }
 
             return data;
         }
@@ -1113,8 +1176,81 @@ namespace UsurperRemake.Systems
             }
             catch { /* System not available */ }
 
-            // Note: Other systems will need RestoreState methods added
-            // For now, they don't persist - this is acceptable for alpha
+            // Story Progression - restore seals and story flags
+            try
+            {
+                var story = StoryProgressionSystem.Instance;
+
+                // Restore collected seals
+                foreach (var sealInt in data.CollectedSeals)
+                {
+                    var seal = (UsurperRemake.Systems.SealType)sealInt;
+                    if (!story.CollectedSeals.Contains(seal))
+                    {
+                        story.CollectSeal(seal);
+                    }
+                }
+
+                // Restore story flags
+                foreach (var kvp in data.StoryFlags)
+                {
+                    story.SetStoryFlag(kvp.Key, kvp.Value);
+                }
+
+                // Restore cycle count
+                story.CurrentCycle = data.CurrentCycle;
+            }
+            catch { /* System not available */ }
+
+            // God System - restore player worship data
+            try
+            {
+                var godSystem = UsurperRemake.GodSystemSingleton.Instance;
+                foreach (var kvp in data.PlayerGods)
+                {
+                    godSystem.SetPlayerGod(kvp.Key, kvp.Value);
+                }
+            }
+            catch { /* System not available */ }
+
+            // Companion System - restore companion states
+            try
+            {
+                if (data.Companions != null && data.Companions.Count > 0)
+                {
+                    // Convert CompanionSaveInfo back to CompanionSystemData format
+                    var companionSystemData = new CompanionSystemData
+                    {
+                        CompanionStates = data.Companions.Select(c => new CompanionSaveData
+                        {
+                            Id = (CompanionId)c.Id,
+                            IsRecruited = c.IsRecruited,
+                            IsActive = c.IsActive,
+                            IsDead = c.IsDead,
+                            LoyaltyLevel = c.LoyaltyLevel,
+                            TrustLevel = c.TrustLevel,
+                            RomanceLevel = c.RomanceLevel,
+                            PersonalQuestStarted = c.PersonalQuestStarted,
+                            PersonalQuestCompleted = c.PersonalQuestCompleted,
+                            RecruitedDay = c.RecruitedDay
+                        }).ToList(),
+
+                        ActiveCompanions = data.ActiveCompanionIds?.Select(id => (CompanionId)id).ToList() ?? new List<CompanionId>(),
+
+                        FallenCompanions = data.FallenCompanions?.Select(d => new CompanionDeath
+                        {
+                            CompanionId = (CompanionId)d.CompanionId,
+                            Type = (DeathType)d.DeathType,
+                            Circumstance = d.Circumstance,
+                            LastWords = d.LastWords,
+                            DeathDay = d.DeathDay
+                        }).ToList() ?? new List<CompanionDeath>()
+                    };
+
+                    CompanionSystem.Instance.Deserialize(companionSystemData);
+                }
+            }
+            catch { /* Companion system not available */ }
         }
     }
 } 

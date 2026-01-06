@@ -12,9 +12,7 @@ using System.IO;
 /// </summary>
 public class OnlineDuelSystem : Node
 {
-    private AdvancedCombatEngine combatEngine;
-    // MailSystem is static - no need to instantiate
-    private NewsSystem newsSystem;
+    // MailSystem and NewsSystem are accessed via static/singleton - no need to instantiate
     private Random random = new Random();
     
     // Pascal communication constants from ONDUEL.PAS
@@ -48,10 +46,7 @@ public class OnlineDuelSystem : Node
     
     public override void _Ready()
     {
-        combatEngine = GetNode<AdvancedCombatEngine>("/root/AdvancedCombatEngine");
-        // Use static instances instead
-        // mailSystem = MailSystem.Instance;
-        // newsSystem = NewsSystem.Instance;
+        // Combat handled internally - MailSystem and NewsSystem accessed via singletons
     }
     
     /// <summary>
@@ -529,8 +524,7 @@ public class OnlineDuelSystem : Node
                 
                 // News coverage
                 string afterBattleMsg = GetAfterBattleMessage(player.Name2, enemy.Name2);
-                newsSystem.Newsy($"Online Duel Victory! {GameConfig.NewsColorPlayer}{player.Name2}{GameConfig.NewsColorDefault} defeated {GameConfig.NewsColorPlayer}{enemy.Name2}{GameConfig.NewsColorDefault} in an online duel! {afterBattleMsg}", 
-                    true, GameConfig.NewsCategory.General);
+                NewsSystem.Instance.Newsy(true, $"Online Duel Victory! {GameConfig.NewsColorPlayer}{player.Name2}{GameConfig.NewsColorDefault} defeated {GameConfig.NewsColorPlayer}{enemy.Name2}{GameConfig.NewsColorDefault} in an online duel! {afterBattleMsg}");
                 break;
                 
             case DuelOutcome.Defeat:

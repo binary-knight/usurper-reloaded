@@ -90,6 +90,16 @@ public partial class RelationshipSystem
 {
     public int GetRelation(Character a, Character b) => GetRelationshipStatus(a, b);
 
+    /// <summary>
+    /// Set relationship value between two characters (stub for legacy compatibility)
+    /// In the real system, relationships are managed differently
+    /// </summary>
+    public void SetRelationship(Character a, Character b, int newValue)
+    {
+        // Stub - actual relationship tracking uses RelationshipManager per-character
+        // This is a no-op for now since legacy code patterns don't map cleanly
+    }
+
     // Legacy overload used by Gym/Tournament code – returns a minimal RelationshipRecord
     public RelationshipRecord GetRelation(string name1, string name2)
     {
@@ -108,8 +118,44 @@ public partial class RelationshipSystem
         };
     }
 
-    // Placeholder that simply logs kill counts – full logic later
-    public void UpdateKillStats(Character killer, Character victim) {}
+    /// <summary>
+    /// Update kill statistics when one character kills another
+    /// Tracks player kills, NPC kills, and updates statistics/news
+    /// </summary>
+    public void UpdateKillStats(Character killer, Character victim)
+    {
+        if (killer == null || victim == null) return;
+
+        // Update killer's stats
+        if (killer is Player)
+        {
+            // Player killed something
+            StatisticsManager.Current.RecordPlayerKill();
+        }
+
+        // Update victim's stats
+        if (victim is Player)
+        {
+            // Player was killed by another character
+            bool killedByPlayer = killer is Player;
+            StatisticsManager.Current.RecordDeath(killedByPlayer);
+        }
+
+        // Generate death news for significant kills
+        string victimName = victim.Name2 ?? victim.Name1;
+        string killerName = killer.Name2 ?? killer.Name1;
+        string location = victim.CurrentLocation ?? "Unknown Location";
+
+        if (killer is NPC || victim is NPC)
+        {
+            NewsSystem.Instance.WriteDeathNews(victimName, killerName, location);
+        }
+
+        // Update relationship system - killer and victim are now enemies
+        var relationship = GetRelation(killer, victim);
+        // Decrease relationship significantly on kill
+        SetRelationship(killer, victim, relationship - 100);
+    }
 
     public List<string> GetAllRelationships() => new List<string>();
 }

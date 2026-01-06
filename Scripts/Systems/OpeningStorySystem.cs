@@ -328,11 +328,11 @@ namespace UsurperRemake.Systems
             terminal.WriteLine("  ─────────────────────────────────────────────────────────", "dark_cyan");
             terminal.WriteLine("");
             terminal.WriteLine("  WHAT TO DO:", "bright_green");
-            terminal.WriteLine("  • Explore the town and talk to NPCs", "green");
-            terminal.WriteLine("  • Equip yourself at the shops", "green");
-            terminal.WriteLine("  • Descend into the Dungeons to grow stronger", "green");
-            terminal.WriteLine("  • Find the Seven Seals to unlock the true ending", "green");
-            terminal.WriteLine("  • Pay attention to dreams and strange visions...", "cyan");
+            terminal.WriteLine("  - Explore the town and talk to NPCs", "green");
+            terminal.WriteLine("  - Equip yourself at the shops", "green");
+            terminal.WriteLine("  - Descend into the Dungeons to grow stronger", "green");
+            terminal.WriteLine("  - Find the Seven Seals to unlock the true ending", "green");
+            terminal.WriteLine("  - Pay attention to dreams and strange visions...", "cyan");
             terminal.WriteLine("");
             terminal.WriteLine("  ─────────────────────────────────────────────────────────", "dark_cyan");
             terminal.WriteLine("");
@@ -486,7 +486,7 @@ namespace UsurperRemake.Systems
                 terminal.WriteLine("  Echoes of past cycles grant you power:", "bright_green");
                 foreach (var bonus in bonuses)
                 {
-                    terminal.WriteLine($"    • {bonus}", "green");
+                    terminal.WriteLine($"    - {bonus}", "green");
                 }
             }
 

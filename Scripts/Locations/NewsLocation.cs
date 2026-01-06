@@ -357,6 +357,6 @@ public class NewsLocation : BaseLocation
 
     protected override string GetBreadcrumbPath()
     {
-        return "Main Street → News Stand";
+        return "Main Street > News Stand";
     }
 }

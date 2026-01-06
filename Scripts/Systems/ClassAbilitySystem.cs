@@ -1019,6 +1019,9 @@ public static class ClassAbilitySystem
     /// </summary>
     public static List<ClassAbility> GetAvailableAbilities(Character character)
     {
+        if (character == null)
+            return new List<ClassAbility>();
+
         var available = AllAbilities.Values
             .Where(a => a.AvailableToClasses.Contains(character.Class) &&
                        character.Level >= a.LevelRequired)
@@ -1050,6 +1053,8 @@ public static class ClassAbilitySystem
     /// </summary>
     public static bool CanUseAbility(Character character, string abilityId, Dictionary<string, int> cooldowns)
     {
+        if (character == null) return false;
+
         var ability = GetAbility(abilityId);
         if (ability == null) return false;
 
@@ -1174,11 +1179,15 @@ public static class ClassAbilitySystem
             terminal.WriteLine("───────────────────────────────────────────────────────────────", "cyan");
 
             var classAbilities = GetClassAbilities(player.Class);
+
+            // Update LearnedAbilities based on current level
+            GetAvailableAbilities(player);
+
             int index = 1;
 
             foreach (var ability in classAbilities)
             {
-                string levelMark = player.Level >= ability.LevelRequired ? "✓" : " ";
+                string levelMark = player.Level >= ability.LevelRequired ? "+" : " ";
                 string color = player.Level >= ability.LevelRequired ? "green" : "dark_gray";
 
                 terminal.WriteLine($"{levelMark} {ability.LevelRequired,2}  {ability.Name,-24} {ability.StaminaCost,3}     {ability.Description}", color);

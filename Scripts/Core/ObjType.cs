@@ -1,10 +1,15 @@
 namespace UsurperRemake
 {
-    public enum ObjType
+    /// <summary>
+    /// Item category types - for general categorization of items
+    /// Note: This is distinct from the global ObjType enum in Character.cs
+    /// which defines equipment slot types for the Pascal-compatible system
+    /// </summary>
+    public enum ItemCategory
     {
         None = 0,
         Weapon = 1,      // weapon
-        Armor = 2,       // armor  
+        Armor = 2,       // armor
         Potion = 3,      // healing potion
         Magic = 4,       // magic item
         Special = 5,     // special item

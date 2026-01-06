@@ -365,7 +365,7 @@ namespace UsurperRemake.Systems
             terminal.SetColor("white");
             foreach (var ability in GetAlignmentAbilities(character))
             {
-                terminal.WriteLine($"  • {ability}");
+                terminal.WriteLine($"  - {ability}");
             }
         }
 

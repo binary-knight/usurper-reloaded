@@ -285,14 +285,14 @@ public class TeamCornerLocation : BaseLocation
                 else
                     terminal.SetColor("white");
 
-                string turfMark = team.ControlsTurf ? "★" : "-";
+                string turfMark = team.ControlsTurf ? "*" : "-";
                 terminal.WriteLine($"{rank,-5} {team.TeamName,-24} {team.MemberCount,-6} {team.TotalPower,-8} {team.AverageLevel,-8} {turfMark,-5}");
                 rank++;
             }
 
             terminal.WriteLine("");
             terminal.SetColor("bright_yellow");
-            terminal.WriteLine("★ = Controls the town turf");
+            terminal.WriteLine("* = Controls the town turf");
         }
 
         terminal.WriteLine("");
@@ -671,7 +671,7 @@ public class TeamCornerLocation : BaseLocation
         terminal.WriteLine("");
 
         // Find NPCs that are not in any team and are in town locations
-        var townLocations = new[] { "Main Street", "Market", "Inn", "Temple", "Gym", "Weapon Shop", "Armor Shop", "Tavern", "Castle", "Team Corner" };
+        var townLocations = new[] { "Main Street", "Market", "Inn", "Temple", "Church", "Weapon Shop", "Armor Shop", "Castle", "Bank", "Team Corner" };
         var availableNPCs = allNPCs
             .Where(n => n.IsAlive &&
                    string.IsNullOrEmpty(n.Team) &&

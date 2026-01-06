@@ -471,7 +471,7 @@ namespace UsurperRemake.Systems
         {
             var story = StoryProgressionSystem.Instance;
 
-            // Must have completed at least 3 cycles
+            // Must have completed at least 3 cycles (cycles 3, 4, 5... qualify)
             if (story.CurrentCycle < 3) return false;
 
             // Must have saved at least 2 gods

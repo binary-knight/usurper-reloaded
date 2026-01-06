@@ -6,8 +6,8 @@ using System.Threading.Tasks;
 
 public class Player : Character
 {
-    public string RealName { get; set; } // Player's real name vs character name
-    public DateTime LastLogin { get; set; }
+    public new string RealName { get; set; } // Player's real name vs character name
+    public new DateTime LastLogin { get; set; }
     public DateTime AccountCreated { get; set; }
     public int TotalLogins { get; set; }
     public TimeSpan TotalPlayTime { get; set; }
@@ -30,7 +30,7 @@ public class Player : Character
     
     // Special player abilities/unlocks
     public List<string> UnlockedAbilities { get; set; } = new List<string>();
-    public Dictionary<string, bool> Achievements { get; set; } = new Dictionary<string, bool>();
+    public new Dictionary<string, bool> Achievements { get; set; } = new Dictionary<string, bool>();
     
     // Status tracking
     public bool IsOnline { get; set; } = false;
@@ -38,16 +38,16 @@ public class Player : Character
     public int TurnsThisSession { get; set; } = 0;
     
     // Missing properties for API compatibility
-    public int TurnsRemaining { get; set; } = GameConfig.TurnsPerDay;
-    public int PrisonsLeft { get; set; } = 0;
-    public int ExecuteLeft { get; set; } = 0;
-    public int MarryActions { get; set; } = 5;
-    public int WolfFeed { get; set; } = 0;
-    public int RoyalAdoptions { get; set; } = 0;
-    public int DaysInPower { get; set; } = 0;
+    public new int TurnsRemaining { get; set; } = GameConfig.TurnsPerDay;
+    public new int PrisonsLeft { get; set; } = 0;
+    public new int ExecuteLeft { get; set; } = 0;
+    public new int MarryActions { get; set; } = 5;
+    public new int WolfFeed { get; set; } = 0;
+    public new int RoyalAdoptions { get; set; } = 0;
+    public new int DaysInPower { get; set; } = 0;
     
-    // Additional missing properties for API compatibility 
-    public string CurrentLocation { get; set; } = "main_street";
+    // Additional missing properties for API compatibility
+    public override string CurrentLocation { get; set; } = "Main Street";
     
     public bool IsRuler
     {
@@ -214,7 +214,7 @@ public class Player : Character
         {
             // Respawn with minimal health
             CurrentHP = 1;
-            CurrentLocation = "temple"; // Respawn at temple
+            CurrentLocation = "Temple"; // Respawn at temple
             GameEngine.Instance?.Terminal?.WriteLine("You have been resurrected at the temple.", "yellow");
         }
         
@@ -266,7 +266,7 @@ public class Player : Character
         };
     }
     
-    public new string GetDisplayInfo()
+    public string GetDisplayInfo()
     {
         var title = GetTitle();
         return $"{Name} the {title} (Level {Level} {Class})";

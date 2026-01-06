@@ -372,12 +372,12 @@ namespace UsurperRemake.Systems
                 "Inn",
                 "Inn",           // More NPCs at the Inn
                 "Temple",
-                "Gym",
+                "Church",
                 "Weapon Shop",
                 "Armor Shop",
                 "Magic Shop",
-                "Tavern",
-                "Tavern",        // More NPCs at Tavern
+                "Castle",
+                "Castle",        // More NPCs at Castle
                 "Bank",
                 "Healer",
                 "Dark Alley"     // Some shady characters in the alley
@@ -512,9 +512,21 @@ namespace UsurperRemake.Systems
         /// </summary>
         public void AddRestoredNPC(NPC npc)
         {
-            if (npc != null)
+            if (npc == null)
+                return;
+
+            // Check for duplicate by ID or name to prevent double-adding
+            bool isDuplicate = spawnedNPCs.Any(existing =>
+                (!string.IsNullOrEmpty(existing.ID) && existing.ID == npc.ID) ||
+                existing.Name2.Equals(npc.Name2, StringComparison.OrdinalIgnoreCase));
+
+            if (!isDuplicate)
             {
                 spawnedNPCs.Add(npc);
+            }
+            else
+            {
+                GD.Print($"[NPCSpawn] Skipping duplicate NPC: {npc.Name2}");
             }
         }
 

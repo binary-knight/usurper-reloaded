@@ -151,25 +151,88 @@ namespace UsurperRemake.Systems
 
             // Display the attempt
             terminal.WriteLine("");
-            terminal.WriteLine($"You attempt to resurrect {grief.CompanionName} using {method}...", "yellow");
-            await Task.Delay(1500);
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"You attempt to resurrect {grief.CompanionName} using {method}...");
+            terminal.WriteLine("");
+            await Task.Delay(2000);
 
             // ALL resurrection attempts fail
             string failureReason = GetResurrectionFailure(method, grief.ResurrectionAttempts);
-            terminal.WriteLine("");
-            terminal.WriteLine(failureReason, "red");
+            terminal.SetColor("red");
+            terminal.WriteLine(failureReason);
             terminal.WriteLine("");
 
-            // The more attempts, the more desperate the messages
-            if (grief.ResurrectionAttempts >= 3)
+            await Task.Delay(1500);
+
+            // Progressive philosophical messages based on attempts - varied metaphors
+            if (grief.ResurrectionAttempts == 1)
             {
-                terminal.WriteLine("A voice echoes in your mind:", "dark_magenta");
-                terminal.WriteLine("\"The wave cannot uncrash upon the shore.\"", "magenta");
-                terminal.WriteLine("\"Death is not an ending. It is returning home.\"", "magenta");
+                terminal.SetColor("gray");
+                terminal.WriteLine("The silence is your only answer.");
+                terminal.WriteLine("");
+            }
+            else if (grief.ResurrectionAttempts == 2)
+            {
+                // Ashes metaphor
+                terminal.SetColor("dark_magenta");
+                terminal.WriteLine("A whisper touches your mind:");
+                terminal.SetColor("magenta");
+                terminal.WriteLine("\"You cannot unburn what has burned.\"");
+                terminal.WriteLine("\"But ash feeds the soil. New things grow.\"");
+                terminal.WriteLine("");
+            }
+            else if (grief.ResurrectionAttempts == 3)
+            {
+                // Echo metaphor
+                terminal.SetColor("dark_magenta");
+                terminal.WriteLine("The voice is clearer now, gentle but firm:");
+                terminal.SetColor("bright_cyan");
+                terminal.WriteLine("");
+                terminal.WriteLine("\"A voice fades, but the echo remains.\"");
+                terminal.WriteLine("\"Their words shaped you. Changed you.\"");
+                terminal.WriteLine("\"You ARE their echo now.\"");
+                terminal.WriteLine("\"Every choice you make carries them forward.\"");
                 terminal.WriteLine("");
 
                 // This contributes to Ocean Philosophy understanding
                 OceanPhilosophySystem.Instance.CollectFragment(WaveFragment.TheReturn);
+            }
+            else if (grief.ResurrectionAttempts == 4)
+            {
+                // River metaphor
+                terminal.SetColor("bright_magenta");
+                terminal.WriteLine("The voice speaks with infinite compassion:");
+                terminal.SetColor("bright_white");
+                terminal.WriteLine("");
+                terminal.WriteLine("\"A river does not mourn the water that has passed.\"");
+                terminal.WriteLine("\"It flows on, carrying what was into what will be.\"");
+                terminal.WriteLine("\"Your grief is the river trying to flow backward.\"");
+                terminal.WriteLine("\"But rivers only move one direction.\"");
+                terminal.WriteLine("");
+                await Task.Delay(1500);
+                terminal.SetColor("cyan");
+                terminal.WriteLine("\"Let them go downstream.\"");
+                terminal.WriteLine("\"They are waiting for you at the sea.\"");
+                terminal.WriteLine("");
+            }
+            else if (grief.ResurrectionAttempts >= 5)
+            {
+                // Direct, simple truth
+                terminal.SetColor("bright_white");
+                terminal.WriteLine("The voice is quiet now. Almost a whisper:");
+                terminal.WriteLine("");
+                terminal.SetColor("white");
+                terminal.WriteLine("\"You loved them. That is why it hurts.\"");
+                terminal.WriteLine("\"The hurt is not a flaw. It is the price.\"");
+                terminal.WriteLine("\"Would you rather have never loved at all?\"");
+                terminal.WriteLine("");
+                await Task.Delay(2000);
+                terminal.SetColor("bright_cyan");
+                terminal.WriteLine("\"They changed you. That change is permanent.\"");
+                terminal.WriteLine("\"In that way, they are immortal.\"");
+                terminal.WriteLine("\"Stop trying to bring them back.\"");
+                terminal.WriteLine("\"Start carrying them forward.\"");
+                terminal.WriteLine("");
             }
 
             await terminal.GetInputAsync("Press Enter to continue...");

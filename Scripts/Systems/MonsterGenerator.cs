@@ -17,6 +17,9 @@ public static class MonsterGenerator
     {
         random ??= new Random();
 
+        // Clamp dungeon level to valid range (1-100)
+        dungeonLevel = Math.Max(1, Math.Min(100, dungeonLevel));
+
         // Get appropriate monster family and tier for this level
         var (family, tier) = MonsterFamilies.GetMonsterForLevel(dungeonLevel, random);
 
@@ -163,7 +166,7 @@ public static class MonsterGenerator
                 0 => "Enchanted Blade",
                 1 => "Mythril Axe",
                 2 => "Flaming Sword",
-                3 => "Dragonbone Mace"
+                _ => "Dragonbone Mace"
             },
             _ => random.Next(5) switch
             {
@@ -209,7 +212,7 @@ public static class MonsterGenerator
                 0 => "Enchanted Plate",
                 1 => "Mythril Armor",
                 2 => "Dragonscale Mail",
-                3 => "Elven Chain"
+                _ => "Elven Chain"
             },
             _ => random.Next(5) switch
             {
@@ -281,6 +284,9 @@ public static class MonsterGenerator
     {
         random ??= new Random();
         var monsters = new List<Monster>();
+
+        // Clamp dungeon level to valid range (1-100)
+        dungeonLevel = Math.Max(1, Math.Min(100, dungeonLevel));
 
         // 10% chance for boss encounter (single powerful monster)
         if (random.NextDouble() < 0.10)

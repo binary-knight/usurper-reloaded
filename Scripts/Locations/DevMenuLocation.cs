@@ -33,7 +33,7 @@ public class DevMenuLocation : BaseLocation
         terminal.ClearScreen();
         terminal.SetColor("bright_magenta");
         terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
-        terminal.WriteLine("║                       ★ DEVELOPER MENU ★                                    ║");
+        terminal.WriteLine("║                       * DEVELOPER MENU *                                    ║");
         terminal.WriteLine("║                    For Testing Purposes Only                                 ║");
         terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
         terminal.WriteLine("");
@@ -1881,7 +1881,7 @@ public class DevMenuLocation : BaseLocation
         terminal.ClearScreen();
         terminal.SetColor("bright_yellow");
         terminal.WriteLine("═══════════════════════════════════════════════════════════════");
-        terminal.WriteLine("                       ★ GOD MODE ★");
+        terminal.WriteLine("                       * GOD MODE *");
         terminal.WriteLine("═══════════════════════════════════════════════════════════════");
         terminal.WriteLine("");
 
@@ -1969,7 +1969,7 @@ public class DevMenuLocation : BaseLocation
 
         terminal.SetColor("bright_green");
         terminal.WriteLine("");
-        terminal.WriteLine("  ★ Fully healed and cured of all ailments! ★");
+        terminal.WriteLine("  * Fully healed and cured of all ailments! *");
         terminal.WriteLine($"  HP: {currentPlayer.HP}/{currentPlayer.MaxHP}");
         terminal.WriteLine($"  Mana: {currentPlayer.Mana}/{currentPlayer.MaxMana}");
 
@@ -1983,7 +1983,7 @@ public class DevMenuLocation : BaseLocation
 
         terminal.SetColor("bright_yellow");
         terminal.WriteLine("");
-        terminal.WriteLine("  ★ 10,000,000 gold added! ★");
+        terminal.WriteLine("  * 10,000,000 gold added! *");
         terminal.WriteLine($"  Gold in hand: {currentPlayer.Gold:N0}");
         terminal.WriteLine($"  Gold in bank: {currentPlayer.BankGold:N0}");
 
@@ -2023,9 +2023,9 @@ public class DevMenuLocation : BaseLocation
 
         terminal.SetColor("bright_yellow");
         terminal.WriteLine("");
-        terminal.WriteLine($"  ★ LEVEL UP! {oldLevel} → {currentPlayer.Level} ★");
-        terminal.WriteLine($"  HP: +{hpGain} → {currentPlayer.MaxHP}");
-        terminal.WriteLine($"  Mana: +{manaGain} → {currentPlayer.MaxMana}");
+        terminal.WriteLine($"  * LEVEL UP! {oldLevel} -> {currentPlayer.Level} *");
+        terminal.WriteLine($"  HP: +{hpGain} -> {currentPlayer.MaxHP}");
+        terminal.WriteLine($"  Mana: +{manaGain} -> {currentPlayer.MaxMana}");
         terminal.WriteLine($"  Strength: +2");
         terminal.WriteLine($"  Defence: +1");
 
@@ -2064,7 +2064,7 @@ public class DevMenuLocation : BaseLocation
 
         terminal.SetColor("bright_magenta");
         terminal.WriteLine("");
-        terminal.WriteLine($"  ★ MAXIMUM LEVEL ACHIEVED: {currentPlayer.Level} ★");
+        terminal.WriteLine($"  * MAXIMUM LEVEL ACHIEVED: {currentPlayer.Level} *");
         terminal.WriteLine($"  HP: {currentPlayer.MaxHP:N0}");
         terminal.WriteLine($"  Mana: {currentPlayer.MaxMana:N0}");
         terminal.WriteLine($"  Strength: {currentPlayer.Strength}");

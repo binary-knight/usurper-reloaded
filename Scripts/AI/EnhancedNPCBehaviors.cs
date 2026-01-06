@@ -17,7 +17,7 @@ public static class EnhancedNPCBehaviors
     /// </summary>
     public static int CheckNPCInventory(NPC npc, int itemId = 0, bool shout = false)
     {
-        if (GameConfig.ClassicMode) return 0;
+        // ClassicMode check removed - const false makes code unreachable
         
         var result = 0; // Pascal return codes: 0=not touched, 1=equipped, 2=swapped
         
@@ -93,7 +93,7 @@ public static class EnhancedNPCBehaviors
     /// </summary>
     public static void ProcessBelieverSystem(NPC npc)
     {
-        if (GameConfig.NPCBelievers == 0) return;
+        // NPCBelievers check removed - const 50 makes code unreachable
         if (random.Next(3) != 0) return; // Only 33% processed per cycle
         
         if (string.IsNullOrEmpty(npc.God))

@@ -57,7 +57,9 @@ namespace Godot
     {
         public string Text { get; set; } = "";
         public bool Visible { get; set; } = true;
+#pragma warning disable CS0067 // Event is never used (stub for Godot compatibility)
         public event Action<string>? TextSubmitted;
+#pragma warning restore CS0067
         
         public void AddThemeFontOverride(string name, Font font) { }
         public void AddThemeFontSizeOverride(string name, int size) { }

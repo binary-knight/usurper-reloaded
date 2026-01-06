@@ -664,6 +664,44 @@ public static class AchievementSystem
             PointValue = 50
         });
 
+        // ============ QUEST ACHIEVEMENTS ============
+
+        Register(new Achievement
+        {
+            Id = "quest_starter",
+            Name = "Quest Starter",
+            Description = "Complete your first quest",
+            Category = AchievementCategory.Progression,
+            Tier = AchievementTier.Bronze,
+            PointValue = 10,
+            GoldReward = 100,
+            UnlockMessage = "Your first quest complete - many more await!"
+        });
+
+        Register(new Achievement
+        {
+            Id = "quest_master",
+            Name = "Quest Master",
+            Description = "Complete 25 quests",
+            Category = AchievementCategory.Progression,
+            Tier = AchievementTier.Gold,
+            PointValue = 50,
+            GoldReward = 2500,
+            UnlockMessage = "A true adventurer completes what they start!"
+        });
+
+        Register(new Achievement
+        {
+            Id = "bounty_hunter",
+            Name = "Bounty Hunter",
+            Description = "Complete 10 bounty quests",
+            Category = AchievementCategory.Combat,
+            Tier = AchievementTier.Silver,
+            PointValue = 30,
+            GoldReward = 1000,
+            UnlockMessage = "Justice has been served!"
+        });
+
         // ============ SECRET ACHIEVEMENTS ============
 
         Register(new Achievement
@@ -856,7 +894,7 @@ public static class AchievementSystem
         terminal.SetColor("bright_yellow");
         terminal.WriteLine("╔══════════════════════════════════════════════════════════╗");
         terminal.SetColor("bright_cyan");
-        terminal.WriteLine("║            ★ ACHIEVEMENT UNLOCKED! ★                     ║");
+        terminal.WriteLine("║            * ACHIEVEMENT UNLOCKED! *                     ║");
         terminal.SetColor("bright_yellow");
         terminal.WriteLine("╠══════════════════════════════════════════════════════════╣");
         terminal.SetColor(achievement.GetTierColor());

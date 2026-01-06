@@ -33,7 +33,11 @@
       "Bash(dotnet run:*)",
       "Bash(dotnet publish:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nConsolidate quest system and add King bounty mechanics:\n\n- Remove RoyalQuestLocation.cs \\(King-created quests don''t fit single-player\\)\n- Fix QuestHallLocation to properly override EnterLocation\n- Add NPC King bounty system with bounties on NPCs and criminals\n- Update CastleLocation to show Royal Bounty Board\n- Add Quest.TargetNPCName and DefeatNPC objective type\n- Add GetKingBounties\\(\\), RefreshKingBounties\\(\\) to QuestSystem\n- Update README with new systems \\(Quests, Achievements, Statistics, Difficulty\\)\n- Remove Gym location \\(doesn''t fit single-player endless format\\)\n- Add Achievement, Statistics, Difficulty, and Marketplace systems\n- Expand equipment data with 120+ weapons and full armor slots\n- Enhance combat engine with stamina, abilities, and stat effects\n- Add spell learning system with class-based progression\n- Fix various bugs from sweep \\(WorldSimulator, CombatEngine, Character\\)\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(dotnet clean:*)"
+      "Bash(dotnet clean:*)",
+      "Bash(Select-String \"CS0169|CS0649|CS0414|CS0067\")",
+      "Bash(Select-Object -First 20)",
+      "Bash(Select-String \"CS4014\")",
+      "Bash(cut:*)"
     ]
   }
 }

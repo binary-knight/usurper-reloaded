@@ -249,10 +249,18 @@ namespace UsurperRemake.Systems
         /// Process jealousy consequences - called during daily maintenance or game tick.
         /// High jealousy can lead to relationship damage, confrontations, or breakups.
         /// </summary>
+        /// <param name="player">The player character (required for relationship updates)</param>
         /// <returns>List of consequence messages to display to the player</returns>
-        public List<string> ProcessJealousyConsequences()
+        public List<string> ProcessJealousyConsequences(Character player)
         {
             var messages = new List<string>();
+
+            // Early return if no player - can't process relationship consequences without one
+            if (player == null)
+            {
+                return messages;
+            }
+
             var random = new Random();
 
             // Process each jealous partner
@@ -284,9 +292,9 @@ namespace UsurperRemake.Systems
                         Exes.Add(npcId);
 
                         // Severe relationship damage
-                        if (npc != null)
+                        if (npc != null && player != null)
                         {
-                            RelationshipSystem.UpdateRelationship(null!, npc, -1, 30, true);
+                            RelationshipSystem.UpdateRelationship(player, npc, -1, 30, true);
                         }
 
                         NewsSystem.Instance.Newsy(true, $"{npcName} has divorced their partner due to infidelity!");
@@ -299,9 +307,9 @@ namespace UsurperRemake.Systems
                         CurrentLovers.Remove(lover);
                         Exes.Add(npcId);
 
-                        if (npc != null)
+                        if (npc != null && player != null)
                         {
-                            RelationshipSystem.UpdateRelationship(null!, npc, -1, 20, true);
+                            RelationshipSystem.UpdateRelationship(player, npc, -1, 20, true);
                         }
 
                         JealousyLevels.Remove(npcId);
@@ -315,9 +323,9 @@ namespace UsurperRemake.Systems
                         messages.Add($"{npcName} confronts you about your unfaithfulness!");
                         messages.Add($"\"How could you do this to me?!\" they cry.");
 
-                        if (npc != null)
+                        if (npc != null && player != null)
                         {
-                            RelationshipSystem.UpdateRelationship(null!, npc, -1, 10, true);
+                            RelationshipSystem.UpdateRelationship(player, npc, -1, 10, true);
                         }
 
                         // Small chance to calm down if they confront
@@ -331,9 +339,9 @@ namespace UsurperRemake.Systems
                     {
                         messages.Add($"{npcName} seems distant and suspicious of you...");
 
-                        if (npc != null)
+                        if (npc != null && player != null)
                         {
-                            RelationshipSystem.UpdateRelationship(null!, npc, -1, 3, true);
+                            RelationshipSystem.UpdateRelationship(player, npc, -1, 3, true);
                         }
                     }
                 }

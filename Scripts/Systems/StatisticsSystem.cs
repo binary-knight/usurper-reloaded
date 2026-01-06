@@ -228,6 +228,31 @@ public class PlayerStatistics
     }
 
     /// <summary>
+    /// Record a PvP kill (killing another player/NPC)
+    /// </summary>
+    public void RecordPlayerKill()
+    {
+        TotalPlayerKills++;
+        TotalCombatsWon++;
+    }
+
+    /// <summary>
+    /// Record a quest completion
+    /// </summary>
+    public void RecordQuestComplete()
+    {
+        QuestsCompleted++;
+    }
+
+    /// <summary>
+    /// Record a bounty completion
+    /// </summary>
+    public void RecordBountyComplete()
+    {
+        BountiesCompleted++;
+    }
+
+    /// <summary>
     /// Calculate combat win rate
     /// </summary>
     public double GetCombatWinRate()

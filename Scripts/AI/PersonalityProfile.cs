@@ -461,10 +461,10 @@ public class PersonalityProfile
     {
         return Orientation switch
         {
-            SexualOrientation.Straight => (Gender == GenderIdentity.Male && IsFemalePresentinig(otherGender)) ||
-                                          (Gender == GenderIdentity.Female && IsMalePresentinig(otherGender)),
-            SexualOrientation.Gay => Gender == GenderIdentity.Male && IsMalePresentinig(otherGender),
-            SexualOrientation.Lesbian => Gender == GenderIdentity.Female && IsFemalePresentinig(otherGender),
+            SexualOrientation.Straight => (Gender == GenderIdentity.Male && IsFemalePresenting(otherGender)) ||
+                                          (Gender == GenderIdentity.Female && IsMalePresenting(otherGender)),
+            SexualOrientation.Gay => Gender == GenderIdentity.Male && IsMalePresenting(otherGender),
+            SexualOrientation.Lesbian => Gender == GenderIdentity.Female && IsFemalePresenting(otherGender),
             SexualOrientation.Bisexual => true,
             SexualOrientation.Pansexual => true,
             SexualOrientation.Demisexual => true, // Attraction develops with bond, check relationship level separately
@@ -473,12 +473,12 @@ public class PersonalityProfile
         };
     }
 
-    private static bool IsMalePresentinig(GenderIdentity gender)
+    private static bool IsMalePresenting(GenderIdentity gender)
     {
         return gender == GenderIdentity.Male || gender == GenderIdentity.TransMale;
     }
 
-    private static bool IsFemalePresentinig(GenderIdentity gender)
+    private static bool IsFemalePresenting(GenderIdentity gender)
     {
         return gender == GenderIdentity.Female || gender == GenderIdentity.TransFemale;
     }
@@ -640,7 +640,7 @@ public class PersonalityProfile
         return gangScore > 0.6f && Aggression > 0.3f;
     }
     
-    public bool IsLikelyToBetrray()
+    public bool IsLikelyToBetray()
     {
         // Betrayal likelihood
         var betrayalScore = (1.0f - Loyalty) * 0.4f + Greed * 0.3f + Ambition * 0.2f + Impulsiveness * 0.1f;
@@ -661,7 +661,7 @@ public class PersonalityProfile
             "negotiate" => Sociability * 0.5f + (1.0f - Aggression) * 0.3f + Charisma * 0.2f,
             "steal" => Greed * 0.6f + (1.0f - Loyalty) * 0.4f,
             "help" => Loyalty * 0.4f + Sociability * 0.3f + (1.0f - Greed) * 0.3f,
-            "betray" => IsLikelyToBetrray() ? 0.8f : 0.1f,
+            "betray" => IsLikelyToBetray() ? 0.8f : 0.1f,
             "revenge" => IsLikelyToSeekRevenge() ? 0.9f : 0.2f,
             "join_gang" => IsLikelyToJoinGang() ? 0.7f : 0.2f,
             "trade" => Greed * 0.4f + Sociability * 0.3f + (1.0f - Aggression) * 0.3f,

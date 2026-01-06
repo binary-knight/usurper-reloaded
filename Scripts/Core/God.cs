@@ -302,7 +302,7 @@ public class God
     /// <summary>
     /// Override Equals for comparison
     /// </summary>
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         if (obj is God other)
         {

@@ -1,7 +1,6 @@
 using UsurperRemake.Utils;
 using UsurperRemake.Systems;
 using UsurperRemake.Data;
-using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -61,6 +60,9 @@ public class DungeonLocation : BaseLocation
             roomsExploredThisFloor = 0;
             hasRestThisFloor = false;
 
+            // Track dungeon exploration statistics
+            player.Statistics.RecordDungeonLevel(currentDungeonLevel);
+
             // Show dramatic dungeon entrance art for new floors
             term.ClearScreen();
             await UsurperRemake.UI.ANSIArt.DisplayArtAnimated(term, UsurperRemake.UI.ANSIArt.DungeonEntrance, 40);
@@ -81,6 +83,9 @@ public class DungeonLocation : BaseLocation
         // Check for story events at milestone floors
         await CheckFloorStoryEvents(player, term);
 
+        // Add active companions to the teammates list
+        await AddCompanionsToParty(player, term);
+
         // Call base to enter the location loop
         await base.EnterLocation(player, term);
     }
@@ -95,6 +100,34 @@ public class DungeonLocation : BaseLocation
         var sealSystem = SevenSealsSystem.Instance;
         var sealType = sealSystem.GetSealForFloor(currentDungeonLevel);
 
+        // Debug: Show seal status for seal floors
+        int[] sealFloors = { 15, 30, 45, 60, 80, 99 };
+        var story = StoryProgressionSystem.Instance;
+        if (sealFloors.Contains(currentDungeonLevel))
+        {
+            // Count seal-appropriate rooms on this floor
+            int sealRoomCount = currentFloor.Rooms.Count(r =>
+                r.Type == RoomType.Shrine ||
+                r.Type == RoomType.LoreLibrary ||
+                r.Type == RoomType.SecretVault ||
+                r.Type == RoomType.MeditationChamber);
+
+            // Show seal info to player on seal floors (if seal not yet collected)
+            if (sealType.HasValue)
+            {
+                term.SetColor("bright_yellow");
+                term.WriteLine($"[!] This floor contains a Seal of Truth. Explore carefully.");
+                term.WriteLine($"    Seal-discovery rooms available: {sealRoomCount}");
+                term.SetColor("white");
+            }
+            else
+            {
+                term.SetColor("gray");
+                term.WriteLine($"[i] The seal on this floor has already been collected.");
+                term.SetColor("white");
+            }
+        }
+
         if (sealType.HasValue)
         {
             // Mark that this floor has an uncollected seal - will be found during exploration
@@ -103,7 +136,6 @@ public class DungeonLocation : BaseLocation
         }
 
         // Trigger story events at milestone floors (first time only)
-        var story = StoryProgressionSystem.Instance;
         string floorVisitedFlag = $"dungeon_floor_{currentDungeonLevel}_visited";
 
         if (!story.HasStoryFlag(floorVisitedFlag))
@@ -138,14 +170,16 @@ public class DungeonLocation : BaseLocation
             case 15:
                 await ShowStoryMoment(term, "Ancient Battlefield",
                     new[] {
-                        "The stones here are stained with ancient blood.",
-                        "Not mortal blood - something else. Something divine.",
+                        "The stones here are stained with something old.",
+                        "Not rust. Not mortal blood. Something... golden.",
                         "",
-                        "This place witnessed the First War between the gods.",
-                        "Before mortals existed, before the world knew sorrow.",
+                        "Weapons of impossible design litter the ground.",
+                        "Too large for human hands. Too heavy for mortal arms.",
                         "",
-                        "A SEAL OF THE OLD GODS lies hidden on this floor.",
-                        "Find it to learn what truly happened here."
+                        "Something terrible happened here, long before history began.",
+                        "",
+                        "A SEAL OF TRUTH lies hidden on this floor.",
+                        "Seek a shrine, library, or sacred chamber to find it."
                     }, "dark_red");
                 StoryProgressionSystem.Instance.SetStoryFlag("knows_about_seals", true);
                 break;
@@ -173,31 +207,32 @@ public class DungeonLocation : BaseLocation
             case 30:
                 await ShowStoryMoment(term, "Corrupted Shrine",
                     new[] {
-                        "A temple to the Old Gods lies in ruins here.",
-                        "Once holy, now twisted by millennia of corruption.",
+                        "Seven statues stand in a circle, faces worn by time.",
+                        "But something is wrong with them.",
                         "",
-                        "Seven statues stand in a circle, but their faces have been changed.",
-                        "Expressions of love twisted to jealousy.",
-                        "Justice warped into tyranny.",
-                        "Creation corrupted into destruction.",
+                        "The stone itself seems... sick. Twisted.",
+                        "As if the sculptures were changed after they were made.",
+                        "Beautiful forms warped into something grotesque.",
                         "",
-                        "Who did this to them? And why?"
+                        "What force could corrupt stone itself?",
+                        "",
+                        "A SEAL OF TRUTH awaits those who seek answers here."
                     }, "dark_magenta");
                 break;
 
             case 45:
                 await ShowStoryMoment(term, "Prison of Ages",
                     new[] {
-                        "The weight of eternity presses down on you.",
-                        "These are the cells where gods were imprisoned.",
+                        "Empty cells stretch into darkness.",
+                        "Not prison cells for mortals - these are vast. Cathedral-sized.",
                         "",
-                        "You can still feel them - echoes of divine suffering.",
-                        "Ten thousand years of isolation, madness, and rage.",
+                        "The bars are made of something that isn't metal.",
+                        "Something that hums with power even now.",
                         "",
-                        "Chains forged by the Creator himself.",
-                        "But chains wear thin with time...",
+                        "Whatever was kept here was immense. And angry.",
+                        "Claw marks scar the walls, deeper than any blade could cut.",
                         "",
-                        "The Old Gods are waking."
+                        "A SEAL OF TRUTH holds the answer to who was imprisoned here."
                     }, "gray");
                 StoryProgressionSystem.Instance.AdvanceChapter(StoryChapter.TheWhispers);
                 break;
@@ -205,17 +240,17 @@ public class DungeonLocation : BaseLocation
             case 60:
                 await ShowStoryMoment(term, "Oracle's Tomb",
                     new[] {
-                        "Before she died, the Oracle spoke one final prophecy:",
+                        "A skeleton sits upon a throne of bone.",
+                        "In death, she still clutches a crystal orb.",
                         "",
-                        "\"One will come from beyond the veil.\"",
-                        "\"Neither god nor common mortal.\"",
-                        "\"They will hold the key to freedom or destruction.\"",
+                        "The Oracle. The last mortal to speak with the gods.",
+                        "She saw the future before she died.",
+                        "And what she saw made her weep.",
                         "",
-                        "\"And at the end of all things,\"",
-                        "\"they will stand before the Creator himself\"",
-                        "\"and answer the only question that matters:\"",
+                        "Words are carved into the stone at her feet:",
+                        "\"The Seal of Fate reveals what I could not speak.\"",
                         "",
-                        "\"WHAT HAVE YOU BECOME?\""
+                        "A SEAL OF TRUTH awaits. It holds her final prophecy."
                     }, "bright_cyan");
                 StoryProgressionSystem.Instance.SetStoryFlag("knows_prophecy", true);
 
@@ -275,16 +310,18 @@ public class DungeonLocation : BaseLocation
             case 80:
                 await ShowStoryMoment(term, "Chamber of Mourning",
                     new[] {
-                        "These are Manwe's tears, crystallized into stone.",
-                        "The Creator wept for ten thousand years.",
+                        "The walls here are made of crystal.",
+                        "Blue-grey. Cold. And wet.",
                         "",
-                        "Not for what his children became.",
-                        "For what HE did to them.",
+                        "Not water. Something thicker. Saltier.",
+                        "As if these crystals formed from tears.",
                         "",
-                        "He broke them to save them.",
-                        "Or perhaps... to punish them.",
+                        "Oceans of tears, shed over millennia.",
+                        "Frozen in stone. A monument to sorrow.",
                         "",
-                        "Even gods can lie to themselves."
+                        "Whose grief could fill a mountain?",
+                        "",
+                        "The SEAL OF TRUTH on this floor holds the answer."
                     }, "bright_blue");
                 // Moral Paradox: Free Terravok (alternative to combat)
                 if (MoralParadoxSystem.Instance.IsParadoxAvailable("free_terravok", player))
@@ -403,6 +440,50 @@ public class DungeonLocation : BaseLocation
                     await MoralParadoxSystem.Instance.PresentParadox("final_choice", player, term);
                 }
                 break;
+        }
+    }
+
+    /// <summary>
+    /// Add active companions to the party's teammates list for combat
+    /// </summary>
+    private async Task AddCompanionsToParty(Character player, TerminalEmulator term)
+    {
+        var companionSystem = UsurperRemake.Systems.CompanionSystem.Instance;
+        var companionCharacters = companionSystem.GetCompanionsAsCharacters();
+
+        if (companionCharacters.Count == 0)
+            return;
+
+        // Remove any existing companion entries (in case of re-entry)
+        teammates.RemoveAll(t => t.IsCompanion);
+
+        // Add companions to teammates list
+        foreach (var companion in companionCharacters)
+        {
+            if (companion.IsAlive)
+            {
+                teammates.Add(companion);
+            }
+        }
+
+        // Show companion status if any are present
+        if (companionCharacters.Count > 0)
+        {
+            term.WriteLine("");
+            term.SetColor("bright_cyan");
+            term.WriteLine("═══ YOUR COMPANIONS ═══");
+            foreach (var companion in companionCharacters)
+            {
+                var companionData = companionSystem.GetCompanion(companion.CompanionId!.Value);
+                term.SetColor("white");
+                term.Write($"  {companion.DisplayName}");
+                term.SetColor("gray");
+                term.Write($" ({companionData?.CombatRole}) ");
+                term.SetColor(companion.HP > companion.MaxHP / 2 ? "green" : "yellow");
+                term.WriteLine($"HP: {companion.HP}/{companion.MaxHP}");
+            }
+            term.WriteLine("");
+            await Task.Delay(1500);
         }
     }
 
@@ -1326,10 +1407,12 @@ public class DungeonLocation : BaseLocation
         string hint = null;
         string color = "gray";
 
-        // Special floor hints
-        if (floor == 15 && !story.CollectedSeals.Contains(SealType.Creation))
+        // Special floor hints - Seal floors match SevenSealsSystem.cs
+        // Seal 1 (Creation) = Temple (floor 0), Seal 2 (FirstWar) = 15, Seal 3 (Corruption) = 30
+        // Seal 4 (Imprisonment) = 45, Seal 5 (Prophecy) = 60, Seal 6 (Regret) = 80, Seal 7 (Truth) = 99
+        if (floor == 15 && !story.CollectedSeals.Contains(SealType.FirstWar))
         {
-            hint = "LORE: The First Seal awaits - it reveals the story of creation.";
+            hint = "LORE: The Second Seal awaits - it tells of the first war between gods.";
             color = "bright_cyan";
         }
         else if (floor == 25)
@@ -1337,14 +1420,14 @@ public class DungeonLocation : BaseLocation
             hint = "EVENT: The Possessed Child paradox may appear here. Choose wisely.";
             color = "bright_magenta";
         }
-        else if (floor == 30 && !story.CollectedSeals.Contains(SealType.FirstWar))
+        else if (floor == 30 && !story.CollectedSeals.Contains(SealType.Corruption))
         {
-            hint = "LORE: The Second Seal tells of the first conflict between gods.";
+            hint = "LORE: The Third Seal reveals how Manwe corrupted his own children.";
             color = "bright_cyan";
         }
-        else if (floor == 45 && !story.CollectedSeals.Contains(SealType.Corruption))
+        else if (floor == 45 && !story.CollectedSeals.Contains(SealType.Imprisonment))
         {
-            hint = "LORE: The Third Seal reveals the corruption of the Old Gods.";
+            hint = "LORE: The Fourth Seal tells of the eternal chains that bind the gods.";
             color = "bright_cyan";
         }
         else if (floor == 60)
@@ -1354,9 +1437,9 @@ public class DungeonLocation : BaseLocation
                 hint = "BOSS: Maelketh, God of War, can be challenged on this floor!";
                 color = "bright_red";
             }
-            else if (!story.CollectedSeals.Contains(SealType.Imprisonment))
+            else if (!story.CollectedSeals.Contains(SealType.Prophecy))
             {
-                hint = "LORE: The Fourth Seal contains the prophecy of your coming.";
+                hint = "LORE: The Fifth Seal contains a prophecy about your coming.";
                 color = "bright_cyan";
             }
         }
@@ -1377,9 +1460,9 @@ public class DungeonLocation : BaseLocation
                 hint = "BOSS: Terravok, God of Earth, slumbers here. Will you wake him?";
                 color = "bright_yellow";
             }
-            else if (!story.CollectedSeals.Contains(SealType.Prophecy))
+            else if (!story.CollectedSeals.Contains(SealType.Regret))
             {
-                hint = "LORE: The Fifth Seal shows Manwe's regret for what he did.";
+                hint = "LORE: The Sixth Seal shows Manwe's regret - his tears crystallized.";
                 color = "bright_cyan";
             }
         }
@@ -1388,9 +1471,9 @@ public class DungeonLocation : BaseLocation
             hint = "EVENT: The Destroy Darkness paradox awaits those with the Sunforged Blade.";
             color = "bright_magenta";
         }
-        else if (floor == 99 && !story.CollectedSeals.Contains(SealType.Regret))
+        else if (floor == 99 && !story.CollectedSeals.Contains(SealType.Truth))
         {
-            hint = "LORE: The Sixth Seal reveals the truth about the cycle. You're almost there.";
+            hint = "LORE: The Final Seal awaits - the truth of the Ocean Philosophy.";
             color = "bright_cyan";
         }
         else if (floor == 100)
@@ -1422,9 +1505,9 @@ public class DungeonLocation : BaseLocation
         var room = currentFloor?.GetCurrentRoom();
         if (room != null && inRoomMode)
         {
-            return $"Dungeons → Level {currentDungeonLevel} → {room.Name}";
+            return $"Dungeons > Level {currentDungeonLevel} > {room.Name}";
         }
-        return $"Main Street → Dungeons → Level {currentDungeonLevel}";
+        return $"Main Street > Dungeons > Level {currentDungeonLevel}";
     }
 
     protected override async Task<bool> ProcessChoice(string choice)
@@ -1550,12 +1633,14 @@ public class DungeonLocation : BaseLocation
             if (story.CollectedSeals.Contains(seal.Type))
             {
                 terminal.SetColor("green");
-                terminal.WriteLine($"  [✓] {seal.Name} - {seal.Title}");
+                terminal.WriteLine($"  [X] {seal.Name} - {seal.Title}");
             }
             else
             {
                 terminal.SetColor("gray");
-                terminal.WriteLine($"  [ ] {seal.Name} - Floor {seal.DungeonFloor}");
+                // Floor 0 means it's hidden somewhere in town - let the hint guide them
+                string locationText = seal.DungeonFloor == 0 ? "Hidden in Town" : $"Dungeon Floor {seal.DungeonFloor}";
+                terminal.WriteLine($"  [ ] {seal.Name} - {locationText}");
                 terminal.SetColor("dark_cyan");
                 terminal.WriteLine($"      Hint: {seal.LocationHint}");
             }
@@ -1628,19 +1713,19 @@ public class DungeonLocation : BaseLocation
         var lorePoints = new List<string>();
 
         if (story.HasStoryFlag("knows_about_seals"))
-            lorePoints.Add("• Seven Seals contain the history of the Old Gods");
+            lorePoints.Add("- Seven Seals contain the history of the Old Gods");
         if (story.HasStoryFlag("heard_whispers"))
-            lorePoints.Add("• A voice calls you 'wave' - as if you are part of something larger");
+            lorePoints.Add("- A voice calls you 'wave' - as if you are part of something larger");
         if (story.HasStoryFlag("knows_prophecy"))
-            lorePoints.Add("• The prophecy speaks of 'one from beyond the veil' who will decide the gods' fate");
+            lorePoints.Add("- The prophecy speaks of 'one from beyond the veil' who will decide the gods' fate");
         if (story.CollectedSeals.Count >= 3)
-            lorePoints.Add("• Manwe corrupted his own children - the Old Gods - to stop their war");
+            lorePoints.Add("- Manwe corrupted his own children - the Old Gods - to stop their war");
         if (story.CollectedSeals.Count >= 5)
-            lorePoints.Add("• The gods have been imprisoned for ten thousand years, slowly going mad");
+            lorePoints.Add("- The gods have been imprisoned for ten thousand years, slowly going mad");
         if (story.CollectedSeals.Count >= 7)
-            lorePoints.Add("• The 'Ocean Philosophy': You are not a wave fighting the ocean - you ARE the ocean");
+            lorePoints.Add("- The 'Ocean Philosophy': You are not a wave fighting the ocean - you ARE the ocean");
         if (story.HasStoryFlag("all_seals_collected"))
-            lorePoints.Add("• ALL SEALS COLLECTED - The true ending is now possible!");
+            lorePoints.Add("- ALL SEALS COLLECTED - The true ending is now possible!");
 
         if (lorePoints.Count == 0)
         {
@@ -1669,26 +1754,26 @@ public class DungeonLocation : BaseLocation
 
         if (nextSeal != null && nextSeal.DungeonFloor <= level + 10)
         {
-            steps.Add($"• Find the {nextSeal.Name} on floor {nextSeal.DungeonFloor}");
+            steps.Add($"- Find the {nextSeal.Name} on floor {nextSeal.DungeonFloor}");
         }
 
         // Level suggestions
         if (level < 15)
-            steps.Add("• Reach level 15 to access the first Seal location");
+            steps.Add("- Reach level 15 to access the first Seal location");
         else if (level < 50)
-            steps.Add("• Continue leveling to access deeper dungeon floors");
+            steps.Add("- Continue leveling to access deeper dungeon floors");
         else if (level < 100)
-            steps.Add("• Push toward floor 100 for the final confrontation");
+            steps.Add("- Push toward floor 100 for the final confrontation");
 
         // Story suggestions
         if (!story.HasStoryFlag("met_stranger"))
-            steps.Add("• Look for 'The Stranger' - a mysterious NPC who knows more than they let on");
+            steps.Add("- Look for 'The Stranger' - a mysterious NPC who knows more than they let on");
         if (story.CollectedSeals.Count < 7 && level >= 50)
-            steps.Add("• Collect all 7 Seals to unlock the true ending");
+            steps.Add("- Collect all 7 Seals to unlock the true ending");
 
         if (steps.Count == 0)
         {
-            steps.Add("• You are ready. Face Manwe on floor 100.");
+            steps.Add("- You are ready. Face Manwe on floor 100.");
         }
 
         foreach (var step in steps.Take(4))
@@ -1837,6 +1922,16 @@ public class DungeonLocation : BaseLocation
                 await Task.Delay(500);
             }
 
+            // Auto-trigger riddles and puzzles when entering special rooms for the first time
+            if (targetRoom.HasEvent && !targetRoom.EventCompleted)
+            {
+                // Riddle Gates and Puzzle Rooms require solving to proceed
+                if (targetRoom.Type == RoomType.RiddleGate || targetRoom.Type == RoomType.PuzzleRoom)
+                {
+                    await HandleRoomEvent(targetRoom);
+                }
+            }
+
             // Rare encounter check on first visit to a room
             if (player != null)
             {
@@ -1949,6 +2044,13 @@ public class DungeonLocation : BaseLocation
             terminal.WriteLine("╚═══════════════════════════════════════════════════╝");
             terminal.WriteLine("");
             terminal.WriteLine(room.Description);
+
+            // Check for Old God boss encounters on specific floors
+            bool hadOldGodEncounter = await TryOldGodBossEncounter(player, room);
+            if (hadOldGodEncounter)
+            {
+                return; // Old God encounter handled the room
+            }
         }
         else
         {
@@ -2045,6 +2147,173 @@ public class DungeonLocation : BaseLocation
             DungeonTheme.AbyssalVoid => "Void Horror",
             _ => "Dungeon Boss"
         };
+    }
+
+    /// <summary>
+    /// Check for and handle Old God boss encounters on specific floors
+    /// Returns true if an Old God encounter was triggered (regardless of outcome)
+    /// </summary>
+    private async Task<bool> TryOldGodBossEncounter(Character player, DungeonRoom room)
+    {
+        OldGodType? godType = currentDungeonLevel switch
+        {
+            25 => OldGodType.Maelketh,   // The Broken Blade - God of War
+            40 => OldGodType.Veloura,    // The Fading Heart - Goddess of Love (saveable)
+            55 => OldGodType.Thorgrim,   // The Unjust Judge - God of Law
+            70 => OldGodType.Noctura,    // The Shadow Queen - Goddess of Shadows (ally-able)
+            85 => OldGodType.Aurelion,   // The Dimming Light - God of Light (saveable)
+            95 => OldGodType.Terravok,   // The Worldbreaker - God of Earth (awakenable)
+            100 => OldGodType.Manwe,     // The Creator - Final Boss
+            _ => null
+        };
+
+        if (godType == null)
+            return false;
+
+        if (!OldGodBossSystem.Instance.CanEncounterBoss(player, godType.Value))
+            return false;
+
+        // Display Old God encounter intro based on which god
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        switch (godType.Value)
+        {
+            case OldGodType.Maelketh:
+                terminal.SetColor("bright_red");
+                terminal.WriteLine("The air grows thick with the scent of ancient battlefields...");
+                await Task.Delay(1500);
+                terminal.WriteLine("MAELKETH, THE BROKEN BLADE, rises before you!", "bright_red");
+                terminal.WriteLine("");
+                terminal.WriteLine("The God of War speaks:", "yellow");
+                terminal.WriteLine("\"Another mortal seeking glory? I have broken ten thousand like you.\"", "red");
+                break;
+
+            case OldGodType.Veloura:
+                terminal.SetColor("bright_magenta");
+                terminal.WriteLine("The scent of dying roses fills the air...");
+                await Task.Delay(1500);
+                terminal.WriteLine("VELOURA, THE FADING HEART, appears before you!", "bright_magenta");
+                terminal.WriteLine("");
+                terminal.WriteLine("The Goddess of Love weeps:", "magenta");
+                terminal.WriteLine("\"Another heart come to break? Or to be broken?\"", "bright_magenta");
+                terminal.WriteLine("\"It matters not. Love always ends in pain.\"", "magenta");
+                break;
+
+            case OldGodType.Thorgrim:
+                terminal.SetColor("white");
+                terminal.WriteLine("The weight of judgment presses upon your soul...");
+                await Task.Delay(1500);
+                terminal.WriteLine("THORGRIM, THE UNJUST JUDGE, descends!", "white");
+                terminal.WriteLine("");
+                terminal.WriteLine("The God of Law pronounces:", "gray");
+                terminal.WriteLine("\"You are guilty. All are guilty. That is the only truth.\"", "white");
+                terminal.WriteLine("\"The sentence is death. It was always death.\"", "gray");
+                break;
+
+            case OldGodType.Noctura:
+                terminal.SetColor("bright_cyan");
+                terminal.WriteLine("Shadows coalesce, forming shapes that watch...");
+                await Task.Delay(1500);
+                terminal.WriteLine("NOCTURA, THE SHADOW QUEEN, emerges from darkness!", "bright_cyan");
+                terminal.WriteLine("");
+                terminal.WriteLine("The Goddess of Shadows whispers:", "cyan");
+                terminal.WriteLine("\"Interesting. You see me. Most cannot.\"", "bright_cyan");
+                terminal.WriteLine("\"I wonder... are you enemy or opportunity?\"", "cyan");
+                break;
+
+            case OldGodType.Aurelion:
+                terminal.SetColor("bright_yellow");
+                terminal.WriteLine("A faint light flickers in the darkness, struggling to persist...");
+                await Task.Delay(1500);
+                terminal.WriteLine("AURELION, THE DIMMING LIGHT, manifests weakly!", "bright_yellow");
+                terminal.WriteLine("");
+                terminal.WriteLine("The God of Light speaks faintly:", "yellow");
+                terminal.WriteLine("\"You come seeking light, but I have so little left to give.\"", "bright_yellow");
+                terminal.WriteLine("\"The darkness grows stronger. Even gods can fade.\"", "yellow");
+                break;
+
+            case OldGodType.Terravok:
+                terminal.SetColor("bright_yellow");
+                terminal.WriteLine("The mountain itself seems to breathe. Stone shifts like flesh...");
+                await Task.Delay(1500);
+                terminal.WriteLine("TERRAVOK, THE WORLDBREAKER, awakens!", "bright_yellow");
+                terminal.WriteLine("");
+                terminal.WriteLine("The God of Earth rumbles:", "yellow");
+                terminal.WriteLine("\"You dare disturb my slumber? I will return you to the stone.\"", "yellow");
+                break;
+
+            case OldGodType.Manwe:
+                terminal.SetColor("bright_white");
+                terminal.WriteLine("Reality itself trembles. The dream knows it is being watched...");
+                await Task.Delay(2000);
+                terminal.WriteLine("MANWE, THE CREATOR OF ALL, manifests!", "bright_white");
+                terminal.WriteLine("");
+                terminal.SetColor("white");
+                terminal.WriteLine("The Creator speaks in a voice that is all voices:");
+                terminal.SetColor("bright_cyan");
+                terminal.WriteLine("\"You have come at last, my wayward child.\"");
+                terminal.WriteLine("\"I have watched you from the beginning.\"");
+                terminal.WriteLine("\"I AM the beginning. And perhaps... the end.\"");
+                break;
+        }
+
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        string godName = godType.Value switch
+        {
+            OldGodType.Maelketh => "Maelketh, the Broken Blade",
+            OldGodType.Veloura => "Veloura, the Fading Heart",
+            OldGodType.Thorgrim => "Thorgrim, the Unjust Judge",
+            OldGodType.Noctura => "Noctura, the Shadow Queen",
+            OldGodType.Aurelion => "Aurelion, the Dimming Light",
+            OldGodType.Terravok => "Terravok, the Worldbreaker",
+            OldGodType.Manwe => "Manwe, the Creator",
+            _ => "the Old God"
+        };
+
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine($"Do you wish to face {godName}? (Y/N)");
+        var response = await terminal.GetInput("> ");
+
+        if (response.Trim().ToUpper().StartsWith("Y"))
+        {
+            var result = await OldGodBossSystem.Instance.StartBossEncounter(player, godType.Value, terminal);
+            await HandleGodEncounterResult(result, player, terminal);
+
+            // Mark room as cleared if defeated or alternate outcome achieved
+            if (result.Outcome != BossOutcome.Fled && result.Outcome != BossOutcome.PlayerDefeated)
+            {
+                room.IsCleared = true;
+                currentFloor.BossDefeated = true;
+            }
+
+            // Special handling for Manwe - trigger ending
+            if (godType.Value == OldGodType.Manwe && result.Outcome != BossOutcome.Fled)
+            {
+                var endingType = EndingsSystem.Instance.DetermineEnding(player);
+                await ShowEnding(endingType, player, terminal);
+            }
+
+            await terminal.PressAnyKey();
+            return true;
+        }
+        else
+        {
+            terminal.SetColor("gray");
+            string retreatMessage = godType.Value switch
+            {
+                OldGodType.Maelketh => "You sense the god retreating back into slumber... for now.",
+                OldGodType.Terravok => "The mountain settles. Terravok slumbers on.",
+                OldGodType.Manwe => "The Creator's presence fades, but you feel his gaze upon you still...",
+                _ => "The god withdraws... for now."
+            };
+            terminal.WriteLine(retreatMessage);
+            terminal.WriteLine("The boss room remains unconquered.", "yellow");
+            await terminal.PressAnyKey();
+            return true; // Still return true - we don't want regular monsters
+        }
     }
 
     /// <summary>
@@ -2352,13 +2621,11 @@ public class DungeonLocation : BaseLocation
     /// </summary>
     private async Task DescendStairs()
     {
-        var playerLevel = GetCurrentPlayer()?.Level ?? 1;
-        int maxAllowed = Math.Min(maxDungeonLevel, playerLevel + 10);
-
-        if (currentDungeonLevel >= maxAllowed)
+        // No level cap - players can descend as deep as they dare
+        if (currentDungeonLevel >= maxDungeonLevel)
         {
-            terminal.WriteLine("A mysterious force prevents you from going deeper.", "red");
-            terminal.WriteLine("You need to grow stronger first.", "yellow");
+            terminal.WriteLine("You have reached the deepest level of the dungeon.", "red");
+            terminal.WriteLine("There is nowhere left to descend.", "yellow");
             await Task.Delay(2000);
             return;
         }
@@ -2405,6 +2672,9 @@ public class DungeonLocation : BaseLocation
         terminal.SetColor("gray");
         terminal.WriteLine(GetFloorFlavorText(currentFloor.Theme));
 
+        // Check for story events (seals, narrative moments) on this new floor
+        await CheckFloorStoryEvents(player, terminal);
+
         await Task.Delay(2500);
     }
 
@@ -2445,13 +2715,11 @@ public class DungeonLocation : BaseLocation
     private async Task ChangeDungeonLevel()
     {
         var playerLevel = GetCurrentPlayer()?.Level ?? 1;
-        int minAllowed = Math.Max(1, playerLevel - 10);
-        int maxAllowed = Math.Min(maxDungeonLevel, playerLevel + 10);
 
         terminal.WriteLine("");
         terminal.WriteLine($"Current level: {currentDungeonLevel}", "white");
         terminal.WriteLine($"Your level: {playerLevel}", "cyan");
-        terminal.WriteLine($"Accessible range: {minAllowed} - {maxAllowed} (±10 from your level)", "yellow");
+        terminal.WriteLine($"Accessible range: 1 - {maxDungeonLevel} (no restrictions)", "yellow");
         terminal.WriteLine("");
 
         var input = await terminal.GetInput("Enter target level (or +/- for relative): ");
@@ -2471,8 +2739,8 @@ public class DungeonLocation : BaseLocation
             targetLevel = absolute;
         }
 
-        // Clamp to allowed range
-        targetLevel = Math.Max(minAllowed, Math.Min(maxAllowed, targetLevel));
+        // Clamp to valid dungeon range (1 to max)
+        targetLevel = Math.Max(1, Math.Min(maxDungeonLevel, targetLevel));
 
         if (targetLevel != currentDungeonLevel)
         {
@@ -2483,6 +2751,13 @@ public class DungeonLocation : BaseLocation
             consecutiveMonsterRooms = 0;
 
             terminal.WriteLine($"Dungeon level set to {currentDungeonLevel}.", "green");
+
+            // Check for story events (seals, narrative moments) on this new floor
+            var player = GetCurrentPlayer();
+            if (player != null)
+            {
+                await CheckFloorStoryEvents(player, terminal);
+            }
         }
         else
         {
@@ -2805,7 +3080,7 @@ public class DungeonLocation : BaseLocation
     private async Task TreasureChestEncounter()
     {
         terminal.SetColor("yellow");
-        terminal.WriteLine("★ TREASURE CHEST ★");
+        terminal.WriteLine("* TREASURE CHEST *");
         terminal.WriteLine("");
 
         terminal.WriteLine("You discover an ancient chest hidden in the shadows!", "cyan");
@@ -3169,9 +3444,18 @@ public class DungeonLocation : BaseLocation
 
     /// <summary>
     /// Mysterious shrine - Random buff or debuff
+    /// Also handles Lyris companion recruitment on floor 15
     /// </summary>
     private async Task MysteriousShrine()
     {
+        var currentPlayer = GetCurrentPlayer();
+
+        // Check for Lyris companion encounter on floor 15
+        if (currentDungeonLevel == 15 && await TryLyrisRecruitment(currentPlayer))
+        {
+            return; // Lyris encounter handled
+        }
+
         terminal.SetColor("bright_cyan");
         terminal.WriteLine("✦ MYSTERIOUS SHRINE ✦");
         terminal.WriteLine("");
@@ -3181,8 +3465,6 @@ public class DungeonLocation : BaseLocation
         terminal.WriteLine("");
 
         var choice = await terminal.GetInput("(P)ray at the shrine, (D)esecrate it, or (L)eave? ");
-
-        var currentPlayer = GetCurrentPlayer();
 
         if (choice.ToUpper() == "P")
         {
@@ -3265,6 +3547,144 @@ public class DungeonLocation : BaseLocation
         }
 
         await Task.Delay(2000);
+    }
+
+    /// <summary>
+    /// Try to recruit Lyris at a floor 15 shrine
+    /// Returns true if the encounter was triggered (regardless of recruitment outcome)
+    /// </summary>
+    private async Task<bool> TryLyrisRecruitment(Character player)
+    {
+        var companionSystem = UsurperRemake.Systems.CompanionSystem.Instance;
+        var lyris = companionSystem.GetCompanion(UsurperRemake.Systems.CompanionId.Lyris);
+
+        // Check if Lyris can be recruited
+        if (lyris == null || lyris.IsRecruited || lyris.IsDead || player.Level < lyris.RecruitLevel)
+        {
+            return false;
+        }
+
+        // Check if we've already encountered her on this playthrough (story flag)
+        var story = StoryProgressionSystem.Instance;
+        if (story.HasStoryFlag("lyris_shrine_encounter_complete"))
+        {
+            return false;
+        }
+
+        // Show the encounter
+        terminal.ClearScreen();
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║              THE FORGOTTEN SHRINE                                 ║");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        terminal.SetColor("white");
+        terminal.WriteLine("Unlike the other shrines in this dungeon, this one feels different.");
+        terminal.WriteLine("Older. Sadder. The air hums with faded divinity.");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        terminal.SetColor("gray");
+        terminal.WriteLine("Before the altar kneels a woman.");
+        terminal.WriteLine("Silver-streaked hair cascades past her shoulders.");
+        terminal.WriteLine("Her eyes, when she turns to look at you, hold ancient sorrow.");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine($"\"{lyris.DialogueHints[0]}\"");
+        terminal.WriteLine("");
+        await Task.Delay(2000);
+
+        terminal.SetColor("white");
+        terminal.WriteLine("She rises slowly, studying you with unnerving intensity.");
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"\"{lyris.DialogueHints[1]}\"");
+        terminal.WriteLine("");
+        await Task.Delay(2000);
+
+        // Show her details
+        terminal.SetColor("yellow");
+        terminal.WriteLine($"This is {lyris.Name}, {lyris.Title}.");
+        terminal.WriteLine($"Role: {lyris.CombatRole}");
+        terminal.WriteLine($"Abilities: {string.Join(", ", lyris.Abilities)}");
+        terminal.WriteLine("");
+
+        terminal.SetColor("gray");
+        terminal.WriteLine(lyris.BackstoryBrief);
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("[R] Ask her to join you");
+        terminal.WriteLine("[T] Talk more");
+        terminal.WriteLine("[L] Leave her to her prayers");
+        terminal.WriteLine("");
+
+        var choice = await terminal.GetInput("Your choice: ");
+
+        switch (choice.ToUpper())
+        {
+            case "R":
+                bool success = await companionSystem.RecruitCompanion(
+                    UsurperRemake.Systems.CompanionId.Lyris, player, terminal);
+                if (success)
+                {
+                    terminal.SetColor("bright_green");
+                    terminal.WriteLine("");
+                    terminal.WriteLine($"{lyris.Name} rises from the altar.");
+                    terminal.WriteLine("\"Perhaps... this is what I was waiting for.\"");
+                    terminal.WriteLine("");
+                    terminal.SetColor("yellow");
+                    terminal.WriteLine("WARNING: Companions can die permanently. Guard her well.");
+
+                    // Generate news
+                    NewsSystem.Instance.Newsy(false, $"{player.Name2} found {lyris.Name} at a forgotten shrine in the dungeon.");
+                }
+                break;
+
+            case "T":
+                terminal.WriteLine("");
+                terminal.SetColor("cyan");
+                terminal.WriteLine($"{lyris.Name} speaks of her past...");
+                terminal.WriteLine("");
+                terminal.SetColor("white");
+                terminal.WriteLine(lyris.Description);
+                terminal.WriteLine("");
+                if (!string.IsNullOrEmpty(lyris.PersonalQuestDescription))
+                {
+                    terminal.SetColor("bright_magenta");
+                    terminal.WriteLine($"Personal Quest: {lyris.PersonalQuestName}");
+                    terminal.WriteLine($"\"{lyris.PersonalQuestDescription}\"");
+                    terminal.WriteLine("");
+                }
+                terminal.SetColor("cyan");
+                terminal.WriteLine($"\"{lyris.DialogueHints[2]}\"");
+                terminal.WriteLine("");
+
+                var followUp = await terminal.GetInput("Ask her to join you? (Y/N): ");
+                if (followUp.ToUpper() == "Y")
+                {
+                    await companionSystem.RecruitCompanion(
+                        UsurperRemake.Systems.CompanionId.Lyris, player, terminal);
+                }
+                break;
+
+            default:
+                terminal.SetColor("gray");
+                terminal.WriteLine("");
+                terminal.WriteLine($"You nod to {lyris.Name} and continue on your way.");
+                terminal.WriteLine("\"We will meet again,\" she whispers as you leave.");
+                break;
+        }
+
+        // Mark encounter as complete
+        story.SetStoryFlag("lyris_shrine_encounter_complete", true);
+        await terminal.PressAnyKey();
+        return true;
     }
 
     /// <summary>
@@ -3915,7 +4335,7 @@ public class DungeonLocation : BaseLocation
             terminal.SetColor("bright_yellow");
             terminal.WriteLine("");
             terminal.WriteLine("═══════════════════════════════════════");
-            terminal.WriteLine($"  ★ ACQUIRED: {item.Name.ToUpper()} ★");
+            terminal.WriteLine($"  * ACQUIRED: {item.Name.ToUpper()} *");
             terminal.WriteLine("═══════════════════════════════════════");
             terminal.SetColor("green");
             terminal.WriteLine($"{item.Description}");
@@ -4152,10 +4572,9 @@ public class DungeonLocation : BaseLocation
     private async Task DescendDeeper()
     {
         var player = GetCurrentPlayer();
-        var playerLevel = player?.Level ?? 1;
-        int deepestAllowed = Math.Min(maxDungeonLevel, playerLevel + 10);
 
-        if (currentDungeonLevel < deepestAllowed)
+        // No level cap - players can descend as deep as they dare
+        if (currentDungeonLevel < maxDungeonLevel)
         {
             currentDungeonLevel++;
             terminal.WriteLine($"You descend to dungeon level {currentDungeonLevel}.", "yellow");
@@ -4168,28 +4587,22 @@ public class DungeonLocation : BaseLocation
         }
         else
         {
-            terminal.WriteLine("A mysterious force bars your way – it seems too dangerous to venture deeper right now.", "red");
+            terminal.WriteLine("You have reached the deepest level of the dungeon.", "red");
         }
         await Task.Delay(1500);
     }
-    
+
     private async Task AscendToSurface()
     {
-        var playerLevel = GetCurrentPlayer()?.Level ?? 1;
-        int minAllowed = Math.Max(1, playerLevel - 10);
-
-        if (currentDungeonLevel > minAllowed)
+        // No level restrictions for ascending
+        if (currentDungeonLevel > 1)
         {
             currentDungeonLevel--;
             terminal.WriteLine($"You ascend to dungeon level {currentDungeonLevel}.", "green");
         }
-        else if (currentDungeonLevel <= 1)
-        {
-            await NavigateToLocation(GameLocation.MainStreet);
-        }
         else
         {
-            terminal.WriteLine("These upper levels hold nothing for you now. Seek deeper challenges.", "yellow");
+            await NavigateToLocation(GameLocation.MainStreet);
         }
         await Task.Delay(1500);
     }
@@ -5765,16 +6178,12 @@ public class DungeonLocation : BaseLocation
     /// </summary>
     private async Task IncreaseDifficulty()
     {
-        var playerLevel = GetCurrentPlayer()?.Level ?? 1;
-        int targetLevel = currentDungeonLevel + 10;
-        int maxAllowed = Math.Min(maxDungeonLevel, playerLevel + 10);
-
-        if (targetLevel > maxAllowed)
-            targetLevel = maxAllowed;
+        // No level cap - jump 10 floors deeper (capped at max dungeon level)
+        int targetLevel = Math.Min(currentDungeonLevel + 10, maxDungeonLevel);
 
         if (targetLevel == currentDungeonLevel)
         {
-            terminal.WriteLine("You cannot raise the difficulty any higher right now.", "yellow");
+            terminal.WriteLine("You have reached the deepest level of the dungeon.", "yellow");
         }
         else
         {
@@ -5841,6 +6250,7 @@ public class DungeonLocation : BaseLocation
     /// <summary>
     /// Try to discover a Seal when exploring a room on a floor that has one
     /// Seals are found in special rooms (shrines, libraries, secret vaults) or boss rooms
+    /// Guaranteed discovery after exploring 75%+ of the floor to prevent frustration
     /// </summary>
     private async Task<bool> TryDiscoverSeal(Character player, DungeonRoom room)
     {
@@ -5848,21 +6258,29 @@ public class DungeonLocation : BaseLocation
         if (!currentFloor.HasUncollectedSeal || currentFloor.SealCollected || !currentFloor.SealType.HasValue)
             return false;
 
+        // Calculate exploration progress
+        float explorationProgress = (float)currentFloor.Rooms.Count(r => r.IsExplored) / currentFloor.Rooms.Count;
+
+        // GUARANTEED discovery after 75% exploration - player has earned it
+        bool guaranteedDiscovery = explorationProgress >= 0.75;
+
         // Seals are found in thematically appropriate rooms
         bool isSealRoom = room.Type == RoomType.Shrine ||
                           room.Type == RoomType.LoreLibrary ||
                           room.Type == RoomType.SecretVault ||
                           room.Type == RoomType.MeditationChamber ||
                           room.IsBossRoom ||
-                          (room.Type == RoomType.Chamber && dungeonRandom.NextDouble() < 0.15) ||
+                          (room.Type == RoomType.Chamber && dungeonRandom.NextDouble() < 0.20) ||
                           (room.HasEvent && room.EventType == DungeonEventType.Shrine);
 
         // Higher chance in cleared rooms and special rooms
-        if (!isSealRoom)
+        if (!isSealRoom && !guaranteedDiscovery)
         {
-            // Small chance in any explored room after exploring 50%+ of floor
-            float explorationProgress = (float)currentFloor.Rooms.Count(r => r.IsExplored) / currentFloor.Rooms.Count;
-            if (explorationProgress < 0.5 || dungeonRandom.NextDouble() > 0.1)
+            // Scaling chance based on exploration: 15% at 50%, 25% at 60%, etc.
+            if (explorationProgress < 0.5)
+                return false;
+            double scaledChance = 0.15 + (explorationProgress - 0.5) * 0.4; // 15% to 35% based on exploration
+            if (dungeonRandom.NextDouble() > scaledChance)
                 return false;
         }
 

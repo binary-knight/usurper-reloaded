@@ -688,7 +688,7 @@ namespace UsurperRemake.Systems
                     };
 
                     terminal.SetColor(color);
-                    terminal.WriteLine($"  ★ {evt.Title}");
+                    terminal.WriteLine($"  * {evt.Title}");
                     terminal.SetColor("gray");
                     terminal.WriteLine($"    {evt.Description}");
                     terminal.SetColor("dark_gray");

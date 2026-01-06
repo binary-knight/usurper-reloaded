@@ -23,6 +23,12 @@ namespace UsurperRemake.Systems
         /// </summary>
         public EndingType DetermineEnding(Character player)
         {
+            // Null check for player
+            if (player == null)
+            {
+                return EndingType.Defiant; // Default fallback
+            }
+
             var story = StoryProgressionSystem.Instance;
             var ocean = OceanPhilosophySystem.Instance;
             var amnesia = AmnesiaSystem.Instance;
@@ -30,7 +36,7 @@ namespace UsurperRemake.Systems
             var grief = GriefSystem.Instance;
 
             // Check for Secret Ending (Dissolution) first - requires Cycle 3+
-            if (story.CurrentCycle >= 3 && QualifiesForDissolutionEnding(player))
+            if (story?.CurrentCycle >= 3 && QualifiesForDissolutionEnding(player))
             {
                 return EndingType.Secret;
             }
@@ -42,7 +48,7 @@ namespace UsurperRemake.Systems
             }
 
             // Fallback to legacy true ending check
-            if (CycleSystem.Instance.QualifiesForTrueEnding(player))
+            if (CycleSystem.Instance?.QualifiesForTrueEnding(player) == true)
             {
                 return EndingType.TrueEnding;
             }
@@ -50,18 +56,28 @@ namespace UsurperRemake.Systems
             // Calculate alignment
             long alignment = player.Chivalry - player.Darkness;
 
-            // Count saved vs destroyed gods
+            // Count saved vs destroyed gods (all 6 Old Gods)
             int savedGods = 0;
             int destroyedGods = 0;
 
+            // Veloura - Goddess of Illusions
             if (story.HasStoryFlag("veloura_saved")) savedGods++;
             if (story.HasStoryFlag("veloura_destroyed")) destroyedGods++;
+            // Aurelion - God of Light
             if (story.HasStoryFlag("aurelion_saved")) savedGods++;
             if (story.HasStoryFlag("aurelion_destroyed")) destroyedGods++;
+            // Terravok - God of Earth
             if (story.HasStoryFlag("terravok_awakened")) savedGods++;
             if (story.HasStoryFlag("terravok_destroyed")) destroyedGods++;
+            // Noctura - Goddess of Night
             if (story.HasStoryFlag("noctura_ally")) savedGods++;
             if (story.HasStoryFlag("noctura_destroyed")) destroyedGods++;
+            // Maelketh - God of Chaos
+            if (story.HasStoryFlag("maelketh_saved")) savedGods++;
+            if (story.HasStoryFlag("maelketh_destroyed")) destroyedGods++;
+            // Thorgrim - God of War
+            if (story.HasStoryFlag("thorgrim_saved")) savedGods++;
+            if (story.HasStoryFlag("thorgrim_destroyed")) destroyedGods++;
 
             // Determine ending based on choices
             if (alignment < -300 || destroyedGods >= 5)
@@ -90,22 +106,25 @@ namespace UsurperRemake.Systems
         /// </summary>
         private bool QualifiesForEnhancedTrueEnding(Character player)
         {
+            if (player == null)
+                return false;
+
             var story = StoryProgressionSystem.Instance;
             var ocean = OceanPhilosophySystem.Instance;
             var companions = CompanionSystem.Instance;
             var grief = GriefSystem.Instance;
 
             // 1. All 7 seals collected
-            if (story.CollectedSeals.Count < 7)
+            if (story?.CollectedSeals == null || story.CollectedSeals.Count < 7)
                 return false;
 
             // 2. Awakening Level 7
-            if (ocean.AwakeningLevel < 7)
+            if (ocean?.AwakeningLevel < 7)
                 return false;
 
             // 3. Experienced companion loss
-            if (!ocean.ExperiencedMoments.Contains(AwakeningMoment.FirstCompanionDeath) &&
-                !grief.HasCompletedGriefCycle)
+            if (ocean?.ExperiencedMoments?.Contains(AwakeningMoment.FirstCompanionDeath) != true &&
+                grief?.HasCompletedGriefCycle != true)
                 return false;
 
             // 4. Spared at least 2 gods
@@ -131,28 +150,31 @@ namespace UsurperRemake.Systems
         /// </summary>
         private bool QualifiesForDissolutionEnding(Character player)
         {
+            if (player == null)
+                return false;
+
             var story = StoryProgressionSystem.Instance;
             var ocean = OceanPhilosophySystem.Instance;
             var amnesia = AmnesiaSystem.Instance;
 
             // Must have completed at least 2 other endings
-            if (story.CompletedEndings.Count < 2)
+            if (story?.CompletedEndings == null || story.CompletedEndings.Count < 2)
                 return false;
 
             // Must have max awakening
-            if (ocean.AwakeningLevel < 7)
+            if (ocean?.AwakeningLevel < 7)
                 return false;
 
             // Must have full memory recovery (know you are Fragment of Manwe)
-            if (!amnesia.TruthRevealed)
+            if (amnesia?.TruthRevealed != true)
                 return false;
 
             // Must have all wave fragments
-            if (ocean.CollectedFragments.Count < 7)
+            if (ocean?.CollectedFragments == null || ocean.CollectedFragments.Count < 7)
                 return false;
 
             // Must have story flag for being ready
-            return story.HasStoryFlag("ready_for_dissolution");
+            return story?.HasStoryFlag("ready_for_dissolution") == true;
         }
 
         /// <summary>

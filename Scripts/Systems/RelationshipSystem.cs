@@ -492,9 +492,21 @@ public partial class RelationshipSystem
     
     private static void HandleChildCustodyAfterDivorce(Character parent1, Character parent2)
     {
-        // In a full implementation, this would update child records
-        // Children would lose access to parent1 and become depressed
-        GD.Print($"Child custody handled: Children of {parent1.Name} and {parent2.Name} affected by divorce");
+        // Parent1 keeps custody of children, parent2 loses access
+        // This follows the original Pascal behavior
+        int totalChildren = parent1.Kids + parent2.Kids;
+
+        if (totalChildren > 0)
+        {
+            // Parent1 (initiator of divorce) keeps the children
+            parent1.Kids = totalChildren;
+            parent2.Kids = 0;
+
+            // Generate news about the custody arrangement
+            NewsSystem.Instance?.Newsy(true, $"{parent1.Name} was awarded custody of {totalChildren} child{(totalChildren > 1 ? "ren" : "")} in the divorce from {parent2.Name}.");
+        }
+
+        GD.Print($"Child custody handled: {parent1.Name} has custody of {totalChildren} children after divorce from {parent2.Name}");
     }
     
     private static void ProcessAutomaticDivorce(RelationshipRecord relation)

@@ -243,7 +243,7 @@ public class MaintenanceSystem
         var romanceTracker = RomanceTracker.Instance;
         if (romanceTracker == null) return;
 
-        var messages = romanceTracker.ProcessJealousyConsequences();
+        var messages = romanceTracker.ProcessJealousyConsequences(player);
 
         if (messages.Count > 0)
         {

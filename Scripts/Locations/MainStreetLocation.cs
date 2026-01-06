@@ -507,7 +507,6 @@ public class MainStreetLocation : BaseLocation
                 terminal.WriteLine("You head to Love Street...", "magenta");
                 await Task.Delay(1500);
                 throw new LocationExitException(GameLocation.LoveCorner);
-                return true;
                 
             case "J":
                 await NavigateToLocation(GameLocation.Marketplace);
@@ -847,7 +846,7 @@ public class MainStreetLocation : BaseLocation
                         string classStr = npc.Class.ToString();
                         string locationStr = string.IsNullOrEmpty(npc.CurrentLocation) ? "???" : npc.CurrentLocation;
                         string sex = npc.Sex == CharacterSex.Male ? "M" : "F";
-                        terminal.WriteLine($"  • {npc.Name,-18} {sex} Lv{npc.Level,3} {classStr,-10} @ {locationStr}");
+                        terminal.WriteLine($"  - {npc.Name,-18} {sex} Lv{npc.Level,3} {classStr,-10} @ {locationStr}");
                     }
                 }
                 else
@@ -1050,7 +1049,7 @@ public class MainStreetLocation : BaseLocation
         terminal.ClearScreen();
         terminal.SetColor("bright_yellow");
         terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
-        terminal.WriteLine("║                           ★ ACHIEVEMENTS ★                                  ║");
+        terminal.WriteLine("║                           * ACHIEVEMENTS *                                  ║");
         terminal.WriteLine("╠══════════════════════════════════════════════════════════════════════════════╣");
 
         var achievements = currentPlayer.Achievements;
@@ -1112,7 +1111,7 @@ public class MainStreetLocation : BaseLocation
             if (isUnlocked)
             {
                 terminal.SetColor("bright_green");
-                terminal.Write("✓ ");
+                terminal.Write("+ ");
                 terminal.SetColor("white");
                 terminal.Write(achievement.Name);
                 terminal.SetColor("gray");
@@ -1129,7 +1128,7 @@ public class MainStreetLocation : BaseLocation
             else
             {
                 terminal.SetColor("darkgray");
-                terminal.Write("○ ");
+                terminal.Write("[ ] ");
 
                 if (achievement.IsSecret)
                 {
@@ -1249,17 +1248,19 @@ public class MainStreetLocation : BaseLocation
     /// </summary>
     private int GetNextSealFloor(StoryProgressionSystem story)
     {
-        int[] sealFloors = { 15, 30, 45, 60, 80, 99, 100 };
+        // Floor 0 = Temple (Creation seal), rest are dungeon floors
+        int[] sealFloors = { 0, 15, 30, 45, 60, 80, 99 };
         var sealTypes = new[] { SealType.Creation, SealType.FirstWar, SealType.Corruption, SealType.Imprisonment, SealType.Prophecy, SealType.Regret, SealType.Truth };
 
         for (int i = 0; i < sealFloors.Length; i++)
         {
             if (!story.CollectedSeals.Contains(sealTypes[i]))
             {
+                // Return 0 for Temple seal, otherwise dungeon floor
                 return sealFloors[i];
             }
         }
-        return 100; // Final seal (Truth)
+        return 99; // Final seal (Truth) on floor 99
     }
 
     /// <summary>
@@ -1516,7 +1517,7 @@ public class MainStreetLocation : BaseLocation
             
             foreach (var logEntry in result.CombatLog)
             {
-                terminal.WriteLine($"• {logEntry}");
+                terminal.WriteLine($"- {logEntry}");
             }
             
             terminal.WriteLine("");
@@ -1638,33 +1639,33 @@ public class MainStreetLocation : BaseLocation
         terminal.WriteLine("");
         
         terminal.WriteLine("1. Session-Based (Default)", "yellow");
-        terminal.WriteLine("   • New day starts when you run out of turns or choose to rest");
-        terminal.WriteLine("   • Perfect for casual play sessions");
+        terminal.WriteLine("   - New day starts when you run out of turns or choose to rest");
+        terminal.WriteLine("   - Perfect for casual play sessions");
         terminal.WriteLine("");
         
         terminal.WriteLine("2. Real-Time (24 hours)", "yellow");
-        terminal.WriteLine("   • Classic BBS-style daily reset at midnight");
-        terminal.WriteLine("   • NPCs continue to act while you're away");
+        terminal.WriteLine("   - Classic BBS-style daily reset at midnight");
+        terminal.WriteLine("   - NPCs continue to act while you're away");
         terminal.WriteLine("");
         
         terminal.WriteLine("3. Accelerated (4 hours)", "yellow");
-        terminal.WriteLine("   • New day every 4 real hours");
-        terminal.WriteLine("   • Faster progression for active players");
+        terminal.WriteLine("   - New day every 4 real hours");
+        terminal.WriteLine("   - Faster progression for active players");
         terminal.WriteLine("");
         
         terminal.WriteLine("4. Accelerated (8 hours)", "yellow");
-        terminal.WriteLine("   • New day every 8 real hours");
-        terminal.WriteLine("   • Balanced progression");
+        terminal.WriteLine("   - New day every 8 real hours");
+        terminal.WriteLine("   - Balanced progression");
         terminal.WriteLine("");
         
         terminal.WriteLine("5. Accelerated (12 hours)", "yellow");
-        terminal.WriteLine("   • New day every 12 real hours");
-        terminal.WriteLine("   • Slower but steady progression");
+        terminal.WriteLine("   - New day every 12 real hours");
+        terminal.WriteLine("   - Slower but steady progression");
         terminal.WriteLine("");
         
         terminal.WriteLine("6. Endless", "yellow");
-        terminal.WriteLine("   • No turn limits, play as long as you want");
-        terminal.WriteLine("   • Perfect for exploration and experimentation");
+        terminal.WriteLine("   - No turn limits, play as long as you want");
+        terminal.WriteLine("   - Perfect for exploration and experimentation");
         terminal.WriteLine("");
         
         var choice = await terminal.GetInput("Select mode (1-6) or 0 to cancel: ");
@@ -2039,9 +2040,9 @@ public class MainStreetLocation : BaseLocation
         terminal.WriteLine("║  Ancient artifacts that reveal the truth of creation                         ║");
         terminal.WriteLine("║                                                                              ║");
 
-        // Seal status display
+        // Seal status display (floor 0 = Temple for Creation seal, rest are dungeon floors)
         var sealTypes = new[] { SealType.Creation, SealType.FirstWar, SealType.Corruption, SealType.Imprisonment, SealType.Prophecy, SealType.Regret, SealType.Truth };
-        var sealFloors = new[] { 15, 30, 45, 60, 80, 99, 100 };
+        var sealFloors = new[] { 0, 15, 30, 45, 60, 80, 99 };
         var sealNames = new[] { "Creation", "First War", "Corruption", "Imprisonment", "Prophecy", "Regret", "Truth" };
 
         int sealsCollected = story.CollectedSeals?.Count ?? 0;
@@ -2054,12 +2055,12 @@ public class MainStreetLocation : BaseLocation
             if (hasIt)
             {
                 terminal.SetColor("bright_green");
-                terminal.Write("●");
+                terminal.Write("[X]");
             }
             else
             {
                 terminal.SetColor("darkgray");
-                terminal.Write("○");
+                terminal.Write("[ ]");
             }
         }
         terminal.SetColor("white");
@@ -2069,7 +2070,7 @@ public class MainStreetLocation : BaseLocation
         for (int i = 0; i < sealTypes.Length; i++)
         {
             bool hasIt = story.CollectedSeals?.Contains(sealTypes[i]) ?? false;
-            string status = hasIt ? "✓" : " ";
+            string status = hasIt ? "+" : " ";
             string color = hasIt ? "bright_green" : "darkgray";
             terminal.SetColor(color);
             terminal.WriteLine($"║    {status} Seal of {sealNames[i],-12} (Floor {sealFloors[i],3})                                      ║");

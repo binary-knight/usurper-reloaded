@@ -24,6 +24,11 @@ namespace UsurperRemake.Systems
         private bool bossDefeated;
         private bool bossSaved;
 
+        /// <summary>
+        /// Check if the current boss was defeated
+        /// </summary>
+        public bool IsBossDefeated => bossDefeated;
+
         public event Action<OldGodType>? OnBossDefeated;
         public event Action<OldGodType>? OnBossSaved;
         public event Action<OldGodType, int>? OnPhaseChange;
@@ -288,6 +293,7 @@ namespace UsurperRemake.Systems
             }
             else if (bossCurrentHP <= 0)
             {
+                bossDefeated = true;
                 return await HandleBossDefeated(player, boss, terminal);
             }
             else

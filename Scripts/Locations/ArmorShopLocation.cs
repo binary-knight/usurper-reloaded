@@ -667,7 +667,7 @@ public class ArmorShopLocation : BaseLocation
                 {
                     purchased++;
                     terminal.SetColor("bright_green");
-                    terminal.WriteLine($"✓ {slot.GetDisplayName()}: Bought {bestItem.Name} (AC:{bestItem.ArmorClass}) for {FormatNumber(itemPrice)}");
+                    terminal.WriteLine($"+ {slot.GetDisplayName()}: Bought {bestItem.Name} (AC:{bestItem.ArmorClass}) for {FormatNumber(itemPrice)}");
                 }
             }
             else

@@ -36,6 +36,7 @@ public class Character
     public int PFights { get; set; }                // player fights
     public bool King { get; set; }                  // king?
     public int Location { get; set; }               // offline location
+    public virtual string CurrentLocation { get; set; } = ""; // current location as string (for display/AI)
     public string Team { get; set; } = "";          // team name
     public string TeamPW { get; set; } = "";        // team password
     public int TeamRec { get; set; }                // team record, days had town
@@ -163,6 +164,10 @@ public class Character
     public int TempDefenseBonus { get; set; } = 0;
     public int TempDefenseBonusDuration { get; set; } = 0;
     public bool DodgeNextAttack { get; set; } = false;
+
+    // Companion system integration
+    public bool IsCompanion { get; set; } = false;
+    public UsurperRemake.Systems.CompanionId? CompanionId { get; set; } = null;
 
     // Combat Stamina System - resource for special abilities
     // Formula: MaxCombatStamina = 50 + (Stamina stat * 2) + (Level * 3)
@@ -907,23 +912,24 @@ public class Character
     // Constructor to initialize lists
     public Character()
     {
-        // Initialize lists based on Pascal array sizes
-        Item = new List<int>(new int[GameConfig.MaxItem]);
-        ItemType = new List<ObjType>(new ObjType[GameConfig.MaxItem]);
-        Phrases = new List<string>(new string[6]);
-        Description = new List<string>(new string[4]);
-        
-        // Initialize spells array [maxspells][2]
+        // Initialize empty lists with capacity - don't pre-fill with default values
+        // This prevents confusion between empty slots (Count check) and actual items
+        Item = new List<int>(GameConfig.MaxItem);
+        ItemType = new List<ObjType>(GameConfig.MaxItem);
+        Phrases = new List<string>(6);
+        Description = new List<string>(4);
+
+        // Initialize spells array [maxspells][2] - spells need to track known/enabled state
         Spell = new List<List<bool>>();
         for (int i = 0; i < GameConfig.MaxSpells; i++)
         {
             Spell.Add(new List<bool> { false, false });
         }
-        
-        // Initialize combat skills
-        Skill = new List<int>(new int[GameConfig.MaxCombat]);
-        
-        // Initialize medals
+
+        // Initialize combat skills with capacity
+        Skill = new List<int>(GameConfig.MaxCombat);
+
+        // Initialize medals - these need defaults since we check by index
         Medal = new List<bool>(new bool[20]);
     }
     
@@ -985,8 +991,9 @@ public class Character
     private string GetEquippedItemName(int itemId)
     {
         if (itemId == 0) return "None";
-        // TODO: Implement item lookup from game data
-        return $"Item{itemId}";
+        // Look up equipment from game data
+        var equipment = EquipmentDatabase.GetById(itemId);
+        return equipment?.Name ?? $"Unknown Item #{itemId}";
     }
     
     // Pascal-compatible string access for names

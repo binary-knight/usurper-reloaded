@@ -13,7 +13,7 @@ using System;
 public partial class PrisonWalkLocation : BaseLocation
 {
     private readonly GameEngine gameEngine;
-    private readonly TerminalEmulator terminal;
+    private new readonly TerminalEmulator terminal;
     private bool refreshMenu = true;
     
     public PrisonWalkLocation(GameEngine engine, TerminalEmulator term) : base("prisonwalk")
@@ -47,7 +47,7 @@ public partial class PrisonWalkLocation : BaseLocation
         }
     }
     
-    public new async Task<bool> EnterLocation(Character player)
+    public async Task<bool> EnterLocation(Character player)
     {
         if (player == null) return false;
         
@@ -685,7 +685,7 @@ public partial class PrisonWalkLocation : BaseLocation
         return false;
     }
     
-    public new async Task<List<string>> GetLocationCommands(Character player)
+    public async Task<List<string>> GetLocationCommands(Character player)
     {
         var commands = new List<string>
         {
@@ -699,13 +699,13 @@ public partial class PrisonWalkLocation : BaseLocation
         return commands;
     }
     
-    public new async Task<bool> CanEnterLocation(Character player)
+    public async Task<bool> CanEnterLocation(Character player)
     {
         // Cannot enter if player is imprisoned
         return player.DaysInPrison <= 0;
     }
     
-    public new async Task<string> GetLocationStatus(Character player)
+    public async Task<string> GetLocationStatus(Character player)
     {
         var prisoners = await GetAllPrisoners();
         return $"Outside the Royal Prison - {prisoners.Count} prisoners currently held";

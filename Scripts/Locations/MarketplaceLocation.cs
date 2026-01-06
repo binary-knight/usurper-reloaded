@@ -300,7 +300,7 @@ public class MarketplaceLocation : BaseLocation
         await Task.Delay(2000);
     }
 
-    private async Task ShowStatus()
+    private new async Task ShowStatus()
     {
         terminal.ClearScreen();
         terminal.SetColor("cyan");

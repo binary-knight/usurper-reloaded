@@ -24,7 +24,7 @@ public class EnhancedNPCSystem : Node
     /// </summary>
     public int CheckNPCInventory(NPC npc, int itemId, bool shout = false)
     {
-        if (GameConfig.ClassicMode) return 0;
+        // ClassicMode check removed - const false makes code unreachable
         
         var result = 0; // 0=not touched, 1=equipped, 2=swapped
         
@@ -93,7 +93,7 @@ public class EnhancedNPCSystem : Node
     /// </summary>
     public void ProcessNPCBelieverSystem(NPC npc)
     {
-        if (GameConfig.NPCBelievers == 0) return;
+        // NPCBelievers check removed - const 50 makes code unreachable
         
         if (random.Next(3) != 0) return; // Only 33% processed per cycle
         
@@ -143,7 +143,7 @@ public class EnhancedNPCSystem : Node
             }
             
             // Send mail notification
-            SendItemNotificationMail(npc, "new item", "dungeon");
+            SendItemNotificationMail(npc, "new item", "Dungeon");
             
             return 2; // Swapped equipment
         }

@@ -368,7 +368,7 @@ namespace UsurperRemake.Systems
             terminal.Clear();
             terminal.WriteLine("");
             terminal.WriteLine($"╔══════════════════════════════════════════════════════════════════╗", seal.IconColor);
-            terminal.WriteLine($"║             ★ ★ ★  S E A L   D I S C O V E R E D  ★ ★ ★          ║", seal.IconColor);
+            terminal.WriteLine($"║             * * *  S E A L   D I S C O V E R E D  * * *          ║", seal.IconColor);
             terminal.WriteLine($"╚══════════════════════════════════════════════════════════════════╝", seal.IconColor);
             terminal.WriteLine("");
 
@@ -384,17 +384,17 @@ namespace UsurperRemake.Systems
                 if (i < collected)
                 {
                     terminal.SetColor("bright_green");
-                    terminal.Write("●");
+                    terminal.Write("[X]");
                 }
                 else if (i == collected)
                 {
                     terminal.SetColor("bright_yellow");
-                    terminal.Write("★");
+                    terminal.Write("[*]");
                 }
                 else
                 {
                     terminal.SetColor("darkgray");
-                    terminal.Write("○");
+                    terminal.Write("[ ]");
                 }
                 terminal.Write(" ");
             }
@@ -430,13 +430,15 @@ namespace UsurperRemake.Systems
             terminal.WriteLine("  ═══════════════════════════════════════", "dark_cyan");
             terminal.WriteLine("");
 
-            // Show what's next
+            // Show what's next - seal floors: 0(Temple), 15, 30, 45, 60, 80, 99
             if (collected < 7)
             {
-                int[] sealFloors = { 15, 30, 45, 60, 80, 99, 100 };
-                int nextFloor = sealFloors[collected]; // collected is now 1-indexed
+                // After collecting seal N, show where seal N+1 is
+                // Index 0=15, 1=30, 2=45, 3=60, 4=80, 5=99 (seal 7 is on floor 99)
+                int[] nextSealFloors = { 15, 30, 45, 60, 80, 99 };
+                int nextFloor = nextSealFloors[collected - 1]; // collected is 1-indexed, array is 0-indexed
                 terminal.SetColor("bright_yellow");
-                terminal.WriteLine($"  NEXT SEAL: Floor {nextFloor}");
+                terminal.WriteLine($"  NEXT SEAL: Dungeon Floor {nextFloor}");
                 terminal.WriteLine("");
             }
 

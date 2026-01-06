@@ -23,18 +23,26 @@ public partial class TerminalEmulator : Control
     // Static instance property for compatibility
     public static TerminalEmulator Instance { get; private set; }
     
-    // ANSI color mappings
+    // ANSI color mappings - supports both underscore and no-underscore variants
     private readonly Dictionary<string, Color> ansiColors = new Dictionary<string, Color>
     {
         { "black", Color.Black },
         { "darkred", Color.FromHtml("#800000") },
+        { "dark_red", Color.FromHtml("#800000") },
         { "darkgreen", Color.FromHtml("#008000") },
+        { "dark_green", Color.FromHtml("#008000") },
         { "darkyellow", Color.FromHtml("#808000") },
+        { "dark_yellow", Color.FromHtml("#808000") },
+        { "brown", Color.FromHtml("#808000") },  // Alias for dark yellow (used in ANSIArt)
         { "darkblue", Color.FromHtml("#000080") },
+        { "dark_blue", Color.FromHtml("#000080") },
         { "darkmagenta", Color.FromHtml("#800080") },
+        { "dark_magenta", Color.FromHtml("#800080") },
         { "darkcyan", Color.FromHtml("#008080") },
+        { "dark_cyan", Color.FromHtml("#008080") },
         { "gray", Color.FromHtml("#C0C0C0") },
         { "darkgray", Color.FromHtml("#808080") },
+        { "dark_gray", Color.FromHtml("#808080") },
         { "red", Color.Red },
         { "green", Color.Green },
         { "yellow", Color.Yellow },
@@ -294,19 +302,48 @@ public partial class TerminalEmulator : Control
     
     private ConsoleColor ColorNameToConsole(string colorName)
     {
-        // Basic map – expand as needed
-        return colorName.ToLower() switch
+        // Full color map supporting dark_*, bright_*, and base color names
+        return colorName?.ToLower() switch
         {
             "black" => ConsoleColor.Black,
-            "darkred" or "red" or "bright_red" => ConsoleColor.Red,
-            "darkgreen" or "green" or "bright_green" => ConsoleColor.Green,
-            "darkyellow" or "yellow" or "bright_yellow" => ConsoleColor.Yellow,
-            "darkblue" or "blue" or "bright_blue" => ConsoleColor.Blue,
-            "darkmagenta" or "magenta" or "bright_magenta" => ConsoleColor.Magenta,
-            "darkcyan" or "cyan" or "bright_cyan" => ConsoleColor.Cyan,
-            "gray" or "bright_white" or "white" => ConsoleColor.White,
-            "darkgray" => ConsoleColor.DarkGray,
-            _ => ConsoleColor.White
+
+            // Red variants
+            "dark_red" or "darkred" => ConsoleColor.DarkRed,
+            "red" => ConsoleColor.Red,
+            "bright_red" => ConsoleColor.Red,
+
+            // Green variants
+            "dark_green" or "darkgreen" => ConsoleColor.DarkGreen,
+            "green" => ConsoleColor.Green,
+            "bright_green" => ConsoleColor.Green,
+
+            // Yellow/Brown variants
+            "dark_yellow" or "darkyellow" or "brown" => ConsoleColor.DarkYellow,
+            "yellow" => ConsoleColor.Yellow,
+            "bright_yellow" => ConsoleColor.Yellow,
+
+            // Blue variants
+            "dark_blue" or "darkblue" => ConsoleColor.DarkBlue,
+            "blue" => ConsoleColor.Blue,
+            "bright_blue" => ConsoleColor.Blue,
+
+            // Magenta variants
+            "dark_magenta" or "darkmagenta" => ConsoleColor.DarkMagenta,
+            "magenta" => ConsoleColor.Magenta,
+            "bright_magenta" => ConsoleColor.Magenta,
+
+            // Cyan variants
+            "dark_cyan" or "darkcyan" => ConsoleColor.DarkCyan,
+            "cyan" => ConsoleColor.Cyan,
+            "bright_cyan" => ConsoleColor.Cyan,
+
+            // Gray/White variants
+            "dark_gray" or "darkgray" => ConsoleColor.DarkGray,
+            "gray" or "grey" => ConsoleColor.Gray,
+            "white" => ConsoleColor.White,
+            "bright_white" => ConsoleColor.White,
+
+            null or _ => ConsoleColor.White
         };
     }
     
@@ -447,7 +484,7 @@ public partial class TerminalEmulator : Control
         // Box drawing characters
         const string TL = "╔"; const string TR = "╗";
         const string BL = "╚"; const string BR = "╝";
-        const string H = "═"; const string V = "║";
+        const string V = "║"; // H removed - using inline '═' in string
         
         var colorCode = ansiColors.ContainsKey(color) ? 
             ansiColors[color].ToHtml() : ansiColors["white"].ToHtml();
@@ -497,7 +534,20 @@ public partial class TerminalEmulator : Control
     
     public async Task<string> GetKeyInput()
     {
-        return await GetInput("");
+        // If running inside Godot, use line input and take first char
+        if (inputLine != null && display != null)
+        {
+            var input = await GetInput("");
+            return string.IsNullOrEmpty(input) ? "" : input[0].ToString();
+        }
+        else
+        {
+            // Console mode - read single key without Enter
+            var keyInfo = Console.ReadKey(intercept: true);
+            var result = keyInfo.KeyChar.ToString();
+            WriteLine(result, "cyan");
+            return result;
+        }
     }
     
     public async Task<string> GetStringInput(string prompt = "")
@@ -526,7 +576,7 @@ public partial class TerminalEmulator : Control
     
     public async Task<string> ReadKeyAsync()
     {
-        return await GetInput("");
+        return await GetKeyInput();
     }
     
     // Additional missing async methods for API compatibility
@@ -698,16 +748,22 @@ public partial class TerminalEmulator : Control
     }
 
     // Additional missing API methods for compatibility
+    // WARNING: These synchronous methods can cause deadlocks in async contexts.
+    // Use GetInput()/GetKeyInput() async methods when possible.
+    [Obsolete("Use GetInput() async method instead to avoid potential deadlocks")]
     public string ReadLine()
     {
-        // Synchronous version - not ideal but needed for compatibility
-        return GetInput().Result;
+        // Use GetAwaiter().GetResult() instead of .Result - slightly safer in some contexts
+        // but still blocking. Callers should migrate to async versions.
+        return GetInput().GetAwaiter().GetResult();
     }
 
+    [Obsolete("Use GetKeyInput() async method instead to avoid potential deadlocks")]
     public string ReadKey()
     {
-        // Synchronous version - not ideal but needed for compatibility
-        return GetKeyInput().Result;
+        // Use GetAwaiter().GetResult() instead of .Result - slightly safer in some contexts
+        // but still blocking. Callers should migrate to async versions.
+        return GetKeyInput().GetAwaiter().GetResult();
     }
 
     public async Task ClearScreenAsync()

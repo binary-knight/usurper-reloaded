@@ -605,12 +605,13 @@ public partial class TeamSystem : Node
     
     /// <summary>
     /// Check character inventory for battle - Pascal functionality
+    /// Ensures equipment bonuses are properly applied before combat
     /// </summary>
     private void CheckInventory(Character character)
     {
-        // Update weapon and armor power based on equipped items
-        // This simulates the Pascal check_inventory functionality
-        // TODO: Implement full item system integration
+        // Recalculate stats to ensure equipment bonuses are applied
+        // This mirrors the Pascal check_inventory that recalculates WeapPow/ArmPow
+        character.RecalculateStats();
     }
     
     /// <summary>

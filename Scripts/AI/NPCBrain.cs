@@ -275,7 +275,7 @@ public class NPCBrain
     {
         lastShoppingAttempt = DateTime.Now;
         
-        var shoppingLocations = new[] { "main_street", "weapon_shop", "armor_shop", "magic_shop" };
+        var shoppingLocations = new[] { "Main Street", "Weapon Shop", "Armor Shop", "Magic Shop" };
         if (!shoppingLocations.Contains(owner.CurrentLocation))
         {
             // Add goal to go shopping

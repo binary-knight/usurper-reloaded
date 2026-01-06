@@ -164,7 +164,7 @@ public class Item
         }
         
         if (IsArtifact)
-            name += " ★";
+            name += " *";
             
         return name;
     }
@@ -809,6 +809,8 @@ public class Equipment
     /// </summary>
     public void ApplyToCharacter(Character character)
     {
+        if (character == null) return;
+
         // Combat stats
         character.WeapPow += WeaponPower;
         character.ArmPow += ArmorClass + ShieldBonus;
@@ -838,6 +840,8 @@ public class Equipment
     /// </summary>
     public void RemoveFromCharacter(Character character)
     {
+        if (character == null) return;
+
         // Combat stats
         character.WeapPow -= WeaponPower;
         character.ArmPow -= ArmorClass + ShieldBonus;

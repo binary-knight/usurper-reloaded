@@ -19,7 +19,7 @@ public class CharacterCreationLocation : BaseLocation
         ShortDescription = "New Player Creation";
     }
     
-    public new async Task EnterLocation(Character player)
+    public async Task EnterLocation(Character player)
     {
         await base.EnterLocation(player, TerminalEmulator.Instance ?? new TerminalEmulator());
         
@@ -199,12 +199,12 @@ public class CharacterCreationLocation : BaseLocation
         terminal.WriteLine("and perhaps one day claim the throne!", "cyan");
         terminal.WriteLine("");
         terminal.WriteLine("═══ HELPFUL HINTS ═══", "yellow");
-        terminal.WriteLine("• Visit the Inn to rest and recover", "white");
-        terminal.WriteLine("• Check the Weapon and Armor shops for equipment", "white");
-        terminal.WriteLine("• Enter the Dungeons to gain experience and gold", "white");
-        terminal.WriteLine("• Use the Bank to store your wealth safely", "white");
-        terminal.WriteLine("• Visit the Healer when wounded or diseased", "white");
-        terminal.WriteLine("• The Temple offers spiritual guidance and services", "white");
+        terminal.WriteLine("- Visit the Inn to rest and recover", "white");
+        terminal.WriteLine("- Check the Weapon and Armor shops for equipment", "white");
+        terminal.WriteLine("- Enter the Dungeons to gain experience and gold", "white");
+        terminal.WriteLine("- Use the Bank to store your wealth safely", "white");
+        terminal.WriteLine("- Visit the Healer when wounded or diseased", "white");
+        terminal.WriteLine("- The Temple offers spiritual guidance and services", "white");
         terminal.WriteLine("");
         terminal.WriteLine("Remember: Death is permanent in Usurper!", "red");
         terminal.WriteLine("Fight wisely and choose your battles carefully.", "red");
@@ -247,25 +247,25 @@ public class CharacterCreationLocation : BaseLocation
         terminal.WriteLine("Please restart the game to try again.", "yellow");
     }
     
-    public new async Task<bool> HandleInput(Character player, string input)
+    public async Task<bool> HandleInput(Character player, string input)
     {
         return true; // Simple stub return
     }
     
-    public new void ShowLocationHeader(Character player)
+    public void ShowLocationHeader(Character player)
     {
         terminal.WriteLine($"Welcome to {Name}, {player.DisplayName}!", "cyan");
         terminal.WriteLine(Description, "white");
         terminal.WriteLine("");
     }
     
-    public new Task ShowMenu(Character player)
+    public Task ShowMenu(Character player)
     {
         // No menu needed - character creation is automated
         return Task.CompletedTask;
     }
     
-    public new List<string> GetMenuOptions(Character player)
+    public List<string> GetMenuOptions(Character player)
     {
         // No menu options - this is an automated process
         return new List<string>();

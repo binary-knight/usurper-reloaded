@@ -16,19 +16,32 @@ using System.IO;
 /// </summary>
 public partial class GameEngine : Node
 {
+    private static readonly Lazy<GameEngine> lazyInstance = new Lazy<GameEngine>(() => new GameEngine());
     private static GameEngine? instance;
     private TerminalEmulator terminal;
     private Character? currentPlayer;
-    
-    // Game state
-    private UsurperConfig config;
-    private KingRecord kingRecord;
-    private ScoreManager scoreManager;
-    
-    // System flags
-    private bool multiNodeMode = false;
-    
-    public static GameEngine Instance => instance ??= new GameEngine();
+
+    /// <summary>
+    /// Thread-safe singleton accessor using Lazy initialization
+    /// </summary>
+    public static GameEngine Instance
+    {
+        get
+        {
+            // If a specific instance was set (e.g., in Godot), use it
+            if (instance != null) return instance;
+            // Otherwise use lazy initialization for thread safety
+            return lazyInstance.Value;
+        }
+    }
+
+    /// <summary>
+    /// Set the instance explicitly (used when created by Godot scene tree)
+    /// </summary>
+    public static void SetInstance(GameEngine engine)
+    {
+        instance = engine;
+    }
     
     // Missing properties for compilation
     public Character? CurrentPlayer 
@@ -94,15 +107,26 @@ public partial class GameEngine : Node
     public override void _Ready()
     {
         GD.Print("Usurper Reborn - Initializing Game Engine...");
-        
+
         // Initialize core systems
         InitializeGame();
-        
-        // Show title screen and start main menu
-        ShowTitleScreen();
-        
-        // Handle async MainMenu properly since _Ready() can't be async
-        Task.Run(async () => await MainMenu());
+
+        // Handle async operations properly since _Ready() can't be async
+        // Wrap in try-catch to prevent silent exception swallowing
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await ShowTitleScreen();
+                await MainMenu();
+            }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"[GameEngine] Fatal error in main loop: {ex.Message}");
+                GD.PrintErr(ex.StackTrace);
+                throw; // Re-throw to crash properly rather than hang silently
+            }
+        });
     }
     
     /// <summary>
@@ -149,18 +173,22 @@ public partial class GameEngine : Node
         combatEngine = new CombatEngine();
 
         // World simulator – start background AI processing
+        // Note: worldNPCs is already initialized by InitializeNPCs() called earlier
         worldSimulator = new WorldSimulator();
-        if (worldNPCs == null)
-            worldNPCs = new List<NPC>();
-        worldSimulator.StartSimulation(worldNPCs);
-        
+        worldSimulator.StartSimulation(worldNPCs ?? new List<NPC>());
+
         // Initialize collections
         worldMonsters = new List<Monster>();
         onlinePlayers = new List<OnlinePlayer>();
-        
+
+        // Initialize achievement and statistics systems
+        GD.Print("Initializing achievement and statistics systems...");
+        AchievementSystem.Initialize();
+        QuestSystem.EnsureQuestsExist();
+
         // Initialize periodic check timer
         lastPeriodicCheck = DateTime.Now;
-        
+
         GD.Print("Game engine initialized successfully!");
     }
     
@@ -230,8 +258,8 @@ public partial class GameEngine : Node
     {
         var locations = new[]
         {
-            "Main Street", "Market", "Inn", "Temple", "Gym",
-            "Weapon Shop", "Armor Shop", "Magic Shop", "Tavern",
+            "Main Street", "Market", "Inn", "Temple", "Church",
+            "Weapon Shop", "Armor Shop", "Magic Shop", "Castle",
             "Bank", "Healer", "Dark Alley"
         };
 
@@ -373,7 +401,7 @@ public partial class GameEngine : Node
     /// <summary>
     /// Show title screen - displays USURPER.ANS from Pascal
     /// </summary>
-    private void ShowTitleScreen()
+    private async Task ShowTitleScreen()
     {
         terminal.ClearScreen();
         terminal.ShowANSIArt("USURPER");
@@ -385,7 +413,7 @@ public partial class GameEngine : Node
         terminal.WriteLine("2025 - Reborn by Jason Knight");
         terminal.WriteLine("");
         terminal.WriteLine("Press any key to continue...");
-        terminal.WaitForKey();
+        await terminal.WaitForKey();
     }
     
     /// <summary>
@@ -430,24 +458,6 @@ public partial class GameEngine : Node
             terminal.SetColor("darkgray");
             terminal.Write("  [");
             terminal.SetColor("bright_cyan");
-            terminal.Write("L");
-            terminal.SetColor("darkgray");
-            terminal.Write("] ");
-            terminal.SetColor("white");
-            terminal.WriteLine("List Players");
-
-            terminal.SetColor("darkgray");
-            terminal.Write("  [");
-            terminal.SetColor("bright_cyan");
-            terminal.Write("T");
-            terminal.SetColor("darkgray");
-            terminal.Write("] ");
-            terminal.SetColor("white");
-            terminal.WriteLine("Teams");
-
-            terminal.SetColor("darkgray");
-            terminal.Write("  [");
-            terminal.SetColor("bright_cyan");
             terminal.Write("H");
             terminal.SetColor("darkgray");
             terminal.Write("] ");
@@ -462,15 +472,6 @@ public partial class GameEngine : Node
             terminal.Write("] ");
             terminal.SetColor("white");
             terminal.WriteLine("Credits");
-
-            terminal.SetColor("darkgray");
-            terminal.Write("  [");
-            terminal.SetColor("bright_cyan");
-            terminal.Write("S");
-            terminal.SetColor("darkgray");
-            terminal.Write("] ");
-            terminal.SetColor("white");
-            terminal.WriteLine("Game Settings");
 
             terminal.WriteLine("");
             terminal.SetColor("darkgray");
@@ -494,20 +495,11 @@ public partial class GameEngine : Node
                 case "I":
                     await ShowInstructions();
                     break;
-                case "L":
-                    await ListPlayers();
-                    break;
-                case "T":
-                    await ShowTeams();
-                    break;
                 case "H":
                     await UsurperHistorySystem.Instance.ShowHistory(terminal);
                     break;
                 case "C":
                     await ShowCredits();
-                    break;
-                case "S":
-                    await ShowGameSettings();
                     break;
                 case "Q":
                     done = true;
@@ -1072,6 +1064,13 @@ public partial class GameEngine : Node
             Darkness = playerData.Darkness,
             Mental = playerData.Mental,
             Poison = playerData.Poison,
+
+            // Active status effects (convert int keys back to StatusEffect enum)
+            ActiveStatuses = playerData.ActiveStatuses?.ToDictionary(
+                kvp => (StatusEffect)kvp.Key,
+                kvp => kvp.Value
+            ) ?? new Dictionary<StatusEffect, int>(),
+
             GnollP = playerData.GnollP,
             Addict = playerData.Addict,
             SteroidDays = playerData.SteroidDays,
@@ -1086,6 +1085,12 @@ public partial class GameEngine : Node
             Measles = playerData.Measles,
             Leprosy = playerData.Leprosy,
             LoversBane = playerData.LoversBane,
+
+            // Combat statistics (kill/death counts)
+            MKills = playerData.MKills,
+            MDefeats = playerData.MDefeats,
+            PKills = playerData.PKills,
+            PDefeats = playerData.PDefeats,
 
             // Character settings
             AutoHeal = playerData.AutoHeal,
@@ -1712,10 +1717,10 @@ public partial class GameEngine : Node
 
         terminal.SetColor("yellow");
         if (expLoss > 0)
-            terminal.WriteLine($"  • Lost {expLoss:N0} experience points");
+            terminal.WriteLine($"  - Lost {expLoss:N0} experience points");
         if (goldLoss > 0)
-            terminal.WriteLine($"  • Lost {goldLoss:N0} gold (dropped upon death)");
-        terminal.WriteLine($"  • Monster defeats: {currentPlayer.MDefeats}");
+            terminal.WriteLine($"  - Lost {goldLoss:N0} gold (dropped upon death)");
+        terminal.WriteLine($"  - Monster defeats: {currentPlayer.MDefeats}");
         terminal.WriteLine("");
 
         // Resurrect player at the Inn with half HP
@@ -1825,9 +1830,26 @@ public partial class GameEngine : Node
     {
         terminal.WriteLine("Saving game...", "yellow");
 
+        // Ensure save completes before exiting
         if (currentPlayer != null)
         {
-            SaveManager.SavePlayer(currentPlayer);
+            try
+            {
+                string playerName = currentPlayer.Name2 ?? currentPlayer.Name1;
+                var success = await SaveSystem.Instance.SaveGame(playerName, currentPlayer);
+                if (success)
+                {
+                    terminal.WriteLine("Game saved successfully!", "bright_green");
+                }
+                else
+                {
+                    terminal.WriteLine("Warning: Save may not have completed.", "yellow");
+                }
+            }
+            catch (Exception ex)
+            {
+                terminal.WriteLine($"Save error: {ex.Message}", "red");
+            }
         }
 
         // Stop background simulation threads
@@ -2081,9 +2103,9 @@ public partial class GameEngine : Node
         terminal.WriteLine(content);
         terminal.WriteLine("");
         terminal.WriteLine("Press any key to continue...");
-        terminal.WaitForKey();
+        await terminal.WaitForKey();
     }
-    
+
     // Placeholder initialization methods
     private void ReadStartCfgValues() { /* Load config from file */ }
     private void InitializeItems()
