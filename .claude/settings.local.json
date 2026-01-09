@@ -37,7 +37,9 @@
       "Bash(Select-String \"CS0169|CS0649|CS0414|CS0067\")",
       "Bash(Select-Object -First 20)",
       "Bash(Select-String \"CS4014\")",
-      "Bash(cut:*)"
+      "Bash(cut:*)",
+      "Bash(timeout:*)",
+      "Bash(taskkill:*)"
     ]
   }
 }

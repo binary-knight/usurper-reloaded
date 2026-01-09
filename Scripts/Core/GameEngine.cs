@@ -1932,10 +1932,9 @@ public partial class GameEngine : Node
         terminal.WriteLine("  THIS REMAKE:");
         terminal.SetColor("cyan");
         terminal.WriteLine("    Jason Knight             - Creator of Usurper Reborn");
-        terminal.WriteLine("    Claude AI                - Development Assistant");
         terminal.WriteLine("");
         terminal.SetColor("gray");
-        terminal.WriteLine("    Built with C# / .NET 6.0 / Godot Engine (optional)");
+        terminal.WriteLine("    Built with C# / .NET 8.0");
         terminal.WriteLine("");
 
         terminal.SetColor("bright_magenta");
@@ -1952,6 +1951,12 @@ public partial class GameEngine : Node
         terminal.SetColor("gray");
         terminal.WriteLine("    The original Usurper was released under the GNU GPL");
         terminal.WriteLine("    This remake honors that open source tradition");
+        terminal.WriteLine("");
+
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("  COMMUNITY:");
+        terminal.SetColor("gray");
+        terminal.WriteLine("    Join us on Discord: https://discord.gg/BqY66QkPGE");
         terminal.WriteLine("");
 
         terminal.SetColor("yellow");

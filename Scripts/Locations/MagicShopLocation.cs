@@ -26,18 +26,32 @@ public partial class MagicShopLocation : BaseLocation
     // Local list to hold shop NPCs (replaces legacy global variable reference)
     private readonly List<NPC> npcs = new();
     
-    public MagicShopLocation()
+    public MagicShopLocation() : base(
+        GameLocation.MagicShop,
+        "Magic Shop",
+        "A dark and dusty boutique filled with mysterious magical items."
+    )
     {
-        LocationName = "Magic Shop";
-        LocationId = GameLocation.MagicShop;
-        
         InitializeMagicInventory();
-        
+
         // Add shop owner NPC
         var shopOwner = CreateShopOwner();
         npcs.Add(shopOwner);
+    }
 
-        // Placeholder for additional NPCs (e.g., Merlin) – not needed for compilation
+    protected override void SetupLocation()
+    {
+        base.SetupLocation();
+    }
+
+    protected override void DisplayLocation()
+    {
+        DisplayMagicShopMenu(currentPlayer);
+    }
+
+    protected override async Task<bool> ProcessChoice(string choice)
+    {
+        return await HandleMagicShopChoice(choice.ToUpper(), currentPlayer);
     }
     
     private NPC CreateShopOwner()
@@ -276,12 +290,54 @@ public partial class MagicShopLocation : BaseLocation
         _magicInventory.Add(item);
     }
     
-    public new void Enter(Character player)
+    private async Task<bool> HandleMagicShopChoice(string choice, Character player)
     {
-        base.Enter(player);
-        DisplayMagicShopMenu(player);
+        switch (choice)
+        {
+            case "L":
+                ListMagicItemsByCategory(player);
+                await terminal.WaitForKey();
+                return false;
+            case "B":
+                BuyMagicItem(player);
+                await terminal.WaitForKey();
+                return false;
+            case "S":
+                SellItem(player);
+                await terminal.WaitForKey();
+                return false;
+            case "I":
+                IdentifyItem(player);
+                await terminal.WaitForKey();
+                return false;
+            case "C":
+                RemoveCurse(player);
+                await terminal.WaitForKey();
+                return false;
+            case "E":
+                EnchantItem(player);
+                await terminal.WaitForKey();
+                return false;
+            case "H":
+                BuyHealingPotions(player);
+                await terminal.WaitForKey();
+                return false;
+            case "Y":
+                await SpellLearningSystem.ShowSpellLearningMenu(player, terminal);
+                return false;
+            case "T":
+                TalkToOwner(player);
+                await terminal.WaitForKey();
+                return false;
+            case "R":
+            case "Q":
+                await NavigateToLocation(GameLocation.MainStreet);
+                return true;
+            default:
+                return false;
+        }
     }
-    
+
     private void DisplayMagicShopMenu(Character player)
     {
         terminal.ClearScreen();
@@ -435,8 +491,6 @@ public partial class MagicShopLocation : BaseLocation
         terminal.SetColor("white");
         terminal.WriteLine("eturn to street");
         terminal.WriteLine("");
-        
-        ProcessMagicShopMenu(player);
     }
     
     private string GetRaceGreeting(CharacterRace race)

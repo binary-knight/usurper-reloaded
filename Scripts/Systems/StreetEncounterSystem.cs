@@ -1209,6 +1209,22 @@ public class StreetEncounterSystem
 
             // Handle NPC death
             npc.HP = 0;
+
+            // Check for bounty reward BEFORE calling OnNPCDefeated
+            string npcNameForBounty = npc.Name ?? npc.Name2 ?? "";
+            long bountyReward = QuestSystem.AutoCompleteBountyForNPC(player, npcNameForBounty);
+
+            // Update quest progress (don't duplicate bounty processing)
+            QuestSystem.OnNPCDefeated(player, npc);
+
+            // Show bounty reward if any
+            if (bountyReward > 0)
+            {
+                terminal.WriteLine("");
+                terminal.SetColor("bright_yellow");
+                terminal.WriteLine($"  *** BOUNTY COLLECTED! +{bountyReward:N0} gold ***");
+                result.GoldGained += bountyReward;
+            }
         }
         else
         {

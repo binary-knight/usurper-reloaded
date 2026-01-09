@@ -100,6 +100,71 @@ namespace UsurperRemake.Systems
 
             // Stats summary
             DisplayStatsSummary();
+
+            // Backpack (unequipped items)
+            DisplayBackpack();
+        }
+
+        private void DisplayBackpack()
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("═══ BACKPACK ═══");
+
+            if (player.Inventory == null || player.Inventory.Count == 0)
+            {
+                terminal.SetColor("darkgray");
+                terminal.WriteLine("  (Empty - pick up items in the dungeon!)");
+                terminal.WriteLine("");
+                return;
+            }
+
+            terminal.WriteLine("");
+            int index = 1;
+            foreach (var item in player.Inventory.Take(20)) // Limit display to 20 items
+            {
+                terminal.SetColor("gray");
+                terminal.Write($"  [B{index}] ");
+
+                // Color based on item type
+                string itemColor = item.Type switch
+                {
+                    ObjType.Weapon => "bright_red",
+                    ObjType.Body or ObjType.Head or ObjType.Arms or ObjType.Legs => "bright_cyan",
+                    ObjType.Shield => "cyan",
+                    ObjType.Fingers or ObjType.Neck => "bright_magenta",
+                    _ => "white"
+                };
+                terminal.SetColor(itemColor);
+                terminal.Write(item.Name);
+
+                terminal.SetColor("gray");
+                terminal.Write($" - {item.Value:N0}g");
+
+                // Show key stats
+                var stats = new List<string>();
+                if (item.Attack > 0) stats.Add($"Att:{item.Attack}");
+                if (item.Defence > 0) stats.Add($"Def:{item.Defence}");
+                if (item.Strength != 0) stats.Add($"Str:{item.Strength:+#;-#;0}");
+                if (item.Dexterity != 0) stats.Add($"Dex:{item.Dexterity:+#;-#;0}");
+                if (item.Wisdom != 0) stats.Add($"Wis:{item.Wisdom:+#;-#;0}");
+
+                if (stats.Count > 0)
+                {
+                    terminal.SetColor("darkgray");
+                    terminal.Write($" ({string.Join(", ", stats.Take(3))})");
+                }
+
+                terminal.WriteLine("");
+                index++;
+            }
+
+            if (player.Inventory.Count > 20)
+            {
+                terminal.SetColor("darkgray");
+                terminal.WriteLine($"  ... and {player.Inventory.Count - 20} more items");
+            }
+
+            terminal.WriteLine("");
         }
 
         private void DisplaySlot(string slotName, EquipmentSlot slot, string key)
@@ -240,7 +305,8 @@ namespace UsurperRemake.Systems
             terminal.SetColor("gray");
             terminal.WriteLine("────────────────────────────────────────────────────────────────────────────────");
             terminal.SetColor("white");
-            terminal.WriteLine("Options: [1-9,F,C,N,L,R] View/Manage Slot  |  [U]nequip All  |  [Q]uit Inventory");
+            terminal.WriteLine("Options: [1-9,F,C,N,L,R] Manage Slot  |  [B#] Manage Backpack Item  |  [U]nequip All");
+            terminal.WriteLine("         [D]rop Item  |  [Q]uit Inventory");
             terminal.WriteLine("");
         }
 
@@ -297,13 +363,278 @@ namespace UsurperRemake.Systems
                 case "U":
                     await UnequipAll();
                     break;
+                case "D":
+                    await DropItem();
+                    break;
                 default:
-                    terminal.WriteLine("Invalid choice.", "red");
-                    await Task.Delay(500);
+                    // Check for B# format (backpack item)
+                    if (choice.StartsWith("B") && int.TryParse(choice.Substring(1), out int backpackIndex))
+                    {
+                        await ManageBackpackItem(backpackIndex);
+                    }
+                    else
+                    {
+                        terminal.WriteLine("Invalid choice.", "red");
+                        await Task.Delay(500);
+                    }
                     break;
             }
 
             return false;
+        }
+
+        private async Task ManageBackpackItem(int index)
+        {
+            if (player.Inventory == null || index < 1 || index > player.Inventory.Count)
+            {
+                terminal.WriteLine("Invalid item number.", "red");
+                await Task.Delay(500);
+                return;
+            }
+
+            var item = player.Inventory[index - 1];
+
+            terminal.ClearScreen();
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+            terminal.WriteLine("║                           MANAGE ITEM                                        ║");
+            terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+            terminal.WriteLine("");
+
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"  {item.Name}");
+            terminal.SetColor("gray");
+            terminal.WriteLine($"  Value: {item.Value:N0} gold");
+            terminal.WriteLine($"  Type: {item.Type}");
+            terminal.WriteLine("");
+
+            // Show stats
+            var stats = new List<string>();
+            if (item.Attack > 0) stats.Add($"Attack: +{item.Attack}");
+            if (item.Defence > 0) stats.Add($"Defence: +{item.Defence}");
+            if (item.Strength != 0) stats.Add($"Strength: {item.Strength:+#;-#;0}");
+            if (item.Dexterity != 0) stats.Add($"Dexterity: {item.Dexterity:+#;-#;0}");
+            if (item.Wisdom != 0) stats.Add($"Wisdom: {item.Wisdom:+#;-#;0}");
+            if (item.MagicProperties?.Mana != 0) stats.Add($"Mana: {item.MagicProperties.Mana:+#;-#;0}");
+
+            if (stats.Count > 0)
+            {
+                terminal.SetColor("white");
+                foreach (var stat in stats)
+                {
+                    terminal.WriteLine($"  {stat}");
+                }
+                terminal.WriteLine("");
+            }
+
+            terminal.SetColor("white");
+            terminal.WriteLine("  [E] Equip Item");
+            terminal.WriteLine("  [D] Drop Item");
+            terminal.WriteLine("  [Q] Back");
+            terminal.WriteLine("");
+
+            var choice = await terminal.GetInput("Choice: ");
+
+            switch (choice.ToUpper())
+            {
+                case "E":
+                    await EquipFromBackpack(index - 1);
+                    break;
+                case "D":
+                    player.Inventory.Remove(item);
+                    terminal.SetColor("yellow");
+                    terminal.WriteLine($"You drop the {item.Name}.");
+                    await Task.Delay(1000);
+                    break;
+            }
+        }
+
+        private async Task EquipFromBackpack(int itemIndex)
+        {
+            if (player.Inventory == null || itemIndex < 0 || itemIndex >= player.Inventory.Count)
+            {
+                terminal.WriteLine("Invalid item.", "red");
+                await Task.Delay(1000);
+                return;
+            }
+
+            var item = player.Inventory[itemIndex];
+
+            // Determine which slot this item goes in based on ObjType
+            // For magic items, use MagicType to determine the slot
+            EquipmentSlot targetSlot;
+            bool isMagicEquipment = false;
+
+            if (item.Type == ObjType.Magic)
+            {
+                // Check if this magic item is equippable based on MagicType
+                // Cast to int to avoid namespace conflicts between UsurperRemake.MagicItemType and global::MagicItemType
+                targetSlot = (int)item.MagicType switch
+                {
+                    5 => EquipmentSlot.LFinger,   // MagicItemType.Fingers = 5
+                    10 => EquipmentSlot.Neck,     // MagicItemType.Neck = 10
+                    9 => EquipmentSlot.Waist,     // MagicItemType.Waist = 9
+                    _ => EquipmentSlot.MainHand   // Non-equippable magic item
+                };
+
+                // Only equippable if it has a valid MagicType
+                int magicType = (int)item.MagicType;
+                isMagicEquipment = magicType == 5 || magicType == 10 || magicType == 9;
+            }
+            else
+            {
+                targetSlot = item.Type switch
+                {
+                    ObjType.Weapon => EquipmentSlot.MainHand,
+                    ObjType.Shield => EquipmentSlot.OffHand,
+                    ObjType.Body => EquipmentSlot.Body,
+                    ObjType.Head => EquipmentSlot.Head,
+                    ObjType.Arms => EquipmentSlot.Arms,
+                    ObjType.Hands => EquipmentSlot.Hands,
+                    ObjType.Legs => EquipmentSlot.Legs,
+                    ObjType.Feet => EquipmentSlot.Feet,
+                    ObjType.Waist => EquipmentSlot.Waist,
+                    ObjType.Neck => EquipmentSlot.Neck,
+                    ObjType.Face => EquipmentSlot.Face,
+                    ObjType.Fingers => EquipmentSlot.LFinger,
+                    _ => EquipmentSlot.MainHand // Default
+                };
+            }
+
+            // Check if item type is equippable
+            if (item.Type == ObjType.Food || item.Type == ObjType.Drink ||
+                item.Type == ObjType.Potion || (item.Type == ObjType.Magic && !isMagicEquipment))
+            {
+                terminal.WriteLine("This item cannot be equipped.", "red");
+                await Task.Delay(1000);
+                return;
+            }
+
+            // For rings, ask which finger
+            if (item.Type == ObjType.Fingers || (int)item.MagicType == 5)
+            {
+                terminal.WriteLine("Equip to [L]eft or [R]ight finger?", "yellow");
+                var fingerChoice = await terminal.GetInput("");
+                if (fingerChoice.ToUpper() == "R")
+                    targetSlot = EquipmentSlot.RFinger;
+                else
+                    targetSlot = EquipmentSlot.LFinger;
+            }
+
+            // Convert Item to Equipment and register in database
+            var equipment = new Equipment
+            {
+                Name = item.Name,
+                Slot = targetSlot,
+                WeaponPower = item.Attack,
+                ArmorClass = item.Armor,
+                DefenceBonus = item.Defence,
+                StrengthBonus = item.Strength,
+                DexterityBonus = item.Dexterity,
+                WisdomBonus = item.Wisdom,
+                CharismaBonus = item.Charisma,
+                MaxHPBonus = item.HP,
+                MaxManaBonus = item.Mana,
+                Value = item.Value,
+                IsCursed = item.IsCursed,
+                Rarity = EquipmentRarity.Common
+            };
+
+            // Register in database to get an ID
+            EquipmentDatabase.RegisterDynamic(equipment);
+
+            // Get current equipped item to put in backpack
+            var currentEquipped = player.GetEquipment(targetSlot);
+
+            // Unequip current item first
+            if (currentEquipped != null)
+            {
+                player.UnequipSlot(targetSlot);
+
+                // Convert old equipment back to Item and add to backpack
+                var oldItem = new global::Item
+                {
+                    Name = currentEquipped.Name,
+                    Attack = currentEquipped.WeaponPower,
+                    Armor = currentEquipped.ArmorClass,
+                    Defence = currentEquipped.DefenceBonus,
+                    Strength = currentEquipped.StrengthBonus,
+                    Dexterity = currentEquipped.DexterityBonus,
+                    Wisdom = currentEquipped.WisdomBonus,
+                    Charisma = currentEquipped.CharismaBonus,
+                    HP = currentEquipped.MaxHPBonus,
+                    Mana = currentEquipped.MaxManaBonus,
+                    Value = currentEquipped.Value,
+                    IsCursed = currentEquipped.IsCursed,
+                    Type = targetSlot switch
+                    {
+                        EquipmentSlot.MainHand => ObjType.Weapon,
+                        EquipmentSlot.OffHand => ObjType.Shield,
+                        EquipmentSlot.Head => ObjType.Head,
+                        EquipmentSlot.Body => ObjType.Body,
+                        EquipmentSlot.Arms => ObjType.Arms,
+                        EquipmentSlot.Hands => ObjType.Hands,
+                        EquipmentSlot.Legs => ObjType.Legs,
+                        EquipmentSlot.Feet => ObjType.Feet,
+                        EquipmentSlot.Waist => ObjType.Waist,
+                        EquipmentSlot.Face => ObjType.Face,
+                        EquipmentSlot.Neck => ObjType.Neck,
+                        EquipmentSlot.LFinger or EquipmentSlot.RFinger => ObjType.Fingers,
+                        _ => ObjType.Magic
+                    }
+                };
+                player.Inventory.Add(oldItem);
+            }
+
+            // Equip the new item
+            if (player.EquipItem(equipment, out string message))
+            {
+                // Remove from backpack
+                player.Inventory.RemoveAt(itemIndex);
+
+                terminal.SetColor("green");
+                if (currentEquipped != null)
+                    terminal.WriteLine($"Equipped {item.Name}. {currentEquipped.Name} moved to backpack.");
+                else
+                    terminal.WriteLine($"Equipped {item.Name}.");
+            }
+            else
+            {
+                terminal.SetColor("red");
+                terminal.WriteLine($"Cannot equip: {message}");
+            }
+
+            player.RecalculateStats();
+            await Task.Delay(1500);
+        }
+
+        private async Task DropItem()
+        {
+            if (player.Inventory == null || player.Inventory.Count == 0)
+            {
+                terminal.WriteLine("Your backpack is empty.", "gray");
+                await Task.Delay(1000);
+                return;
+            }
+
+            terminal.WriteLine("Enter item number to drop (B1, B2, etc): ", "yellow");
+            var input = await terminal.GetInput("");
+
+            if (input.ToUpper().StartsWith("B") && int.TryParse(input.Substring(1), out int index))
+            {
+                if (index >= 1 && index <= player.Inventory.Count)
+                {
+                    var item = player.Inventory[index - 1];
+                    player.Inventory.RemoveAt(index - 1);
+                    terminal.WriteLine($"You drop the {item.Name}.", "yellow");
+                    await Task.Delay(1000);
+                }
+                else
+                {
+                    terminal.WriteLine("Invalid item number.", "red");
+                    await Task.Delay(500);
+                }
+            }
         }
 
         private async Task ManageSlot(EquipmentSlot slot)

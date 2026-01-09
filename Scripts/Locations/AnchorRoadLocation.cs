@@ -72,7 +72,7 @@ public class AnchorRoadLocation : BaseLocation
         terminal.SetColor("cyan");
         terminal.WriteLine("Challenges:");
         terminal.SetColor("white");
-        WriteMenuRow("D", "Dormitory", "B", "Bounty Hunting", "Q", "Quests");
+        WriteMenuRow("D", "Dormitory", "B", "Bounty Board", "Q", "Quest Hall");
         WriteMenuRow("G", "Gang War", "O", "Online War", "A", "Altar of the Gods");
         terminal.WriteLine("");
 
@@ -224,12 +224,14 @@ public class AnchorRoadLocation : BaseLocation
                 return false;
 
             case 'B':
-                await StartBountyHunting();
-                return false;
+                // Redirect to Quest Hall for bounty board
+                await NavigateToLocation(GameLocation.QuestHall);
+                return true;
 
             case 'Q':
-                await StartQuests();
-                return false;
+                // Redirect to Quest Hall for proper quest management
+                await NavigateToLocation(GameLocation.QuestHall);
+                return true;
 
             case 'G':
                 await StartGangWar();
@@ -562,7 +564,8 @@ public class AnchorRoadLocation : BaseLocation
             if (int.TryParse(input, out int choice) && choice >= 1 && choice <= availableQuests.Count)
             {
                 var selectedQuest = availableQuests[choice - 1];
-                var result = QuestSystem.ClaimQuest((Player)currentPlayer, selectedQuest);
+                var playerObj = currentPlayer as Player ?? new Player { Name2 = currentPlayer.Name2, Level = currentPlayer.Level };
+                var result = QuestSystem.ClaimQuest(playerObj, selectedQuest);
 
                 if (result == QuestClaimResult.CanClaim)
                 {

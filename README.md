@@ -12,7 +12,7 @@ What began as a faithful port has evolved into something more: a game that explo
 
 **Original Creator**: Jakob Dangarden (1993)
 **Source Preservation**: Rick Parrish, Daniel Zingaro
-**Modern Recreation**: Built with Godot 4.4+ and C#
+**Modern Recreation**: Built with C# and .NET 8.0
 **License**: GNU General Public License v2 (GPL v2)
 
 ## The Story
@@ -128,8 +128,7 @@ Main Street, Inn, Bank, Weapon Shop, Armor Shop, Magic Shop, Healer, Temple, Chu
 ## Getting Started
 
 ### Prerequisites
-- [Godot 4.4+ Mono version](https://godotengine.org/download) (tested with 4.4.1)
-- [.NET SDK 6.0+](https://dotnet.microsoft.com/download) (works with .NET 9.0)
+- [.NET SDK 8.0+](https://dotnet.microsoft.com/download)
 - Git
 
 ### Quick Start
@@ -139,12 +138,11 @@ git clone https://github.com/binary-knight/usurper-reloaded.git
 cd usurper-remake
 
 # Build the project
-dotnet build
+dotnet build usurper-reloaded.csproj --configuration Release
 
-# Run the game (after opening in Godot)
-godot project.godot
-
-# Or run directly from Godot editor: Press F5
+# Publish and run
+dotnet publish usurper-reloaded.csproj --configuration Release --output ./publish
+./publish/UsurperRemake.exe
 ```
 
 ### Building Standalone Executables
@@ -168,7 +166,7 @@ dotnet publish usurper-reloaded.csproj -c Release -r osx-x64 -o publish/mac \
 
 ## Technical Details
 
-- **Engine**: Godot 4.4+ with C# (.NET 6.0+)
+- **Runtime**: .NET 8.0 (LTS)
 - **Lines of Code**: 100,000+ across 150+ C# files
 - **Pascal Compatibility**: 100% formula accuracy from original source
 - **New Systems**: 20+ major systems added (Companions, Grief, Ocean Philosophy, Seals, Old Gods, etc.)
@@ -195,7 +193,7 @@ usurper-reborn/
 │   ├── AI/             # NPC AI systems (Brain, Memory, Goals, Emotions)
 │   ├── Data/           # Game data (NPCs, Equipment, Monsters, Old Gods)
 │   └── UI/             # Terminal emulator interface
-├── Scenes/             # Godot scene files
+├── Console/            # Console bootstrap and terminal
 ├── Data/               # JSON game data
 └── .github/            # CI/CD workflows
 ```
@@ -262,6 +260,11 @@ Choose your challenge level:
 - Complete source included with every download
 - GitHub: https://github.com/binary-knight/usurper-reloaded
 - All build tools and scripts included
+
+## Community
+
+Join our Discord server for discussions, feedback, and updates:
+**https://discord.gg/BqY66QkPGE**
 
 ## Acknowledgments
 

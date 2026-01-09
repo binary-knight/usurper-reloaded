@@ -54,6 +54,10 @@ public static class EquipmentDatabase
         _initialized = true;
     }
 
+    // Dynamic equipment starts at high ID to avoid conflicts
+    private const int DynamicEquipmentStart = 100000;
+    private static int _nextDynamicId = DynamicEquipmentStart;
+
     #region Lookup Methods
 
     /// <summary>
@@ -63,6 +67,18 @@ public static class EquipmentDatabase
     {
         EnsureInitialized();
         return _allEquipment.TryGetValue(id, out var equip) ? equip : null;
+    }
+
+    /// <summary>
+    /// Register a dynamic equipment item (from inventory/crafting)
+    /// Returns the assigned ID
+    /// </summary>
+    public static int RegisterDynamic(Equipment equip)
+    {
+        EnsureInitialized();
+        equip.Id = _nextDynamicId++;
+        _allEquipment[equip.Id] = equip;
+        return equip.Id;
     }
 
     /// <summary>

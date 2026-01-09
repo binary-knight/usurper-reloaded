@@ -1,7 +1,9 @@
 # Claude Instructions for Usurper Remake
 
 ## Project Overview
-This is a remake of "Usurper: Halls of Avarice", a classic BBS door game from the early 1990s. The remake is built in C# targeting .NET 6.0, with optional Godot integration for GUI mode. The game runs primarily in console/terminal mode.
+This is a remake of "Usurper: Halls of Avarice", a classic BBS door game from the early 1990s. The remake is built in C# targeting .NET 8.0 (LTS). The game runs in console/terminal mode.
+
+**Discord**: https://discord.gg/BqY66QkPGE
 
 ## Build & Run Commands
 ```bash
@@ -50,7 +52,7 @@ dotnet publish usurper-reloaded.csproj --configuration Release --output ./publis
 - Saves go to `./saves/` directory
 
 ### Terminal/UI
-- `TerminalEmulator.cs` - Main UI class for both console and Godot modes
+- `TerminalEmulator.cs` - Main UI class for terminal output
 - `ConsoleTerminal.cs` - Console-specific terminal implementation
 - Color markup: `[red]text[/]`, `[bright_cyan]text[/]`, etc.
 - Key input methods:
@@ -537,7 +539,7 @@ Full codebase audit covering every system, integration, story point, companion, 
 ~~3. **SaveSystem**: Serialize combat stamina, status effects, kill statistics~~ ✅ FIXED - ActiveStatuses, MKills/PKills all serialized
 ~~4. **Thread Safety**: Use `Lazy<T>` for all singletons~~ ✅ FIXED - GameEngine uses Lazy<T>
 ~~5. **Quests**: Fix `ValidateQuestCompletion()` to check objectives~~ ✅ FIXED - Respects IsOptional flag
-~~6. **Terminal**: Fix `GetKeyInput()` to return single key in Godot mode~~ ✅ VERIFIED - Returns first char from input
+~~6. **Terminal**: Fix `GetKeyInput()` to return single key~~ ✅ VERIFIED - Returns first char from input
 ~~7. **Spelling Fixes**: `IsMalePresentinig`, `IsLikelyToBetrray`, `AnnouncePregancy`~~ ✅ VERIFIED - All spelled correctly
 ~~8. **Missing Method**: Implement `RelationshipSystem.UpdateKillStats()`~~ ✅ FIXED - Implemented in LegacyCompat.cs
 

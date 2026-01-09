@@ -515,8 +515,11 @@ public partial class QuestSystem : Node
                 // NPC defeat quest - check if target NPC was defeated
                 if (!string.IsNullOrEmpty(quest.TargetNPCName))
                 {
-                    // Quest is complete if NPC was marked as defeated
-                    return quest.Deleted || quest.OccupiedDays > 0;
+                    // Quest is complete if NPC was marked as defeated (OccupiedDays set by OnNPCDefeated)
+                    // Also check if DefeatNPC objectives are complete
+                    bool objectivesComplete = quest.Objectives?.Any(o =>
+                        o.ObjectiveType == QuestObjectiveType.DefeatNPC && o.IsComplete) ?? false;
+                    return quest.OccupiedDays > 0 || objectivesComplete;
                 }
                 return true;
 
@@ -823,6 +826,112 @@ public partial class QuestSystem : Node
     }
 
     /// <summary>
+    /// Update quest progress when player defeats an NPC (bounty system)
+    /// Call this from StreetEncounterSystem and BaseLocation.ChallengeNPC when NPC is killed
+    /// </summary>
+    public static void OnNPCDefeated(Character player, NPC defeatedNPC)
+    {
+        if (player == null || defeatedNPC == null) return;
+
+        string npcName = defeatedNPC.Name ?? defeatedNPC.Name2 ?? "";
+        string npcNameLower = npcName.ToLower().Replace(" ", "_");
+
+        // First, update any claimed quests for this player
+        var playerQuests = GetPlayerQuests(player.Name2);
+        foreach (var quest in playerQuests)
+        {
+            // Check if this quest is a bounty targeting this specific NPC
+            if (!string.IsNullOrEmpty(quest.TargetNPCName))
+            {
+                string targetLower = quest.TargetNPCName.ToLower().Replace(" ", "_");
+                if (targetLower == npcNameLower || quest.TargetNPCName.Equals(npcName, StringComparison.OrdinalIgnoreCase))
+                {
+                    // Mark the DefeatNPC objective as complete
+                    quest.UpdateObjectiveProgress(QuestObjectiveType.DefeatNPC, 1, npcName);
+
+                    // Also mark the quest as having activity (for legacy validation)
+                    quest.OccupiedDays = Math.Max(1, quest.OccupiedDays);
+                }
+            }
+
+            // Generic NPC defeat objectives
+            quest.UpdateObjectiveProgress(QuestObjectiveType.DefeatNPC, 1, npcName);
+        }
+
+        // Note: AutoCompleteBountyForNPC should be called by the combat system
+        // to show immediate feedback to the player. We just refresh the bounty board here.
+        RefreshKingBounties();
+    }
+
+    /// <summary>
+    /// Auto-complete unclaimed bounties when player kills the target NPC
+    /// Gives immediate reward without needing to claim first
+    /// Returns the total bounty reward collected (0 if no bounties matched)
+    /// </summary>
+    public static long AutoCompleteBountyForNPC(Character player, string npcName)
+    {
+        if (string.IsNullOrEmpty(npcName)) return 0;
+
+        long totalReward = 0;
+
+        // Find ALL bounties targeting this NPC (claimed or unclaimed)
+        var matchingBounties = questDatabase.Where(q =>
+            !q.Deleted &&
+            !string.IsNullOrEmpty(q.TargetNPCName) &&
+            q.TargetNPCName.Equals(npcName, StringComparison.OrdinalIgnoreCase)
+        ).ToList();
+
+        foreach (var bounty in matchingBounties)
+        {
+            // Calculate reward
+            long reward = bounty.Reward * 100; // Reward is stored as /100
+            if (reward <= 0) reward = 500; // Minimum reward
+
+            // Give player the reward immediately
+            player.Gold += reward;
+            player.Experience += bounty.Reward * 10;
+            totalReward += reward;
+
+            // Mark bounty as completed
+            bounty.Deleted = true;
+            bounty.Occupier = player.Name2;
+            bounty.OccupiedDays = 1;
+
+            // Update statistics
+            StatisticsManager.Current?.RecordBountyComplete();
+
+            // Announce the bounty completion
+            NewsSystem.Instance?.Newsy(true, $"{player.Name2} collected the bounty on {npcName}! (+{reward:N0} gold)");
+
+            GD.Print($"[QuestSystem] Auto-completed bounty on {npcName} for {player.Name2}, reward: {reward} gold");
+        }
+
+        return totalReward;
+    }
+
+    /// <summary>
+    /// Remove all bounties targeting a specific NPC (when they die) and refresh the bounty board
+    /// </summary>
+    private static void RemoveBountiesForDeadNPC(string npcName)
+    {
+        if (string.IsNullOrEmpty(npcName)) return;
+
+        // Find and remove unclaimed bounties targeting this NPC
+        var bountiesRemoved = questDatabase.RemoveAll(q =>
+            !string.IsNullOrEmpty(q.TargetNPCName) &&
+            q.TargetNPCName.Equals(npcName, StringComparison.OrdinalIgnoreCase) &&
+            string.IsNullOrEmpty(q.Occupier) && // Only remove unclaimed bounties
+            !q.Deleted);
+
+        // If we removed any bounties, spawn replacements
+        if (bountiesRemoved > 0)
+        {
+            GD.Print($"[QuestSystem] Removed {bountiesRemoved} bounties for dead NPC: {npcName}");
+            RefreshKingBounties();
+        }
+    }
+
+    /// <summary>
     /// Update quest progress when player visits a location
     /// Call this from BaseLocation.EnterLocation
     /// </summary>
@@ -1096,12 +1205,19 @@ public partial class QuestSystem : Node
     /// </summary>
     private static void CreateKingBounty(string kingName)
     {
-        // Get list of potential targets (NPCs who aren't the King, guards, or story NPCs)
+        // Get list of NPCs that already have bounties on them (avoid duplicates)
+        var existingBountyTargets = questDatabase
+            .Where(q => q.Initiator == KING_BOUNTY_INITIATOR && !q.Deleted && !string.IsNullOrEmpty(q.TargetNPCName))
+            .Select(q => q.TargetNPCName.ToLower())
+            .ToHashSet();
+
+        // Get list of potential targets (NPCs who aren't the King, guards, story NPCs, or already have bounties)
         var potentialTargets = NPCSpawnSystem.Instance?.ActiveNPCs?
             .Where(n => n.IsAlive &&
                        !n.King &&
                        !n.IsStoryNPC &&
-                       n.Level >= 5)
+                       n.Level >= 5 &&
+                       !existingBountyTargets.Contains((n.Name ?? n.Name2 ?? "").ToLower()))
             .ToList() ?? new List<NPC>();
 
         Quest bounty;
