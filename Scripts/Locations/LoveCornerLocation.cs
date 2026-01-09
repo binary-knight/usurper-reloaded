@@ -468,25 +468,59 @@ public class LoveCornerLocation : BaseLocation
     {
         var terminal = TerminalEmulator.Instance;
         terminal.WriteLine();
-        terminal.WriteLine("Examine Child", TerminalEmulator.ColorCyan);
+        terminal.WriteLine("Your Children", TerminalEmulator.ColorCyan);
         terminal.WriteLine("=============");
         terminal.WriteLine();
-        
-        if (player.Children == 0)
+
+        var children = FamilySystem.Instance.GetChildrenOf(player);
+
+        if (children.Count == 0)
         {
-            terminal.WriteLine("You have no children to examine.");
+            terminal.WriteLine("You have no children.");
+            terminal.WriteLine();
+            terminal.WriteLine("To have children, marry someone of the opposite sex");
+            terminal.WriteLine("and visit your home for intimate moments.", TerminalEmulator.ColorDarkGray);
             return WaitForKey();
         }
-        
-        terminal.WriteLine($"You have {player.Children} child{(player.Children > 1 ? "ren" : "")}.");
+
+        terminal.WriteLine($"You have {children.Count} child{(children.Count > 1 ? "ren" : "")}:");
         terminal.WriteLine();
-        terminal.WriteLine("Child examination feature:");
-        terminal.WriteLine("- View detailed child information");
-        terminal.WriteLine("- Check child's health and status");
-        terminal.WriteLine("- Monitor child's behavior");
-        terminal.WriteLine();
-        terminal.WriteLine("This feature will be fully implemented in a future update.");
-        
+
+        foreach (var child in children)
+        {
+            terminal.WriteLine($"  {child.Name}", TerminalEmulator.ColorYellow);
+            terminal.WriteLine($"    Age: {child.Age} year{(child.Age != 1 ? "s" : "")}");
+            terminal.WriteLine($"    Sex: {(child.Sex == CharacterSex.Male ? "Male" : "Female")}");
+            terminal.WriteLine($"    Behavior: {child.GetSoulDescription()}");
+            terminal.WriteLine($"    Health: {child.GetHealthDescription()}");
+            terminal.WriteLine($"    Location: {child.GetLocationDescription()}");
+
+            var marks = child.GetStatusMarks();
+            if (!string.IsNullOrEmpty(marks))
+            {
+                terminal.WriteLine($"    Status: {marks}", TerminalEmulator.ColorRed);
+            }
+
+            // Show other parent
+            string otherParent = child.Mother == player.Name || child.MotherID == player.ID
+                ? child.Father
+                : child.Mother;
+            if (!string.IsNullOrEmpty(otherParent))
+            {
+                terminal.WriteLine($"    Other Parent: {otherParent}", TerminalEmulator.ColorDarkGray);
+            }
+
+            terminal.WriteLine();
+        }
+
+        // Check for any children approaching adulthood
+        var teensCount = children.Count(c => c.Age >= 15 && c.Age < FamilySystem.ADULT_AGE);
+        if (teensCount > 0)
+        {
+            terminal.WriteLine($"{teensCount} of your children will come of age soon!", TerminalEmulator.ColorGreen);
+            terminal.WriteLine("When children reach 18, they become independent NPCs.", TerminalEmulator.ColorDarkGray);
+        }
+
         return WaitForKey();
     }
 

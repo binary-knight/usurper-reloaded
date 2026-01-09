@@ -65,6 +65,25 @@ public class HomeLocation : BaseLocation
         terminal.WriteLine("+==========================================================+");
         terminal.WriteLine("");
 
+        // Quick stats bar
+        terminal.SetColor("gray");
+        terminal.Write("  HP: ");
+        terminal.SetColor(currentPlayer.HP < currentPlayer.MaxHP / 4 ? "red" : (currentPlayer.HP < currentPlayer.MaxHP / 2 ? "yellow" : "bright_green"));
+        terminal.Write($"{currentPlayer.HP}/{currentPlayer.MaxHP}");
+        terminal.SetColor("gray");
+        terminal.Write("  |  Mana: ");
+        terminal.SetColor("bright_blue");
+        terminal.Write($"{currentPlayer.Mana}/{currentPlayer.MaxMana}");
+        terminal.SetColor("gray");
+        terminal.Write("  |  Gold: ");
+        terminal.SetColor("bright_yellow");
+        terminal.Write($"{currentPlayer.Gold:N0}");
+        terminal.SetColor("gray");
+        terminal.Write("  |  Potions: ");
+        terminal.SetColor("bright_green");
+        terminal.WriteLine($"{currentPlayer.Healing}");
+        terminal.WriteLine("");
+
         // Description
         terminal.SetColor("white");
         terminal.WriteLine("You stand in the warm comfort of your home. A crackling fire");
@@ -72,12 +91,30 @@ public class HomeLocation : BaseLocation
         terminal.WriteLine("just how you like them.");
         terminal.WriteLine("");
 
+        // Show storage info
+        terminal.SetColor("gray");
+        terminal.Write("  Chest: ");
+        terminal.SetColor("cyan");
+        terminal.Write($"{Chest.Count} item{(Chest.Count != 1 ? "s" : "")}");
+        terminal.SetColor("gray");
+        terminal.Write("  |  Inventory: ");
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"{currentPlayer.Inventory.Count} item{(currentPlayer.Inventory.Count != 1 ? "s" : "")}");
+        terminal.WriteLine("");
+
         // Show family info if applicable
         var romance = RomanceTracker.Instance;
-        if (romance.Spouses.Count > 0 || romance.CurrentLovers.Count > 0)
+        var children = FamilySystem.Instance.GetChildrenOf(currentPlayer);
+        if (romance.Spouses.Count > 0 || romance.CurrentLovers.Count > 0 || children.Count > 0)
         {
             terminal.SetColor("bright_magenta");
-            terminal.WriteLine("Your loved ones are here with you.");
+            terminal.Write("Your loved ones are here with you");
+            if (children.Count > 0)
+            {
+                terminal.SetColor("bright_yellow");
+                terminal.Write($" ({children.Count} child{(children.Count != 1 ? "ren" : "")})");
+            }
+            terminal.WriteLine(".");
             terminal.WriteLine("");
         }
 
@@ -167,7 +204,26 @@ public class HomeLocation : BaseLocation
         terminal.SetColor("darkgray");
         terminal.Write("]");
         terminal.SetColor("white");
-        terminal.WriteLine("edroom");
+        terminal.Write("edroom         ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_green");
+        terminal.Write("H");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("eal (Potion)");
+
+        // Row 4 - Inventory
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("cyan");
+        terminal.Write("I");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("nventory");
 
         terminal.WriteLine("");
 
@@ -226,6 +282,12 @@ public class HomeLocation : BaseLocation
                 return false;
             case "B":
                 await VisitBedroom();
+                return false;
+            case "H":
+                await UseHealingPotion();
+                return false;
+            case "I":
+                await ShowInventory();
                 return false;
             case "S":
                 await ShowStatus();
@@ -328,14 +390,134 @@ public class HomeLocation : BaseLocation
         {
             foreach (var kv in p.Achievements)
             {
-                var status = kv.Value ? "✅" : "❌";
+                terminal.SetColor(kv.Value ? "bright_green" : "dark_gray");
+                var status = kv.Value ? "[X]" : "[ ]";
                 terminal.WriteLine($" {status} {kv.Key}");
             }
+            terminal.SetColor("white");
         }
         else
         {
             terminal.WriteLine("  No achievements yet.");
         }
+    }
+
+    private async Task UseHealingPotion()
+    {
+        if (currentPlayer.HP >= currentPlayer.MaxHP)
+        {
+            terminal.WriteLine("You're already at full health!", "bright_green");
+            await terminal.WaitForKey();
+            return;
+        }
+
+        if (currentPlayer.Healing <= 0)
+        {
+            terminal.WriteLine("You don't have any healing potions!", "red");
+            terminal.WriteLine("Visit the Healer or Magic Shop to buy some.", "gray");
+            await terminal.WaitForKey();
+            return;
+        }
+
+        // Use a potion
+        currentPlayer.Healing--;
+        long healAmount = Math.Max(50, currentPlayer.MaxHP / 4); // Heal 25% or at least 50 HP
+        long oldHP = currentPlayer.HP;
+        currentPlayer.HP = Math.Min(currentPlayer.HP + healAmount, currentPlayer.MaxHP);
+        long actualHeal = currentPlayer.HP - oldHP;
+
+        terminal.SetColor("bright_green");
+        terminal.WriteLine($"You drink a healing potion...");
+        terminal.WriteLine($"Restored {actualHeal} HP! ({currentPlayer.HP}/{currentPlayer.MaxHP})");
+        terminal.SetColor("gray");
+        terminal.WriteLine($"Potions remaining: {currentPlayer.Healing}");
+        await terminal.WaitForKey();
+    }
+
+    private async Task ShowInventory()
+    {
+        terminal.WriteLine("\n", "white");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("=== YOUR INVENTORY ===");
+        terminal.WriteLine();
+
+        if (!currentPlayer.Inventory.Any())
+        {
+            terminal.WriteLine("  Your inventory is empty.", "gray");
+            await terminal.WaitForKey();
+            return;
+        }
+
+        terminal.SetColor("white");
+        for (int i = 0; i < currentPlayer.Inventory.Count; i++)
+        {
+            var item = currentPlayer.Inventory[i];
+            terminal.Write($"  {i + 1}. ");
+            terminal.SetColor("bright_yellow");
+            terminal.Write(item.GetDisplayName());
+            terminal.SetColor("gray");
+            if (item.Value > 0)
+            {
+                terminal.Write($" (Value: {item.Value:N0} gold)");
+            }
+            terminal.WriteLine();
+        }
+
+        terminal.WriteLine();
+        terminal.SetColor("cyan");
+        terminal.WriteLine("Options: [D]eposit to chest, [E]quip item, [Q]uit");
+
+        var input = await terminal.GetInput("Choice: ");
+        var c = input.Trim().ToUpperInvariant();
+
+        switch (c)
+        {
+            case "D":
+                await DepositItem();
+                break;
+            case "E":
+                await EquipItemFromInventory();
+                break;
+            default:
+                break;
+        }
+    }
+
+    private async Task EquipItemFromInventory()
+    {
+        if (!currentPlayer.Inventory.Any())
+        {
+            terminal.WriteLine("No items to equip.", "yellow");
+            await terminal.WaitForKey();
+            return;
+        }
+
+        terminal.WriteLine("\nSelect item number to use/equip (or 0 to cancel):", "cyan");
+        for (int i = 0; i < currentPlayer.Inventory.Count; i++)
+        {
+            var item = currentPlayer.Inventory[i];
+            terminal.Write($"  {i + 1}. ");
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine(item.GetDisplayName());
+        }
+        terminal.SetColor("white");
+
+        var input = await terminal.GetInput("Choice: ");
+        if (int.TryParse(input, out int idx) && idx > 0 && idx <= currentPlayer.Inventory.Count)
+        {
+            var item = currentPlayer.Inventory[idx - 1];
+
+            // Apply the item's effects
+            item.ApplyEffects(currentPlayer);
+            currentPlayer.Inventory.RemoveAt(idx - 1);
+            currentPlayer.RecalculateStats();
+            terminal.WriteLine($"Used {item.GetDisplayName()}!", "bright_green");
+        }
+        else
+        {
+            terminal.WriteLine("Cancelled.", "gray");
+        }
+        await terminal.WaitForKey();
     }
 
     private async Task ShowFamily()
@@ -435,16 +617,44 @@ public class HomeLocation : BaseLocation
             terminal.WriteLine();
         }
 
-        // Show children (from all spouses)
-        int totalChildren = romance.Spouses.Sum(s => s.Children);
-        if (totalChildren > 0 || currentPlayer.Children > 0)
+        // Show children from FamilySystem
+        var children = FamilySystem.Instance.GetChildrenOf(currentPlayer);
+        if (children.Count > 0)
         {
             hasFamily = true;
-            int childCount = Math.Max(totalChildren, currentPlayer.Children);
             terminal.SetColor("bright_yellow");
-            terminal.WriteLine($"  CHILDREN: {childCount}");
-            terminal.SetColor("gray");
-            terminal.WriteLine("    (Visit Love Corner to see detailed child information)");
+            terminal.WriteLine($"  CHILDREN: {children.Count}");
+            terminal.SetColor("white");
+
+            foreach (var child in children)
+            {
+                terminal.Write("    ");
+                terminal.SetColor("bright_green");
+                terminal.Write("* ");
+                terminal.SetColor("bright_white");
+                terminal.Write($"{child.Name}");
+                terminal.SetColor("gray");
+                terminal.Write($" - {child.Age} year{(child.Age != 1 ? "s" : "")} old, {(child.Sex == CharacterSex.Male ? "boy" : "girl")}");
+
+                // Show behavior indicator
+                terminal.SetColor(child.Soul > 100 ? "bright_cyan" : (child.Soul < -100 ? "red" : "white"));
+                terminal.WriteLine($" ({child.GetSoulDescription()})");
+
+                // Show health issues
+                if (child.Health != GameConfig.ChildHealthNormal)
+                {
+                    terminal.SetColor("red");
+                    terminal.WriteLine($"        Health: {child.GetHealthDescription()}");
+                }
+            }
+
+            // Check for children approaching adulthood
+            var teensCount = children.Count(c => c.Age >= 15 && c.Age < FamilySystem.ADULT_AGE);
+            if (teensCount > 0)
+            {
+                terminal.SetColor("bright_cyan");
+                terminal.WriteLine($"    ({teensCount} will come of age soon and become adult NPCs!)");
+            }
             terminal.WriteLine();
         }
 

@@ -654,9 +654,9 @@ namespace UsurperRemake.Locations
         private async Task ProcessMarriageCeremony()
         {
             terminal.WriteLine("");
-            terminal.WriteLine("═══ MARRIAGE CEREMONIES ═══", "bright_magenta");
+            terminal.WriteLine("=== MARRIAGE CEREMONIES ===", "bright_magenta");
             terminal.WriteLine("");
-            
+
             if (currentPlayer.IsMarried)
             {
                 terminal.WriteLine($"You are already married to {currentPlayer.SpouseName}!", "yellow");
@@ -664,84 +664,174 @@ namespace UsurperRemake.Locations
                 await Task.Delay(2500);
                 return;
             }
-            
+
             terminal.WriteLine($"{bishopName} approaches with a warm smile.", "white");
             terminal.WriteLine("");
             terminal.WriteLine("\"Ah, seeking the blessed union of marriage!\"", "bright_yellow");
             terminal.WriteLine("\"This is one of the Church's most sacred ceremonies.\"", "bright_yellow");
             terminal.WriteLine("");
-            
+
+            // Show eligible marriage candidates (NPCs in love with player)
+            var eligibleNPCs = GetEligibleMarriageCandidates();
+
+            if (eligibleNPCs.Count == 0)
+            {
+                terminal.WriteLine("\"However, I see no one who is ready to marry you.\"", "bright_yellow");
+                terminal.WriteLine("");
+                terminal.WriteLine("To marry someone, you must first build a relationship with them.", "gray");
+                terminal.WriteLine("Visit the Love Corner to court potential partners.", "gray");
+                terminal.WriteLine("Both of you must be in love before marriage is possible.", "gray");
+                await Task.Delay(3000);
+                return;
+            }
+
+            terminal.WriteLine("\"I see there are those who would marry you:\"", "bright_yellow");
+            terminal.WriteLine("");
+
+            for (int i = 0; i < eligibleNPCs.Count; i++)
+            {
+                var npc = eligibleNPCs[i];
+                terminal.WriteLine($"  {i + 1}. {npc.Name2} ({npc.Class}, Level {npc.Level})", "bright_cyan");
+            }
+            terminal.WriteLine("");
+
             terminal.WriteLine("Marriage ceremony services:", "cyan");
             terminal.WriteLine($"- Standard ceremony: {GameConfig.MarriageCost:N0} {GameConfig.MoneyType}");
             terminal.WriteLine($"- Elaborate ceremony: {GameConfig.MarriageCost * 2:N0} {GameConfig.MoneyType}");
             terminal.WriteLine($"- Royal ceremony: {GameConfig.MarriageCost * 5:N0} {GameConfig.MoneyType}");
             terminal.WriteLine("");
-            
-            var partnerName = await terminal.GetInput("Who do you wish to marry? (Enter name): ");
-            if (string.IsNullOrWhiteSpace(partnerName))
+
+            var partnerInput = await terminal.GetInput("Who do you wish to marry? (Enter number or name, or Q to cancel): ");
+            if (string.IsNullOrWhiteSpace(partnerInput) || partnerInput.ToUpper() == "Q")
             {
-                terminal.WriteLine("A marriage requires two people.", "gray");
+                terminal.WriteLine("\"Come back when you are ready.\"", "gray");
                 await Task.Delay(1500);
                 return;
             }
-            
+
+            // Find the NPC - by number or name
+            NPC? targetNPC = null;
+            if (int.TryParse(partnerInput, out int selection) && selection >= 1 && selection <= eligibleNPCs.Count)
+            {
+                targetNPC = eligibleNPCs[selection - 1];
+            }
+            else
+            {
+                targetNPC = eligibleNPCs.FirstOrDefault(n =>
+                    n.Name2.Equals(partnerInput, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (targetNPC == null)
+            {
+                terminal.WriteLine($"\"{partnerInput}\" is not among those who would marry you.", "red");
+                terminal.WriteLine("You can only marry someone who is in love with you.", "gray");
+                await Task.Delay(2000);
+                return;
+            }
+
             var ceremonyType = await terminal.GetInput("What type of ceremony? (S)tandard, (E)laborate, (R)oyal: ");
-            
+
             long ceremonyCost = ceremonyType.ToUpper() switch
             {
                 "E" => GameConfig.MarriageCost * 2,
                 "R" => GameConfig.MarriageCost * 5,
                 _ => GameConfig.MarriageCost
             };
-            
+
             if (currentPlayer.Gold < ceremonyCost)
             {
                 terminal.WriteLine($"You need {ceremonyCost:N0} {GameConfig.MoneyType} for this ceremony.", "red");
                 await Task.Delay(2000);
                 return;
             }
-            
-            var confirm = await terminal.GetInput($"Proceed with marriage to {partnerName} for {ceremonyCost:N0} {GameConfig.MoneyType}? (Y/N): ");
+
+            var confirm = await terminal.GetInput($"Proceed with marriage to {targetNPC.Name2} for {ceremonyCost:N0} {GameConfig.MoneyType}? (Y/N): ");
             if (confirm.ToUpper() != "Y")
             {
                 terminal.WriteLine("Perhaps when you're more certain.", "gray");
                 await Task.Delay(1500);
                 return;
             }
-            
-            // Process marriage
+
+            // Use the proper RelationshipSystem to validate and perform marriage
             currentPlayer.Gold -= ceremonyCost;
-            currentPlayer.IsMarried = true;
-            currentPlayer.SpouseName = partnerName;
-            
+
+            bool success = RelationshipSystem.PerformMarriage(currentPlayer, targetNPC, out string marriageMessage);
+
+            if (!success)
+            {
+                // Refund if marriage failed
+                currentPlayer.Gold += ceremonyCost;
+                terminal.WriteLine("");
+                terminal.WriteLine($"{bishopName} frowns and shakes his head.", "yellow");
+                terminal.WriteLine($"\"{marriageMessage}\"", "bright_yellow");
+                await Task.Delay(2500);
+                return;
+            }
+
             // Marriage ceremony display
             terminal.WriteLine("");
-            terminal.WriteLine("═══ WEDDING CEREMONY ═══", "bright_white");
+            terminal.WriteLine("=== WEDDING CEREMONY ===", "bright_white");
             await Task.Delay(1000);
-            
+
             terminal.WriteLine($"{bishopName} begins the sacred ceremony...", "bright_yellow");
             await Task.Delay(2000);
-            
+
             terminal.WriteLine("");
-            var ceremonyMessage = GameConfig.WeddingCeremonyMessages[GD.RandRange(0, GameConfig.WeddingCeremonyMessages.Length - 1)];
-            terminal.WriteLine($"\"{ceremonyMessage}\"", "bright_magenta");
+            var ceremonyMsg = GameConfig.WeddingCeremonyMessages[GD.RandRange(0, GameConfig.WeddingCeremonyMessages.Length - 1)];
+            terminal.WriteLine($"\"{ceremonyMsg}\"", "bright_magenta");
             await Task.Delay(2000);
-            
+
             terminal.WriteLine("");
-            terminal.WriteLine($"You are now married to {partnerName}!", "bright_green");
+            terminal.WriteLine($"You are now married to {targetNPC.Name2}!", "bright_green");
             terminal.WriteLine("The Church bells ring in celebration!", "bright_yellow");
-            
+
             // Marriage bonuses
-            currentPlayer.Chivalry += 10; // Marriage is a good deed
-            currentPlayer.Charisma += 5; // Marriage increases charm
-            
+            currentPlayer.Chivalry += 10;
+            currentPlayer.Charisma += 5;
+
             terminal.WriteLine($"Your chivalry increases by 10!", "cyan");
             terminal.WriteLine($"Your charm increases by 5!", "cyan");
-            
+
+            // Inform about children possibility
+            if (currentPlayer.Sex != targetNPC.Sex)
+            {
+                terminal.WriteLine("");
+                terminal.WriteLine("\"May your union be blessed with children!\"", "bright_yellow");
+                terminal.WriteLine("(Visit the Love Corner for intimate moments)", "gray");
+            }
+
             // Create news entry
-            await CreateNewsEntry("Wedding Bells", $"{currentPlayer.DisplayName} married {partnerName} in a beautiful ceremony!", "The whole kingdom celebrates this union!");
-            
+            await CreateNewsEntry("Wedding Bells", $"{currentPlayer.DisplayName} married {targetNPC.Name2} in a beautiful ceremony!", "The whole kingdom celebrates this union!");
+
             await Task.Delay(4000);
+        }
+
+        /// <summary>
+        /// Get NPCs who are eligible to marry the current player (both in love)
+        /// </summary>
+        private List<NPC> GetEligibleMarriageCandidates()
+        {
+            var eligible = new List<NPC>();
+            var allNPCs = NPCSpawnSystem.Instance?.ActiveNPCs ?? new List<NPC>();
+
+            foreach (var npc in allNPCs)
+            {
+                if (!npc.IsAlive) continue;
+                if (npc.IsMarried) continue;
+
+                // Check if both player and NPC are in love with each other
+                var relation = RelationshipSystem.GetRelationshipLevel(currentPlayer, npc);
+                var reverseRelation = RelationshipSystem.GetRelationshipLevel(npc, currentPlayer);
+
+                // Both must be at RelationLove (20) or better (lower number = better)
+                if (relation <= GameConfig.RelationLove && reverseRelation <= GameConfig.RelationLove)
+                {
+                    eligible.Add(npc);
+                }
+            }
+
+            return eligible;
         }
         
         /// <summary>

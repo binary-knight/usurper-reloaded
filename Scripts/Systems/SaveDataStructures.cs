@@ -51,6 +51,9 @@ namespace UsurperRemake.Systems
 
         // God worship - player name -> god name
         public Dictionary<string, string> PlayerGods { get; set; } = new();
+
+        // Family system - children
+        public List<ChildData> Children { get; set; } = new();
     }
 
     public class CompanionSaveInfo

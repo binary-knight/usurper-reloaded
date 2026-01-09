@@ -1142,6 +1142,13 @@ namespace UsurperRemake.Systems
             }
             catch { /* Companion system not initialized */ }
 
+            // Family System - save children
+            try
+            {
+                data.Children = FamilySystem.Instance.SerializeChildren();
+            }
+            catch { /* Family system not initialized */ }
+
             return data;
         }
 
@@ -1251,6 +1258,16 @@ namespace UsurperRemake.Systems
                 }
             }
             catch { /* Companion system not available */ }
+
+            // Family System - restore children
+            try
+            {
+                if (data.Children != null && data.Children.Count > 0)
+                {
+                    FamilySystem.Instance.DeserializeChildren(data.Children);
+                }
+            }
+            catch { /* Family system not available */ }
         }
     }
 } 

@@ -80,6 +80,9 @@ public class WorldSimulator
         // Handle NPC respawns
         ProcessNPCRespawns();
 
+        // Process child aging (children age and eventually become adult NPCs)
+        FamilySystem.Instance?.ProcessDailyAging();
+
         var worldState = new WorldState(npcs);
 
         // Process each NPC's AI

@@ -194,6 +194,9 @@ namespace UsurperRemake.Systems
             var child = Child.CreateChild(mother, father, isBastard);
             child.GenerateNewbornName();
 
+            // Register child with the family system so they can age and become NPCs
+            FamilySystem.Instance.RegisterChild(child);
+
             // Update player child count
             player!.Kids++;
 

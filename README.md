@@ -230,6 +230,26 @@ Choose your challenge level:
 - **Hard** - 75% XP, 150% monster damage, 75% gold
 - **Nightmare** - 50% XP, 200% monster damage, 50% gold
 
+### Family System (NEW)
+Marriage and children with real consequences:
+- **Marriage** - Court NPCs through the relationship system, marry at the Church
+- **Children** - Have children who inherit traits from both parents
+- **Aging System** - Children grow up over time (1 week real time = 1 year in-game)
+- **Coming of Age** - At 18, children become adult NPCs who join the world
+- **Custody & Divorce** - Family drama with real mechanical effects
+
+## Estimated Playtime
+
+How long to complete Usurper Reborn:
+
+| Playstyle | Hours | Description |
+|-----------|-------|-------------|
+| **Casual** | 40-60 | Main story, reach level 50-60, see one ending |
+| **Full Playthrough** | 100-150 | All seals, all gods defeated, multiple endings |
+| **Completionist** | 200-400 | All achievements, all companions, all quests, level 100 |
+
+*Note: Playtime varies based on difficulty mode and exploration style.*
+
 ## What's Still In Development
 
 ### Missing from Original Usurper

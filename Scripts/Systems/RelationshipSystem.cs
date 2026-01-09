@@ -429,13 +429,31 @@ public partial class RelationshipSystem
     {
         var key1 = GetRelationshipKey(character1.Name, character2.Name);
         var key2 = GetRelationshipKey(character2.Name, character1.Name);
-        
+
         if (_relationships.ContainsKey(key1) && _relationships[key1].ContainsKey(key2))
         {
             return _relationships[key1][key2];
         }
-        
+
         return null;
+    }
+
+    /// <summary>
+    /// Get the relationship level from character1 towards character2
+    /// Returns RelationNormal (70) if no relationship exists
+    /// Lower numbers = better relationship (10 = married, 20 = love, 70 = normal, 110 = hate)
+    /// </summary>
+    public static int GetRelationshipLevel(Character character1, Character character2)
+    {
+        var relation = GetRelationship(character1, character2);
+        if (relation == null)
+            return GameConfig.RelationNormal;
+
+        // Return character1's feeling towards character2
+        if (relation.Name1 == character1.Name)
+            return relation.Relation1;
+        else
+            return relation.Relation2;
     }
     
     private static int IncreaseRelation(int currentRelation, bool overrideMaxFeeling)
