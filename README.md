@@ -200,11 +200,11 @@ usurper-reborn/
 
 ### Quest & Bounty System (NEW)
 Dynamic quest content for single-player progression:
-- **Quest Hall** - Central hub for viewing and claiming quests
+- **Quest Hall** - Central hub for viewing quests and bounties
 - **Starter Quests** - 11 pre-made quests spanning levels 1-100
-- **Bounty Board** - Dungeon-generated quests that refresh automatically
+- **Open Contract Bounties** - Kill any NPC with a bounty and get paid immediately (no claiming required)
 - **King's Bounties** - The NPC King posts bounties on criminals and NPCs
-- **Quest Objectives** - Track progress on kills, exploration, and discoveries
+- **Auto-Refresh** - Completed bounties automatically replaced with new targets
 - **Difficulty Scaling** - Easy, Medium, Hard, Extreme quest tiers
 
 ### Achievement System (NEW)
