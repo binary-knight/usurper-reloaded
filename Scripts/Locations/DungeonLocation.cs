@@ -5917,22 +5917,25 @@ public class DungeonLocation : BaseLocation
         terminal.WriteLine("");
         await Task.Delay(2000);
 
-        // Check for floor-based memory triggers
-        if (currentDungeonLevel >= 10 && currentDungeonLevel < 25)
+        // Check for floor-based memory triggers (only if player is valid)
+        if (player != null)
         {
-            amnesia.CheckMemoryTrigger(TriggerType.DungeonFloor10, player);
-        }
-        else if (currentDungeonLevel >= 25 && currentDungeonLevel < 50)
-        {
-            amnesia.CheckMemoryTrigger(TriggerType.DungeonFloor25, player);
-        }
-        else if (currentDungeonLevel >= 50 && currentDungeonLevel < 75)
-        {
-            amnesia.CheckMemoryTrigger(TriggerType.DungeonFloor50, player);
-        }
-        else if (currentDungeonLevel >= 75)
-        {
-            amnesia.CheckMemoryTrigger(TriggerType.DungeonFloor75, player);
+            if (currentDungeonLevel >= 10 && currentDungeonLevel < 25)
+            {
+                amnesia.CheckMemoryTrigger(TriggerType.DungeonFloor10, player);
+            }
+            else if (currentDungeonLevel >= 25 && currentDungeonLevel < 50)
+            {
+                amnesia.CheckMemoryTrigger(TriggerType.DungeonFloor25, player);
+            }
+            else if (currentDungeonLevel >= 50 && currentDungeonLevel < 75)
+            {
+                amnesia.CheckMemoryTrigger(TriggerType.DungeonFloor50, player);
+            }
+            else if (currentDungeonLevel >= 75)
+            {
+                amnesia.CheckMemoryTrigger(TriggerType.DungeonFloor75, player);
+            }
         }
 
         // Display a recovered memory if available

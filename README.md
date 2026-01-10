@@ -253,17 +253,20 @@ How long to complete Usurper Reborn:
 ## What's Still In Development
 
 ### Missing from Original Usurper
-- Team management features
-- Castle politics (throne challenges, royal functions)
-- Tournament system
-- Multiplayer/BBS-style node support
+- Castle politics (some throne challenges implemented, royal functions pending)
+- Multiplayer/BBS-style node support (single-player only)
 
 ### Future Enhancements
-- Betray system implementation
-- Moral paradox encounters
-- Companion personal quest completions
-- Full Cycle/NG+ mechanics
 - Audio and enhanced ANSI art
+- Additional companion personal quest storylines
+
+### Recently Completed
+- **Team System** - Full team management with Team Corner location
+- **Tournament System** - Tug-of-war, single elimination, round robin competitions
+- **Betrayal System** - Hidden betrayal tracking with organic NPC betrayals
+- **Moral Paradox System** - Complex moral choices with no clear answers
+- **Companion Personal Quests** - Auto-trigger at loyalty 50
+- **New Game+ / Cycle System** - Carry bonuses forward, scaling difficulty, artifact knowledge
 
 ## License & Your Rights
 

@@ -1,4 +1,5 @@
 using UsurperRemake.Utils;
+using UsurperRemake.Systems;
 using Godot;
 using System;
 using System.Collections.Generic;
@@ -221,7 +222,20 @@ public partial class RelationshipSystem
         {
             message += "\nCongratulations! (go home and adopt babies)";
         }
-        
+
+        // Generate marriage news for the realm
+        NewsSystem.Instance?.WriteMarriageNews(character1.Name, character2.Name, "Church");
+
+        // Sync with RomanceTracker for NPC spouses
+        if (character2 is NPC npc)
+        {
+            RomanceTracker.Instance?.AddSpouse(npc.ID);
+        }
+        else if (character1 is NPC npc1)
+        {
+            RomanceTracker.Instance?.AddSpouse(npc1.ID);
+        }
+
         return true;
     }
     
@@ -284,7 +298,10 @@ public partial class RelationshipSystem
                  $"{character1.Name} divorced {character2.Name}!\n" +
                  $"{durationMessage}\n" +
                  $"You have lost custody of your children!";
-        
+
+        // Generate divorce news for the realm
+        NewsSystem.Instance?.WriteDivorceNews(character1.Name, character2.Name);
+
         return true;
     }
     

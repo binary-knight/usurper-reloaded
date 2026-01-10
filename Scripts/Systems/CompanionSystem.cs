@@ -610,6 +610,7 @@ namespace UsurperRemake.Systems
             if (!companions.TryGetValue(id, out var companion))
                 return;
 
+            int previousLoyalty = companion.LoyaltyLevel;
             companion.LoyaltyLevel = Math.Clamp(companion.LoyaltyLevel + amount, 0, 100);
 
             if (!string.IsNullOrEmpty(reason))
@@ -621,6 +622,14 @@ namespace UsurperRemake.Systems
                     LoyaltyChange = amount,
                     Timestamp = DateTime.Now
                 });
+            }
+
+            // Auto-trigger personal quest when loyalty reaches 50
+            if (previousLoyalty < 50 && companion.LoyaltyLevel >= 50 &&
+                !companion.PersonalQuestStarted && !companion.PersonalQuestCompleted)
+            {
+                StartPersonalQuest(id);
+                Godot.GD.Print($"[Companion] {companion.Name}'s personal quest unlocked: {companion.PersonalQuestName}");
             }
         }
 

@@ -39,7 +39,10 @@
       "Bash(Select-String \"CS4014\")",
       "Bash(cut:*)",
       "Bash(timeout:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(Select-String -Path build_output.txt -Pattern \"CS4014|CS8602\")",
+      "Bash(Select-Object -First 30)",
+      "Bash(tee:*)"
     ]
   }
 }

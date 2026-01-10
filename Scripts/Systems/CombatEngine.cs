@@ -738,7 +738,7 @@ public partial class CombatEngine
 
         // Apply class/status modifiers
         if (attacker.IsRaging)
-            attackPower = (long)(attackPower * 1.75); // Rage gives 75% bonus
+            attackPower = (long)(attackPower * 1.5); // Rage gives 50% bonus (balanced from 75%)
 
         if (attacker.HasStatus(StatusEffect.PowerStance))
             attackPower = (long)(attackPower * 1.5);
@@ -3573,6 +3573,10 @@ public partial class CombatEngine
             UsurperRemake.Systems.DeathType.Combat,
             $"Slain by {killerName} in combat",
             terminal);
+
+        // Generate death news for the realm
+        string location = result.Player?.CurrentLocation ?? "the dungeons";
+        NewsSystem.Instance?.WriteDeathNews(companion.DisplayName, killerName, location);
     }
 
     /// <summary>
@@ -3989,6 +3993,11 @@ public partial class CombatEngine
         terminal.WriteLine("You will resurrect at the temple with 1 HP...");
         player.HP = 1; // Resurrect with 1 HP at temple
         player.Mana = 0; // No mana
+
+        // Generate death news for the realm
+        string killerName = result.Monster?.Name ?? "unknown forces";
+        string location = player.CurrentLocation ?? "the dungeons";
+        NewsSystem.Instance?.WriteDeathNews(player.DisplayName, killerName, location);
     }
 
     /// <summary>
@@ -4689,6 +4698,10 @@ public partial class CombatEngine
 
             // Track kill for the opponent if they're a player
             result.Opponent?.Statistics?.RecordPlayerKill();
+
+            // Generate death news for the realm
+            string location = result.Player.CurrentLocation ?? "battle";
+            NewsSystem.Instance?.WriteDeathNews(result.Player.DisplayName, result.Opponent?.DisplayName ?? "an opponent", location);
         }
         else if (!result.Opponent.IsAlive)
         {
@@ -4700,6 +4713,10 @@ public partial class CombatEngine
 
             // Track death for the opponent
             result.Opponent?.Statistics?.RecordDeath(toPlayer: true);
+
+            // Generate death news for the realm
+            string location = result.Opponent?.CurrentLocation ?? "battle";
+            NewsSystem.Instance?.WriteDeathNews(result.Opponent?.DisplayName ?? "Unknown", result.Player.DisplayName, location);
         }
 
         await Task.Delay(GetCombatDelay(2000));

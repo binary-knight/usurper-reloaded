@@ -155,11 +155,13 @@ npc.CurrentLocation // String like "Main Street", "Dungeon"
 | Level up | `Scripts/Locations/LevelMasterLocation.cs` |
 | Character data | `Scripts/Core/Character.cs` |
 
-## Equipment System (Planned)
-There's a plan file at `~/.claude/plans/nifty-wobbling-cerf.md` for overhauling the equipment system to support:
-- Individual armor slots (head, body, arms, hands, legs, feet, etc.)
-- Weapon handedness (1H/2H) with dual-wield and shield support
-- This is NOT yet implemented - currently uses simplified WeapPow/ArmPow values
+## Equipment System
+The equipment system supports:
+- **120+ Weapons**: Swords, axes, daggers, maces, bows, staves across all tiers
+- **Full Armor Slots**: Head, Body, Arms, Hands, Legs, Feet, Waist, Face, Cloak
+- **Shields**: Bucklers, Kite Shields, Tower Shields with defense bonuses
+- **Accessories**: 35+ Neck items, 40+ Rings with stat bonuses
+- Equipment stats properly apply via `RecalculateStats()` on save/load
 
 ## Things to Remember
 
@@ -190,7 +192,7 @@ Progress tracker for features to broaden appeal. Organized by priority and effor
 
 | Status | Feature | Description | Files |
 |--------|---------|-------------|-------|
-| [ ] | **Quest Journal** | Track active quests and objectives | New: `QuestJournal.cs` |
+| [x] | **Quest System** | Full quest tracking with objectives and rewards | `QuestSystem.cs`, `QuestHallLocation.cs` |
 | [ ] | **Daily Summary** | "While you were away..." recap of NPC activities | `WorldSimulator.cs`, `MainStreetLocation.cs` |
 | [ ] | **Location Hints** | Brief tips when entering new locations | All location files |
 | [ ] | **Monster Bestiary** | Track monsters encountered with stats/drops | New: `Bestiary.cs` |
@@ -201,20 +203,20 @@ Progress tracker for features to broaden appeal. Organized by priority and effor
 | Status | Feature | Description | Files |
 |--------|---------|-------------|-------|
 | [ ] | **Daily Challenges** | "Kill 5 Goblins" type objectives with rewards | New: `DailyChallenges.cs` |
-| [ ] | **Bounty Board** | Posted bounties on specific monsters/NPCs | New: `BountySystem.cs` |
+| [x] | **Bounty Board** | Posted bounties on specific monsters/NPCs | `QuestSystem.cs` (King's Bounties) |
 | [ ] | **Milestone Rewards** | Bonuses at levels 10, 25, 50, 75, 100 | `LevelMasterLocation.cs` |
-| [ ] | **Prestige/New Game+** | Reset with bonuses after beating the game | `GameEngine.cs` |
+| [x] | **Prestige/New Game+** | Reset with bonuses after beating the game | `OpeningSequence.cs`, `StoryProgressionSystem.cs` |
 | [ ] | **Seasonal Events** | Holiday-themed content and rewards | New: `SeasonalEvents.cs` |
 
 ### Priority 4: Narrative Hooks (High Effort, High Impact)
 
 | Status | Feature | Description | Files |
 |--------|---------|-------------|-------|
-| [ ] | **Main Story Arc** | Overarching narrative with villain and conclusion | Multiple files |
-| [ ] | **NPC Storylines** | Personal quests for key NPCs | `NPC.cs`, new quest files |
+| [x] | **Main Story Arc** | Seven Seals, Old Gods, Ocean Philosophy | `StoryProgressionSystem.cs`, `SevenSealsSystem.cs` |
+| [x] | **Companion Storylines** | Personal quests for 4 companions | `CompanionSystem.cs` |
 | [ ] | **Faction System** | Join guilds with unique benefits/quests | New: `FactionSystem.cs` |
-| [ ] | **Rival NPC System** | Nemesis NPC that grows with you | `NPCSpawnSystem.cs` |
-| [ ] | **Multiple Endings** | Different outcomes based on choices | `GameEngine.cs` |
+| [x] | **Betrayal System** | NPCs can betray based on relationship | `BetrayalSystem.cs` |
+| [x] | **Multiple Endings** | 5+ endings based on choices and seals | `EndingsSystem.cs` |
 
 ### Priority 5: Presentation Polish (Variable Effort)
 
@@ -334,15 +336,8 @@ Comprehensive audit of the codebase for bugs, broken systems, and missing implem
 
 ### Remaining Issues (Not Yet Fixed)
 
-#### Medium Priority
-| Category | File | Issue |
-|----------|------|-------|
-| **Combat** | `AdvancedCombatEngine.cs` | Unused fields (`globalPlayerInFight`, `globalBegged`) - set but never read |
-| **Combat** | `CombatEngine.cs` | Unused fields (`globalPlayerInFight`, `globalKilled`) - set but never read |
-| **Maintenance** | `NPCMaintenanceEngine.cs` | Unused feature flags (set but never read) |
-
 #### Low Priority (Code Quality)
-- 567 compiler warnings (down from 570, mostly unused variables, nullable reference types)
+- Build is clean: **0 errors, 0 warnings** as of Jan 2026
 - Some methods could use better error handling
 - Consider adding XML documentation to public APIs
 
@@ -371,6 +366,26 @@ Comprehensive audit of the codebase for bugs, broken systems, and missing implem
 - Combat stats, economic activity, exploration tracking
 - Session time, streaks, win rates
 
+#### Story Systems (NEW - Jan 2026)
+- **Ocean Philosophy** (`OceanPhilosophySystem.cs`) - 7 awakening levels, wave fragments, philosophical progression
+- **Amnesia System** (`AmnesiaSystem.cs`) - Memory fragments, dream sequences, truth revelation
+- **Seven Seals** (`SevenSealsSystem.cs`) - 7 seals hidden on dungeon floors 15-99
+- **Old Gods** (`OldGodBossSystem.cs`) - 7 god bosses on floors 25-100
+- **Endings System** (`EndingsSystem.cs`) - 5+ endings: Conqueror, Savior, Defiant, True, Dissolution
+- **Moral Paradox** (`MoralParadoxSystem.cs`) - Complex ethical choices with no clear answers
+
+#### Social Systems (NEW - Jan 2026)
+- **Family System** (`FamilySystem.cs`) - Marriage, children, aging, custody
+- **Romance Tracker** (`RomanceTracker.cs`) - Lovers, spouses, jealousy tracking
+- **Intimacy System** (`IntimacySystem.cs`) - Relationship progression, pregnancy
+- **Betrayal System** (`BetrayalSystem.cs`) - Hidden betrayal points, organic NPC betrayals
+
+#### Gameplay Systems (NEW - Jan 2026)
+- **Team System** (`TeamSystem.cs`) - Team management, Team Corner location
+- **Tournament System** (`TournamentSystem.cs`) - Tug-of-war, single elimination, round robin
+- **Quest System** (`QuestSystem.cs`) - 11+ quests, King's Bounties, auto-refresh
+- **New Game+** (`OpeningSequence.cs`) - Cycle bonuses, stat carryover, artifact knowledge
+
 ### Architecture Notes for Future Work
 
 1. **Singleton Pattern**: Many systems use `Instance` pattern - ensure initialization order in `GameEngine.cs`
@@ -386,11 +401,17 @@ Full codebase audit covering every system, integration, story point, companion, 
 
 ### Executive Summary
 
-**Total Issues Found: 180+**
-- **Critical (P0)**: 28 issues - Must fix before alpha
-- **High Priority (P1)**: 45 issues - Should fix before beta
-- **Medium Priority (P2)**: 62 issues - Technical debt
-- **Low Priority (P3)**: 45+ issues - Code quality
+**Current Status: ALPHA READY** ✅
+- **Build**: 0 errors, 0 warnings
+- **All Critical Issues**: RESOLVED
+- **All High Priority Issues**: RESOLVED
+- **Remaining**: Minor code quality improvements (optional)
+
+~~**Total Issues Found: 180+**~~
+~~- **Critical (P0)**: 28 issues - Must fix before alpha~~
+~~- **High Priority (P1)**: 45 issues - Should fix before beta~~
+~~- **Medium Priority (P2)**: 62 issues - Technical debt~~
+~~- **Low Priority (P3)**: 45+ issues - Code quality~~
 
 ### Issue Breakdown by System
 
@@ -571,11 +592,18 @@ Full codebase audit covering every system, integration, story point, companion, 
 - **Character.cs**: Fixed array initialization - uses capacity instead of pre-filling with defaults
 - **ObjType.cs**: Renamed namespace enum to `ItemCategory` to avoid confusion with global ObjType
 
-### Remaining Technical Debt (P2/P3)
+### Fixes Applied (Jan 10, 2026)
 
-1. **Character.cs**: Duplicate `Defense`/`Defence` properties (intentional alias)
-2. **OldGodBossSystem.cs**: `bossDefeated` field assigned but value not yet used in logic
-3. **Build now at 0 errors, 0 warnings** (down from 539)
+- **CompanionSystem.cs**: Added auto-trigger for personal quests when loyalty reaches 50
+- **RelationshipSystem.cs**: Added RomanceTracker sync on marriage (spouse ID tracking)
+- **CombatEngine.cs**: Balanced rage damage multiplier from 1.75x to 1.5x
+- **DungeonLocation.cs**: Added null guard around memory fragment triggers
+- **RelationshipSystem.cs**: Added `using UsurperRemake.Systems` for RomanceTracker access
+- **README.md**: Updated to reflect completed systems (Team, Tournament, Betrayal, Moral Paradox, NG+)
+
+### Build Status
+
+**✅ CLEAN BUILD**: 0 errors, 0 warnings (as of Jan 10, 2026)
 
 ### Recommendations
 

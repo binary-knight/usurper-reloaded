@@ -213,15 +213,9 @@ namespace UsurperRemake.Systems
             terminal.WriteLine("  ════════════════════════════════════════════════════════════════");
             terminal.WriteLine("");
 
-            // Generate news
-            if (isBastard)
-            {
-                NewsSystem.Instance?.Newsy(true, $"{player.Name} and {partner.Name2} have had a child out of wedlock: {child.Name}!");
-            }
-            else
-            {
-                NewsSystem.Instance?.Newsy(true, $"{player.Name} and {partner.Name2} welcome their new child: {child.Name}!");
-            }
+            // Generate birth news for the realm
+            bool motherIsNPC = partnerIsPregnant;
+            NewsSystem.Instance?.WriteBirthNews(mother.Name, father.Name, child.Name, motherIsNPC);
 
             terminal.SetColor("white");
             terminal.WriteLine("  Your family has grown. Visit Love Corner to see your children.");

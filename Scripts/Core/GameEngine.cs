@@ -406,7 +406,7 @@ public partial class GameEngine : Node
         terminal.ClearScreen();
         terminal.ShowANSIArt("USURPER");
         terminal.SetColor("bright_yellow");
-        terminal.WriteLine("USURPER REBORN - The Dungeon of Death");
+        terminal.WriteLine("USURPER REBORN - Halls of Avarice");
         terminal.WriteLine("");
         terminal.SetColor("gray");
         terminal.WriteLine("1993 - Original by Jakob Dangarden");
@@ -431,7 +431,7 @@ public partial class GameEngine : Node
             terminal.SetColor("bright_red");
             terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
             terminal.SetColor("bright_yellow");
-            terminal.WriteLine("║                USURPER REBORN - The Dungeon of Death                        ║");
+            terminal.WriteLine("║                USURPER REBORN - Halls of Avarice                            ║");
             terminal.SetColor("bright_red");
             terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
             terminal.WriteLine("");
