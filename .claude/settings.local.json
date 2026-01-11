@@ -43,7 +43,10 @@
       "Bash(Select-String -Path build_output.txt -Pattern \"CS4014|CS8602\")",
       "Bash(Select-Object -First 30)",
       "Bash(tee:*)",
-      "Bash(Select-String -Pattern \"error|Error|Build\")"
+      "Bash(Select-String -Pattern \"error|Error|Build\")",
+      "Bash(Select-String \"warning CS\")",
+      "Bash(Measure-Object)",
+      "Bash(cd:*)"
     ]
   }
 }
