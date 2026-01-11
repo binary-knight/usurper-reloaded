@@ -893,6 +893,7 @@ public partial class GameEngine : Node
     {
         // Reset singleton systems for new game
         UsurperRemake.Systems.RomanceTracker.Instance.Reset();
+        UsurperRemake.Systems.FamilySystem.Instance.Reset();
 
         // Create new player using character creation system
         var newCharacter = await CreateNewPlayer(playerName);
@@ -1299,6 +1300,34 @@ public partial class GameEngine : Node
         // Initialize achievement system
         AchievementSystem.Initialize();
 
+        // Restore Home Upgrade System (Gold Sinks)
+        player.HomeLevel = playerData.HomeLevel;
+        player.ChestLevel = playerData.ChestLevel;
+        player.TrainingRoomLevel = playerData.TrainingRoomLevel;
+        player.GardenLevel = playerData.GardenLevel;
+        player.HasTrophyRoom = playerData.HasTrophyRoom;
+        player.HasTeleportCircle = playerData.HasTeleportCircle;
+        player.HasLegendaryArmory = playerData.HasLegendaryArmory;
+        player.HasVitalityFountain = playerData.HasVitalityFountain;
+        player.PermanentDamageBonus = playerData.PermanentDamageBonus;
+        player.PermanentDefenseBonus = playerData.PermanentDefenseBonus;
+        player.BonusMaxHP = playerData.BonusMaxHP;
+
+        // Restore Recurring Duelist Rival
+        if (playerData.RecurringDuelist != null)
+        {
+            string playerId = player.ID ?? player.Name;
+            DungeonLocation.RestoreRecurringDuelist(playerId,
+                playerData.RecurringDuelist.Name,
+                playerData.RecurringDuelist.Weapon,
+                playerData.RecurringDuelist.Level,
+                playerData.RecurringDuelist.TimesEncountered,
+                playerData.RecurringDuelist.PlayerWins,
+                playerData.RecurringDuelist.PlayerLosses,
+                playerData.RecurringDuelist.WasInsulted,
+                playerData.RecurringDuelist.IsDead);
+        }
+
         // CRITICAL: Recalculate stats to apply equipment bonuses from loaded items
         // This ensures WeapPow, ArmPow, and all stat bonuses are correctly applied
         player.RecalculateStats();
@@ -1408,6 +1437,7 @@ public partial class GameEngine : Node
             var npc = new NPC
             {
                 Id = data.Id,
+                ID = !string.IsNullOrEmpty(data.CharacterID) ? data.CharacterID : $"npc_{data.Name.ToLower().Replace(" ", "_")}",  // Restore Character.ID (or generate if missing)
                 Name1 = data.Name,
                 Name2 = data.Name,
                 Level = data.Level,
@@ -1470,11 +1500,11 @@ public partial class GameEngine : Node
                 }
             }
 
-            // Initialize brain with personality if available
+            // Restore personality profile if available, then initialize AI systems
             if (data.PersonalityProfile != null)
             {
                 // Reconstruct PersonalityProfile from saved PersonalityData
-                var profile = new PersonalityProfile
+                npc.Personality = new PersonalityProfile
                 {
                     Aggression = data.PersonalityProfile.Aggression,
                     Loyalty = data.PersonalityProfile.Loyalty,
@@ -1482,14 +1512,18 @@ public partial class GameEngine : Node
                     Greed = data.PersonalityProfile.Greed,
                     Courage = data.PersonalityProfile.Courage,
                     Ambition = data.PersonalityProfile.Ambition,
-                    Archetype = "Balanced" // Default archetype
+                    Archetype = data.Archetype ?? "Balanced"
                 };
-                npc.Brain = new NPCBrain(npc, profile);
+                npc.Archetype = data.Archetype ?? "citizen";
             }
             else
             {
-                npc.Brain = new NPCBrain(npc, PersonalityProfile.GenerateRandom("Balanced"));
+                npc.Archetype = data.Archetype ?? "citizen";
             }
+
+            // Initialize AI systems now that name and archetype are set
+            // This will use the restored personality if available, or generate one if not
+            npc.EnsureSystemsInitialized();
 
             // Add to spawn system
             NPCSpawnSystem.Instance.AddRestoredNPC(npc);
@@ -1567,11 +1601,7 @@ public partial class GameEngine : Node
                 return null; // User chose not to retry
             }
             
-            // Character creation successful
-            terminal.WriteLine("");
-            terminal.WriteLine("Character successfully created!", "bright_green");
-            await Task.Delay(1500);
-            
+            // Character creation successful - message already displayed by CharacterCreationSystem
             return newCharacter;
         }
         catch (OperationCanceledException)

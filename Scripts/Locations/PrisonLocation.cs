@@ -47,9 +47,12 @@ public partial class PrisonLocation : BaseLocation
         }
     }
     
-    public async Task<bool> EnterLocation(Character player)
+    /// <summary>
+    /// Override base EnterLocation to handle prison-specific logic
+    /// </summary>
+    public override async Task EnterLocation(Character player, TerminalEmulator term)
     {
-        if (player == null) return false;
+        if (player == null) return;
 
         // Check if player is actually imprisoned
         if (player.DaysInPrison <= 0)
@@ -62,7 +65,6 @@ public partial class PrisonLocation : BaseLocation
 
         refreshMenu = true;
         await ShowPrisonInterface(player);
-        return true;
     }
     
     private async Task ShowPrisonInterface(Character player)

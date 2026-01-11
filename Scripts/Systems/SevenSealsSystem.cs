@@ -334,6 +334,9 @@ namespace UsurperRemake.Systems
             // Add to story progression
             story.CollectSeal(type);
 
+            // Track archetype - Seals are Sage/Explorer items
+            ArchetypeTracker.Instance.RecordSealCollected();
+
             // Award experience
             player.Experience += seal.RewardXP;
             terminal.WriteLine($"(+{seal.RewardXP} Experience)", "cyan");
@@ -356,6 +359,10 @@ namespace UsurperRemake.Systems
                 OceanPhilosophySystem.Instance.ExperienceMoment(AwakeningMoment.AllSealsCollected);
                 OnAllSealsCollected?.Invoke();
             }
+
+            // Auto-save after collecting a seal - this is a major milestone
+            await SaveSystem.Instance.AutoSave(player);
+            GD.Print($"[Seals] Auto-saved after collecting {seal.Name}");
 
             return true;
         }

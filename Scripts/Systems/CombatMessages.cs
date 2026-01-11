@@ -110,6 +110,38 @@ public static class CombatMessages
     }
 
     /// <summary>
+    /// Generate ally/teammate/companion attack message
+    /// </summary>
+    public static string GetAllyAttackMessage(string allyName, string targetName, long damage, long targetMaxHP, Random random = null)
+    {
+        random ??= new Random();
+        var tier = GetDamageTier(damage, targetMaxHP);
+
+        if (tier == DamageTier.Miss)
+        {
+            var verb = PlayerAttackVerbs[tier][random.Next(PlayerAttackVerbs[tier].Count)];
+            return $"[bright_cyan]{allyName}[/] {verb}es {targetName}!";
+        }
+
+        var attackVerb = PlayerAttackVerbs[tier][random.Next(PlayerAttackVerbs[tier].Count)];
+        var color = DamageColors[tier];
+
+        // Conjugate verb for third person (add s/es)
+        string thirdPersonVerb = attackVerb;
+        if (!attackVerb.Contains("*")) // Don't modify emphasis verbs like ***ANNIHILATE***
+        {
+            if (attackVerb.EndsWith("sh") || attackVerb.EndsWith("ch"))
+                thirdPersonVerb = attackVerb + "es";
+            else if (attackVerb.EndsWith("e"))
+                thirdPersonVerb = attackVerb + "s";
+            else
+                thirdPersonVerb = attackVerb + "s";
+        }
+
+        return $"[bright_cyan]{allyName}[/] {thirdPersonVerb} {targetName} for [{color}]{damage}[/] damage!";
+    }
+
+    /// <summary>
     /// Generate monster attack message
     /// </summary>
     public static string GetMonsterAttackMessage(string monsterName, string monsterColor, long damage, long playerMaxHP, Random random = null)

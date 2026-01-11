@@ -870,7 +870,8 @@ public abstract class BaseLocation
 
         // Show NPC info
         terminal.SetColor("gray");
-        terminal.WriteLine($"  Level {npc.Level} {npc.Race} {npc.Class}");
+        string sexDisplay = npc.Sex == CharacterSex.Female ? "Female" : "Male";
+        terminal.WriteLine($"  Level {npc.Level} {npc.Race} {sexDisplay} {npc.Class}");
         terminal.WriteLine($"  {GetAlignmentDisplay(npc)}");
         terminal.WriteLine("");
 
@@ -1514,23 +1515,61 @@ public abstract class BaseLocation
         terminal.WriteLine("═══ RELATIONSHIPS ═══");
         terminal.SetColor("white");
         terminal.Write("Marital Status: ");
-        if (currentPlayer.Married || currentPlayer.IsMarried)
+
+        // Check both Character properties AND RomanceTracker for marriage status
+        var romanceTracker = UsurperRemake.Systems.RomanceTracker.Instance;
+        bool isMarried = currentPlayer.Married || currentPlayer.IsMarried || (romanceTracker?.IsMarried == true);
+
+        if (isMarried)
         {
             terminal.SetColor("bright_magenta");
             terminal.Write("Married");
-            if (!string.IsNullOrEmpty(currentPlayer.SpouseName))
+
+            // Get spouse name from RomanceTracker first, fall back to Character property
+            string spouseName = "";
+            if (romanceTracker?.IsMarried == true)
+            {
+                var spouse = romanceTracker.PrimarySpouse;
+                if (spouse != null)
+                {
+                    var npc = UsurperRemake.Systems.NPCSpawnSystem.Instance?.ActiveNPCs?
+                        .FirstOrDefault(n => n.ID == spouse.NPCId);
+                    spouseName = npc?.Name ?? spouse.NPCName;
+                }
+            }
+            if (string.IsNullOrEmpty(spouseName))
+            {
+                spouseName = currentPlayer.SpouseName;
+            }
+
+            if (!string.IsNullOrEmpty(spouseName))
             {
                 terminal.SetColor("white");
                 terminal.Write(" to ");
                 terminal.SetColor("magenta");
-                terminal.Write(currentPlayer.SpouseName);
+                terminal.Write(spouseName);
             }
             terminal.WriteLine("");
+
+            // Show all spouses if polygamous
+            if (romanceTracker != null && romanceTracker.Spouses.Count > 1)
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine($"  ({romanceTracker.Spouses.Count} spouses total)");
+            }
+
+            // Get children count from both systems
+            int childCount = currentPlayer.Kids;
+            var familyChildren = UsurperRemake.Systems.FamilySystem.Instance?.GetChildrenOf(currentPlayer);
+            if (familyChildren != null && familyChildren.Count > childCount)
+            {
+                childCount = familyChildren.Count;
+            }
 
             terminal.SetColor("white");
             terminal.Write("Children: ");
             terminal.SetColor("cyan");
-            terminal.WriteLine($"{currentPlayer.Kids}");
+            terminal.WriteLine($"{childCount}");
 
             if (currentPlayer.Pregnancy > 0)
             {
@@ -1539,6 +1578,11 @@ public abstract class BaseLocation
                 terminal.SetColor("bright_cyan");
                 terminal.WriteLine($"{currentPlayer.Pregnancy} days");
             }
+        }
+        else if (romanceTracker?.CurrentLovers?.Count > 0)
+        {
+            terminal.SetColor("magenta");
+            terminal.WriteLine($"In a relationship ({romanceTracker.CurrentLovers.Count} lover{(romanceTracker.CurrentLovers.Count > 1 ? "s" : "")})");
         }
         else
         {

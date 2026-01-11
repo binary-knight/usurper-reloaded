@@ -15,7 +15,7 @@ public partial class CombatEngine
 {
     private TerminalEmulator terminal;
     private Random random = new Random();
-    
+
     // Combat state
     private bool globalBegged = false;
     private bool globalEscape = false;
@@ -26,6 +26,24 @@ public partial class CombatEngine
 
     // Current player reference for combat speed setting
     private Character currentPlayer;
+
+    // Combat tip system - shows helpful hints occasionally
+    private int combatTipCounter = 0;
+    private static readonly string[] CombatTips = new string[]
+    {
+        "TIP: Press [SPD] to toggle combat speed (Instant/Fast/Normal).",
+        "TIP: Press [AUTO] or type 'auto' for automatic attacks against weak enemies.",
+        "TIP: [P]ower Attack deals 50% more damage but has lower accuracy.",
+        "TIP: [E]xact Strike has higher accuracy - good against armored foes.",
+        "TIP: [D]efend reduces incoming damage by 50% - useful against strong monsters.",
+        "TIP: [T]aunt lowers enemy defense, making them easier to hit.",
+        "TIP: [I]disarm can remove a monster's weapon, reducing their damage.",
+        "TIP: Spellcasters can press [S] to cast spells using Mana.",
+        "TIP: Barbarians can [G]rage for increased combat power!",
+        "TIP: Rangers can use [V]ranged attacks from a distance.",
+        "TIP: Check [L]hide to attempt to escape or reposition.",
+        "TIP: Use healing potions [I] mid-combat if your HP gets low."
+    };
 
     /// <summary>
     /// Gets the appropriate delay time based on player's combat speed setting
@@ -46,7 +64,26 @@ public partial class CombatEngine
     {
         terminal = term;
     }
-    
+
+    /// <summary>
+    /// Show a combat tip occasionally to help players learn tactics
+    /// </summary>
+    private void ShowCombatTipIfNeeded(Character player)
+    {
+        // Show tip every 5th combat round, less often if player has Fast/Instant speed
+        combatTipCounter++;
+        int tipFrequency = player.CombatSpeed == CombatSpeed.Normal ? 5 : 10;
+
+        if (combatTipCounter >= tipFrequency)
+        {
+            combatTipCounter = 0;
+            string tip = CombatTips[random.Next(CombatTips.Length)];
+            terminal.SetColor("dark_gray");
+            terminal.WriteLine($"  {tip}");
+            terminal.WriteLine("");
+        }
+    }
+
     /// <summary>
     /// Player vs Monster combat - LEGACY method for backward compatibility
     /// Redirects to new PlayerVsMonsters method with single-monster list
@@ -1540,9 +1577,22 @@ public partial class CombatEngine
         result.Player.Gold += goldReward;
         result.Player.MKills++;
 
+        // Award experience to active companions (50% of player's XP)
+        CompanionSystem.Instance?.AwardCompanionExperience(expReward, terminal);
+
+        // Award experience to NPC teammates (spouses/lovers) - 50% of player's XP
+        AwardTeammateExperience(result.Teammates, expReward, terminal);
+
         // Track statistics
         result.Player.Statistics.RecordMonsterKill(expReward, goldReward, isBoss, result.Monster.IsUnique);
         result.Player.Statistics.RecordGoldChange(result.Player.Gold);
+
+        // Track archetype (Hero for combat, with bonus for bosses and rare monsters)
+        ArchetypeTracker.Instance.RecordMonsterKill(result.Monster.Level, result.Monster.IsUnique);
+        if (isBoss)
+        {
+            ArchetypeTracker.Instance.RecordBossDefeat(result.Monster.Name, result.Monster.Level);
+        }
 
         // Track gold collection for quests
         QuestSystem.OnGoldCollected(result.Player, goldReward);
@@ -1668,6 +1718,9 @@ public partial class CombatEngine
 
         // Monk potion purchase option - Pascal PLVSMON.PAS monk encounter
         await OfferMonkPotionPurchase(result.Player);
+
+        // Auto-save after combat victory
+        await SaveSystem.Instance.AutoSave(result.Player);
     }
 
     /// <summary>
@@ -2253,8 +2306,23 @@ public partial class CombatEngine
 
         target.HP -= actualDamage;
 
-        // Use new colored combat messages
-        var attackMessage = CombatMessages.GetPlayerAttackMessage(target.Name, actualDamage, target.MaxHP);
+        // Use new colored combat messages - different message for player vs allies
+        string attackMessage;
+        if (attacker != null && attacker != currentPlayer && attacker.IsCompanion)
+        {
+            // Companion/ally attack
+            attackMessage = CombatMessages.GetAllyAttackMessage(attacker.DisplayName, target.Name, actualDamage, target.MaxHP);
+        }
+        else if (attacker != null && attacker != currentPlayer && attacker is NPC)
+        {
+            // NPC teammate attack
+            attackMessage = CombatMessages.GetAllyAttackMessage(attacker.DisplayName, target.Name, actualDamage, target.MaxHP);
+        }
+        else
+        {
+            // Player attack
+            attackMessage = CombatMessages.GetPlayerAttackMessage(target.Name, actualDamage, target.MaxHP);
+        }
         terminal.WriteLine(attackMessage);
 
         if (target.HP <= 0)
@@ -2462,6 +2530,9 @@ public partial class CombatEngine
             terminal.SetColor("bright_white");
             terminal.WriteLine("╚═══════════════════════════════════════╝");
             terminal.WriteLine("");
+
+            // Show combat tip occasionally
+            ShowCombatTipIfNeeded(player);
 
             terminal.SetColor("white");
             terminal.Write("Choose action: ");
@@ -2765,6 +2836,7 @@ public partial class CombatEngine
         {
             long backstabDamage = (player.Strength + player.WeapPow) * 3;
             backstabDamage += random.Next(1, 20);
+            backstabDamage = DifficultySystem.ApplyPlayerDamageMultiplier(backstabDamage);
 
             terminal.SetColor("bright_red");
             terminal.WriteLine($"CRITICAL BACKSTAB! You deal {backstabDamage} damage!");
@@ -2792,6 +2864,7 @@ public partial class CombatEngine
         // Power Attack: +50% damage
         long powerDamage = (long)((player.Strength + player.WeapPow) * 1.5);
         powerDamage += random.Next(5, 25);
+        powerDamage = DifficultySystem.ApplyPlayerDamageMultiplier(powerDamage);
 
         terminal.SetColor("bright_red");
         terminal.WriteLine($"POWER ATTACK! You deal {powerDamage} damage!");
@@ -2811,6 +2884,7 @@ public partial class CombatEngine
 
         // Precise Strike: normal damage but ignores 50% armor
         long damage = player.Strength + player.WeapPow + random.Next(1, 15);
+        damage = DifficultySystem.ApplyPlayerDamageMultiplier(damage);
 
         terminal.SetColor("bright_cyan");
         terminal.WriteLine($"PRECISE STRIKE! You deal {damage} damage (armor-piercing)!");
@@ -2880,6 +2954,7 @@ public partial class CombatEngine
 
         // Soul Strike: Chivalry-based holy damage
         long holyDamage = (player.Chivalry / 10) + (player.Level * 5) + random.Next(10, 30);
+        holyDamage = DifficultySystem.ApplyPlayerDamageMultiplier(holyDamage);
 
         terminal.SetColor("bright_yellow");
         terminal.WriteLine($"SOUL STRIKE! Holy fire deals {holyDamage} damage!");
@@ -2900,6 +2975,7 @@ public partial class CombatEngine
         // Smite: 150% damage + level bonus
         long smiteDamage = (long)((player.Strength + player.WeapPow) * 1.5) + player.Level;
         smiteDamage += random.Next(10, 25);
+        smiteDamage = DifficultySystem.ApplyPlayerDamageMultiplier(smiteDamage);
 
         terminal.SetColor("bright_white");
         terminal.WriteLine($"SMITE! Divine power deals {smiteDamage} damage!");
@@ -2919,6 +2995,7 @@ public partial class CombatEngine
 
         // Ranged: Dexterity-based damage
         long rangedDamage = (player.Dexterity / 2) + random.Next(5, 15);
+        rangedDamage = DifficultySystem.ApplyPlayerDamageMultiplier(rangedDamage);
 
         terminal.SetColor("green");
         terminal.WriteLine($"Your arrow strikes for {rangedDamage} damage!");
@@ -3355,6 +3432,7 @@ public partial class CombatEngine
             // AoE spell - split damage among all living monsters
             // Calculate base damage (spells use fixed values, we'll use spell level * 50 as base)
             long totalDamage = spellInfo.Level * 50 + (player.Intelligence / 2);
+            totalDamage = DifficultySystem.ApplyPlayerDamageMultiplier(totalDamage);
             await ApplyAoEDamage(monsters, totalDamage, result, spellInfo.Name);
         }
         else
@@ -3374,6 +3452,7 @@ public partial class CombatEngine
             {
                 // Calculate spell damage
                 long damage = spellInfo.Level * 50 + (player.Intelligence / 2);
+                damage = DifficultySystem.ApplyPlayerDamageMultiplier(damage);
                 await ApplySingleMonsterDamage(target, damage, result, spellInfo.Name, player);
             }
         }
@@ -3405,6 +3484,7 @@ public partial class CombatEngine
             attackPower = (long)(attackPower * damageModifier);
 
             long damage = Math.Max(1, attackPower);
+            damage = DifficultySystem.ApplyPlayerDamageMultiplier(damage);
             await ApplySingleMonsterDamage(weakestMonster, damage, result, $"{teammate.DisplayName}'s attack", teammate);
         }
     }
@@ -3640,6 +3720,12 @@ public partial class CombatEngine
         result.ExperienceGained = adjustedExp;
         result.GoldGained = adjustedGold;
 
+        // Award experience to active companions (50% of player's XP)
+        CompanionSystem.Instance?.AwardCompanionExperience(adjustedExp, terminal);
+
+        // Award experience to NPC teammates (spouses/lovers) - 50% of player's XP
+        AwardTeammateExperience(result.Teammates, adjustedExp, terminal);
+
         // Track gold collection for quests
         QuestSystem.OnGoldCollected(result.Player, adjustedGold);
 
@@ -3679,6 +3765,9 @@ public partial class CombatEngine
         }
 
         result.CombatLog.Add($"Victory! Gained {adjustedExp} exp and {adjustedGold} gold from {result.DefeatedMonsters.Count} monsters");
+
+        // Auto-save after combat victory
+        await SaveSystem.Instance.AutoSave(result.Player);
     }
 
     /// <summary>
@@ -3716,6 +3805,12 @@ public partial class CombatEngine
 
         result.Player.Experience += adjustedExp;
         result.Player.Gold += adjustedGold;
+
+        // Award experience to active companions (50% of player's XP)
+        CompanionSystem.Instance?.AwardCompanionExperience(adjustedExp, terminal);
+
+        // Award experience to NPC teammates (spouses/lovers) - 50% of player's XP
+        AwardTeammateExperience(result.Teammates, adjustedExp, terminal);
 
         terminal.WriteLine($"Experience gained: {adjustedExp}");
         terminal.WriteLine($"Gold gained: {adjustedGold:N0}");
@@ -5032,6 +5127,7 @@ public partial class CombatEngine
         }
 
         long damage = Math.Max(1, attackPower - defense);
+        damage = DifficultySystem.ApplyPlayerDamageMultiplier(damage);
 
         terminal.SetColor("magenta");
         terminal.WriteLine($"POWER ATTACK! You smash the {target.Name} for {damage} damage!");
@@ -5065,6 +5161,7 @@ public partial class CombatEngine
         }
 
         long damage = Math.Max(1, attackPower - defense);
+        damage = DifficultySystem.ApplyPlayerDamageMultiplier(damage);
 
         terminal.SetColor("bright_cyan");
         terminal.WriteLine($"Precise strike lands for {damage} damage.");
@@ -5090,6 +5187,7 @@ public partial class CombatEngine
         if (attackScore > defenseScore)
         {
             long damage = attacker.Dexterity / 2 + random.Next(1, 7); // d6 based
+            damage = DifficultySystem.ApplyPlayerDamageMultiplier(damage);
             terminal.WriteLine($"You shoot an arrow for {damage} damage!", "bright_green");
             target.HP = Math.Max(0, target.HP - damage);
             result.CombatLog.Add($"Player ranged hits {target.Name} for {damage}");
@@ -5134,6 +5232,7 @@ public partial class CombatEngine
 
         long defense = target.Defence + random.Next(0, (int)Math.Max(1, target.Defence / 8));
         long actual = Math.Max(1, damage - defense);
+        actual = DifficultySystem.ApplyPlayerDamageMultiplier(actual);
 
         terminal.SetColor("yellow");
         terminal.WriteLine($"You SMITE the evil {target.Name} for {actual} holy damage!");
@@ -5199,6 +5298,71 @@ public partial class CombatEngine
             terminal.WriteLine("You fail to find cover and remain exposed.", "gray");
         }
         await Task.Delay(GetCombatDelay(800));
+    }
+
+    /// <summary>
+    /// Award experience to NPC teammates (spouses, lovers, team members)
+    /// NPCs get 50% of the player's XP and can level up during combat
+    /// </summary>
+    private void AwardTeammateExperience(List<Character> teammates, long playerXP, TerminalEmulator terminal)
+    {
+        if (teammates == null || teammates.Count == 0 || playerXP <= 0) return;
+
+        // Teammates get 50% of player's XP
+        long teammateXP = playerXP / 2;
+        if (teammateXP <= 0) return;
+
+        foreach (var teammate in teammates)
+        {
+            if (teammate == null || !teammate.IsAlive) continue;
+            if (teammate.IsCompanion) continue; // Companions are handled separately by CompanionSystem
+            if (teammate.Level >= 100) continue; // Max level cap
+
+            // Award XP
+            teammate.Experience += teammateXP;
+
+            // Check for level up (using same formula as player/NPCs)
+            long xpForNextLevel = GetExperienceForLevel(teammate.Level + 1);
+            while (teammate.Experience >= xpForNextLevel && teammate.Level < 100)
+            {
+                teammate.Level++;
+
+                // Apply stat gains on level up
+                var random = new Random();
+                teammate.BaseMaxHP += 10 + random.Next(5, 15);
+                teammate.BaseStrength += random.Next(1, 3);
+                teammate.BaseDefence += random.Next(1, 2);
+
+                // Recalculate all stats with equipment bonuses
+                teammate.RecalculateStats();
+
+                // Restore HP to full on level up
+                teammate.HP = teammate.MaxHP;
+
+                terminal.SetColor("bright_green");
+                terminal.WriteLine($"  {teammate.DisplayName} has reached level {teammate.Level}!");
+
+                // Generate news for spouse/lover level ups
+                NewsSystem.Instance?.Newsy(true, $"{teammate.DisplayName} has achieved Level {teammate.Level}!");
+
+                // Calculate next threshold
+                xpForNextLevel = GetExperienceForLevel(teammate.Level + 1);
+            }
+        }
+    }
+
+    /// <summary>
+    /// XP formula matching the player's curve (level^1.8 * 50)
+    /// </summary>
+    private static long GetExperienceForLevel(int level)
+    {
+        if (level <= 1) return 0;
+        long exp = 0;
+        for (int i = 2; i <= level; i++)
+        {
+            exp += (long)(Math.Pow(i, 1.8) * 50);
+        }
+        return exp;
     }
 
     private int GetAttackCount(Character attacker)

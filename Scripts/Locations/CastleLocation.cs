@@ -2489,6 +2489,9 @@ public class CastleLocation : BaseLocation
 
             currentPlayer.PKills++;
 
+            // Track archetype - Major Ruler moment
+            UsurperRemake.Systems.ArchetypeTracker.Instance.RecordBecameKing();
+
             NewsSystem.Instance.Newsy(true, $"{currentPlayer.DisplayName} has seized the throne! Long live the new {currentKing.GetTitle()}!");
 
             await Task.Delay(4000);
@@ -2578,6 +2581,9 @@ public class CastleLocation : BaseLocation
         currentPlayer.King = true;
         currentKing = King.CreateNewKing(currentPlayer.DisplayName, CharacterAI.Human, currentPlayer.Sex);
         playerIsKing = true;
+
+        // Track archetype - Major Ruler moment
+        UsurperRemake.Systems.ArchetypeTracker.Instance.RecordBecameKing();
 
         terminal.WriteLine("");
         terminal.SetColor("bright_yellow");

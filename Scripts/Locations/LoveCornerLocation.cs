@@ -1,10 +1,10 @@
-#pragma warning disable CS0618 // ReadLine/ReadKey obsolete - TODO: convert to async
 using UsurperRemake.Utils;
 using UsurperRemake.Systems;
 using Godot;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
 
 /// <summary>
 /// Love Corner location based on Pascal LOVERS.PAS
@@ -13,51 +13,67 @@ using System.Text;
 /// </summary>
 public class LoveCornerLocation : BaseLocation
 {
+    // Note: terminal and currentPlayer are inherited from BaseLocation
+
     public LoveCornerLocation() : base((GameLocation)GameConfig.LoveCorner, GameConfig.DefaultLoveCornerName, "A cozy corner for romance and gossip.") { }
 
-    public new void OnEnter(Character player)
+    public override async Task EnterLocation(Character player, TerminalEmulator term)
     {
-        base.OnEnter(player);
-        ShowLocationDescription(player);
+        await base.EnterLocation(player, term);
+        // terminal and currentPlayer are set by base.EnterLocation
+
+        await ShowLocationDescription(player);
+        await MainLoop(player);
     }
 
-    public bool HandleCommand(Character player, string command)
+    private async Task MainLoop(Character player)
     {
+        bool stayInLocation = true;
+        while (stayInLocation)
+        {
+            ShowPrompt(player);
+            string command = await terminal.GetInput("");
+            stayInLocation = await HandleCommand(player, command);
+        }
+    }
+
+    private async Task<bool> HandleCommand(Character player, string command)
+    {
+        if (string.IsNullOrWhiteSpace(command)) return true;
+
         return command.ToUpper() switch
         {
-            "A" => HandleApproachSomebody(player),
-            "C" => HandleChildrenInRealm(player),
-            "D" => HandleDivorce(player),
-            "E" => HandleExamineChild(player),
-            "V" => HandleVisitGossipMonger(player),
-            "M" => HandleMarriedCouples(player),
-            "P" => HandlePersonalRelations(player),
-            "G" => HandleGiftShop(player),
-            "S" => HandleStatus(player),
-            "L" => HandleLoveHistory(player),
-            "R" => HandleReturn(player),
-            "?" => ShowMenuAndReturnTrue(player),
-            _ => false
+            "A" => await HandleApproachSomebody(player),
+            "C" => await HandleChildrenInRealm(player),
+            "D" => await HandleDivorce(player),
+            "E" => await HandleExamineChild(player),
+            "V" => await HandleVisitGossipMonger(player),
+            "M" => await HandleMarriedCouples(player),
+            "P" => await HandlePersonalRelations(player),
+            "G" => await HandleGiftShop(player),
+            "S" => await HandleStatus(player),
+            "L" => await HandleLoveHistory(player),
+            "R" => false, // Return - exit location
+            "?" => await ShowMenuAndReturnTrue(player),
+            _ => true // Stay in location for invalid input
         };
     }
 
-    private void ShowLocationDescription(Character player)
+    private async Task ShowLocationDescription(Character player)
     {
-        var terminal = TerminalEmulator.Instance;
         terminal.WriteLine();
         terminal.WriteLine();
         terminal.WriteLine($"You enter {GameConfig.DefaultLoveCornerName}.", TerminalEmulator.ColorGreen);
         terminal.WriteLine();
-        
+
         if (!player.Expert)
         {
-            ShowMenu(player);
+            await ShowMenu(player);
         }
     }
 
-    private void ShowMenu(Character player)
+    private async Task ShowMenu(Character player)
     {
-        var terminal = TerminalEmulator.Instance;
         terminal.ClearScreen();
         terminal.WriteLine();
         terminal.WriteLine($"-=*=- {GameConfig.DefaultLoveCornerName} -=*=-", TerminalEmulator.ColorYellow);
@@ -67,7 +83,7 @@ public class LoveCornerLocation : BaseLocation
         terminal.WriteLine("You should also make up to the people you have hurt through the");
         terminal.WriteLine("years. You can poison other persons lives here as well.");
         terminal.WriteLine();
-        
+
         terminal.WriteLine("(A)pproach somebody          (C)hildren in the Realm");
         terminal.WriteLine("(D)ivorce                    (V)isit " + GameConfig.DefaultGossipMongerName);
         terminal.WriteLine("(M)arried Couples            (E)xamine child");
@@ -75,13 +91,12 @@ public class LoveCornerLocation : BaseLocation
         terminal.WriteLine("(S)tatus                     (R)eturn");
         terminal.WriteLine("(L)ove history");
         terminal.WriteLine();
-        
-        ShowPrompt(player);
+
+        await Task.CompletedTask;
     }
 
     private void ShowPrompt(Character player)
     {
-        var terminal = TerminalEmulator.Instance;
         if (player.Expert)
         {
             terminal.Write($"{GameConfig.DefaultLoveCornerName} (A,C,D,E,V,M,P,G,S,R,L,?) :");
@@ -92,42 +107,39 @@ public class LoveCornerLocation : BaseLocation
         }
     }
 
-    private bool HandleApproachSomebody(Character player)
+    private async Task<bool> HandleApproachSomebody(Character player)
     {
-        var terminal = TerminalEmulator.Instance;
         terminal.WriteLine();
         terminal.WriteLine("Approach Somebody", TerminalEmulator.ColorCyan);
         terminal.WriteLine();
-        
+
         if (player.IntimacyActs < 1)
         {
             terminal.WriteLine("You have no intimacy acts left today!", TerminalEmulator.ColorRed);
             terminal.WriteLine("Come back tomorrow for more romantic opportunities.");
-            return WaitForKey();
+            await terminal.PressAnyKey();
+            return true;
         }
-        
-        terminal.Write("Enter the name of the person you wish to approach: ");
-        string targetName = terminal.ReadLine();
-        
+
+        string targetName = await terminal.GetInput("Enter the name of the person you wish to approach: ");
+
         if (string.IsNullOrWhiteSpace(targetName))
         {
             terminal.WriteLine("Invalid name entered.");
-            return WaitForKey();
+            await terminal.PressAnyKey();
+            return true;
         }
-        
+
         // In a full implementation, would search for the character
-        // For now, simulate the interaction
         terminal.WriteLine();
         terminal.WriteLine($"Searching for {targetName}...", TerminalEmulator.ColorYellow);
-        
+
         // Simulate finding the character and show dating menu
-        return ShowDatingMenu(player, targetName);
+        return await ShowDatingMenu(player, targetName);
     }
 
-    private bool ShowDatingMenu(Character player, string targetName)
+    private async Task<bool> ShowDatingMenu(Character player, string targetName)
     {
-        var terminal = TerminalEmulator.Instance;
-        
         while (true)
         {
             terminal.WriteLine();
@@ -138,24 +150,29 @@ public class LoveCornerLocation : BaseLocation
             terminal.WriteLine("(M)arry                      (C)hange feelings");
             terminal.WriteLine("(R)eturn");
             terminal.WriteLine();
-            terminal.Write("Choose your action: ");
-            
-            string choice = terminal.ReadLine()?.ToUpper();
-            
-            switch (choice)
+
+            string choice = await terminal.GetInput("Choose your action: ");
+
+            switch (choice?.ToUpper())
             {
                 case "K":
-                    return HandleKiss(player, targetName);
+                    await HandleKiss(player, targetName);
+                    return true;
                 case "D":
-                    return HandleDinner(player, targetName);
+                    await HandleDinner(player, targetName);
+                    return true;
                 case "H":
-                    return HandleHoldHands(player, targetName);
+                    await HandleHoldHands(player, targetName);
+                    return true;
                 case "I":
-                    return HandleIntimate(player, targetName);
+                    await HandleIntimate(player, targetName);
+                    return true;
                 case "M":
-                    return HandleMarry(player, targetName);
+                    await HandleMarry(player, targetName);
+                    return true;
                 case "C":
-                    return HandleChangeFeelings(player, targetName);
+                    await HandleChangeFeelings(player, targetName);
+                    return true;
                 case "R":
                     return true; // Return to main menu
                 default:
@@ -165,97 +182,91 @@ public class LoveCornerLocation : BaseLocation
         }
     }
 
-    private bool HandleKiss(Character player, string targetName)
+    private async Task HandleKiss(Character player, string targetName)
     {
-        var terminal = TerminalEmulator.Instance;
         terminal.WriteLine();
         terminal.WriteLine($"You lean in to kiss {targetName}...", TerminalEmulator.ColorMagenta);
-        
+
         // Calculate experience (Pascal equivalent)
         long experience = player.Level * GameConfig.KissExperienceMultiplier;
         experience = Math.Max(experience, 100);
-        
+
         player.Experience += experience;
         player.IntimacyActs--;
-        
+
         terminal.WriteLine($"A passionate kiss! You both earn {experience} experience points!");
         terminal.WriteLine($"You have {player.IntimacyActs} intimacy acts left today.");
-        
+
         // Random chance to improve relationship
         var random = new Random();
         if (random.Next(2) == 0)
         {
             terminal.WriteLine($"Your relationship with {targetName} has improved!", TerminalEmulator.ColorGreen);
-            // In full implementation: RelationshipSystem.UpdateRelationship(player, target, 1);
         }
-        
-        return WaitForKey();
+
+        await terminal.PressAnyKey();
     }
 
-    private bool HandleDinner(Character player, string targetName)
+    private async Task HandleDinner(Character player, string targetName)
     {
-        var terminal = TerminalEmulator.Instance;
         terminal.WriteLine();
         terminal.WriteLine($"You invite {targetName} for dinner...", TerminalEmulator.ColorYellow);
-        
+
         long experience = player.Level * GameConfig.DinnerExperienceMultiplier;
         experience = Math.Max(experience, 150);
-        
+
         player.Experience += experience;
         player.IntimacyActs--;
-        
+
         terminal.WriteLine($"A delightful dinner! You both earn {experience} experience points!");
         terminal.WriteLine("The conversation flows as smoothly as the wine!");
         terminal.WriteLine($"You have {player.IntimacyActs} intimacy acts left today.");
-        
-        return WaitForKey();
+
+        await terminal.PressAnyKey();
     }
 
-    private bool HandleHoldHands(Character player, string targetName)
+    private async Task HandleHoldHands(Character player, string targetName)
     {
-        var terminal = TerminalEmulator.Instance;
         terminal.WriteLine();
         terminal.WriteLine($"You reach out to hold {targetName}'s hand...", TerminalEmulator.ColorCyan);
-        
+
         long experience = player.Level * GameConfig.HandHoldingExperienceMultiplier;
         experience = Math.Max(experience, 100);
-        
+
         player.Experience += experience;
         player.IntimacyActs--;
-        
+
         terminal.WriteLine($"A tender moment! You both earn {experience} experience points!");
         terminal.WriteLine("You walk together, hand in hand, sharing a beautiful moment.");
         terminal.WriteLine($"You have {player.IntimacyActs} intimacy acts left today.");
-        
-        return WaitForKey();
+
+        await terminal.PressAnyKey();
     }
 
-    private bool HandleIntimate(Character player, string targetName)
+    private async Task HandleIntimate(Character player, string targetName)
     {
-        var terminal = TerminalEmulator.Instance;
         terminal.WriteLine();
         terminal.WriteLine($"You embrace {targetName} passionately...", TerminalEmulator.ColorRed);
-        
+
         long experience = player.Level * GameConfig.IntimateExperienceMultiplier;
         experience = Math.Max(experience, 200);
-        
+
         player.Experience += experience;
         player.IntimacyActs--;
-        
+
         terminal.WriteLine($"Passionate embrace! You both earn {experience} experience points!");
         terminal.WriteLine("The moment is filled with deep emotion and connection.");
         terminal.WriteLine($"You have {player.IntimacyActs} intimacy acts left today.");
-        
+
         // Potential for pregnancy in full implementation
         terminal.WriteLine();
         terminal.WriteLine("The gods smile upon your union...", TerminalEmulator.ColorYellow);
-        
-        return WaitForKey();
+
+        await terminal.PressAnyKey();
     }
 
-    private bool HandleMarry(Character player, string targetName)
+    private async Task HandleMarry(Character player, string targetName)
     {
-        var terminal = TerminalEmulator.Instance;
         terminal.WriteLine();
         terminal.WriteLine("Marriage Ceremony", TerminalEmulator.ColorYellow);
         terminal.WriteLine("==================");
@@ -271,19 +282,20 @@ public class LoveCornerLocation : BaseLocation
         {
             terminal.WriteLine($"The wedding ceremony costs {weddingCost} gold!", TerminalEmulator.ColorRed);
             terminal.WriteLine($"You only have {player.Gold} gold.");
-            return WaitForKey();
+            await terminal.PressAnyKey();
+            return;
         }
 
         terminal.WriteLine($"Wedding ceremony with {targetName}:");
         terminal.WriteLine($"Cost: {weddingCost} gold");
         terminal.WriteLine();
-        terminal.Write("Proceed with the ceremony? (Y/N): ");
 
-        string confirm = terminal.ReadLine()?.ToUpper();
-        if (confirm != "Y")
+        string confirm = await terminal.GetInput("Proceed with the ceremony? (Y/N): ");
+        if (confirm?.ToUpper() != "Y")
         {
             terminal.WriteLine("Wedding ceremony cancelled.");
-            return WaitForKey();
+            await terminal.PressAnyKey();
+            return;
         }
 
         // Pay wedding cost regardless of outcome
@@ -330,12 +342,11 @@ public class LoveCornerLocation : BaseLocation
             terminal.WriteLine("Congratulations! (go home and make babies)", TerminalEmulator.ColorCyan);
         }
 
-        return WaitForKey();
+        await terminal.PressAnyKey();
     }
 
-    private bool HandleChangeFeelings(Character player, string targetName)
+    private async Task HandleChangeFeelings(Character player, string targetName)
     {
-        var terminal = TerminalEmulator.Instance;
         terminal.WriteLine();
         terminal.WriteLine("Change Your Feelings", TerminalEmulator.ColorCyan);
         terminal.WriteLine("====================");
@@ -346,11 +357,10 @@ public class LoveCornerLocation : BaseLocation
         terminal.WriteLine("(S)uspicious         (A)nger");
         terminal.WriteLine("(E)nemy              (H)ate");
         terminal.WriteLine();
-        terminal.Write("How do you feel about them? ");
-        
-        string feeling = terminal.ReadLine()?.ToUpper();
-        
-        int newRelation = feeling switch
+
+        string feeling = await terminal.GetInput("How do you feel about them? ");
+
+        int newRelation = feeling?.ToUpper() switch
         {
             "L" => GameConfig.RelationLove,
             "P" => GameConfig.RelationPassion,
@@ -364,10 +374,10 @@ public class LoveCornerLocation : BaseLocation
             "H" => GameConfig.RelationHate,
             _ => GameConfig.RelationNormal
         };
-        
+
         terminal.WriteLine();
         terminal.WriteLine($"Your feelings toward {targetName} have been set to: {GetRelationshipName(newRelation)}");
-        
+
         // Display appropriate reaction
         if (newRelation == GameConfig.RelationLove)
         {
@@ -377,25 +387,25 @@ public class LoveCornerLocation : BaseLocation
         {
             terminal.WriteLine("HATE! HATE! HATE! HATE!", TerminalEmulator.ColorRed);
         }
-        
-        return WaitForKey();
+
+        await terminal.PressAnyKey();
     }
 
-    private bool HandleDivorce(Character player)
+    private async Task<bool> HandleDivorce(Character player)
     {
-        var terminal = TerminalEmulator.Instance;
         terminal.WriteLine();
         terminal.WriteLine("Divorce Proceedings", TerminalEmulator.ColorRed);
         terminal.WriteLine("==================");
         terminal.WriteLine();
-        
+
         if (!player.IsMarried)
         {
             terminal.WriteLine("You are not married bird-brain!", TerminalEmulator.ColorRed);
             terminal.WriteLine("Go and find yourself a spouse before it's too late!");
-            return WaitForKey();
+            await terminal.PressAnyKey();
+            return true;
         }
-        
+
         terminal.WriteLine($"You are married to {player.SpouseName}.");
         terminal.WriteLine();
         terminal.WriteLine("Divorce process:", TerminalEmulator.ColorYellow);
@@ -403,37 +413,38 @@ public class LoveCornerLocation : BaseLocation
         terminal.WriteLine("- Your relationship will become hostile!");
         terminal.WriteLine($"- Divorce costs {GameConfig.DivorceCostBase} gold!");
         terminal.WriteLine();
-        
+
         if (player.Gold < GameConfig.DivorceCostBase)
         {
             terminal.WriteLine($"You need {GameConfig.DivorceCostBase} gold for divorce proceedings!", TerminalEmulator.ColorRed);
             terminal.WriteLine($"You only have {player.Gold} gold.");
-            return WaitForKey();
+            await terminal.PressAnyKey();
+            return true;
         }
-        
-        terminal.Write("Are you sure you want to divorce? (Y/N): ");
-        string confirm1 = terminal.ReadLine()?.ToUpper();
-        if (confirm1 != "Y")
+
+        string confirm1 = await terminal.GetInput("Are you sure you want to divorce? (Y/N): ");
+        if (confirm1?.ToUpper() != "Y")
         {
             terminal.WriteLine("Divorce cancelled.");
-            return WaitForKey();
+            await terminal.PressAnyKey();
+            return true;
         }
-        
-        terminal.Write("You will lose custody of your children! Go ahead anyway? (Y/N): ");
-        string confirm2 = terminal.ReadLine()?.ToUpper();
-        if (confirm2 != "Y")
+
+        string confirm2 = await terminal.GetInput("You will lose custody of your children! Go ahead anyway? (Y/N): ");
+        if (confirm2?.ToUpper() != "Y")
         {
             terminal.WriteLine("Divorce cancelled.");
-            return WaitForKey();
+            await terminal.PressAnyKey();
+            return true;
         }
-        
+
         // Process divorce
         player.Gold -= GameConfig.DivorceCostBase;
         string exSpouse = player.SpouseName;
         player.IsMarried = false;
         player.Married = false;
         player.SpouseName = "";
-        
+
         terminal.WriteLine();
         terminal.WriteLine("*** DIVORCE FINALIZED ***", TerminalEmulator.ColorRed);
         terminal.WriteLine();
@@ -441,18 +452,18 @@ public class LoveCornerLocation : BaseLocation
         terminal.WriteLine("You have lost custody of your children!");
         terminal.WriteLine();
         terminal.WriteLine("Single Life! Here I come!", TerminalEmulator.ColorGreen);
-        
-        return WaitForKey();
+
+        await terminal.PressAnyKey();
+        return true;
     }
 
-    private bool HandleChildrenInRealm(Character player)
+    private async Task<bool> HandleChildrenInRealm(Character player)
     {
-        var terminal = TerminalEmulator.Instance;
         terminal.WriteLine();
         terminal.WriteLine("Children in the Realm", TerminalEmulator.ColorCyan);
         terminal.WriteLine("====================");
         terminal.WriteLine();
-        
+
         // In full implementation, would list all children
         terminal.WriteLine("Child listing feature:");
         terminal.WriteLine("- View all children in the realm");
@@ -460,13 +471,13 @@ public class LoveCornerLocation : BaseLocation
         terminal.WriteLine("- Check on kidnapped children");
         terminal.WriteLine();
         terminal.WriteLine("This feature will be fully implemented in a future update.");
-        
-        return WaitForKey();
+
+        await terminal.PressAnyKey();
+        return true;
     }
 
-    private bool HandleExamineChild(Character player)
+    private async Task<bool> HandleExamineChild(Character player)
     {
-        var terminal = TerminalEmulator.Instance;
         terminal.WriteLine();
         terminal.WriteLine("Your Children", TerminalEmulator.ColorCyan);
         terminal.WriteLine("=============");
@@ -480,7 +491,8 @@ public class LoveCornerLocation : BaseLocation
             terminal.WriteLine();
             terminal.WriteLine("To have children, marry someone of the opposite sex");
             terminal.WriteLine("and visit your home for intimate moments.", TerminalEmulator.ColorDarkGray);
-            return WaitForKey();
+            await terminal.PressAnyKey();
+            return true;
         }
 
         terminal.WriteLine($"You have {children.Count} child{(children.Count > 1 ? "ren" : "")}:");
@@ -521,12 +533,12 @@ public class LoveCornerLocation : BaseLocation
             terminal.WriteLine("When children reach 18, they become independent NPCs.", TerminalEmulator.ColorDarkGray);
         }
 
-        return WaitForKey();
+        await terminal.PressAnyKey();
+        return true;
     }
 
-    private bool HandleVisitGossipMonger(Character player)
+    private async Task<bool> HandleVisitGossipMonger(Character player)
     {
-        var terminal = TerminalEmulator.Instance;
         terminal.WriteLine();
         terminal.WriteLine($"Visiting {GameConfig.DefaultGossipMongerName}", TerminalEmulator.ColorMagenta);
         terminal.WriteLine("=====================================");
@@ -542,13 +554,13 @@ public class LoveCornerLocation : BaseLocation
         terminal.WriteLine("\"My services aren't free, but they're worth every gold piece!\"");
         terminal.WriteLine();
         terminal.WriteLine("This feature will be fully implemented in a future update.");
-        
-        return WaitForKey();
+
+        await terminal.PressAnyKey();
+        return true;
     }
 
-    private bool HandleMarriedCouples(Character player)
+    private async Task<bool> HandleMarriedCouples(Character player)
     {
-        var terminal = TerminalEmulator.Instance;
         terminal.WriteLine();
         terminal.WriteLine("<3<3<3 Married Couples <3<3<3", TerminalEmulator.ColorMagenta);
         terminal.WriteLine();
@@ -570,24 +582,24 @@ public class LoveCornerLocation : BaseLocation
 
         terminal.WriteLine();
 
-        return WaitForKey();
+        await terminal.PressAnyKey();
+        return true;
     }
 
-    private bool HandlePersonalRelations(Character player)
+    private async Task<bool> HandlePersonalRelations(Character player)
     {
-        var terminal = TerminalEmulator.Instance;
         terminal.WriteLine();
         terminal.WriteLine($"{player.Name}'s Personal Relations", TerminalEmulator.ColorCyan);
         terminal.WriteLine("=================================");
         terminal.WriteLine();
-        
+
         if (player.IsMarried)
         {
             terminal.WriteLine($"Married to: {player.SpouseName}", TerminalEmulator.ColorGreen);
             terminal.WriteLine($"Marriage count: {player.MarriedTimes}");
             terminal.WriteLine();
         }
-        
+
         terminal.WriteLine($"Children: {player.Children}");
         terminal.WriteLine($"Intimacy acts left today: {player.IntimacyActs}");
         terminal.WriteLine();
@@ -597,13 +609,13 @@ public class LoveCornerLocation : BaseLocation
         terminal.WriteLine("- Check relationship history");
         terminal.WriteLine();
         terminal.WriteLine("This will show your full relationship network in the complete system.");
-        
-        return WaitForKey();
+
+        await terminal.PressAnyKey();
+        return true;
     }
 
-    private bool HandleGiftShop(Character player)
+    private async Task<bool> HandleGiftShop(Character player)
     {
-        var terminal = TerminalEmulator.Instance;
         terminal.WriteLine();
         terminal.WriteLine("Gift Shop", TerminalEmulator.ColorYellow);
         terminal.WriteLine("=========");
@@ -616,59 +628,58 @@ public class LoveCornerLocation : BaseLocation
         terminal.WriteLine($"(P)oison someone - {GameConfig.PoisonCostBase} gold");
         terminal.WriteLine("(E)xit shop");
         terminal.WriteLine();
-        terminal.Write("What would you like to purchase? ");
-        
-        string choice = terminal.ReadLine()?.ToUpper();
-        
-        switch (choice)
+
+        string choice = await terminal.GetInput("What would you like to purchase? ");
+
+        switch (choice?.ToUpper())
         {
             case "R":
-                return PurchaseGift(player, "Roses", GameConfig.RosesCost);
+                return await PurchaseGift(player, "Roses", GameConfig.RosesCost);
             case "C":
-                return PurchaseGift(player, "Chocolates", GameConfig.ChocolatesCostBase);
+                return await PurchaseGift(player, "Chocolates", GameConfig.ChocolatesCostBase);
             case "J":
-                return PurchaseGift(player, "Jewelry", GameConfig.JewelryCostBase);
+                return await PurchaseGift(player, "Jewelry", GameConfig.JewelryCostBase);
             case "P":
-                return PurchasePoison(player);
+                return await PurchasePoison(player);
             default:
                 terminal.WriteLine("Thank you for visiting the gift shop!");
-                return WaitForKey();
+                await terminal.PressAnyKey();
+                return true;
         }
     }
 
-    private bool PurchaseGift(Character player, string giftName, long cost)
+    private async Task<bool> PurchaseGift(Character player, string giftName, long cost)
     {
-        var terminal = TerminalEmulator.Instance;
-        
         if (player.Gold < cost)
         {
             terminal.WriteLine($"You need {cost} gold to buy {giftName}!", TerminalEmulator.ColorRed);
             terminal.WriteLine($"You only have {player.Gold} gold.");
-            return WaitForKey();
+            await terminal.PressAnyKey();
+            return true;
         }
-        
-        terminal.Write($"Who would you like to send {giftName} to? ");
-        string recipient = terminal.ReadLine();
-        
+
+        string recipient = await terminal.GetInput($"Who would you like to send {giftName} to? ");
+
         if (string.IsNullOrWhiteSpace(recipient))
         {
             terminal.WriteLine("Invalid recipient.");
-            return WaitForKey();
+            await terminal.PressAnyKey();
+            return true;
         }
-        
+
         player.Gold -= cost;
         terminal.WriteLine();
         terminal.WriteLine($"You have sent {giftName} to {recipient}!");
         terminal.WriteLine("They will surely appreciate your thoughtful gift.");
-        
-        return WaitForKey();
+
+        await terminal.PressAnyKey();
+        return true;
     }
 
-    private bool PurchasePoison(Character player)
+    private async Task<bool> PurchasePoison(Character player)
     {
-        var terminal = TerminalEmulator.Instance;
         long cost = GameConfig.PoisonCostBase;
-        
+
         terminal.WriteLine();
         terminal.WriteLine("Poison Purchase", TerminalEmulator.ColorRed);
         terminal.WriteLine("===============");
@@ -676,43 +687,44 @@ public class LoveCornerLocation : BaseLocation
         terminal.WriteLine("\"Psst... looking for something... special?\"", TerminalEmulator.ColorDarkGray);
         terminal.WriteLine($"\"This will cost you {cost} gold, no questions asked.\"");
         terminal.WriteLine();
-        
+
         if (player.Gold < cost)
         {
             terminal.WriteLine($"You need {cost} gold!", TerminalEmulator.ColorRed);
-            return WaitForKey();
+            await terminal.PressAnyKey();
+            return true;
         }
-        
-        terminal.Write("Who is your... target? ");
-        string target = terminal.ReadLine();
-        
+
+        string target = await terminal.GetInput("Who is your... target? ");
+
         if (string.IsNullOrWhiteSpace(target))
         {
             terminal.WriteLine("\"No target, no deal.\"");
-            return WaitForKey();
+            await terminal.PressAnyKey();
+            return true;
         }
-        
+
         player.Gold -= cost;
         terminal.WriteLine();
         terminal.WriteLine($"\"Consider it done. {target} will... have an accident.\"", TerminalEmulator.ColorRed);
         terminal.WriteLine("\"We never had this conversation.\"");
-        
-        return WaitForKey();
+
+        await terminal.PressAnyKey();
+        return true;
     }
 
-    private bool HandleStatus(Character player)
+    private async Task<bool> HandleStatus(Character player)
     {
-        var terminal = TerminalEmulator.Instance;
         terminal.WriteLine();
         terminal.WriteLine($"{player.Name}'s Relationship Status", TerminalEmulator.ColorCyan);
         terminal.WriteLine("====================================");
         terminal.WriteLine();
-        
+
         terminal.WriteLine($"Age: {player.Age} years old");
         terminal.WriteLine($"Sex: {(player.Sex == CharacterSex.Male ? "Male" : "Female")}");
         terminal.WriteLine($"Race: {player.Race}");
         terminal.WriteLine();
-        
+
         if (player.IsMarried)
         {
             terminal.WriteLine($"Marital Status: Married to {player.SpouseName}", TerminalEmulator.ColorGreen);
@@ -726,12 +738,12 @@ public class LoveCornerLocation : BaseLocation
                 terminal.WriteLine($"Previous marriages: {player.MarriedTimes}");
             }
         }
-        
+
         terminal.WriteLine();
         terminal.WriteLine($"Children: {player.Children}");
         terminal.WriteLine($"Intimacy acts remaining today: {player.IntimacyActs}");
         terminal.WriteLine();
-        
+
         // Character personality assessment
         if (player.Chivalry >= player.Darkness)
         {
@@ -741,13 +753,13 @@ public class LoveCornerLocation : BaseLocation
         {
             terminal.WriteLine($"{player.Name} has an evil mind.", TerminalEmulator.ColorRed);
         }
-        
-        return WaitForKey();
+
+        await terminal.PressAnyKey();
+        return true;
     }
 
-    private bool HandleLoveHistory(Character player)
+    private async Task<bool> HandleLoveHistory(Character player)
     {
-        var terminal = TerminalEmulator.Instance;
         terminal.WriteLine();
         terminal.WriteLine("History of Love", TerminalEmulator.ColorMagenta);
         terminal.WriteLine("===============");
@@ -758,11 +770,10 @@ public class LoveCornerLocation : BaseLocation
         terminal.WriteLine("(1) Current Marriages        (H)ated players, Top List");
         terminal.WriteLine("(L)oved players, Top List    (R)eturn");
         terminal.WriteLine();
-        terminal.Write("History Room (? for menu): ");
-        
-        string choice = terminal.ReadLine()?.ToUpper();
-        
-        switch (choice)
+
+        string choice = await terminal.GetInput("History Room (? for menu): ");
+
+        switch (choice?.ToUpper())
         {
             case "M":
                 ShowMarriageHistory();
@@ -771,7 +782,7 @@ public class LoveCornerLocation : BaseLocation
                 ShowChildBirthHistory();
                 break;
             case "1":
-                return HandleMarriedCouples(player);
+                return await HandleMarriedCouples(player);
             case "H":
                 ShowHatedPlayersList();
                 break;
@@ -784,13 +795,13 @@ public class LoveCornerLocation : BaseLocation
                 terminal.WriteLine("Invalid choice.");
                 break;
         }
-        
-        return WaitForKey();
+
+        await terminal.PressAnyKey();
+        return true;
     }
 
     private void ShowMarriageHistory()
     {
-        var terminal = TerminalEmulator.Instance;
         terminal.WriteLine();
         terminal.WriteLine("Marriage & Divorce History", TerminalEmulator.ColorYellow);
         terminal.WriteLine("==========================");
@@ -801,7 +812,6 @@ public class LoveCornerLocation : BaseLocation
 
     private void ShowChildBirthHistory()
     {
-        var terminal = TerminalEmulator.Instance;
         terminal.WriteLine();
         terminal.WriteLine("Child Birth History", TerminalEmulator.ColorCyan);
         terminal.WriteLine("==================");
@@ -812,7 +822,6 @@ public class LoveCornerLocation : BaseLocation
 
     private void ShowHatedPlayersList()
     {
-        var terminal = TerminalEmulator.Instance;
         terminal.WriteLine();
         terminal.WriteLine("Most Hated Players", TerminalEmulator.ColorRed);
         terminal.WriteLine("==================");
@@ -822,26 +831,11 @@ public class LoveCornerLocation : BaseLocation
 
     private void ShowLovedPlayersList()
     {
-        var terminal = TerminalEmulator.Instance;
         terminal.WriteLine();
         terminal.WriteLine("Most Loved Players", TerminalEmulator.ColorMagenta);
         terminal.WriteLine("==================");
         terminal.WriteLine();
         terminal.WriteLine("Top 10 most loved players will be displayed here.");
-    }
-
-    private bool HandleReturn(Character player)
-    {
-        return false; // Exit location
-    }
-
-    private bool WaitForKey()
-    {
-        var terminal = TerminalEmulator.Instance;
-        terminal.WriteLine();
-        terminal.Write("Press any key to continue...");
-        terminal.ReadKey();
-        return true;
     }
 
     private string GetRelationshipName(int relation)
@@ -863,9 +857,9 @@ public class LoveCornerLocation : BaseLocation
         };
     }
 
-    private bool ShowMenuAndReturnTrue(Character player)
+    private async Task<bool> ShowMenuAndReturnTrue(Character player)
     {
-        ShowMenu(player);
+        await ShowMenu(player);
         return true;
     }
-} 
+}

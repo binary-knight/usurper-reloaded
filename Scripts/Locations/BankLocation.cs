@@ -27,6 +27,19 @@ public class BankLocation : BaseLocation
     private const float DailyInterestRate = 0.001f; // 0.1% daily interest
     private const float LoanInterestRate = 0.05f;   // 5% daily loan interest
 
+    // Maximum gold to prevent overflow (99% of long.MaxValue)
+    private const long MaxGold = long.MaxValue / 100 * 99;
+
+    /// <summary>
+    /// Safely add gold without overflow
+    /// </summary>
+    private static long SafeAddGold(long current, long amount)
+    {
+        if (amount <= 0) return current;
+        if (current > MaxGold - amount) return MaxGold;
+        return current + amount;
+    }
+
     public BankLocation() : base(
         GameLocation.Bank,
         "The Ironvault Bank",
@@ -409,10 +422,10 @@ public class BankLocation : BaseLocation
             return;
         }
 
-        // Process deposit
+        // Process deposit (with overflow protection)
         currentPlayer.Gold -= amount;
-        currentPlayer.BankGold += amount;
-        _safeContents += amount;
+        currentPlayer.BankGold = SafeAddGold(currentPlayer.BankGold, amount);
+        _safeContents = SafeAddGold(_safeContents, amount);
 
         terminal.SetColor("bright_green");
         terminal.WriteLine("");
@@ -688,9 +701,9 @@ public class BankLocation : BaseLocation
         }
         else
         {
-            // Offer new loan - capped to prevent abuse
-            // Base: 500 gold, +200 per level, max 10,000
-            long maxLoan = Math.Min(500 + (currentPlayer.Level * 200), 10000);
+            // Offer new loan - scales with level for late-game relevance
+            // Base: 500 gold, +500 per level, max 250,000 (about 20 monster kills at level 100)
+            long maxLoan = Math.Min(500 + (currentPlayer.Level * 500), 250000);
 
             terminal.SetColor("white");
             terminal.WriteLine("\"Ah, looking for some financial assistance, are we?\"");
@@ -1197,9 +1210,9 @@ public class BankLocation : BaseLocation
 
         if (victory)
         {
-            // Calculate loot (25% of safe)
+            // Calculate loot (25% of safe) with overflow protection
             long stolenGold = _safeContents / 4;
-            currentPlayer.Gold += stolenGold;
+            currentPlayer.Gold = SafeAddGold(currentPlayer.Gold, stolenGold);
             _safeContents -= stolenGold;
 
             terminal.SetColor("bright_green");
@@ -1305,11 +1318,11 @@ public class BankLocation : BaseLocation
             }
         }
 
-        // Charge loan interest and enforce consequences
+        // Charge loan interest and enforce consequences (with overflow protection)
         if (player.Loan > 0)
         {
             long loanInterest = (long)(player.Loan * LoanInterestRate);
-            player.Loan += loanInterest;
+            player.Loan = SafeAddGold(player.Loan, loanInterest);
             GD.Print($"[Bank] Charged {loanInterest} loan interest to {player.DisplayName}");
 
             // LOAN CONSEQUENCES - escalating based on debt level

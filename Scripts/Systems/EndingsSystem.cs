@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Godot;
 using UsurperRemake.Utils;
@@ -818,6 +819,426 @@ namespace UsurperRemake.Systems
             terminal.WriteLine("");
 
             terminal.WriteLine("═══════════════════════════════════════════════════════════════════", "gray");
+            terminal.WriteLine("");
+
+            await terminal.GetInputAsync("  Press Enter to continue...");
+
+            // Show personalized epilogue
+            await ShowEpilogue(player, ending, terminal);
+
+            // Show unlocks earned this run
+            await ShowUnlocksEarned(player, ending, terminal);
+        }
+
+        /// <summary>
+        /// Show a personalized epilogue based on player's journey
+        /// </summary>
+        private async Task ShowEpilogue(Character player, EndingType ending, TerminalEmulator terminal)
+        {
+            terminal.Clear();
+            await Task.Delay(1000);
+
+            terminal.WriteLine("");
+            terminal.WriteLine("╔═══════════════════════════════════════════════════════════════════╗", "bright_cyan");
+            terminal.WriteLine("║                 Y O U R   L E G A C Y                             ║", "bright_cyan");
+            terminal.WriteLine("╚═══════════════════════════════════════════════════════════════════╝", "bright_cyan");
+            terminal.WriteLine("");
+
+            await Task.Delay(500);
+
+            var story = StoryProgressionSystem.Instance;
+            var companions = CompanionSystem.Instance;
+            var romance = RomanceTracker.Instance;
+
+            // Character summary
+            terminal.WriteLine("  === THE HERO ===", "bright_yellow");
+            terminal.WriteLine($"  {player.Name2} the {player.Race} {player.Class}", "white");
+            terminal.WriteLine($"  Reached level {player.Level} after slaying {player.MKills} monsters", "gray");
+            terminal.WriteLine("");
+
+            await Task.Delay(300);
+
+            // Alignment-based description
+            long alignment = player.Chivalry - player.Darkness;
+            string alignDesc;
+            if (alignment > 500) alignDesc = "a paragon of virtue, beloved by all";
+            else if (alignment > 200) alignDesc = "a hero of the people, mostly good";
+            else if (alignment > -200) alignDesc = "a balanced soul, walking the line between light and dark";
+            else if (alignment > -500) alignDesc = "a dangerous figure, feared as much as respected";
+            else alignDesc = "a terror of the realm, whispered about in fearful tones";
+            terminal.WriteLine($"  Known as {alignDesc}.", "white");
+            terminal.WriteLine("");
+
+            await Task.Delay(300);
+
+            // Companions
+            terminal.WriteLine("  === COMPANIONS ===", "bright_yellow");
+            var activeCompanions = companions.GetActiveCompanions();
+            var fallenCompanions = companions.GetFallenCompanions().ToList();
+
+            if (activeCompanions.Any())
+            {
+                terminal.WriteLine("  Those who stood with you at the end:", "green");
+                foreach (var c in activeCompanions)
+                {
+                    terminal.WriteLine($"    - {c.Name} (Level {c.Level})", "white");
+                }
+            }
+            else
+            {
+                terminal.WriteLine("  You faced the final battle alone.", "gray");
+            }
+
+            if (fallenCompanions.Count > 0)
+            {
+                terminal.WriteLine("  Those who fell along the way:", "dark_red");
+                foreach (var (companion, death) in fallenCompanions)
+                {
+                    terminal.WriteLine($"    - {companion.Name}, lost to {death.Type}", "gray");
+                }
+            }
+            terminal.WriteLine("");
+
+            await Task.Delay(300);
+
+            // Romance
+            terminal.WriteLine("  === LOVE & FAMILY ===", "bright_yellow");
+            if (romance.Spouses.Count > 0)
+            {
+                var spouse = romance.Spouses[0];
+                var spouseName = !string.IsNullOrEmpty(spouse.NPCName) ? spouse.NPCName : spouse.NPCId;
+                terminal.WriteLine($"  Married to {spouseName}", "bright_magenta");
+                if (spouse.Children > 0)
+                {
+                    terminal.WriteLine($"  Together you raised {spouse.Children} child{(spouse.Children > 1 ? "ren" : "")}.", "magenta");
+                }
+            }
+            else if (romance.CurrentLovers.Count > 0)
+            {
+                terminal.WriteLine($"  Never married, but had {romance.CurrentLovers.Count} romantic partner(s).", "magenta");
+            }
+            else
+            {
+                terminal.WriteLine("  The hero's heart remained focused on the quest.", "gray");
+            }
+
+            if (romance.ExSpouses.Count > 0)
+            {
+                terminal.WriteLine($"  {romance.ExSpouses.Count} marriage(s) ended in divorce.", "gray");
+            }
+            terminal.WriteLine("");
+
+            await Task.Delay(300);
+
+            // World impact
+            terminal.WriteLine("  === IMPACT ON THE WORLD ===", "bright_yellow");
+            await ShowWorldImpact(player, ending, story, terminal);
+            terminal.WriteLine("");
+
+            await Task.Delay(300);
+
+            // Achievements unlocked
+            terminal.WriteLine("  === NOTABLE ACHIEVEMENTS ===", "bright_yellow");
+            await ShowNotableAchievements(player, terminal);
+            terminal.WriteLine("");
+
+            await Task.Delay(300);
+
+            // Jungian Archetype reveal
+            terminal.WriteLine("  === YOUR TRUE NATURE ===", "bright_yellow");
+            await ShowArchetypeReveal(player, terminal);
+            terminal.WriteLine("");
+
+            // Final quote based on ending
+            terminal.WriteLine("═══════════════════════════════════════════════════════════════════", "gray");
+            string quote = ending switch
+            {
+                EndingType.Usurper => "\"Power is not given. It is taken.\"",
+                EndingType.Savior => "\"True strength is the courage to show mercy.\"",
+                EndingType.Defiant => "\"I will not kneel. Not to gods. Not to anyone.\"",
+                EndingType.TrueEnding => "\"We were always one. The wave returns to the ocean.\"",
+                EndingType.Secret => "\"In stillness, I found what motion never could.\"",
+                _ => "\"The journey ends, but the story lives on.\""
+            };
+            terminal.WriteLine("");
+            terminal.WriteLine($"  {quote}", "bright_cyan");
+            terminal.WriteLine($"  - {player.Name2}", "gray");
+            terminal.WriteLine("");
+
+            await terminal.GetInputAsync("  Press Enter to continue...");
+        }
+
+        /// <summary>
+        /// Show the impact of the player's choices on the world
+        /// </summary>
+        private async Task ShowWorldImpact(Character player, EndingType ending, StoryProgressionSystem story, TerminalEmulator terminal)
+        {
+            await Task.Delay(100);
+
+            // Count gods saved vs destroyed
+            int savedGods = 0;
+            int destroyedGods = 0;
+            foreach (var godState in story.OldGodStates.Values)
+            {
+                if (godState.Status == GodStatus.Saved || godState.Status == GodStatus.Awakened)
+                    savedGods++;
+                else if (godState.Status == GodStatus.Defeated)
+                    destroyedGods++;
+            }
+
+            if (savedGods > destroyedGods)
+            {
+                terminal.WriteLine($"  The Old Gods were mostly redeemed ({savedGods} saved, {destroyedGods} destroyed)", "green");
+                terminal.WriteLine("  Divine balance slowly returns to the realm.", "white");
+            }
+            else if (destroyedGods > savedGods)
+            {
+                terminal.WriteLine($"  The Old Gods were mostly destroyed ({destroyedGods} slain, {savedGods} saved)", "dark_red");
+                terminal.WriteLine("  Their power now scattered across the mortal realm.", "white");
+            }
+            else
+            {
+                terminal.WriteLine("  The fate of the Old Gods remains uncertain.", "yellow");
+            }
+
+            // Economy impact
+            long totalWealth = player.Gold + player.BankGold;
+            if (totalWealth > 1000000)
+            {
+                terminal.WriteLine("  You accumulated vast wealth, becoming a legend of commerce.", "yellow");
+            }
+            else if (totalWealth > 100000)
+            {
+                terminal.WriteLine("  You earned a comfortable fortune through your adventures.", "yellow");
+            }
+
+            // Combat impact
+            if (player.MKills > 10000)
+            {
+                terminal.WriteLine("  Countless monsters fell to your blade. The dungeon fears your name.", "red");
+            }
+            else if (player.MKills > 1000)
+            {
+                terminal.WriteLine("  You carved a bloody path through the dungeon's depths.", "red");
+            }
+
+            // Story choices
+            if (story.MajorChoices.Count > 10)
+            {
+                terminal.WriteLine($"  {story.MajorChoices.Count} crucial decisions shaped the fate of the realm.", "bright_magenta");
+            }
+
+            // Ending-specific impact
+            switch (ending)
+            {
+                case EndingType.Usurper:
+                    terminal.WriteLine("  You claimed divine power. The realm now trembles under your rule.", "dark_red");
+                    break;
+                case EndingType.Savior:
+                    terminal.WriteLine("  Peace returns to the realm. Songs of your mercy echo for generations.", "bright_green");
+                    break;
+                case EndingType.Defiant:
+                    terminal.WriteLine("  Mortals now choose their own fate. The age of gods has ended.", "bright_yellow");
+                    break;
+                case EndingType.TrueEnding:
+                    terminal.WriteLine("  The cosmic cycle of suffering has been broken. A new era dawns.", "bright_cyan");
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Show notable achievements from this run
+        /// </summary>
+        private async Task ShowNotableAchievements(Character player, TerminalEmulator terminal)
+        {
+            await Task.Delay(100);
+
+            var achievementCount = player.Achievements?.UnlockedCount ?? 0;
+            var notableAchievements = new List<string>();
+
+            // Pick up to 5 notable achievements
+            if (player.Level >= 100) notableAchievements.Add("Reached the maximum level of 100");
+            if (player.MKills >= 10000) notableAchievements.Add($"Slayed over 10,000 monsters");
+            if (StoryProgressionSystem.Instance.CollectedSeals.Count >= 7) notableAchievements.Add("Collected all 7 Seals of Power");
+            if (StoryProgressionSystem.Instance.CollectedArtifacts.Count >= 7) notableAchievements.Add("Found all 7 Divine Artifacts");
+
+            var companions = CompanionSystem.Instance;
+            if (companions.GetActiveCompanions().Count() >= 3) notableAchievements.Add("Led a full party of companions");
+            if (RomanceTracker.Instance.Spouses.Count > 0 && RomanceTracker.Instance.Spouses[0].Children > 0)
+                notableAchievements.Add("Started a family in the realm");
+
+            if (achievementCount >= 25) notableAchievements.Add($"Unlocked {achievementCount} achievements");
+
+            if (notableAchievements.Count == 0)
+            {
+                terminal.WriteLine("  Your journey was just beginning...", "gray");
+            }
+            else
+            {
+                foreach (var achievement in notableAchievements.Take(5))
+                {
+                    terminal.WriteLine($"  * {achievement}", "bright_cyan");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Show the player's Jungian Archetype based on their playstyle
+        /// </summary>
+        private async Task ShowArchetypeReveal(Character player, TerminalEmulator terminal)
+        {
+            await Task.Delay(500);
+
+            var tracker = ArchetypeTracker.Instance;
+            var dominant = tracker.GetDominantArchetype();
+            var secondary = tracker.GetSecondaryArchetype();
+
+            var (name, title, description, color) = ArchetypeTracker.GetArchetypeInfo(dominant);
+            var quote = ArchetypeTracker.GetArchetypeQuote(dominant);
+
+            terminal.WriteLine($"  Throughout your journey, your true nature emerged:", "white");
+            terminal.WriteLine("");
+
+            await Task.Delay(500);
+
+            terminal.WriteLine($"  *** {name.ToUpper()} ***", color);
+            terminal.WriteLine($"  \"{title}\"", color);
+            terminal.WriteLine("");
+
+            await Task.Delay(500);
+
+            // Word wrap the description
+            var words = description.Split(' ');
+            var currentLine = "  ";
+            foreach (var word in words)
+            {
+                if (currentLine.Length + word.Length + 1 > 68)
+                {
+                    terminal.WriteLine(currentLine, "white");
+                    currentLine = "  " + word;
+                }
+                else
+                {
+                    currentLine += (currentLine.Length > 2 ? " " : "") + word;
+                }
+            }
+            if (currentLine.Length > 2)
+            {
+                terminal.WriteLine(currentLine, "white");
+            }
+            terminal.WriteLine("");
+
+            await Task.Delay(300);
+
+            // Show secondary archetype
+            var (secName, secTitle, _, secColor) = ArchetypeTracker.GetArchetypeInfo(secondary);
+            terminal.WriteLine($"  With shades of: {secName} ({secTitle})", "gray");
+            terminal.WriteLine("");
+
+            await Task.Delay(300);
+
+            // Show the archetype quote
+            terminal.WriteLine($"  {quote}", "bright_cyan");
+            terminal.WriteLine("");
+
+            // Show some stats that contributed to this determination
+            terminal.SetColor("darkgray");
+            terminal.WriteLine("  Journey Statistics:");
+            if (tracker.MonstersKilled > 0)
+                terminal.WriteLine($"    Combat: {tracker.MonstersKilled} monsters, {tracker.BossesDefeated} bosses");
+            if (tracker.DungeonFloorsExplored > 0)
+                terminal.WriteLine($"    Exploration: {tracker.DungeonFloorsExplored} floors explored");
+            if (tracker.SpellsCast > 0)
+                terminal.WriteLine($"    Magic: {tracker.SpellsCast} spells cast");
+            if (tracker.RomanceEncounters > 0)
+                terminal.WriteLine($"    Romance: {tracker.RomanceEncounters} encounters, {tracker.MarriagesFormed} marriages");
+            if (tracker.SealsCollected > 0 || tracker.ArtifactsCollected > 0)
+                terminal.WriteLine($"    Wisdom: {tracker.SealsCollected} seals, {tracker.ArtifactsCollected} artifacts");
+        }
+
+        /// <summary>
+        /// Show unlocks earned from completing this run
+        /// </summary>
+        private async Task ShowUnlocksEarned(Character player, EndingType ending, TerminalEmulator terminal)
+        {
+            terminal.Clear();
+            await Task.Delay(500);
+
+            terminal.WriteLine("");
+            terminal.WriteLine("╔═══════════════════════════════════════════════════════════════════╗", "bright_green");
+            terminal.WriteLine("║                 U N L O C K S   E A R N E D                       ║", "bright_green");
+            terminal.WriteLine("╚═══════════════════════════════════════════════════════════════════╝", "bright_green");
+            terminal.WriteLine("");
+
+            var unlocks = new List<(string name, string description, string color)>();
+
+            // Ending-based unlocks
+            switch (ending)
+            {
+                case EndingType.Usurper:
+                    unlocks.Add(("DARK LORD TITLE", "Start NG+ with 'Dark Lord' title prefix", "dark_red"));
+                    unlocks.Add(("TYRANT'S AURA", "+15% damage in NG+", "red"));
+                    unlocks.Add(("FEAR THE THRONE", "Enemies have -10% chance to flee", "dark_red"));
+                    break;
+                case EndingType.Savior:
+                    unlocks.Add(("SAVIOR TITLE", "Start NG+ with 'Savior' title prefix", "bright_green"));
+                    unlocks.Add(("HEALING LIGHT", "+25% healing effectiveness in NG+", "green"));
+                    unlocks.Add(("BLESSED COMMERCE", "10% discount at all shops", "yellow"));
+                    break;
+                case EndingType.Defiant:
+                    unlocks.Add(("DEFIANT TITLE", "Start NG+ with 'Defiant' title prefix", "bright_yellow"));
+                    unlocks.Add(("MORTAL PRIDE", "+20% XP gain in NG+", "cyan"));
+                    unlocks.Add(("ANCIENT KEY", "Start with dungeon shortcut key", "bright_magenta"));
+                    break;
+                case EndingType.TrueEnding:
+                    unlocks.Add(("AWAKENED TITLE", "Start NG+ with 'Awakened' title prefix", "bright_cyan"));
+                    unlocks.Add(("OCEAN'S BLESSING", "+15% to all stats in NG+", "bright_cyan"));
+                    unlocks.Add(("ARTIFACT MEMORY", "All artifact locations revealed", "bright_magenta"));
+                    unlocks.Add(("SEAL RESONANCE", "Seals give double bonuses", "bright_magenta"));
+                    break;
+                case EndingType.Secret:
+                    unlocks.Add(("DISSOLVED", "Your journey is complete. No unlocks needed.", "white"));
+                    break;
+            }
+
+            // Level-based unlocks
+            if (player.Level >= 50)
+                unlocks.Add(("VETERAN", "Start NG+ at level 5 instead of 1", "white"));
+            if (player.Level >= 100)
+                unlocks.Add(("MASTER", "Start NG+ at level 10 with bonus stats", "bright_yellow"));
+
+            // Kill-based unlocks
+            if (player.MKills >= 5000)
+                unlocks.Add(("SLAYER", "Rare monsters appear 25% more often", "red"));
+
+            // Collection unlocks
+            if (StoryProgressionSystem.Instance.CollectedSeals.Count >= 7)
+                unlocks.Add(("SEAL MASTER", "Seals are visible on minimap in NG+", "bright_cyan"));
+            if (StoryProgressionSystem.Instance.CollectedArtifacts.Count >= 7)
+                unlocks.Add(("ARTIFACT HUNTER", "Artifacts give +50% bonus effects", "bright_magenta"));
+
+            // Companion unlocks
+            var companions = CompanionSystem.Instance;
+            if (companions.GetFallenCompanions().Any())
+                unlocks.Add(("SURVIVOR'S GUILT", "Fallen companions may return as ghosts with advice", "gray"));
+
+            terminal.WriteLine("  Completing this ending has unlocked:", "white");
+            terminal.WriteLine("");
+
+            foreach (var (name, description, color) in unlocks)
+            {
+                terminal.WriteLine($"  [{name}]", color);
+                terminal.WriteLine($"    {description}", "gray");
+                terminal.WriteLine("");
+                await Task.Delay(300);
+            }
+
+            // Track unlocks
+            MetaProgressionSystem.Instance.RecordEndingUnlock(ending, player);
+
+            terminal.WriteLine("═══════════════════════════════════════════════════════════════════", "gray");
+            terminal.WriteLine("");
+            terminal.WriteLine("  These bonuses will apply in New Game+!", "bright_green");
             terminal.WriteLine("");
 
             await terminal.GetInputAsync("  Press Enter to continue...");

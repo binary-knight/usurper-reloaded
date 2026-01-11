@@ -20,7 +20,8 @@ namespace UsurperRemake.Systems
         public List<string> FriendsWithBenefits { get; set; } = new();
 
         // History
-        public List<string> Exes { get; set; } = new();
+        public List<string> Exes { get; set; } = new();  // Simple list of ex-lover IDs
+        public List<ExSpouse> ExSpouses { get; set; } = new();  // Detailed ex-spouse records
         public List<IntimateEncounter> EncounterHistory { get; set; } = new();
 
         // Tracking
@@ -45,6 +46,7 @@ namespace UsurperRemake.Systems
             Spouses.Clear();
             FriendsWithBenefits.Clear();
             Exes.Clear();
+            ExSpouses.Clear();
             EncounterHistory.Clear();
             JealousyLevels.Clear();
             AgreedStructures.Clear();
@@ -67,6 +69,7 @@ namespace UsurperRemake.Systems
             var lover = new Lover
             {
                 NPCId = npcId,
+                NPCName = GetNPCName(npcId),  // Cache the name at time of adding
                 LoveLevel = initialLoveLevel,
                 IsExclusive = isExclusive,
                 KnowsAboutOthers = !isExclusive,
@@ -75,6 +78,9 @@ namespace UsurperRemake.Systems
 
             CurrentLovers.Add(lover);
             GD.Print($"[Romance] New lover added: {npcId}");
+
+            // Track archetype - Lover
+            ArchetypeTracker.Instance.RecordRomanceEncounter(wasIntimate: false);
 
             // Check jealousy of other lovers
             CheckJealousyTriggers(npcId);
@@ -106,6 +112,7 @@ namespace UsurperRemake.Systems
             var spouse = new Spouse
             {
                 NPCId = npcId,
+                NPCName = GetNPCName(npcId),  // Cache the name at time of marriage
                 MarriedDate = DateTime.Now,
                 LoveLevel = 20, // Start at Love level
                 AcceptsPolyamory = isPolyMarriage,
@@ -116,6 +123,9 @@ namespace UsurperRemake.Systems
 
             // Remove from lovers list if present
             CurrentLovers.RemoveAll(l => l.NPCId == npcId);
+
+            // Track archetype - Marriage is a major Lover event
+            ArchetypeTracker.Instance.RecordMarriage();
 
             GD.Print($"[Romance] Married to {npcId}!");
         }
@@ -150,19 +160,39 @@ namespace UsurperRemake.Systems
         }
 
         /// <summary>
-        /// Divorce a spouse
+        /// Divorce a spouse - preserves marriage history in ExSpouses list
         /// </summary>
-        public void Divorce(string npcId)
+        public void Divorce(string npcId, string reason = "Irreconcilable differences", bool playerInitiated = true)
         {
             var spouse = Spouses.FirstOrDefault(s => s.NPCId == npcId);
             if (spouse != null)
             {
+                // Create ex-spouse record to preserve marriage history
+                var exSpouse = new ExSpouse
+                {
+                    NPCId = spouse.NPCId,
+                    NPCName = !string.IsNullOrEmpty(spouse.NPCName) ? spouse.NPCName : GetNPCName(spouse.NPCId),
+                    MarriedDate = spouse.MarriedDate,
+                    DivorceDate = DateTime.Now,
+                    ChildrenTogether = spouse.Children,
+                    DivorceReason = reason,
+                    PlayerInitiated = playerInitiated
+                };
+
+                // Add to ex-spouses list (check for duplicates)
+                if (!ExSpouses.Any(e => e.NPCId == npcId))
+                {
+                    ExSpouses.Add(exSpouse);
+                }
+
+                // Remove from current spouses
                 Spouses.Remove(spouse);
 
+                // Also add to simple Exes list for backwards compatibility
                 if (!Exes.Contains(npcId))
                     Exes.Add(npcId);
 
-                GD.Print($"[Romance] Divorced from {npcId}");
+                GD.Print($"[Romance] Divorced from {spouse.NPCName ?? npcId} (Reason: {reason}, Children: {spouse.Children})");
             }
         }
 
@@ -189,6 +219,9 @@ namespace UsurperRemake.Systems
                     spouse.LastIntimateDate = encounter.Date;
                 }
             }
+
+            // Track archetype - Intimate encounter is major Lover event
+            ArchetypeTracker.Instance.RecordRomanceEncounter(wasIntimate: true);
 
             GD.Print($"[Romance] Intimate encounter recorded: {encounter.Type} with {string.Join(", ", encounter.PartnerIds)}");
         }
@@ -347,9 +380,12 @@ namespace UsurperRemake.Systems
                 }
 
                 // Jealousy slowly fades over time (if no new triggers)
+                // Decay rate affected by difficulty: Easy = faster decay, Hard/Nightmare = slower
                 if (jealousy > 0 && jealousy < 90)
                 {
-                    JealousyLevels[npcId] = Math.Max(0, jealousy - 2);
+                    int baseDecay = 2;
+                    int adjustedDecay = DifficultySystem.ApplyJealousyDecayMultiplier(baseDecay);
+                    JealousyLevels[npcId] = Math.Max(0, jealousy - adjustedDecay);
                 }
             }
 
@@ -436,7 +472,7 @@ namespace UsurperRemake.Systems
                 data.CurrentLovers.Add(new UsurperRemake.Systems.LoverData
                 {
                     NPCId = lover.NPCId,
-                    NPCName = GetNPCName(lover.NPCId),
+                    NPCName = !string.IsNullOrEmpty(lover.NPCName) ? lover.NPCName : GetNPCName(lover.NPCId),  // Use cached name first
                     LoveLevel = lover.LoveLevel,
                     IsExclusive = lover.IsExclusive,
                     KnowsAboutOthers = lover.KnowsAboutOthers,
@@ -452,7 +488,7 @@ namespace UsurperRemake.Systems
                 data.Spouses.Add(new UsurperRemake.Systems.SpouseData
                 {
                     NPCId = spouse.NPCId,
-                    NPCName = GetNPCName(spouse.NPCId),
+                    NPCName = !string.IsNullOrEmpty(spouse.NPCName) ? spouse.NPCName : GetNPCName(spouse.NPCId),  // Use cached name first
                     MarriedDate = spouse.MarriedDate,
                     LoveLevel = spouse.LoveLevel,
                     AcceptsPolyamory = spouse.AcceptsPolyamory,
@@ -465,6 +501,21 @@ namespace UsurperRemake.Systems
             // Copy simple lists
             data.FriendsWithBenefits = new List<string>(FriendsWithBenefits);
             data.Exes = new List<string>(Exes);
+
+            // Convert ex-spouses
+            foreach (var exSpouse in ExSpouses)
+            {
+                data.ExSpouses.Add(new UsurperRemake.Systems.ExSpouseData
+                {
+                    NPCId = exSpouse.NPCId,
+                    NPCName = !string.IsNullOrEmpty(exSpouse.NPCName) ? exSpouse.NPCName : GetNPCName(exSpouse.NPCId),
+                    MarriedDate = exSpouse.MarriedDate,
+                    DivorceDate = exSpouse.DivorceDate,
+                    ChildrenTogether = exSpouse.ChildrenTogether,
+                    DivorceReason = exSpouse.DivorceReason,
+                    PlayerInitiated = exSpouse.PlayerInitiated
+                });
+            }
 
             // Convert encounter history
             foreach (var encounter in EncounterHistory)
@@ -535,6 +586,7 @@ namespace UsurperRemake.Systems
             Spouses.Clear();
             FriendsWithBenefits.Clear();
             Exes.Clear();
+            ExSpouses.Clear();
             EncounterHistory.Clear();
             JealousyLevels.Clear();
             AgreedStructures.Clear();
@@ -547,6 +599,7 @@ namespace UsurperRemake.Systems
                 CurrentLovers.Add(new Lover
                 {
                     NPCId = loverData.NPCId,
+                    NPCName = !string.IsNullOrEmpty(loverData.NPCName) ? loverData.NPCName : GetNPCName(loverData.NPCId),  // Use saved name or look up
                     LoveLevel = loverData.LoveLevel,
                     IsExclusive = loverData.IsExclusive,
                     KnowsAboutOthers = loverData.KnowsAboutOthers,
@@ -562,6 +615,7 @@ namespace UsurperRemake.Systems
                 Spouses.Add(new Spouse
                 {
                     NPCId = spouseData.NPCId,
+                    NPCName = !string.IsNullOrEmpty(spouseData.NPCName) ? spouseData.NPCName : GetNPCName(spouseData.NPCId),  // Use saved name or look up
                     MarriedDate = spouseData.MarriedDate,
                     LoveLevel = spouseData.LoveLevel,
                     AcceptsPolyamory = spouseData.AcceptsPolyamory,
@@ -574,6 +628,24 @@ namespace UsurperRemake.Systems
             // Load simple lists
             FriendsWithBenefits.AddRange(data.FriendsWithBenefits);
             Exes.AddRange(data.Exes);
+
+            // Load ex-spouses
+            if (data.ExSpouses != null)
+            {
+                foreach (var exData in data.ExSpouses)
+                {
+                    ExSpouses.Add(new ExSpouse
+                    {
+                        NPCId = exData.NPCId,
+                        NPCName = !string.IsNullOrEmpty(exData.NPCName) ? exData.NPCName : GetNPCName(exData.NPCId),
+                        MarriedDate = exData.MarriedDate,
+                        DivorceDate = exData.DivorceDate,
+                        ChildrenTogether = exData.ChildrenTogether,
+                        DivorceReason = exData.DivorceReason,
+                        PlayerInitiated = exData.PlayerInitiated
+                    });
+                }
+            }
 
             // Load encounter history
             foreach (var encData in data.EncounterHistory)
@@ -679,6 +751,7 @@ namespace UsurperRemake.Systems
     public class Lover
     {
         public string NPCId { get; set; } = "";
+        public string NPCName { get; set; } = "";  // Cached name for display when NPC lookup fails
         public int LoveLevel { get; set; }
         public bool IsExclusive { get; set; }
         public bool KnowsAboutOthers { get; set; }
@@ -693,12 +766,27 @@ namespace UsurperRemake.Systems
     public class Spouse
     {
         public string NPCId { get; set; } = "";
+        public string NPCName { get; set; } = "";  // Cached name for display when NPC lookup fails
         public DateTime MarriedDate { get; set; }
         public int LoveLevel { get; set; }
         public bool AcceptsPolyamory { get; set; }
         public bool KnowsAboutOthers { get; set; }
         public int Children { get; set; }
         public DateTime? LastIntimateDate { get; set; }
+    }
+
+    /// <summary>
+    /// Represents an ex-spouse (divorced partner) - preserves marriage history
+    /// </summary>
+    public class ExSpouse
+    {
+        public string NPCId { get; set; } = "";
+        public string NPCName { get; set; } = "";
+        public DateTime MarriedDate { get; set; }
+        public DateTime DivorceDate { get; set; }
+        public int ChildrenTogether { get; set; }  // Number of children from this marriage
+        public string DivorceReason { get; set; } = "";  // Why they divorced
+        public bool PlayerInitiated { get; set; }  // true = player asked for divorce, false = spouse left
     }
 
     /// <summary>

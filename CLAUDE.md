@@ -605,6 +605,101 @@ Full codebase audit covering every system, integration, story point, companion, 
 
 **✅ CLEAN BUILD**: 0 errors, 0 warnings (as of Jan 10, 2026)
 
+---
+
+## Comprehensive Alpha Audit (Jan 10, 2026)
+
+Full codebase sweep identifying all remaining issues for alpha readiness.
+
+**Full bug list**: See `ALPHA_BUG_LIST.md` for detailed file:line references.
+
+### Summary
+
+| Priority | Count | Status |
+|----------|-------|--------|
+| **P0 Critical** | 23 | IN PROGRESS |
+| **P1 High** | 38 | PENDING |
+| **P2 Medium** | 45 | BACKLOG |
+| **P3 Low** | 25+ | OPTIONAL |
+
+### P0 Critical Issues (Must Fix)
+
+#### Core Systems
+- [ ] **Player.cs:73-88** - ConfigManager.GetConfig() returns null, crashes constructor
+- [ ] **GameEngine.cs:116-129** - Fire-and-forget async can crash silently
+- [ ] **GameEngine.cs:153-178** - worldNPCs may be null when StartSimulation() called
+- [ ] **Character.cs:358-418** - RecalculateStats() uses uninitialized base stats
+
+#### Combat Systems
+- [ ] **AdvancedCombatEngine.cs:872-882** - 11 placeholder methods completely empty
+- [ ] **AdvancedCombatEngine.cs** - new Random() per method call (6 instances)
+- [ ] **SpellSystem.cs:359** - CastSpell() target nullable but accessed unsafely
+
+#### Story Systems
+- [ ] **StoryProgressionSystem.cs:66** - Maelketh DungeonFloor=60 (should be 25)
+- [ ] **StoryProgressionSystem.cs:121** - Terravok DungeonFloor=80 (should be 95)
+
+#### Location Systems
+- [ ] **LoveCornerLocation.cs** - Uses sync ReadLine() with async terminal
+- [ ] **LoveStreetLocation.cs** - Missing ProcessChoice() implementation
+- [ ] **PrisonLocation.cs:50-66** - Wrong method signature, won't override base
+- [ ] **TempleLocation.cs:91,214** - Uses terminal.Clear() instead of ClearScreen()
+
+#### Economy Systems
+- [ ] **BankLocation.cs:1201** - No overflow protection in ExecuteRobbery()
+- [ ] **BankLocation.cs:413-415** - Deposit doesn't check safe overflow
+- [ ] **BankLocation.cs:1311** - Loan interest no overflow check
+- [ ] **WeaponShopLocation.cs:654** - Gold deducted without re-checking after confirmation
+- [ ] **ArmorShopLocation.cs:472-521** - Same race condition as weapon shop
+
+#### Quest/Achievement Systems
+- [ ] **QuestSystem.cs:498-504** - Monster quests use global kill counter
+- [ ] **AchievementSystem.cs:709-718** - easter_egg_1 achievement has no trigger
+- [ ] **AchievementSystem.cs:1400-1404** - No null check on StatisticsManager.Current
+- [ ] **QuestSystem.cs** - Missing quest progress calls (OnArtifactFound, OnGoldCollected, etc.)
+
+#### Save/Load
+- [ ] **SaveSystem.cs** - Verify MKills, PKills, ActiveStatuses fully restore
+
+### Systems Verified Working
+
+- ✅ **7 Seals** - All obtainable (floors 0, 15, 30, 45, 60, 80, 99)
+- ✅ **7 Artifacts** - All obtainable, Void Key auto-triggers
+- ✅ **7 Old Gods** - All have DungeonFloor set (25, 40, 55, 70, 85, 95, 100)
+- ✅ **5 Endings** - Usurper, Savior, Defiant, True Ending, Dissolution
+- ✅ **4 Companions** - Aldric (Inn), Lyris (Dungeon 15), Mira (Temple), Vex (Prison)
+- ✅ **Companion Leveling** - XP system with role-based stat gains
+- ✅ **Romance System** - Lovers, spouses, FWB, exes all tracked
+- ✅ **Jealousy System** - Escalation and consequences working
+- ✅ **Children System** - Pregnancy, aging, custody functional
+- ✅ **Grief System** - 5 stages with stat effects
+- ✅ **Ocean Philosophy** - 10 fragments, 14 moments, 8 awakening levels
+- ✅ **Meta Progression** - NG+ unlocks and cycle bonuses
+- ✅ **Jungian Archetypes** - 12 archetypes tracked, revealed at ending
+
+### Recommended Fix Order
+
+**Phase 1: Alpha Blockers**
+1. Fix ConfigManager null crash (Player.cs)
+2. Fix location async/sync issues (LoveCorner, LoveStreet, Prison, Temple)
+3. Fix StoryProgressionSystem god floor values
+4. Fix combat placeholder methods or remove AdvancedCombatEngine
+5. Fix Random() per-call issues
+
+**Phase 2: Data Integrity (Pre-Beta)**
+1. Fix save/load completeness
+2. Fix gold validation race conditions
+3. Fix bank overflow issues
+4. Fix quest objective tracking
+5. Add missing achievement triggers
+
+**Phase 3: Feature Completion (Beta)**
+1. Implement NPC stub methods
+2. Unify combat systems
+3. Complete statistics tracking
+4. Fix all shop locations
+5. Add achievement notifications
+
 ### Recommendations
 
 1. ~~**Implement proper singleton pattern** with `Lazy<T>` for all singleton classes~~ ✅ Done

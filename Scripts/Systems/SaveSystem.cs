@@ -660,8 +660,49 @@ namespace UsurperRemake.Systems
                 Statistics = UpdateAndGetStatistics(player),
 
                 // Player achievements
-                AchievementsData = SerializeAchievements(player)
+                AchievementsData = SerializeAchievements(player),
+
+                // Home Upgrade System (Gold Sinks)
+                HomeLevel = player.HomeLevel,
+                ChestLevel = player.ChestLevel,
+                TrainingRoomLevel = player.TrainingRoomLevel,
+                GardenLevel = player.GardenLevel,
+                HasTrophyRoom = player.HasTrophyRoom,
+                HasTeleportCircle = player.HasTeleportCircle,
+                HasLegendaryArmory = player.HasLegendaryArmory,
+                HasVitalityFountain = player.HasVitalityFountain,
+                PermanentDamageBonus = player.PermanentDamageBonus,
+                PermanentDefenseBonus = player.PermanentDefenseBonus,
+                BonusMaxHP = player.BonusMaxHP,
+
+                // Recurring Duelist Rival
+                RecurringDuelist = SerializeRecurringDuelist(player)
             };
+        }
+
+        /// <summary>
+        /// Serialize recurring duelist data for saving
+        /// </summary>
+        private DuelistData? SerializeRecurringDuelist(Character player)
+        {
+            string playerId = player.ID ?? player.Name;
+            var duelistData = DungeonLocation.GetRecurringDuelist(playerId);
+            if (duelistData.HasValue)
+            {
+                var duelist = duelistData.Value;
+                return new DuelistData
+                {
+                    Name = duelist.Name,
+                    Weapon = duelist.Weapon,
+                    Level = duelist.Level,
+                    TimesEncountered = duelist.TimesEncountered,
+                    PlayerWins = duelist.PlayerWins,
+                    PlayerLosses = duelist.PlayerLosses,
+                    WasInsulted = duelist.WasInsulted,
+                    IsDead = duelist.IsDead
+                };
+            }
+            return null;
         }
 
         /// <summary>
@@ -700,7 +741,9 @@ namespace UsurperRemake.Systems
                 npcData.Add(new NPCData
                 {
                     Id = npc.Id ?? Guid.NewGuid().ToString(),
+                    CharacterID = npc.ID ?? "",  // Save the Character.ID property (used by RomanceTracker)
                     Name = npc.Name2 ?? npc.Name1,
+                    Archetype = npc.Archetype ?? "citizen",
                     Level = npc.Level,
                     HP = npc.HP,
                     MaxHP = npc.MaxHP,
@@ -1146,8 +1189,26 @@ namespace UsurperRemake.Systems
             try
             {
                 data.Children = FamilySystem.Instance.SerializeChildren();
+                if (data.Children.Count > 0)
+                {
+                    GD.Print($"[SaveSystem] Saved {data.Children.Count} children");
+                }
             }
-            catch { /* Family system not initialized */ }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"[SaveSystem] Failed to save children: {ex.Message}");
+            }
+
+            // Archetype Tracker - save Jungian archetype scores
+            try
+            {
+                data.ArchetypeTracker = ArchetypeTracker.Instance.Serialize();
+                GD.Print($"[SaveSystem] Saved archetype tracker data");
+            }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"[SaveSystem] Failed to save archetype tracker: {ex.Message}");
+            }
 
             return data;
         }
@@ -1265,9 +1326,27 @@ namespace UsurperRemake.Systems
                 if (data.Children != null && data.Children.Count > 0)
                 {
                     FamilySystem.Instance.DeserializeChildren(data.Children);
+                    GD.Print($"[SaveSystem] Restored {data.Children.Count} children from save");
                 }
             }
-            catch { /* Family system not available */ }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"[SaveSystem] Failed to restore children: {ex.Message}");
+            }
+
+            // Archetype Tracker - restore Jungian archetype scores
+            try
+            {
+                if (data.ArchetypeTracker != null)
+                {
+                    ArchetypeTracker.Instance.Deserialize(data.ArchetypeTracker);
+                    GD.Print($"[SaveSystem] Restored archetype tracker data");
+                }
+            }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"[SaveSystem] Failed to restore archetype tracker: {ex.Message}");
+            }
         }
     }
 } 

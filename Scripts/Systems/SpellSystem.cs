@@ -1,4 +1,5 @@
 using UsurperRemake.Utils;
+using UsurperRemake.Systems;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -423,6 +424,10 @@ public static class SpellSystem
         result.Success = true;
         result.Message = $"{caster.Name2} utters '{spellInfo.MagicWords}'!";
         result.IsMultiTarget = spellInfo.IsMultiTarget;
+
+        // Track archetype - Magician for spell casting
+        bool isTransformative = spellInfo.SpellType == "Buff" || spellInfo.SpellType == "Transform";
+        ArchetypeTracker.Instance.RecordSpellCast(isTransformative);
 
         // Store proficiency multiplier for damage/healing scaling
         result.ProficiencyMultiplier = TrainingSystem.GetEffectMultiplier(proficiency);

@@ -164,6 +164,45 @@ public static class DifficultySystem
         _ => 1.0f
     };
 
+    /// <summary>
+    /// Relationship gain multiplier - how fast relationships improve
+    /// Easy: Relationships improve faster. Hard/Nightmare: Slower relationship building.
+    /// </summary>
+    public static float GetRelationshipGainMultiplier(DifficultyMode mode) => mode switch
+    {
+        DifficultyMode.Easy => 1.5f,      // +50% relationship gains
+        DifficultyMode.Normal => 1.0f,    // Standard
+        DifficultyMode.Hard => 0.75f,     // -25% relationship gains
+        DifficultyMode.Nightmare => 0.5f, // Half relationship gains
+        _ => 1.0f
+    };
+
+    /// <summary>
+    /// Jealousy decay multiplier - how fast jealousy fades
+    /// Easy: Jealousy fades faster. Hard/Nightmare: Jealousy lingers longer.
+    /// </summary>
+    public static float GetJealousyDecayMultiplier(DifficultyMode mode) => mode switch
+    {
+        DifficultyMode.Easy => 2.0f,      // Double decay rate
+        DifficultyMode.Normal => 1.0f,    // Standard
+        DifficultyMode.Hard => 0.75f,     // -25% decay rate
+        DifficultyMode.Nightmare => 0.5f, // Half decay rate (jealousy lasts twice as long)
+        _ => 1.0f
+    };
+
+    /// <summary>
+    /// Companion loyalty gain multiplier
+    /// Easy: Faster loyalty building. Hard/Nightmare: Slower loyalty.
+    /// </summary>
+    public static float GetCompanionLoyaltyMultiplier(DifficultyMode mode) => mode switch
+    {
+        DifficultyMode.Easy => 1.5f,      // +50% loyalty gains
+        DifficultyMode.Normal => 1.0f,    // Standard
+        DifficultyMode.Hard => 0.75f,     // -25% loyalty gains
+        DifficultyMode.Nightmare => 0.5f, // Half loyalty gains
+        _ => 1.0f
+    };
+
     // Convenience methods using CurrentDifficulty
 
     /// <summary>
@@ -210,6 +249,45 @@ public static class DifficultySystem
     /// Get death penalty multiplier for current difficulty
     /// </summary>
     public static float GetDeathPenaltyMultiplier() => GetDeathPenaltyMultiplier(CurrentDifficulty);
+
+    /// <summary>
+    /// Get relationship gain multiplier for current difficulty
+    /// </summary>
+    public static float GetRelationshipGainMultiplier() => GetRelationshipGainMultiplier(CurrentDifficulty);
+
+    /// <summary>
+    /// Get jealousy decay multiplier for current difficulty
+    /// </summary>
+    public static float GetJealousyDecayMultiplier() => GetJealousyDecayMultiplier(CurrentDifficulty);
+
+    /// <summary>
+    /// Get companion loyalty multiplier for current difficulty
+    /// </summary>
+    public static float GetCompanionLoyaltyMultiplier() => GetCompanionLoyaltyMultiplier(CurrentDifficulty);
+
+    /// <summary>
+    /// Apply relationship gain multiplier to relationship steps
+    /// </summary>
+    public static int ApplyRelationshipMultiplier(int baseSteps)
+    {
+        return Math.Max(1, (int)(baseSteps * GetRelationshipGainMultiplier()));
+    }
+
+    /// <summary>
+    /// Apply jealousy decay multiplier to decay amount
+    /// </summary>
+    public static int ApplyJealousyDecayMultiplier(int baseDecay)
+    {
+        return Math.Max(1, (int)(baseDecay * GetJealousyDecayMultiplier()));
+    }
+
+    /// <summary>
+    /// Apply companion loyalty multiplier to loyalty gains
+    /// </summary>
+    public static int ApplyCompanionLoyaltyMultiplier(int baseLoyalty)
+    {
+        return Math.Max(1, (int)(baseLoyalty * GetCompanionLoyaltyMultiplier()));
+    }
 
     /// <summary>
     /// Apply experience multiplier to a base XP value

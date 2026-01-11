@@ -366,6 +366,9 @@ public class LevelMasterLocation : BaseLocation
 
             // Display level up celebration with training points earned
             await DisplayLevelUpCelebration(levelsRaised, startLevel, totalTrainingPoints);
+
+            // Auto-save after leveling up - major milestone
+            await SaveSystem.Instance.AutoSave(currentPlayer);
         }
     }
 

@@ -31,6 +31,9 @@ namespace UsurperRemake.Systems
         // Fallen companions (permanent death)
         private Dictionary<CompanionId, CompanionDeath> fallenCompanions = new();
 
+        // Queued notifications for players (displayed next time they check status)
+        private Queue<string> pendingNotifications = new();
+
         public const int MaxActiveCompanions = 2;
 
         public event Action<CompanionId>? OnCompanionRecruited;
@@ -81,6 +84,7 @@ namespace UsurperRemake.Systems
 
                 PersonalQuestName = "The Light That Was",
                 PersonalQuestDescription = "Help Lyris recover an artifact that could restore Aurelion's true nature.",
+                PersonalQuestLocationHint = "Dungeon floors 80-90 (near Aurelion's domain)",
 
                 RomanceAvailable = true,
                 CanDiePermanently = true,
@@ -137,6 +141,7 @@ namespace UsurperRemake.Systems
 
                 PersonalQuestName = "Ghosts of the Guard",
                 PersonalQuestDescription = "Help Aldric find closure by confronting the demon that killed his unit.",
+                PersonalQuestLocationHint = "Dungeon floors 55-65 (demonic territory)",
 
                 RomanceAvailable = false,
                 CanDiePermanently = true,
@@ -195,6 +200,7 @@ namespace UsurperRemake.Systems
 
                 PersonalQuestName = "The Meaning of Mercy",
                 PersonalQuestDescription = "Help Mira decide if healing is worth continuing, culminating in a choice.",
+                PersonalQuestLocationHint = "Dungeon floors 40-50 (where suffering is greatest)",
 
                 RomanceAvailable = false,
                 CanDiePermanently = true,
@@ -252,6 +258,7 @@ namespace UsurperRemake.Systems
 
                 PersonalQuestName = "One More Sunrise",
                 PersonalQuestDescription = "Help Vex accomplish everything on his 'before I die' list.",
+                PersonalQuestLocationHint = "Any dungeon floor (after 10+ days together)",
 
                 RomanceAvailable = false,
                 CanDiePermanently = true,
@@ -330,6 +337,32 @@ namespace UsurperRemake.Systems
         }
 
         /// <summary>
+        /// Queue a notification when a companion's personal quest becomes available
+        /// </summary>
+        private void QueueQuestUnlockNotification(Companion companion)
+        {
+            string notification = $"[COMPANION] {companion.Name}'s personal quest '{companion.PersonalQuestName}' is now available!\n" +
+                                  $"            Visit the Inn and talk to {companion.Name} to begin.\n" +
+                                  $"            Location: {companion.PersonalQuestLocationHint}";
+            pendingNotifications.Enqueue(notification);
+        }
+
+        /// <summary>
+        /// Check if there are pending notifications
+        /// </summary>
+        public bool HasPendingNotifications => pendingNotifications.Count > 0;
+
+        /// <summary>
+        /// Get and clear all pending notifications
+        /// </summary>
+        public List<string> GetAndClearNotifications()
+        {
+            var notifications = pendingNotifications.ToList();
+            pendingNotifications.Clear();
+            return notifications;
+        }
+
+        /// <summary>
         /// Recruit a companion
         /// </summary>
         public async Task<bool> RecruitCompanion(CompanionId id, Character player, TerminalEmulator terminal)
@@ -352,6 +385,9 @@ namespace UsurperRemake.Systems
             companion.IsRecruited = true;
             companion.RecruitedDay = GetGameDay();
 
+            // Initialize companion's level and scale stats
+            InitializeCompanionLevel(companion);
+
             // Auto-add to active if room
             if (activeCompanions.Count < MaxActiveCompanions)
             {
@@ -368,6 +404,10 @@ namespace UsurperRemake.Systems
 
             // Track for Ocean Philosophy
             OceanPhilosophySystem.Instance.ExperienceMoment(AwakeningMoment.SacrificedForAnother);
+
+            // Auto-save after recruiting a companion - this is a major milestone
+            await SaveSystem.Instance.AutoSave(player);
+            GD.Print($"[Companion] Auto-saved after recruiting {companion.Name}");
 
             return true;
         }
@@ -450,7 +490,7 @@ namespace UsurperRemake.Systems
                 var charWrapper = new Character
                 {
                     Name2 = companion.Name,
-                    Level = Math.Max(1, companion.RecruitLevel + 5), // Companions scale slightly above recruit level
+                    Level = companion.Level, // Use companion's actual level (now dynamic)
                     HP = companionCurrentHP[companion.Id],
                     MaxHP = companion.BaseStats.HP,
                     Strength = companion.BaseStats.Attack,
@@ -604,14 +644,20 @@ namespace UsurperRemake.Systems
 
         /// <summary>
         /// Modify loyalty for a companion
+        /// Loyalty gains are affected by difficulty: Easy = faster, Hard/Nightmare = slower
         /// </summary>
         public void ModifyLoyalty(CompanionId id, int amount, string reason = "")
         {
             if (!companions.TryGetValue(id, out var companion))
                 return;
 
+            // Apply difficulty multiplier to positive loyalty changes
+            int adjustedAmount = amount > 0
+                ? DifficultySystem.ApplyCompanionLoyaltyMultiplier(amount)
+                : amount; // Negative changes (loyalty loss) are not affected
+
             int previousLoyalty = companion.LoyaltyLevel;
-            companion.LoyaltyLevel = Math.Clamp(companion.LoyaltyLevel + amount, 0, 100);
+            companion.LoyaltyLevel = Math.Clamp(companion.LoyaltyLevel + adjustedAmount, 0, 100);
 
             if (!string.IsNullOrEmpty(reason))
             {
@@ -624,12 +670,16 @@ namespace UsurperRemake.Systems
                 });
             }
 
-            // Auto-trigger personal quest when loyalty reaches 50
+            // Notify when personal quest becomes available at loyalty 50
+            // Quest is NOT auto-started - player must talk to companion at Inn
             if (previousLoyalty < 50 && companion.LoyaltyLevel >= 50 &&
                 !companion.PersonalQuestStarted && !companion.PersonalQuestCompleted)
             {
-                StartPersonalQuest(id);
+                companion.PersonalQuestAvailable = true;
                 Godot.GD.Print($"[Companion] {companion.Name}'s personal quest unlocked: {companion.PersonalQuestName}");
+
+                // Queue a notification for the player
+                QueueQuestUnlockNotification(companion);
             }
         }
 
@@ -1136,7 +1186,15 @@ namespace UsurperRemake.Systems
                     PersonalQuestSuccess = c.PersonalQuestSuccess,
                     RecruitedDay = c.RecruitedDay,
                     DeathType = c.DeathType,
-                    History = c.History.ToList()
+                    History = c.History.ToList(),
+                    Level = c.Level,
+                    Experience = c.Experience,
+                    BaseStatsHP = c.BaseStats.HP,
+                    BaseStatsAttack = c.BaseStats.Attack,
+                    BaseStatsDefense = c.BaseStats.Defense,
+                    BaseStatsMagicPower = c.BaseStats.MagicPower,
+                    BaseStatsSpeed = c.BaseStats.Speed,
+                    BaseStatsHealingPower = c.BaseStats.HealingPower
                 }).ToList(),
                 ActiveCompanions = activeCompanions.ToList(),
                 FallenCompanions = fallenCompanions.Values.ToList()
@@ -1166,6 +1224,21 @@ namespace UsurperRemake.Systems
                     companion.RecruitedDay = save.RecruitedDay;
                     companion.DeathType = save.DeathType;
                     companion.History = save.History?.ToList() ?? new List<CompanionEvent>();
+
+                    // Restore level and experience
+                    companion.Level = save.Level > 0 ? save.Level : Math.Max(1, companion.RecruitLevel + 5);
+                    companion.Experience = save.Experience;
+
+                    // Restore base stats if saved (otherwise they keep defaults)
+                    if (save.BaseStatsHP > 0)
+                    {
+                        companion.BaseStats.HP = save.BaseStatsHP;
+                        companion.BaseStats.Attack = save.BaseStatsAttack;
+                        companion.BaseStats.Defense = save.BaseStatsDefense;
+                        companion.BaseStats.MagicPower = save.BaseStatsMagicPower;
+                        companion.BaseStats.Speed = save.BaseStatsSpeed;
+                        companion.BaseStats.HealingPower = save.BaseStatsHealingPower;
+                    }
                 }
             }
 
@@ -1177,6 +1250,187 @@ namespace UsurperRemake.Systems
                 foreach (var death in data.FallenCompanions)
                 {
                     fallenCompanions[death.CompanionId] = death;
+                }
+            }
+        }
+
+        #endregion
+
+        #region Experience and Leveling
+
+        /// <summary>
+        /// XP formula matching the player's curve (level^1.8 * 50)
+        /// </summary>
+        public static long GetExperienceForLevel(int level)
+        {
+            if (level <= 1) return 0;
+            long exp = 0;
+            for (int i = 2; i <= level; i++)
+            {
+                exp += (long)(Math.Pow(i, 1.8) * 50);
+            }
+            return exp;
+        }
+
+        /// <summary>
+        /// Award experience to all active companions (typically 50% of what player earns)
+        /// Companions auto-level when they hit the threshold
+        /// </summary>
+        public void AwardCompanionExperience(long baseXP, TerminalEmulator? terminal = null)
+        {
+            if (baseXP <= 0) return;
+
+            // Companions get 50% of player's XP
+            long companionXP = baseXP / 2;
+            if (companionXP <= 0) return;
+
+            foreach (var companion in GetActiveCompanions())
+            {
+                if (companion == null || companion.IsDead) continue;
+                if (companion.Level >= 100) continue; // Max level cap
+
+                long previousXP = companion.Experience;
+                companion.Experience += companionXP;
+
+                // Check for level up
+                CheckCompanionLevelUp(companion, terminal);
+            }
+        }
+
+        /// <summary>
+        /// Check if a companion should level up and apply stat gains
+        /// </summary>
+        private void CheckCompanionLevelUp(Companion companion, TerminalEmulator? terminal)
+        {
+            if (companion.Level >= 100) return;
+
+            long xpForNextLevel = GetExperienceForLevel(companion.Level + 1);
+
+            while (companion.Experience >= xpForNextLevel && companion.Level < 100)
+            {
+                companion.Level++;
+
+                // Apply stat gains based on combat role
+                ApplyCompanionLevelUpStats(companion);
+
+                terminal?.SetColor("bright_green");
+                terminal?.WriteLine($"  {companion.Name} has reached level {companion.Level}!");
+
+                // Update loyalty slightly on level up (bonding through shared experience)
+                ModifyLoyalty(companion.Id, 1, "Leveled up through shared combat");
+
+                // Calculate next threshold
+                xpForNextLevel = GetExperienceForLevel(companion.Level + 1);
+            }
+        }
+
+        /// <summary>
+        /// Apply stat gains when a companion levels up
+        /// </summary>
+        private void ApplyCompanionLevelUpStats(Companion companion)
+        {
+            var random = new Random();
+
+            // Base HP gain
+            int hpGain = 8 + random.Next(4, 12);
+
+            // Role-specific stat gains
+            switch (companion.CombatRole)
+            {
+                case CombatRole.Tank:
+                    // Tanks get extra HP and Defense
+                    hpGain += 5;
+                    companion.BaseStats.HP += hpGain;
+                    companion.BaseStats.Defense += 2 + random.Next(0, 2);
+                    companion.BaseStats.Attack += 1 + random.Next(0, 2);
+                    break;
+
+                case CombatRole.Damage:
+                    // Damage dealers get Attack and Speed
+                    companion.BaseStats.HP += hpGain;
+                    companion.BaseStats.Attack += 2 + random.Next(1, 3);
+                    companion.BaseStats.Speed += 1 + random.Next(0, 2);
+                    companion.BaseStats.Defense += 1;
+                    break;
+
+                case CombatRole.Healer:
+                    // Healers get Healing Power and Magic
+                    companion.BaseStats.HP += hpGain;
+                    companion.BaseStats.HealingPower += 3 + random.Next(1, 3);
+                    companion.BaseStats.MagicPower += 2 + random.Next(0, 2);
+                    companion.BaseStats.Defense += 1;
+                    break;
+
+                case CombatRole.Hybrid:
+                    // Hybrids get balanced gains
+                    companion.BaseStats.HP += hpGain;
+                    companion.BaseStats.Attack += 1 + random.Next(0, 2);
+                    companion.BaseStats.Defense += 1 + random.Next(0, 2);
+                    companion.BaseStats.MagicPower += 2 + random.Next(0, 2);
+                    companion.BaseStats.HealingPower += 1 + random.Next(0, 2);
+                    break;
+            }
+
+            // Update current HP tracking to new max
+            if (companionCurrentHP.ContainsKey(companion.Id))
+            {
+                // Heal to full on level up
+                companionCurrentHP[companion.Id] = companion.BaseStats.HP;
+            }
+
+            GD.Print($"[Companion] {companion.Name} leveled up to {companion.Level}! HP: {companion.BaseStats.HP}, ATK: {companion.BaseStats.Attack}, DEF: {companion.BaseStats.Defense}");
+        }
+
+        /// <summary>
+        /// Initialize a companion's level and XP when recruited
+        /// </summary>
+        private void InitializeCompanionLevel(Companion companion)
+        {
+            // Start at RecruitLevel + 5 (as before, but now tracked)
+            companion.Level = Math.Max(1, companion.RecruitLevel + 5);
+            companion.Experience = GetExperienceForLevel(companion.Level);
+
+            // Scale base stats to match level
+            ScaleCompanionStatsToLevel(companion);
+        }
+
+        /// <summary>
+        /// Scale companion base stats based on their current level
+        /// </summary>
+        private void ScaleCompanionStatsToLevel(Companion companion)
+        {
+            // Only scale if above level 1
+            int levelsAboveBase = companion.Level - 1;
+            if (levelsAboveBase <= 0) return;
+
+            var random = new Random(companion.Id.GetHashCode()); // Deterministic per companion
+
+            for (int i = 0; i < levelsAboveBase; i++)
+            {
+                int hpGain = 8 + random.Next(4, 12);
+                switch (companion.CombatRole)
+                {
+                    case CombatRole.Tank:
+                        companion.BaseStats.HP += hpGain + 5;
+                        companion.BaseStats.Defense += 2;
+                        companion.BaseStats.Attack += 1;
+                        break;
+                    case CombatRole.Damage:
+                        companion.BaseStats.HP += hpGain;
+                        companion.BaseStats.Attack += 2;
+                        companion.BaseStats.Speed += 1;
+                        break;
+                    case CombatRole.Healer:
+                        companion.BaseStats.HP += hpGain;
+                        companion.BaseStats.HealingPower += 3;
+                        companion.BaseStats.MagicPower += 2;
+                        break;
+                    case CombatRole.Hybrid:
+                        companion.BaseStats.HP += hpGain;
+                        companion.BaseStats.Attack += 1;
+                        companion.BaseStats.MagicPower += 2;
+                        companion.BaseStats.HealingPower += 1;
+                        break;
                 }
             }
         }
@@ -1269,9 +1523,11 @@ namespace UsurperRemake.Systems
 
         public string PersonalQuestName { get; set; } = "";
         public string PersonalQuestDescription { get; set; } = "";
-        public bool PersonalQuestStarted { get; set; }
+        public bool PersonalQuestAvailable { get; set; } // Unlocks at 50 loyalty
+        public bool PersonalQuestStarted { get; set; }   // Player accepted the quest
         public bool PersonalQuestCompleted { get; set; }
         public bool PersonalQuestSuccess { get; set; }
+        public string PersonalQuestLocationHint { get; set; } = ""; // Where to complete
 
         public bool RomanceAvailable { get; set; }
         public bool CanDiePermanently { get; set; }
@@ -1296,6 +1552,10 @@ namespace UsurperRemake.Systems
         public int TrustLevel { get; set; } = 50;
         public int RomanceLevel { get; set; } = 0;
         public int RecruitedDay { get; set; }
+
+        // Experience and leveling
+        public int Level { get; set; } = 1;
+        public long Experience { get; set; } = 0;
 
         public List<CompanionEvent> History { get; set; } = new();
 
@@ -1364,6 +1624,18 @@ namespace UsurperRemake.Systems
         public int RecruitedDay { get; set; }
         public DeathType? DeathType { get; set; }
         public List<CompanionEvent> History { get; set; } = new();
+
+        // Level and experience
+        public int Level { get; set; }
+        public long Experience { get; set; }
+
+        // Base stats (to preserve level-up gains)
+        public int BaseStatsHP { get; set; }
+        public int BaseStatsAttack { get; set; }
+        public int BaseStatsDefense { get; set; }
+        public int BaseStatsMagicPower { get; set; }
+        public int BaseStatsSpeed { get; set; }
+        public int BaseStatsHealingPower { get; set; }
     }
 
     #endregion

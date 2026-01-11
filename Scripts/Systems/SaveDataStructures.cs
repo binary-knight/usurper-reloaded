@@ -54,7 +54,11 @@ namespace UsurperRemake.Systems
 
         // Family system - children
         public List<ChildData> Children { get; set; } = new();
+
+        // Jungian Archetype tracking
+        public ArchetypeTrackerData? ArchetypeTracker { get; set; }
     }
+
 
     public class CompanionSaveInfo
     {
@@ -288,6 +292,22 @@ namespace UsurperRemake.Systems
 
         // Player achievements
         public PlayerAchievementsData? AchievementsData { get; set; }
+
+        // Home Upgrade System (Gold Sinks)
+        public int HomeLevel { get; set; } = 0;
+        public int ChestLevel { get; set; } = 0;
+        public int TrainingRoomLevel { get; set; } = 0;
+        public int GardenLevel { get; set; } = 0;
+        public bool HasTrophyRoom { get; set; } = false;
+        public bool HasTeleportCircle { get; set; } = false;
+        public bool HasLegendaryArmory { get; set; } = false;
+        public bool HasVitalityFountain { get; set; } = false;
+        public int PermanentDamageBonus { get; set; } = 0;
+        public int PermanentDefenseBonus { get; set; } = 0;
+        public long BonusMaxHP { get; set; } = 0;
+
+        // Recurring Duelist Rival
+        public DuelistData? RecurringDuelist { get; set; }
     }
 
     /// <summary>
@@ -300,12 +320,29 @@ namespace UsurperRemake.Systems
     }
 
     /// <summary>
+    /// Recurring duelist rival data for save system
+    /// </summary>
+    public class DuelistData
+    {
+        public string Name { get; set; } = "";
+        public string Weapon { get; set; } = "Dueling Blade";
+        public int Level { get; set; } = 1;
+        public int TimesEncountered { get; set; } = 0;
+        public int PlayerWins { get; set; } = 0;
+        public int PlayerLosses { get; set; } = 0;
+        public bool WasInsulted { get; set; } = false;
+        public bool IsDead { get; set; } = false;
+    }
+
+    /// <summary>
     /// NPC data for save system
     /// </summary>
     public class NPCData
     {
         public string Id { get; set; } = "";
+        public string CharacterID { get; set; } = "";  // The Character.ID property (name-based identifier used by RomanceTracker)
         public string Name { get; set; } = "";
+        public string Archetype { get; set; } = "citizen";  // NPC archetype (citizen, thug, merchant, etc.)
         public int Level { get; set; }
         public long HP { get; set; }
         public long MaxHP { get; set; }
@@ -728,6 +765,7 @@ namespace UsurperRemake.Systems
         public List<SpouseData> Spouses { get; set; } = new();
         public List<string> FriendsWithBenefits { get; set; } = new();
         public List<string> Exes { get; set; } = new();
+        public List<ExSpouseData> ExSpouses { get; set; } = new();  // Detailed ex-spouse records
         public List<IntimateEncounterData> EncounterHistory { get; set; } = new();
         public Dictionary<string, int> JealousyLevels { get; set; } = new();
         public Dictionary<string, int> AgreedStructures { get; set; } = new(); // RelationshipStructure enum as int
@@ -764,6 +802,20 @@ namespace UsurperRemake.Systems
         public bool KnowsAboutOthers { get; set; }
         public int Children { get; set; }
         public DateTime? LastIntimateDate { get; set; }
+    }
+
+    /// <summary>
+    /// Ex-spouse data for save system - preserves marriage history after divorce
+    /// </summary>
+    public class ExSpouseData
+    {
+        public string NPCId { get; set; } = "";
+        public string NPCName { get; set; } = "";
+        public DateTime MarriedDate { get; set; }
+        public DateTime DivorceDate { get; set; }
+        public int ChildrenTogether { get; set; }
+        public string DivorceReason { get; set; } = "";
+        public bool PlayerInitiated { get; set; }
     }
 
     /// <summary>

@@ -88,7 +88,7 @@ public partial class TempleLocation : BaseLocation
     public async Task<string> ProcessLocation(Character player)
     {
         currentPlayer = player;
-        terminal.Clear();
+        terminal.ClearScreen();
         
         await DisplayWelcomeMessage();
         await VerifyPlayerGodExists();
@@ -211,7 +211,7 @@ public partial class TempleLocation : BaseLocation
     {
         if (!forceDisplay && currentPlayer.Expert) return;
         
-        terminal.Clear();
+        terminal.ClearScreen();
 
         // Temple header - standardized format
         terminal.SetColor("bright_cyan");
@@ -1223,7 +1223,7 @@ public partial class TempleLocation : BaseLocation
             return;
         }
 
-        terminal.Clear();
+        terminal.ClearScreen();
         terminal.WriteLine("");
         terminal.WriteLine("═══ THE DEEP TEMPLE ═══", "bright_yellow");
         terminal.WriteLine("");
@@ -1642,7 +1642,10 @@ public partial class TempleLocation : BaseLocation
         terminal.WriteLine("  \"Remember it well, for understanding begins here.\"");
         terminal.SetColor("white");
         terminal.WriteLine("");
-        await Task.Delay(2000);
+        await Task.Delay(1500);
+
+        terminal.SetColor("gray");
+        await terminal.GetInputAsync("  Press Enter to continue...");
 
         // Collect the seal
         var sealSystem = UsurperRemake.Systems.SevenSealsSystem.Instance;
@@ -1799,7 +1802,7 @@ public partial class TempleLocation : BaseLocation
             return;
         }
 
-        terminal.Clear();
+        terminal.ClearScreen();
         terminal.SetColor("bright_green");
         terminal.WriteLine("╔══════════════════════════════════════════════════════════════════╗");
         terminal.WriteLine("║                    MEDITATION CHAPEL                              ║");

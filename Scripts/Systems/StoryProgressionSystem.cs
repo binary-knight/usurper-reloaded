@@ -63,7 +63,7 @@ namespace UsurperRemake.Systems
                 Domain = "War & Conquest",
                 Status = GodStatus.Corrupted,
                 CanBeSaved = false,
-                DungeonFloor = 60,
+                DungeonFloor = 25, // First god encounter
                 Description = "Once the noble god of honorable combat, Maelketh's mind shattered during the Sundering. Now he knows only endless war."
             };
 
@@ -74,6 +74,7 @@ namespace UsurperRemake.Systems
                 Domain = "Love & Passion",
                 Status = GodStatus.Dying,
                 CanBeSaved = true,
+                DungeonFloor = 40, // Second god
                 Location = "Love Corner",
                 Description = "The goddess of love fades with each broken heart. She can still be saved... if one proves love endures."
             };
@@ -85,6 +86,7 @@ namespace UsurperRemake.Systems
                 Domain = "Law & Order",
                 Status = GodStatus.Corrupted,
                 CanBeSaved = false,
+                DungeonFloor = 55, // Third god
                 Location = "Castle Throne Room",
                 Description = "The god of justice became the god of tyranny. His scales weigh only power now."
             };
@@ -96,6 +98,7 @@ namespace UsurperRemake.Systems
                 Domain = "Shadow & Secrets",
                 Status = GodStatus.Neutral,
                 CanBeSaved = true, // Can be allied with
+                DungeonFloor = 70, // Fourth god
                 Location = "Dark Alley",
                 Description = "The mysterious orchestrator. She set these events in motion. Her true motives remain hidden."
             };
@@ -107,6 +110,7 @@ namespace UsurperRemake.Systems
                 Domain = "Light & Truth",
                 Status = GodStatus.Dying,
                 CanBeSaved = true,
+                DungeonFloor = 85, // Fifth god
                 Location = "Temple",
                 Description = "The god of truth speaks only in whispers now. His light dims with every lie told in the realm."
             };
@@ -118,7 +122,7 @@ namespace UsurperRemake.Systems
                 Domain = "Earth & Endurance",
                 Status = GodStatus.Dormant,
                 CanBeSaved = true,
-                DungeonFloor = 80,
+                DungeonFloor = 95, // Second-to-last god
                 Description = "The oldest god sleeps beneath the dungeon. He can be awakened... but should he be?"
             };
 

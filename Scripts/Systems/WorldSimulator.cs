@@ -242,6 +242,24 @@ public class WorldSimulator
             activities.Add(("bank", bankWeight));
         }
 
+        // Spouse going home - if this NPC is married to the player
+        var romanceTracker = RomanceTracker.Instance;
+        bool isPlayerSpouse = romanceTracker?.Spouses?.Any(s => s.NPCId == npc.ID) == true;
+        bool isPlayerLover = romanceTracker?.CurrentLovers?.Any(l => l.NPCId == npc.ID) == true;
+
+        if (isPlayerSpouse || isPlayerLover)
+        {
+            // Spouses and lovers have a higher chance to go "home" to be with the player
+            float homeWeight = isPlayerSpouse ? 0.35f : 0.20f; // Spouses more likely
+            // Higher romanticism = more likely to want to be home with partner
+            if (npc.Brain?.Personality != null)
+            {
+                homeWeight += npc.Brain.Personality.Romanticism * 0.15f;
+                homeWeight += npc.Brain.Personality.Commitment * 0.10f;
+            }
+            activities.Add(("go_home", homeWeight));
+        }
+
         // Marketplace visit - if has items to sell or gold to buy
         if (npc.Gold > 200 || npc.MarketInventory.Count > 0)
         {
@@ -329,6 +347,9 @@ public class WorldSimulator
                 break;
             case "marketplace":
                 NPCVisitMarketplace(npc);
+                break;
+            case "go_home":
+                NPCGoHome(npc);
                 break;
         }
     }
@@ -918,6 +939,36 @@ public class WorldSimulator
         {
             npc.UpdateLocation(newLocation);
             GD.Print($"[WorldSim] {npc.Name} moved to {newLocation}");
+        }
+    }
+
+    /// <summary>
+    /// NPC spouse/lover goes home to be with the player
+    /// </summary>
+    private void NPCGoHome(NPC npc)
+    {
+        npc.UpdateLocation("Home");
+        GD.Print($"[WorldSim] {npc.Name} went home to be with their partner");
+
+        // Small chance to generate sweet news about it
+        if (random.NextDouble() < 0.15)
+        {
+            var romance = RomanceTracker.Instance;
+            bool isSpouse = romance?.Spouses?.Any(s => s.NPCId == npc.ID) == true;
+
+            string[] homeMessages = isSpouse ? new[]
+            {
+                $"{npc.Name} is spending quality time at home.",
+                $"{npc.Name} prepared a warm meal at home.",
+                $"{npc.Name} is waiting faithfully at home."
+            } : new[]
+            {
+                $"{npc.Name} stopped by home for a visit.",
+                $"{npc.Name} is relaxing at home.",
+                $"{npc.Name} came home looking for company."
+            };
+
+            NewsSystem.Instance?.Newsy(false, homeMessages[random.Next(homeMessages.Length)]);
         }
     }
 

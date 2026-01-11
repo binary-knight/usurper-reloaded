@@ -910,7 +910,8 @@ public class LoveStreetLocation : BaseLocation
         foreach (var spouse in romance.Spouses)
         {
             var npc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == spouse.NPCId);
-            var name = npc?.Name ?? spouse.NPCId;
+            // Use cached name if NPC lookup fails
+            var name = npc?.Name ?? (!string.IsNullOrEmpty(spouse.NPCName) ? spouse.NPCName : spouse.NPCId);
             potentialDates.Add((spouse.NPCId, name, "Spouse"));
         }
 
@@ -918,7 +919,8 @@ public class LoveStreetLocation : BaseLocation
         foreach (var lover in romance.CurrentLovers)
         {
             var npc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == lover.NPCId);
-            var name = npc?.Name ?? lover.NPCId;
+            // Use cached name if NPC lookup fails
+            var name = npc?.Name ?? (!string.IsNullOrEmpty(lover.NPCName) ? lover.NPCName : lover.NPCId);
             potentialDates.Add((lover.NPCId, name, "Lover"));
         }
 
@@ -1377,7 +1379,8 @@ public class LoveStreetLocation : BaseLocation
         {
             foreach (var spouse in playerRomance.Spouses)
             {
-                var name = npcs.FirstOrDefault(n => n.ID == spouse.NPCId)?.Name ?? spouse.NPCId;
+                var npc = npcs.FirstOrDefault(n => n.ID == spouse.NPCId);
+                var name = npc?.Name ?? (!string.IsNullOrEmpty(spouse.NPCName) ? spouse.NPCName : spouse.NPCId);
                 terminal.WriteLine($"<3 {currentPlayer.Name2} is married to {name}");
                 romanceCount++;
             }
@@ -1386,7 +1389,8 @@ public class LoveStreetLocation : BaseLocation
         {
             foreach (var lover in playerRomance.CurrentLovers)
             {
-                var name = npcs.FirstOrDefault(n => n.ID == lover.NPCId)?.Name ?? lover.NPCId;
+                var npc = npcs.FirstOrDefault(n => n.ID == lover.NPCId);
+                var name = npc?.Name ?? (!string.IsNullOrEmpty(lover.NPCName) ? lover.NPCName : lover.NPCId);
                 terminal.WriteLine($"<3 {currentPlayer.Name2} is involved with {name}");
                 romanceCount++;
             }
@@ -1413,7 +1417,7 @@ public class LoveStreetLocation : BaseLocation
             {
                 var daysSince = (DateTime.Now - spouse.MarriedDate).Days;
                 var npc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == spouse.NPCId);
-                var name = npc?.Name ?? spouse.NPCId;
+                var name = npc?.Name ?? (!string.IsNullOrEmpty(spouse.NPCName) ? spouse.NPCName : spouse.NPCId);
                 terminal.WriteLine($"<3 {currentPlayer.Name2} married {name} ({daysSince} days ago)");
             }
         }
@@ -1513,7 +1517,8 @@ public class LoveStreetLocation : BaseLocation
             foreach (var spouse in romance.Spouses)
             {
                 var npc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == spouse.NPCId);
-                var name = npc?.Name ?? spouse.NPCId;
+                // Use cached name if NPC lookup fails
+                var name = npc?.Name ?? (!string.IsNullOrEmpty(spouse.NPCName) ? spouse.NPCName : spouse.NPCId);
                 var days = (DateTime.Now - spouse.MarriedDate).Days;
                 terminal.WriteLine($"  - {name} (married {days} days, {spouse.Children} children)");
             }
@@ -1529,7 +1534,8 @@ public class LoveStreetLocation : BaseLocation
             foreach (var lover in romance.CurrentLovers)
             {
                 var npc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == lover.NPCId);
-                var name = npc?.Name ?? lover.NPCId;
+                // Use cached name if NPC lookup fails
+                var name = npc?.Name ?? (!string.IsNullOrEmpty(lover.NPCName) ? lover.NPCName : lover.NPCId);
                 var days = (DateTime.Now - lover.RelationshipStart).Days;
                 terminal.WriteLine($"  - {name} (together {days} days)");
             }

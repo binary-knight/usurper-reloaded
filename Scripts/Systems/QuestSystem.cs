@@ -496,10 +496,31 @@ public partial class QuestSystem : Node
         switch (quest.QuestTarget)
         {
             case QuestTarget.Monster:
-                // Check if player killed enough monsters
+                // Check if player killed enough monsters using quest-specific tracking
+                // First check if there are KillMonsters objectives (preferred method)
+                var killObjectives = quest.Objectives?.Where(o =>
+                    o.ObjectiveType == QuestObjectiveType.KillMonsters ||
+                    o.ObjectiveType == QuestObjectiveType.KillSpecificMonster).ToList();
+
+                if (killObjectives != null && killObjectives.Count > 0)
+                {
+                    // Use objective-based tracking (quest-specific kills)
+                    return killObjectives.All(o => o.IsComplete);
+                }
+
+                // Legacy fallback: check Monsters list against objectives progress
                 if (quest.Monsters != null && quest.Monsters.Count > 0)
                 {
-                    return player.MKills >= quest.Monsters.Sum(m => m.Count);
+                    int requiredKills = quest.Monsters.Sum(m => m.Count);
+                    // Check if any kill objective has enough progress
+                    var killProgress = quest.Objectives?.FirstOrDefault(o =>
+                        o.ObjectiveType == QuestObjectiveType.KillMonsters);
+                    if (killProgress != null)
+                    {
+                        return killProgress.CurrentProgress >= requiredKills;
+                    }
+                    // Last resort: assume incomplete if no tracking exists
+                    return false;
                 }
                 return true;
 

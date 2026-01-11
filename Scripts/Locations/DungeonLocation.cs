@@ -63,6 +63,9 @@ public class DungeonLocation : BaseLocation
             // Track dungeon exploration statistics
             player.Statistics.RecordDungeonLevel(currentDungeonLevel);
 
+            // Track archetype - Explorer for dungeon exploration
+            UsurperRemake.Systems.ArchetypeTracker.Instance.RecordDungeonExploration(currentDungeonLevel);
+
             // Show dramatic dungeon entrance art for new floors
             term.ClearScreen();
             await UsurperRemake.UI.ANSIArt.DisplayArtAnimated(term, UsurperRemake.UI.ANSIArt.DungeonEntrance, 40);
@@ -437,7 +440,23 @@ public class DungeonLocation : BaseLocation
                 // Fallback: Moral Paradox if boss not available
                 else if (MoralParadoxSystem.Instance.IsParadoxAvailable("final_choice", player))
                 {
-                    await MoralParadoxSystem.Instance.PresentParadox("final_choice", player, term);
+                    var choice = await MoralParadoxSystem.Instance.PresentParadox("final_choice", player, term);
+
+                    // Trigger the actual ending based on the choice made
+                    if (choice != null)
+                    {
+                        EndingType endingType;
+                        if (choice.OptionId == "claim_power")
+                            endingType = EndingType.Usurper;
+                        else if (choice.OptionId == "refuse_power")
+                            endingType = EndingType.Defiant;
+                        else if (choice.OptionId == "remember_truth")
+                            endingType = EndingType.TrueEnding;
+                        else
+                            endingType = EndingsSystem.Instance.DetermineEnding(player);
+
+                        await ShowEnding(endingType, player, term);
+                    }
                 }
                 break;
         }
@@ -1947,6 +1966,9 @@ public class DungeonLocation : BaseLocation
                     // Give a brief pause after rare encounter before showing room
                     await Task.Delay(500);
                 }
+
+                // Check for companion personal quest encounters
+                await CheckCompanionQuestEncounters(player, targetRoom);
             }
         }
 
@@ -2349,6 +2371,9 @@ public class DungeonLocation : BaseLocation
             terminal.SetColor("green");
             terminal.WriteLine($"You also find {potions} healing potion{(potions > 1 ? "s" : "")}!");
         }
+
+        // Auto-save after finding treasure
+        await SaveSystem.Instance.AutoSave(player);
 
         await Task.Delay(2500);
         await terminal.PressAnyKey();
@@ -3030,8 +3055,8 @@ public class DungeonLocation : BaseLocation
     /// </summary>
     private async Task SpecialEventEncounter()
     {
-        // 12 different event types based on original Pascal
-        var eventType = dungeonRandom.Next(12);
+        // 16 different event types (12 original + 4 new mid-game events)
+        var eventType = dungeonRandom.Next(16);
 
         switch (eventType)
         {
@@ -3071,7 +3096,623 @@ public class DungeonLocation : BaseLocation
             case 11:
                 await GamblingGhostEncounter();
                 break;
+            case 12:
+                await FallenAdventurerEncounter();
+                break;
+            case 13:
+                await EchoingVoicesEncounter();
+                break;
+            case 14:
+                await MysteriousPortalEncounter();
+                break;
+            case 15:
+                await ChallengingDuelistEncounter();
+                break;
         }
+    }
+
+    /// <summary>
+    /// Fallen adventurer encounter - discover a deceased adventurer with their journal
+    /// </summary>
+    private async Task FallenAdventurerEncounter()
+    {
+        terminal.SetColor("gray");
+        terminal.WriteLine("=== FALLEN ADVENTURER ===");
+        terminal.WriteLine("");
+
+        var currentPlayer = GetCurrentPlayer();
+        var adventurerClasses = new[] { "warrior", "mage", "cleric", "rogue", "paladin" };
+        var adventurerClass = adventurerClasses[dungeonRandom.Next(adventurerClasses.Length)];
+
+        terminal.SetColor("white");
+        terminal.WriteLine($"You come upon the remains of a fallen {adventurerClass}.");
+        terminal.WriteLine("Their weathered journal lies open beside them.");
+        terminal.WriteLine("");
+
+        // Generate lore entries based on dungeon level
+        string[] journalEntries;
+        if (currentDungeonLevel < 30)
+        {
+            journalEntries = new[]
+            {
+                "\"Day 12: The creatures here grow stronger. I've heard whispers of something ancient below...\"",
+                "\"I've discovered that certain monsters fear fire. Must remember this.\"",
+                "\"The merchants in town warned me about floor 25. They were right to be afraid.\"",
+                "\"If anyone finds this: Defend often. Healing is precious. Don't fight tired.\""
+            };
+        }
+        else if (currentDungeonLevel < 60)
+        {
+            journalEntries = new[]
+            {
+                "\"The Old Gods stir in the depths. I've felt their presence... watching.\"",
+                "\"Power Attacks work well against the armored beasts here.\"",
+                "\"Found a seal fragment. The temple above spoke of seven such seals...\"",
+                "\"The dungeon seems to respond to those who show both mercy and might.\""
+            };
+        }
+        else
+        {
+            journalEntries = new[]
+            {
+                "\"I've seen Manwe's throne. None should sit upon it lightly.\"",
+                "\"The artifacts hidden here... they're keys to something greater.\"",
+                "\"To any who read this: The true ending requires more than strength.\"",
+                "\"I almost reached the bottom. Almost. Beware the god of the deep.\""
+            };
+        }
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine(journalEntries[dungeonRandom.Next(journalEntries.Length)]);
+        terminal.WriteLine("");
+
+        // Chance to find supplies
+        var choice = await terminal.GetInput("(S)earch their belongings or (R)espect the dead? ");
+
+        if (choice.ToUpper() == "S")
+        {
+            int roll = dungeonRandom.Next(100);
+            if (roll < 40)
+            {
+                long goldFound = currentDungeonLevel * 200 + dungeonRandom.Next(500);
+                currentPlayer.Gold += goldFound;
+                terminal.SetColor("green");
+                terminal.WriteLine($"You find {goldFound} gold coins.");
+            }
+            else if (roll < 70)
+            {
+                int potions = dungeonRandom.Next(1, 4);
+                currentPlayer.Healing = Math.Min(currentPlayer.Healing + potions, currentPlayer.MaxPotions);
+                terminal.SetColor("magenta");
+                terminal.WriteLine($"You find {potions} healing potions.");
+            }
+            else if (roll < 90)
+            {
+                long xp = currentDungeonLevel * 150;
+                currentPlayer.Experience += xp;
+                terminal.SetColor("cyan");
+                terminal.WriteLine($"Reading their notes teaches you something! (+{xp} XP)");
+            }
+            else
+            {
+                terminal.SetColor("red");
+                terminal.WriteLine("The corpse animates! Undead guardian!");
+                await Task.Delay(1000);
+
+                var undead = Monster.CreateMonster(
+                    currentDungeonLevel, $"Undead {adventurerClass.Substring(0,1).ToUpper() + adventurerClass.Substring(1)}",
+                    currentDungeonLevel * 12, currentDungeonLevel * 3, 0,
+                    "You will join me...", false, false, "Rusty Blade", "Tattered Armor",
+                    false, false, currentDungeonLevel * 4, currentDungeonLevel * 2, currentDungeonLevel * 2
+                );
+                undead.Level = currentDungeonLevel;
+
+                var combatEngine = new CombatEngine(terminal);
+                await combatEngine.PlayerVsMonster(currentPlayer, undead, teammates);
+            }
+        }
+        else
+        {
+            terminal.SetColor("white");
+            terminal.WriteLine("You say a quiet prayer for the fallen adventurer.");
+            currentPlayer.Chivalry += 2;
+            terminal.SetColor("green");
+            terminal.WriteLine("Your chivalry increases slightly.");
+        }
+
+        await Task.Delay(1500);
+    }
+
+    /// <summary>
+    /// Echoing voices encounter - hear whispers that reveal hints
+    /// </summary>
+    private async Task EchoingVoicesEncounter()
+    {
+        terminal.SetColor("magenta");
+        terminal.WriteLine("=== ECHOING VOICES ===");
+        terminal.WriteLine("");
+
+        terminal.SetColor("white");
+        terminal.WriteLine("Strange whispers echo through the corridors...");
+        terminal.WriteLine("");
+
+        await Task.Delay(1500);
+
+        // Different whispers based on floor and player state
+        var currentPlayer = GetCurrentPlayer();
+        string[] whispers;
+
+        if (currentPlayer.HP < currentPlayer.MaxHP / 3)
+        {
+            whispers = new[]
+            {
+                "\"Rest... you need rest...\"",
+                "\"The Inn above offers safety...\"",
+                "\"Death awaits the weary...\""
+            };
+        }
+        else if (currentDungeonLevel >= 80)
+        {
+            whispers = new[]
+            {
+                "\"Manwe watches from his throne...\"",
+                "\"The seven seals... break them all...\"",
+                "\"Will you usurp... or save...?\""
+            };
+        }
+        else
+        {
+            whispers = new[]
+            {
+                "\"Deeper... the truth lies deeper...\"",
+                "\"The Old Gods remember...\"",
+                "\"Not all treasures are gold...\"",
+                "\"Your companions may hold secrets...\"",
+                "\"Power attacks break armor... precision finds weakness...\""
+            };
+        }
+
+        terminal.SetColor("dark_gray");
+        terminal.WriteLine(whispers[dungeonRandom.Next(whispers.Length)]);
+        terminal.WriteLine("");
+
+        // Small XP for experiencing the mystery
+        long xpGain = currentDungeonLevel * 50;
+        currentPlayer.Experience += xpGain;
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"The encounter leaves you wiser. (+{xpGain} XP)");
+
+        await Task.Delay(2000);
+    }
+
+    /// <summary>
+    /// Mysterious portal encounter - quick travel or danger
+    /// </summary>
+    private async Task MysteriousPortalEncounter()
+    {
+        terminal.SetColor("blue");
+        terminal.WriteLine("=== MYSTERIOUS PORTAL ===");
+        terminal.WriteLine("");
+
+        terminal.SetColor("white");
+        terminal.WriteLine("A shimmering portal hovers before you, crackling with energy.");
+        terminal.WriteLine("It pulses with an otherworldly light.");
+        terminal.WriteLine("");
+
+        var choice = await terminal.GetInput("(E)nter the portal, (S)tudy it, or (I)gnore it? ");
+        var currentPlayer = GetCurrentPlayer();
+
+        if (choice.ToUpper() == "E")
+        {
+            int roll = dungeonRandom.Next(100);
+            if (roll < 50)
+            {
+                // Teleport deeper (5-10 floors)
+                int floorsDown = dungeonRandom.Next(5, 11);
+                int newFloor = Math.Min(currentDungeonLevel + floorsDown, 100);
+                terminal.SetColor("cyan");
+                terminal.WriteLine($"The portal whisks you deeper into the dungeon!");
+                terminal.WriteLine($"You emerge on floor {newFloor}!");
+                currentDungeonLevel = newFloor;
+            }
+            else if (roll < 75)
+            {
+                // Teleport back up (safe)
+                int floorsUp = dungeonRandom.Next(3, 8);
+                int newFloor = Math.Max(currentDungeonLevel - floorsUp, 1);
+                terminal.SetColor("yellow");
+                terminal.WriteLine($"The portal carries you upward!");
+                terminal.WriteLine($"You emerge on floor {newFloor}.");
+                currentDungeonLevel = newFloor;
+            }
+            else if (roll < 90)
+            {
+                // Treasure dimension
+                terminal.SetColor("green");
+                terminal.WriteLine("You find yourself in a treasure dimension!");
+                long goldFound = currentDungeonLevel * 2000 + dungeonRandom.Next(5000);
+                currentPlayer.Gold += goldFound;
+                terminal.WriteLine($"You grab {goldFound} gold before being pulled back!");
+            }
+            else
+            {
+                // Hostile dimension - fight
+                terminal.SetColor("red");
+                terminal.WriteLine("The portal leads to a hostile dimension!");
+                await Task.Delay(1000);
+
+                var guardian = Monster.CreateMonster(
+                    currentDungeonLevel + 5, "Portal Guardian",
+                    currentDungeonLevel * 18, currentDungeonLevel * 5, 0,
+                    "You should not be here!", false, false, "Void Blade", "Dimensional Armor",
+                    true, false, currentDungeonLevel * 6, currentDungeonLevel * 4, currentDungeonLevel * 3
+                );
+                guardian.Level = currentDungeonLevel + 5;
+                guardian.IsBoss = true;
+
+                var combatEngine = new CombatEngine(terminal);
+                var result = await combatEngine.PlayerVsMonster(currentPlayer, guardian, teammates);
+
+                if (result.Victory)
+                {
+                    terminal.SetColor("green");
+                    terminal.WriteLine("The guardian drops a rare crystal!");
+                    currentPlayer.Gold += currentDungeonLevel * 500;
+                    currentPlayer.Experience += currentDungeonLevel * 300;
+                }
+            }
+        }
+        else if (choice.ToUpper() == "S")
+        {
+            terminal.SetColor("cyan");
+            terminal.WriteLine("You study the portal's magical patterns...");
+            long xpGain = currentDungeonLevel * 100;
+            currentPlayer.Experience += xpGain;
+            terminal.WriteLine($"You learn something about dimensional magic. (+{xpGain} XP)");
+        }
+        else
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("You wisely avoid the unstable portal. It fades away.");
+        }
+
+        await Task.Delay(2000);
+    }
+
+    /// <summary>
+    /// Challenging duelist encounter - recurring named rivals with memory
+    /// </summary>
+    private async Task ChallengingDuelistEncounter()
+    {
+        var currentPlayer = GetCurrentPlayer();
+
+        // Get or create a recurring duelist for this player
+        var duelist = GetOrCreateRecurringDuelist(currentPlayer);
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine("=== THE DUELIST ===");
+        terminal.WriteLine("");
+
+        terminal.SetColor("white");
+        terminal.WriteLine($"A warrior emerges from the shadows: {duelist.Name}");
+        terminal.WriteLine("");
+
+        // Different dialogue based on encounter history
+        if (duelist.TimesEncountered == 0)
+        {
+            // First meeting
+            terminal.SetColor("cyan");
+            terminal.WriteLine($"\"{currentPlayer.Name}! I have heard tales of your exploits.\"");
+            terminal.WriteLine("\"I am " + duelist.Name + ", and I seek worthy opponents.\"");
+            terminal.WriteLine("\"Face me in honorable combat, and prove your worth!\"");
+        }
+        else if (duelist.PlayerWins > duelist.PlayerLosses)
+        {
+            // Player has been winning
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"\"{currentPlayer.Name}! We meet again.\"");
+            terminal.WriteLine($"\"Our record stands at {duelist.PlayerWins} to {duelist.PlayerLosses} in your favor.\"");
+            terminal.WriteLine("\"I have trained relentlessly since our last bout. Today, I will prevail!\"");
+        }
+        else if (duelist.PlayerLosses > duelist.PlayerWins)
+        {
+            // Duelist has been winning
+            terminal.SetColor("red");
+            terminal.WriteLine($"\"Ah, {currentPlayer.Name}. Come for another lesson?\"");
+            terminal.WriteLine($"\"I've bested you {duelist.PlayerLosses} times now.\"");
+            terminal.WriteLine("\"Perhaps this time you'll put up a real fight.\"");
+        }
+        else
+        {
+            // Evenly matched
+            terminal.SetColor("magenta");
+            terminal.WriteLine($"\"{currentPlayer.Name}! My worthy rival!\"");
+            terminal.WriteLine($"\"We are evenly matched at {duelist.PlayerWins} victories each.\"");
+            terminal.WriteLine("\"Today we settle who is truly superior!\"");
+        }
+
+        // Show duelist info for returning encounters
+        if (duelist.TimesEncountered > 0)
+        {
+            terminal.WriteLine("");
+            terminal.SetColor("gray");
+            terminal.WriteLine($"  Encounters: {duelist.TimesEncountered} | Your Wins: {duelist.PlayerWins} | Your Losses: {duelist.PlayerLosses}");
+            terminal.WriteLine($"  {duelist.Name}'s current strength: Level {duelist.Level}");
+        }
+
+        terminal.WriteLine("");
+        var choice = await terminal.GetInput("(A)ccept the challenge, (D)ecline politely, or (I)nsult them? ");
+
+        if (choice.ToUpper() == "A")
+        {
+            terminal.SetColor("cyan");
+            terminal.WriteLine($"You accept {duelist.Name}'s challenge!");
+            terminal.WriteLine("Steel clashes against steel!");
+            await Task.Delay(1500);
+
+            // Duelist scales with player but gets stronger each encounter
+            int duelistLevel = Math.Max(currentPlayer.Level, duelist.Level);
+            float strengthMod = 0.8f + (duelist.TimesEncountered * 0.05f); // Gets harder each time
+            strengthMod = Math.Min(strengthMod, 1.2f); // Cap at 120%
+
+            var duelistMonster = Monster.CreateMonster(
+                duelistLevel, duelist.Name,
+                (long)(currentPlayer.MaxHP * strengthMod), (long)(currentPlayer.Strength * strengthMod), 0,
+                duelist.GetBattleCry(), false, false, duelist.Weapon, "Duelist's Garb",
+                false, false, (long)(currentPlayer.Dexterity * strengthMod), (long)(currentPlayer.Wisdom * 0.8), 0
+            );
+            duelistMonster.Level = duelistLevel;
+
+            var combatEngine = new CombatEngine(terminal);
+            var result = await combatEngine.PlayerVsMonster(currentPlayer, duelistMonster, null);
+
+            duelist.TimesEncountered++;
+            duelist.Level = Math.Max(duelist.Level, currentPlayer.Level); // Duelist keeps up
+
+            if (result.Victory)
+            {
+                duelist.PlayerWins++;
+                terminal.SetColor("green");
+
+                if (duelist.PlayerWins == 1)
+                {
+                    terminal.WriteLine($"{duelist.Name} kneels before you!");
+                    terminal.WriteLine("\"A worthy foe indeed! I shall remember this battle.\"");
+                }
+                else if (duelist.PlayerWins == 3)
+                {
+                    terminal.WriteLine($"{duelist.Name} laughs despite the loss!");
+                    terminal.WriteLine("\"Three times now! You have earned my respect, {currentPlayer.Name}.\"");
+                    terminal.WriteLine("\"But I will never stop seeking to surpass you!\"");
+                }
+                else if (duelist.PlayerWins >= 5)
+                {
+                    terminal.WriteLine($"{duelist.Name} bows deeply.");
+                    terminal.WriteLine("\"You are truly a master. I am honored to call you my rival.\"");
+                }
+                else
+                {
+                    terminal.WriteLine($"{duelist.Name} bows in defeat.");
+                    terminal.WriteLine("\"Well fought! Until we meet again...\"");
+                }
+
+                // Rewards scale with rivalry intensity
+                long goldReward = currentDungeonLevel * 300 * (1 + duelist.TimesEncountered / 3);
+                long xpReward = currentDungeonLevel * 250 * (1 + duelist.TimesEncountered / 3);
+                currentPlayer.Gold += goldReward;
+                currentPlayer.Experience += xpReward;
+                currentPlayer.Chivalry += 5;
+
+                terminal.WriteLine($"+{goldReward} gold, +{xpReward} XP, +5 Chivalry");
+            }
+            else if (currentPlayer.IsAlive)
+            {
+                duelist.PlayerLosses++;
+                terminal.SetColor("yellow");
+
+                if (duelist.PlayerLosses == 1)
+                {
+                    terminal.WriteLine($"{duelist.Name} spares your life!");
+                    terminal.WriteLine("\"Train harder. I expect more next time.\"");
+                }
+                else if (duelist.PlayerLosses >= 3)
+                {
+                    terminal.WriteLine($"{duelist.Name} sighs with disappointment.");
+                    terminal.WriteLine("\"I had hoped for better. Grow stronger, then face me again.\"");
+                }
+                else
+                {
+                    terminal.WriteLine($"{duelist.Name} sheaths their blade.");
+                    terminal.WriteLine("\"We will meet again when you are ready.\"");
+                }
+            }
+
+            // Save duelist progress
+            SaveDuelistProgress(currentPlayer, duelist);
+        }
+        else if (choice.ToUpper() == "D")
+        {
+            terminal.SetColor("white");
+            terminal.WriteLine("You politely decline the challenge.");
+
+            if (duelist.TimesEncountered > 0)
+            {
+                terminal.WriteLine($"{duelist.Name} looks disappointed but understanding.");
+                terminal.WriteLine("\"Very well. But do not avoid me forever.\"");
+            }
+            else
+            {
+                terminal.WriteLine($"{duelist.Name} nods respectfully.");
+                terminal.WriteLine("\"A wise warrior knows when to fight. We shall meet again.\"");
+            }
+            currentPlayer.Chivalry += 1;
+        }
+        else if (choice.ToUpper() == "I")
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine("You hurl insults at the duelist!");
+
+            if (duelist.TimesEncountered > 0 && duelist.PlayerWins > 0)
+            {
+                terminal.WriteLine($"{duelist.Name}'s eyes flash with fury!");
+                terminal.WriteLine("\"After all our battles, you dishonor me like this?!\"");
+                terminal.WriteLine("\"I will END you!\"");
+            }
+            else
+            {
+                terminal.WriteLine($"{duelist.Name}'s face contorts with rage!");
+                terminal.WriteLine("\"You DARE mock me?! You will pay for that!\"");
+            }
+            await Task.Delay(1000);
+
+            currentPlayer.Darkness += 3;
+            duelist.WasInsulted = true;
+
+            // Enraged duelist is much stronger
+            int rageLevel = currentPlayer.Level + 3 + (duelist.TimesEncountered / 2);
+            var angryDuelist = Monster.CreateMonster(
+                rageLevel, duelist.Name + " (Enraged)",
+                (long)(currentPlayer.MaxHP * 1.3), (long)(currentPlayer.Strength * 1.3), 0,
+                "DIE!", false, false, duelist.Weapon, "Duelist's Garb",
+                false, false, currentPlayer.Dexterity, currentPlayer.Wisdom, 0
+            );
+            angryDuelist.Level = rageLevel;
+
+            var combatEngine = new CombatEngine(terminal);
+            var result = await combatEngine.PlayerVsMonster(currentPlayer, angryDuelist, teammates);
+
+            duelist.TimesEncountered++;
+            if (result.Victory)
+            {
+                duelist.PlayerWins++;
+                terminal.SetColor("yellow");
+                terminal.WriteLine($"You have slain {duelist.Name} in dishonorable combat.");
+                terminal.WriteLine("Their spirit will haunt you...");
+                currentPlayer.Darkness += 5;
+
+                // Kill them permanently - they won't return
+                duelist.IsDead = true;
+            }
+            else if (currentPlayer.IsAlive)
+            {
+                duelist.PlayerLosses++;
+            }
+
+            SaveDuelistProgress(currentPlayer, duelist);
+        }
+        else
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine($"{duelist.Name} watches you walk away.");
+            if (duelist.TimesEncountered > 0)
+            {
+                terminal.WriteLine("\"Running from me now? Coward!\"");
+            }
+        }
+
+        await Task.Delay(1500);
+    }
+
+    /// <summary>
+    /// Recurring duelist data - stored per player
+    /// </summary>
+    private class RecurringDuelist
+    {
+        public string Name { get; set; } = "";
+        public string Weapon { get; set; } = "Dueling Blade";
+        public int Level { get; set; } = 1;
+        public int TimesEncountered { get; set; } = 0;
+        public int PlayerWins { get; set; } = 0;
+        public int PlayerLosses { get; set; } = 0;
+        public bool WasInsulted { get; set; } = false;
+        public bool IsDead { get; set; } = false;
+
+        public string GetBattleCry()
+        {
+            if (WasInsulted) return "You will pay for your insults!";
+            if (PlayerWins > PlayerLosses + 2) return "This time will be different!";
+            if (PlayerLosses > PlayerWins + 2) return "You cannot hope to defeat me!";
+            return "An honorable fight!";
+        }
+    }
+
+    // Static storage for recurring duelists per player
+    private static Dictionary<string, RecurringDuelist> _playerDuelists = new();
+
+    private RecurringDuelist GetOrCreateRecurringDuelist(Character player)
+    {
+        string playerId = player.ID ?? player.Name;
+
+        if (_playerDuelists.TryGetValue(playerId, out var existing))
+        {
+            if (!existing.IsDead)
+                return existing;
+            // If dead, create a new rival
+        }
+
+        // Create a new recurring duelist for this player
+        var duelistTemplates = new[]
+        {
+            ("Sir Varen the Unyielding", "Longsword of Honor"),
+            ("Lady Seraphina Dawnblade", "Rapier of the Sun"),
+            ("Grimjaw the Ironclad", "War Axe"),
+            ("The Masked Challenger", "Shadow Blade"),
+            ("Kira Shadowstep", "Twin Daggers"),
+            ("Marcus Steelwind", "Greatsword"),
+            ("Yuki the Swift", "Katana"),
+            ("Bartholomew the Bold", "Mace of Valor")
+        };
+
+        var template = duelistTemplates[dungeonRandom.Next(duelistTemplates.Length)];
+
+        var newDuelist = new RecurringDuelist
+        {
+            Name = template.Item1,
+            Weapon = template.Item2,
+            Level = Math.Max(1, player.Level - 2)
+        };
+
+        _playerDuelists[playerId] = newDuelist;
+        return newDuelist;
+    }
+
+    private void SaveDuelistProgress(Character player, RecurringDuelist duelist)
+    {
+        string playerId = player.ID ?? player.Name;
+        _playerDuelists[playerId] = duelist;
+    }
+
+    /// <summary>
+    /// Get recurring duelist data for save system (public accessor)
+    /// </summary>
+    public static (string Name, string Weapon, int Level, int TimesEncountered, int PlayerWins, int PlayerLosses, bool WasInsulted, bool IsDead)? GetRecurringDuelist(string playerId)
+    {
+        if (_playerDuelists.TryGetValue(playerId, out var duelist))
+        {
+            return (duelist.Name, duelist.Weapon, duelist.Level, duelist.TimesEncountered,
+                    duelist.PlayerWins, duelist.PlayerLosses, duelist.WasInsulted, duelist.IsDead);
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Restore recurring duelist data from save system
+    /// </summary>
+    public static void RestoreRecurringDuelist(string playerId, string name, string weapon, int level,
+                                                int timesEncountered, int playerWins, int playerLosses,
+                                                bool wasInsulted, bool isDead)
+    {
+        _playerDuelists[playerId] = new RecurringDuelist
+        {
+            Name = name,
+            Weapon = weapon,
+            Level = level,
+            TimesEncountered = timesEncountered,
+            PlayerWins = playerWins,
+            PlayerLosses = playerLosses,
+            WasInsulted = wasInsulted,
+            IsDead = isDead
+        };
     }
 
     /// <summary>
@@ -4618,20 +5259,31 @@ public class DungeonLocation : BaseLocation
         terminal.WriteLine("╚═══════════════════════════════════════════════════╝");
         terminal.WriteLine("");
 
-        // Check if player is in a team
-        if (string.IsNullOrEmpty(player.Team))
+        // Check if player has any potential party members (team, spouse, or companions)
+        bool hasTeam = !string.IsNullOrEmpty(player.Team);
+        bool hasSpouse = UsurperRemake.Systems.RomanceTracker.Instance?.IsMarried == true;
+        bool hasCompanions = UsurperRemake.Systems.CompanionSystem.Instance?.GetActiveCompanions()?.Any() == true;
+
+        if (!hasTeam && !hasSpouse && !hasCompanions && teammates.Count == 0)
         {
             terminal.SetColor("yellow");
-            terminal.WriteLine("You are not in a team.");
-            terminal.WriteLine("Visit the Team Corner in town to create or join a team!");
+            terminal.WriteLine("You have no one to bring with you.");
+            terminal.WriteLine("Get married, recruit companions, or join a team!");
             terminal.WriteLine("");
             await terminal.PressAnyKey();
             return;
         }
 
         terminal.SetColor("white");
-        terminal.WriteLine($"Team: {player.Team}");
-        terminal.WriteLine($"Team controls turf: {(player.CTurf ? "Yes" : "No")}");
+        if (hasTeam)
+        {
+            terminal.WriteLine($"Team: {player.Team}");
+            terminal.WriteLine($"Team controls turf: {(player.CTurf ? "Yes" : "No")}");
+        }
+        else
+        {
+            terminal.WriteLine("You're not in a team, but your loved ones can join you.");
+        }
         terminal.WriteLine("");
 
         // Show current dungeon party
@@ -4646,23 +5298,42 @@ public class DungeonLocation : BaseLocation
         }
         terminal.WriteLine("");
 
-        // Get available NPC teammates from same team
-        var npcTeammates = UsurperRemake.Systems.NPCSpawnSystem.Instance.ActiveNPCs
-            .Where(n => n.Team == player.Team && n.IsAlive && !teammates.Contains(n))
-            .ToList();
-
-        // Add spouse as potential teammate (if married)
-        NPC? spouseNpc = null;
-        if (UsurperRemake.Systems.RomanceTracker.Instance.IsMarried)
+        // Get available NPC teammates from same team (only if player has a team)
+        var npcTeammates = new List<NPC>();
+        if (!string.IsNullOrEmpty(player.Team))
         {
-            var spouse = UsurperRemake.Systems.RomanceTracker.Instance.PrimarySpouse;
+            npcTeammates = UsurperRemake.Systems.NPCSpawnSystem.Instance.ActiveNPCs
+                .Where(n => n.Team == player.Team && n.IsAlive && !teammates.Contains(n))
+                .ToList();
+        }
+
+        // Add spouse as potential teammate (if married) - spouse can always join
+        NPC? spouseNpc = null;
+        var romance = UsurperRemake.Systems.RomanceTracker.Instance;
+        if (romance?.IsMarried == true)
+        {
+            var spouse = romance.PrimarySpouse;
             if (spouse != null)
             {
-                spouseNpc = UsurperRemake.Systems.NPCSpawnSystem.Instance.ActiveNPCs
+                spouseNpc = UsurperRemake.Systems.NPCSpawnSystem.Instance?.ActiveNPCs?
                     .FirstOrDefault(n => n.ID == spouse.NPCId && n.IsAlive && !teammates.Contains(n) && !npcTeammates.Contains(n));
                 if (spouseNpc != null)
                 {
                     npcTeammates.Insert(0, spouseNpc); // Spouse first in list
+                }
+            }
+        }
+
+        // Add lovers as potential party members too
+        if (romance != null)
+        {
+            foreach (var lover in romance.CurrentLovers)
+            {
+                var loverNpc = UsurperRemake.Systems.NPCSpawnSystem.Instance?.ActiveNPCs?
+                    .FirstOrDefault(n => n.ID == lover.NPCId && n.IsAlive && !teammates.Contains(n) && !npcTeammates.Contains(n));
+                if (loverNpc != null)
+                {
+                    npcTeammates.Add(loverNpc);
                 }
             }
         }
@@ -4675,10 +5346,18 @@ public class DungeonLocation : BaseLocation
             {
                 var npc = npcTeammates[i];
                 bool isSpouse = spouseNpc != null && npc.ID == spouseNpc.ID;
+                bool isLover = romance?.CurrentLovers?.Any(l => l.NPCId == npc.ID) == true;
+
                 if (isSpouse)
                 {
                     terminal.SetColor("bright_magenta");
                     terminal.WriteLine($"  [{i + 1}] <3 {npc.DisplayName} (Spouse) - Level {npc.Level} {npc.Class} - HP: {npc.HP}/{npc.MaxHP}");
+                    terminal.SetColor("green");
+                }
+                else if (isLover)
+                {
+                    terminal.SetColor("magenta");
+                    terminal.WriteLine($"  [{i + 1}] <3 {npc.DisplayName} (Lover) - Level {npc.Level} {npc.Class} - HP: {npc.HP}/{npc.MaxHP}");
                     terminal.SetColor("green");
                 }
                 else
@@ -4691,8 +5370,7 @@ public class DungeonLocation : BaseLocation
         else if (teammates.Count == 0)
         {
             terminal.SetColor("gray");
-            terminal.WriteLine("No team members available to join your dungeon party.");
-            terminal.WriteLine("Recruit NPCs at the Team Corner or Hall of Recruitment!");
+            terminal.WriteLine("No allies available to join your dungeon party.");
             terminal.WriteLine("");
         }
 
@@ -4701,11 +5379,11 @@ public class DungeonLocation : BaseLocation
         terminal.WriteLine("Options:");
         if (npcTeammates.Count > 0 && teammates.Count < 4) // Max 4 teammates + player = 5
         {
-            terminal.WriteLine("  [A]dd a team member to dungeon party");
+            terminal.WriteLine("  [A]dd ally to dungeon party");
         }
         if (teammates.Count > 0)
         {
-            terminal.WriteLine("  [R]emove a team member from party");
+            terminal.WriteLine("  [R]emove ally from party");
         }
         terminal.WriteLine("  [B]ack to dungeon menu");
         terminal.WriteLine("");
@@ -6309,7 +6987,10 @@ public class DungeonLocation : BaseLocation
         terminal.WriteLine("");
         terminal.WriteLine("  This is one of the Seven Seals - the truth of the Old Gods.");
         terminal.WriteLine("");
-        await Task.Delay(2000);
+        await Task.Delay(1500);
+
+        terminal.SetColor("gray");
+        await terminal.GetInputAsync("  Press Enter to continue...");
 
         // Collect the seal using the SevenSealsSystem
         var sealSystem = SevenSealsSystem.Instance;
@@ -6354,6 +7035,852 @@ public class DungeonLocation : BaseLocation
         terminal.WriteLine("");
         await terminal.PressAnyKey();
     }
+
+    #region Companion Personal Quest Encounters
+
+    /// <summary>
+    /// Check for companion personal quest encounters based on dungeon conditions
+    /// </summary>
+    private async Task CheckCompanionQuestEncounters(Character player, DungeonRoom room)
+    {
+        var companionSystem = UsurperRemake.Systems.CompanionSystem.Instance;
+        var story = UsurperRemake.Systems.StoryProgressionSystem.Instance;
+
+        // Check each companion's quest conditions
+        foreach (var companion in companionSystem.GetActiveCompanions())
+        {
+            if (companion == null || !companion.PersonalQuestStarted || companion.PersonalQuestCompleted)
+                continue;
+
+            bool triggered = companion.Id switch
+            {
+                UsurperRemake.Systems.CompanionId.Lyris => await CheckLyrisQuestEncounter(player, companion, room, story),
+                UsurperRemake.Systems.CompanionId.Aldric => await CheckAldricQuestEncounter(player, companion, room, story),
+                UsurperRemake.Systems.CompanionId.Mira => await CheckMiraQuestEncounter(player, companion, room, story),
+                UsurperRemake.Systems.CompanionId.Vex => await CheckVexQuestEncounter(player, companion, room, story),
+                _ => false
+            };
+
+            if (triggered)
+            {
+                await Task.Delay(500);
+                break; // Only one quest encounter per room
+            }
+        }
+    }
+
+    /// <summary>
+    /// Lyris Quest: "The Light That Was" - Find Aurelion's artifact
+    /// Triggers on floor 85 (Aurelion's domain)
+    /// </summary>
+    private async Task<bool> CheckLyrisQuestEncounter(Character player, UsurperRemake.Systems.Companion lyris,
+        DungeonRoom room, UsurperRemake.Systems.StoryProgressionSystem story)
+    {
+        // Lyris's quest triggers near Aurelion's floor (85)
+        if (currentDungeonLevel < 80 || currentDungeonLevel > 90)
+            return false;
+
+        // Only trigger once
+        if (story.HasStoryFlag("lyris_quest_artifact_found"))
+            return false;
+
+        // 15% chance per room on correct floors
+        if (dungeonRandom.NextDouble() > 0.15)
+            return false;
+
+        // Trigger the quest event
+        terminal.ClearScreen();
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("══════════════════════════════════════════════════════════════════════════════");
+        terminal.WriteLine("                    THE LIGHT THAT WAS                                        ");
+        terminal.WriteLine("══════════════════════════════════════════════════════════════════════════════");
+        terminal.WriteLine("");
+
+        await Task.Delay(1000);
+
+        terminal.SetColor("white");
+        terminal.WriteLine("Lyris suddenly stops, her eyes widening.");
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine("\"I feel it,\" she whispers. \"The artifact... it's close.\"");
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        terminal.SetColor("white");
+        terminal.WriteLine("She moves to a seemingly unremarkable section of wall,");
+        terminal.WriteLine("pressing her palm against the stone. Ancient symbols flare to life.");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("A hidden chamber opens, revealing a pedestal.");
+        terminal.WriteLine("Upon it rests a crystalline orb, pulsing with fading golden light.");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine("\"Aurelion's Heart,\" Lyris breathes. \"The last fragment of his true self.\"");
+        terminal.WriteLine("\"Before the corruption. Before Manwe twisted everything.\"");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        terminal.SetColor("white");
+        terminal.WriteLine("She reaches for it, then hesitates, looking at you.");
+        terminal.WriteLine("");
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine("[1] Encourage her to take it");
+        terminal.WriteLine("[2] Warn her it might be dangerous");
+        terminal.WriteLine("[3] Take it yourself");
+        terminal.WriteLine("");
+
+        var choice = await terminal.GetInput("What do you do? ");
+
+        switch (choice)
+        {
+            case "1":
+                terminal.SetColor("white");
+                terminal.WriteLine("");
+                terminal.WriteLine("You nod encouragingly. \"This is what you've been searching for.\"");
+                terminal.WriteLine("");
+                await Task.Delay(1000);
+
+                terminal.SetColor("bright_magenta");
+                terminal.WriteLine("Lyris gently lifts the orb. Light floods the chamber.");
+                terminal.WriteLine("For a moment, you see her as she once was - radiant, divine.");
+                terminal.WriteLine("");
+                await Task.Delay(1500);
+
+                terminal.SetColor("cyan");
+                terminal.WriteLine("\"I... I can feel him. The god I once served.\"");
+                terminal.WriteLine("\"He's still in there, buried under Manwe's corruption.\"");
+                terminal.WriteLine("\"With this... maybe there's hope.\"");
+                terminal.WriteLine("");
+
+                UsurperRemake.Systems.CompanionSystem.Instance.ModifyLoyalty(
+                    UsurperRemake.Systems.CompanionId.Lyris, 20, "Trusted her with Aurelion's Heart");
+                break;
+
+            case "2":
+                terminal.SetColor("white");
+                terminal.WriteLine("");
+                terminal.WriteLine("\"Be careful,\" you warn. \"Divine artifacts can be treacherous.\"");
+                terminal.WriteLine("");
+                await Task.Delay(1000);
+
+                terminal.SetColor("cyan");
+                terminal.WriteLine("\"You're right to be cautious,\" she says softly.");
+                terminal.WriteLine("\"But this... this is worth any risk.\"");
+                terminal.WriteLine("");
+                await Task.Delay(1000);
+
+                terminal.SetColor("bright_magenta");
+                terminal.WriteLine("She carefully lifts the orb, bracing for pain that never comes.");
+                terminal.WriteLine("Instead, warmth spreads through the chamber.");
+                terminal.WriteLine("");
+
+                UsurperRemake.Systems.CompanionSystem.Instance.ModifyLoyalty(
+                    UsurperRemake.Systems.CompanionId.Lyris, 10, "Showed concern for her safety");
+                break;
+
+            case "3":
+                terminal.SetColor("white");
+                terminal.WriteLine("");
+                terminal.WriteLine("You step forward to take the orb yourself.");
+                terminal.WriteLine("");
+                await Task.Delay(1000);
+
+                terminal.SetColor("red");
+                terminal.WriteLine("The moment your fingers touch it, searing pain shoots through you!");
+                player.HP -= player.MaxHP / 4;
+                terminal.WriteLine($"You take {player.MaxHP / 4} damage!");
+                terminal.WriteLine("");
+                await Task.Delay(1000);
+
+                terminal.SetColor("cyan");
+                terminal.WriteLine("\"It only responds to those who once served the light,\"");
+                terminal.WriteLine("Lyris explains, gently taking the orb from your burned hands.");
+                terminal.WriteLine("");
+
+                UsurperRemake.Systems.CompanionSystem.Instance.ModifyLoyalty(
+                    UsurperRemake.Systems.CompanionId.Lyris, -5, "Tried to take her artifact");
+                break;
+        }
+
+        await Task.Delay(1500);
+
+        terminal.SetColor("bright_green");
+        terminal.WriteLine("══════════════════════════════════════════════════════════════════════════════");
+        terminal.WriteLine("           QUEST COMPLETE: THE LIGHT THAT WAS                                 ");
+        terminal.WriteLine("══════════════════════════════════════════════════════════════════════════════");
+        terminal.WriteLine("");
+
+        story.SetStoryFlag("lyris_quest_artifact_found", true);
+        UsurperRemake.Systems.CompanionSystem.Instance.CompletePersonalQuest(
+            UsurperRemake.Systems.CompanionId.Lyris, true);
+
+        // Bonus: Lyris gains power
+        lyris.BaseStats.MagicPower += 25;
+        lyris.BaseStats.HealingPower += 15;
+        terminal.WriteLine("Lyris has gained new power from connecting with Aurelion's essence!", "bright_cyan");
+
+        await terminal.PressAnyKey();
+        return true;
+    }
+
+    /// <summary>
+    /// Aldric Quest: "Ghosts of the Guard" - Confront the demon that killed his unit
+    /// Triggers on floor 55-65 (demonic territory)
+    /// </summary>
+    private async Task<bool> CheckAldricQuestEncounter(Character player, UsurperRemake.Systems.Companion aldric,
+        DungeonRoom room, UsurperRemake.Systems.StoryProgressionSystem story)
+    {
+        // Aldric's quest triggers in demonic territory
+        if (currentDungeonLevel < 55 || currentDungeonLevel > 65)
+            return false;
+
+        if (story.HasStoryFlag("aldric_quest_demon_confronted"))
+            return false;
+
+        // 15% chance per room
+        if (dungeonRandom.NextDouble() > 0.15)
+            return false;
+
+        terminal.ClearScreen();
+        terminal.SetColor("dark_red");
+        terminal.WriteLine("══════════════════════════════════════════════════════════════════════════════");
+        terminal.WriteLine("                    GHOSTS OF THE GUARD                                       ");
+        terminal.WriteLine("══════════════════════════════════════════════════════════════════════════════");
+        terminal.WriteLine("");
+
+        await Task.Delay(1000);
+
+        terminal.SetColor("white");
+        terminal.WriteLine("Aldric freezes mid-step, his face going pale.");
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("\"That smell,\" he growls. \"Brimstone and blood. I know it.\"");
+        terminal.WriteLine("\"Malachar. The demon that slaughtered my men.\"");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        terminal.SetColor("white");
+        terminal.WriteLine("From the shadows ahead, a massive figure emerges.");
+        terminal.WriteLine("Horned, wreathed in flame, its eyes burning with malevolent intelligence.");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        terminal.SetColor("red");
+        terminal.WriteLine("MALACHAR THE SLAYER speaks:");
+        terminal.WriteLine("\"The last of the King's Guard. I wondered when you'd find me.\"");
+        terminal.WriteLine("\"Your men died screaming your name. Did you know that?\"");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        terminal.SetColor("white");
+        terminal.WriteLine("Aldric's hands tremble on his shield.");
+        terminal.WriteLine("");
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine("[1] \"Aldric, we fight together. You're not alone this time.\"");
+        terminal.WriteLine("[2] \"This is your battle. I'll support you from behind.\"");
+        terminal.WriteLine("[3] \"We should retreat and prepare properly.\"");
+        terminal.WriteLine("");
+
+        var choice = await terminal.GetInput("What do you say? ");
+
+        switch (choice)
+        {
+            case "1":
+                terminal.SetColor("bright_cyan");
+                terminal.WriteLine("");
+                terminal.WriteLine("\"Together,\" Aldric nods, his fear hardening into resolve.");
+                terminal.WriteLine("\"This time, I won't fail.\"");
+                terminal.WriteLine("");
+                await Task.Delay(1000);
+
+                await FightMalachar(player, aldric, true);
+
+                UsurperRemake.Systems.CompanionSystem.Instance.ModifyLoyalty(
+                    UsurperRemake.Systems.CompanionId.Aldric, 25, "Fought beside him against his demon");
+                break;
+
+            case "2":
+                terminal.SetColor("white");
+                terminal.WriteLine("");
+                terminal.WriteLine("\"I understand,\" Aldric says quietly. \"This is my burden.\"");
+                terminal.WriteLine("\"But... thank you for being here.\"");
+                terminal.WriteLine("");
+                await Task.Delay(1000);
+
+                await FightMalachar(player, aldric, false);
+
+                UsurperRemake.Systems.CompanionSystem.Instance.ModifyLoyalty(
+                    UsurperRemake.Systems.CompanionId.Aldric, 15, "Respected his need to face his demon alone");
+                break;
+
+            case "3":
+                terminal.SetColor("white");
+                terminal.WriteLine("");
+                terminal.WriteLine("\"No,\" Aldric says firmly. \"I've run from this for too long.\"");
+                terminal.WriteLine("\"Today it ends. With or without you.\"");
+                terminal.WriteLine("");
+                await Task.Delay(1000);
+
+                await FightMalachar(player, aldric, true);
+
+                UsurperRemake.Systems.CompanionSystem.Instance.ModifyLoyalty(
+                    UsurperRemake.Systems.CompanionId.Aldric, -10, "Suggested retreating from his demon");
+                break;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Boss fight with Malachar for Aldric's quest
+    /// </summary>
+    private async Task FightMalachar(Character player, UsurperRemake.Systems.Companion aldric, bool playerJoins)
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("red");
+        terminal.WriteLine("══════════════════════════════════════════════════════════════════════════════");
+        terminal.WriteLine("                    BOSS: MALACHAR THE SLAYER                                 ");
+        terminal.WriteLine("══════════════════════════════════════════════════════════════════════════════");
+        terminal.WriteLine("");
+
+        // Create Malachar as a boss monster
+        var malachar = new Monster
+        {
+            Name = "Malachar the Slayer",
+            Level = 60,
+            HP = 8000,
+            MaxHP = 8000,
+            Strength = 180,
+            Defence = 120,
+            MonsterColor = "dark_red"
+        };
+
+        terminal.SetColor("red");
+        terminal.WriteLine($"Malachar HP: {malachar.HP}/{malachar.MaxHP}");
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        // Simplified boss fight
+        int rounds = 0;
+        while (malachar.HP > 0 && player.HP > 0 && aldric.BaseStats.HP > 0 && rounds < 15)
+        {
+            rounds++;
+
+            // Player attacks if joined
+            if (playerJoins)
+            {
+                long playerDmg = player.Strength + player.WeapPow + dungeonRandom.Next(50);
+                malachar.HP -= (int)playerDmg;
+                terminal.WriteLine($"You strike Malachar for {playerDmg} damage!", "bright_cyan");
+            }
+
+            // Aldric attacks with determination
+            int aldricDmg = aldric.BaseStats.Attack * 2 + dungeonRandom.Next(100);
+            malachar.HP -= aldricDmg;
+            terminal.WriteLine($"Aldric unleashes his fury for {aldricDmg} damage!", "bright_yellow");
+
+            if (malachar.HP <= 0) break;
+
+            // Malachar attacks Aldric (his target)
+            int demonDmg = 50 + dungeonRandom.Next(80);
+            aldric.BaseStats.HP -= demonDmg;
+            terminal.WriteLine($"Malachar claws Aldric for {demonDmg} damage!", "red");
+
+            terminal.WriteLine("");
+            terminal.WriteLine($"Malachar HP: {Math.Max(0, malachar.HP)}/{malachar.MaxHP}", "red");
+            terminal.WriteLine($"Aldric HP: {Math.Max(0, aldric.BaseStats.HP)}", "yellow");
+            await Task.Delay(800);
+            terminal.WriteLine("");
+        }
+
+        // Restore Aldric's HP (he can't die from this scripted fight)
+        aldric.BaseStats.HP = Math.Max(100, aldric.BaseStats.HP);
+
+        if (malachar.HP <= 0)
+        {
+            terminal.SetColor("bright_green");
+            terminal.WriteLine("");
+            terminal.WriteLine("Malachar falls, his flames sputtering out.");
+            terminal.WriteLine("");
+            await Task.Delay(1500);
+
+            terminal.SetColor("white");
+            terminal.WriteLine("Aldric stands over the demon's corpse, tears streaming down his face.");
+            terminal.WriteLine("");
+            await Task.Delay(1000);
+
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine("\"It's done,\" he whispers. \"Sergeant Bors. Private Kell. Captain Maren.\"");
+            terminal.WriteLine("\"All of them. They can rest now. I... I did it.\"");
+            terminal.WriteLine("");
+            await Task.Delay(1500);
+
+            terminal.SetColor("cyan");
+            terminal.WriteLine("He turns to you, and for the first time, you see peace in his eyes.");
+            terminal.WriteLine("\"Thank you. For standing with me. For not letting me face this alone.\"");
+            terminal.WriteLine("");
+
+            terminal.SetColor("bright_green");
+            terminal.WriteLine("══════════════════════════════════════════════════════════════════════════════");
+            terminal.WriteLine("           QUEST COMPLETE: GHOSTS OF THE GUARD                               ");
+            terminal.WriteLine("══════════════════════════════════════════════════════════════════════════════");
+            terminal.WriteLine("");
+
+            var story = UsurperRemake.Systems.StoryProgressionSystem.Instance;
+            story.SetStoryFlag("aldric_quest_demon_confronted", true);
+            UsurperRemake.Systems.CompanionSystem.Instance.CompletePersonalQuest(
+                UsurperRemake.Systems.CompanionId.Aldric, true);
+
+            // Bonus: Aldric's guilt is lifted, gaining stats
+            aldric.BaseStats.Defense += 30;
+            aldric.BaseStats.HP += 200;
+            terminal.WriteLine("Aldric's burden is lifted. He fights with renewed purpose!", "bright_cyan");
+
+            // XP reward
+            player.Experience += 25000;
+            terminal.WriteLine($"You gained 25,000 experience!", "bright_green");
+        }
+
+        await terminal.PressAnyKey();
+    }
+
+    /// <summary>
+    /// Mira Quest: "The Meaning of Mercy" - Help her find purpose in healing
+    /// Triggers on floor 40-50 (where suffering is greatest)
+    /// </summary>
+    private async Task<bool> CheckMiraQuestEncounter(Character player, UsurperRemake.Systems.Companion mira,
+        DungeonRoom room, UsurperRemake.Systems.StoryProgressionSystem story)
+    {
+        if (currentDungeonLevel < 40 || currentDungeonLevel > 50)
+            return false;
+
+        if (story.HasStoryFlag("mira_quest_choice_made"))
+            return false;
+
+        if (dungeonRandom.NextDouble() > 0.15)
+            return false;
+
+        terminal.ClearScreen();
+        terminal.SetColor("bright_green");
+        terminal.WriteLine("══════════════════════════════════════════════════════════════════════════════");
+        terminal.WriteLine("                    THE MEANING OF MERCY                                      ");
+        terminal.WriteLine("══════════════════════════════════════════════════════════════════════════════");
+        terminal.WriteLine("");
+
+        await Task.Delay(1000);
+
+        terminal.SetColor("white");
+        terminal.WriteLine("You come upon a gruesome scene.");
+        terminal.WriteLine("A young adventurer lies dying, wounds too severe to survive.");
+        terminal.WriteLine("Beside him, an older woman - his mother, by the look - weeps.");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine("Mira kneels beside them, her hands already glowing with healing light.");
+        terminal.WriteLine("But she stops, her face twisted with doubt.");
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        terminal.SetColor("white");
+        terminal.WriteLine("\"I can save him,\" she whispers. \"But he'll never walk again.\"");
+        terminal.WriteLine("\"He'll live, but as a shadow of who he was.\"");
+        terminal.WriteLine("\"Is that mercy? Or cruelty?\"");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        terminal.SetColor("gray");
+        terminal.WriteLine("The mother looks at you desperately. \"Please, any life is better than none!\"");
+        terminal.WriteLine("The young man's eyes find yours. He shakes his head slightly.");
+        terminal.WriteLine("");
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine("[1] \"Heal him, Mira. Life is precious, no matter the cost.\"");
+        terminal.WriteLine("[2] \"Let him go peacefully. Some pain should not be prolonged.\"");
+        terminal.WriteLine("[3] \"This is your choice, Mira. Not mine.\"");
+        terminal.WriteLine("");
+
+        var choice = await terminal.GetInput("What do you say? ");
+
+        switch (choice)
+        {
+            case "1":
+                terminal.SetColor("bright_green");
+                terminal.WriteLine("");
+                terminal.WriteLine("Mira nods slowly, and her hands blaze with light.");
+                terminal.WriteLine("The young man gasps, color returning to his cheeks.");
+                terminal.WriteLine("");
+                await Task.Delay(1500);
+
+                terminal.SetColor("white");
+                terminal.WriteLine("The mother sobs with relief, clutching her son.");
+                terminal.WriteLine("But the young man's eyes... there's something broken there.");
+                terminal.WriteLine("");
+                await Task.Delay(1000);
+
+                terminal.SetColor("cyan");
+                terminal.WriteLine("\"I saved a life,\" Mira says quietly. \"That has to mean something.\"");
+                terminal.WriteLine("\"Even if... even if he hates me for it someday.\"");
+                story.SetStoryFlag("mira_chose_life", true);
+                break;
+
+            case "2":
+                terminal.SetColor("white");
+                terminal.WriteLine("");
+                terminal.WriteLine("Mira's light fades. She takes the young man's hand instead.");
+                terminal.WriteLine("");
+                await Task.Delay(1000);
+
+                terminal.SetColor("cyan");
+                terminal.WriteLine("\"I'm here,\" she whispers. \"You don't have to be afraid.\"");
+                terminal.WriteLine("");
+                await Task.Delay(1000);
+
+                terminal.SetColor("white");
+                terminal.WriteLine("He smiles - genuinely smiles - and closes his eyes.");
+                terminal.WriteLine("The mother's wails echo through the dungeon.");
+                terminal.WriteLine("");
+                await Task.Delay(1500);
+
+                terminal.SetColor("cyan");
+                terminal.WriteLine("\"Sometimes,\" Mira says, tears streaming, \"the kindest thing\"");
+                terminal.WriteLine("\"is to hold their hand at the end.\"");
+                story.SetStoryFlag("mira_chose_peace", true);
+                break;
+
+            case "3":
+                terminal.SetColor("white");
+                terminal.WriteLine("");
+                terminal.WriteLine("Mira looks at you, then back at the dying man.");
+                terminal.WriteLine("For a long moment, no one moves.");
+                terminal.WriteLine("");
+                await Task.Delay(1500);
+
+                terminal.SetColor("cyan");
+                terminal.WriteLine("Finally, she speaks. \"I became a healer to help people.\"");
+                terminal.WriteLine("\"But I forgot that helping isn't just about bodies.\"");
+                terminal.WriteLine("");
+                await Task.Delay(1000);
+
+                terminal.SetColor("bright_green");
+                terminal.WriteLine("She heals his pain, but not his wounds.");
+                terminal.WriteLine("He slips away peacefully, free of suffering.");
+                terminal.WriteLine("");
+                story.SetStoryFlag("mira_chose_middle", true);
+                break;
+        }
+
+        await Task.Delay(1500);
+
+        terminal.SetColor("bright_green");
+        terminal.WriteLine("══════════════════════════════════════════════════════════════════════════════");
+        terminal.WriteLine("           QUEST COMPLETE: THE MEANING OF MERCY                               ");
+        terminal.WriteLine("══════════════════════════════════════════════════════════════════════════════");
+        terminal.WriteLine("");
+
+        story.SetStoryFlag("mira_quest_choice_made", true);
+        UsurperRemake.Systems.CompanionSystem.Instance.CompletePersonalQuest(
+            UsurperRemake.Systems.CompanionId.Mira, true);
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine("\"Thank you,\" Mira says. \"For being here. For helping me understand.\"");
+        terminal.WriteLine("\"Healing isn't about fixing everything. It's about being present.\"");
+        terminal.WriteLine("");
+
+        // Bonus: Mira gains wisdom
+        mira.BaseStats.HealingPower += 40;
+        mira.BaseStats.MagicPower += 20;
+        terminal.WriteLine("Mira's understanding deepens. Her healing grows stronger!", "bright_cyan");
+
+        UsurperRemake.Systems.CompanionSystem.Instance.ModifyLoyalty(
+            UsurperRemake.Systems.CompanionId.Mira, 20, "Helped her find meaning");
+
+        await terminal.PressAnyKey();
+        return true;
+    }
+
+    /// <summary>
+    /// Vex Quest: "One More Sunrise" - Help him complete his bucket list
+    /// Triggers progressively as he nears death
+    /// </summary>
+    private async Task<bool> CheckVexQuestEncounter(Character player, UsurperRemake.Systems.Companion vex,
+        DungeonRoom room, UsurperRemake.Systems.StoryProgressionSystem story)
+    {
+        // Vex's quest can trigger anywhere, but depends on how close he is to death
+        int daysWithVex = UsurperRemake.Systems.StoryProgressionSystem.Instance.CurrentGameDay - vex.RecruitedDay;
+
+        // Only trigger if he's been with player for at least 10 days
+        if (daysWithVex < 10)
+            return false;
+
+        // Check which bucket list items are done
+        int itemsDone = 0;
+        if (story.HasStoryFlag("vex_bucket_treasure")) itemsDone++;
+        if (story.HasStoryFlag("vex_bucket_joke")) itemsDone++;
+        if (story.HasStoryFlag("vex_bucket_truth")) itemsDone++;
+
+        // All items complete = quest done
+        if (itemsDone >= 3)
+            return false;
+
+        // 10% chance per room
+        if (dungeonRandom.NextDouble() > 0.10)
+            return false;
+
+        terminal.ClearScreen();
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("══════════════════════════════════════════════════════════════════════════════");
+        terminal.WriteLine("                    ONE MORE SUNRISE                                          ");
+        terminal.WriteLine("══════════════════════════════════════════════════════════════════════════════");
+        terminal.WriteLine("");
+
+        await Task.Delay(1000);
+
+        // Determine which event to trigger
+        if (!story.HasStoryFlag("vex_bucket_treasure"))
+        {
+            await VexBucketTreasure(player, vex, story);
+        }
+        else if (!story.HasStoryFlag("vex_bucket_joke"))
+        {
+            await VexBucketJoke(player, vex, story);
+        }
+        else if (!story.HasStoryFlag("vex_bucket_truth"))
+        {
+            await VexBucketTruth(player, vex, story);
+        }
+
+        // Check if quest is now complete
+        itemsDone = 0;
+        if (story.HasStoryFlag("vex_bucket_treasure")) itemsDone++;
+        if (story.HasStoryFlag("vex_bucket_joke")) itemsDone++;
+        if (story.HasStoryFlag("vex_bucket_truth")) itemsDone++;
+
+        if (itemsDone >= 3)
+        {
+            terminal.SetColor("bright_green");
+            terminal.WriteLine("══════════════════════════════════════════════════════════════════════════════");
+            terminal.WriteLine("           QUEST COMPLETE: ONE MORE SUNRISE                                   ");
+            terminal.WriteLine("══════════════════════════════════════════════════════════════════════════════");
+            terminal.WriteLine("");
+
+            UsurperRemake.Systems.CompanionSystem.Instance.CompletePersonalQuest(
+                UsurperRemake.Systems.CompanionId.Vex, true);
+
+            terminal.SetColor("cyan");
+            terminal.WriteLine("Vex grins at you, his eyes misty.");
+            terminal.WriteLine("\"I did it. Everything I wanted to do before... you know.\"");
+            terminal.WriteLine("\"Thank you. For making these last days mean something.\"");
+            terminal.WriteLine("");
+        }
+
+        await terminal.PressAnyKey();
+        return true;
+    }
+
+    private async Task VexBucketTreasure(Character player, UsurperRemake.Systems.Companion vex,
+        UsurperRemake.Systems.StoryProgressionSystem story)
+    {
+        terminal.SetColor("white");
+        terminal.WriteLine("Vex suddenly stops, a mischievous grin spreading across his face.");
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine("\"You know what I always wanted to do?\" he asks.");
+        terminal.WriteLine("\"Find a legendary treasure. The kind they write songs about.\"");
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        terminal.SetColor("white");
+        terminal.WriteLine("He points to a hidden alcove you would have missed.");
+        terminal.WriteLine("Inside: a chest covered in ancient runes.");
+        terminal.WriteLine("");
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine("[1] Help him open it together");
+        terminal.WriteLine("[2] Let him have this moment alone");
+        terminal.WriteLine("");
+
+        var choice = await terminal.GetInput("Choice: ");
+
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("");
+        terminal.WriteLine("The chest opens to reveal genuine treasure - gold, gems, artifacts!");
+        terminal.WriteLine("");
+
+        long gold = 50000 + dungeonRandom.Next(25000);
+        player.Gold += gold;
+        terminal.WriteLine($"You found {gold} gold!", "bright_green");
+        terminal.WriteLine("");
+
+        if (choice == "1")
+        {
+            terminal.SetColor("cyan");
+            terminal.WriteLine("\"Legendary treasure, found together,\" Vex laughs.");
+            terminal.WriteLine("\"That's even better than the songs.\"");
+            UsurperRemake.Systems.CompanionSystem.Instance.ModifyLoyalty(
+                UsurperRemake.Systems.CompanionId.Vex, 15, "Shared treasure discovery");
+        }
+        else
+        {
+            terminal.SetColor("cyan");
+            terminal.WriteLine("\"My name in the history books,\" Vex murmurs.");
+            terminal.WriteLine("\"Even if just as a footnote. That's something.\"");
+            UsurperRemake.Systems.CompanionSystem.Instance.ModifyLoyalty(
+                UsurperRemake.Systems.CompanionId.Vex, 10, "Let him have his moment");
+        }
+
+        story.SetStoryFlag("vex_bucket_treasure", true);
+        terminal.SetColor("gray");
+        terminal.WriteLine("");
+        terminal.WriteLine("[Bucket List: Find Legendary Treasure - COMPLETE]");
+    }
+
+    private async Task VexBucketJoke(Character player, UsurperRemake.Systems.Companion vex,
+        UsurperRemake.Systems.StoryProgressionSystem story)
+    {
+        terminal.SetColor("white");
+        terminal.WriteLine("You encounter a patrol of demon guards.");
+        terminal.WriteLine("Before you can draw your weapon, Vex steps forward.");
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine("\"Hey! Why did the demon cross the road?\"");
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        terminal.SetColor("red");
+        terminal.WriteLine("The demons look at each other, confused.");
+        terminal.WriteLine("\"What?\" one snarls.");
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine("\"Because he was DYING to get to the other side!\"");
+        terminal.WriteLine("Vex spreads his arms. \"Get it? DYING?\"");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        terminal.SetColor("white");
+        terminal.WriteLine("The demons stare. One snorts. Then another.");
+        terminal.WriteLine("Suddenly, they're all laughing.");
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        terminal.SetColor("red");
+        terminal.WriteLine("\"That's terrible,\" the lead demon wheezes.");
+        terminal.WriteLine("\"Get out of here before I change my mind.\"");
+        terminal.WriteLine("");
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine("As you hurry past, Vex is beaming.");
+        terminal.WriteLine("\"Made a demon laugh. MADE A DEMON LAUGH!\"");
+        terminal.WriteLine("\"Cross that off the list!\"");
+        terminal.WriteLine("");
+
+        story.SetStoryFlag("vex_bucket_joke", true);
+        terminal.SetColor("gray");
+        terminal.WriteLine("[Bucket List: Make a Demon Laugh - COMPLETE]");
+
+        UsurperRemake.Systems.CompanionSystem.Instance.ModifyLoyalty(
+            UsurperRemake.Systems.CompanionId.Vex, 10, "Witnessed his triumph");
+    }
+
+    private async Task VexBucketTruth(Character player, UsurperRemake.Systems.Companion vex,
+        UsurperRemake.Systems.StoryProgressionSystem story)
+    {
+        terminal.SetColor("white");
+        terminal.WriteLine("During a rest, Vex grows uncharacteristically quiet.");
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine("\"Can I tell you something?\" he asks softly.");
+        terminal.WriteLine("\"Something I've never told anyone?\"");
+        terminal.WriteLine("");
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine("[1] \"Of course. I'm listening.\"");
+        terminal.WriteLine("[2] \"You don't have to tell me anything.\"");
+        terminal.WriteLine("");
+
+        var choice = await terminal.GetInput("Response: ");
+
+        terminal.SetColor("white");
+        terminal.WriteLine("");
+        if (choice == "1")
+        {
+            terminal.WriteLine("You sit beside him, waiting.");
+        }
+        else
+        {
+            terminal.WriteLine("\"No,\" he says. \"I need to. While I still can.\"");
+        }
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine("\"I act like I don't care about dying,\" he begins.");
+        terminal.WriteLine("\"All the jokes. The bravado. The 'life's too short' nonsense.\"");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        terminal.SetColor("white");
+        terminal.WriteLine("His voice cracks.");
+        terminal.WriteLine("");
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine("\"I'm terrified. Every single day.\"");
+        terminal.WriteLine("\"I don't want to go. I want to see what happens next.\"");
+        terminal.WriteLine("\"I want to fall in love. Grow old. Have regrets.\"");
+        terminal.WriteLine("");
+        await Task.Delay(2000);
+
+        terminal.SetColor("white");
+        terminal.WriteLine("He laughs, but there's no humor in it.");
+        terminal.WriteLine("");
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine("\"But I don't get that. So I make jokes instead.\"");
+        terminal.WriteLine("\"Because if I'm laughing, I can pretend I'm not screaming.\"");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        if (choice == "1")
+        {
+            terminal.SetColor("white");
+            terminal.WriteLine("You put a hand on his shoulder. No words needed.");
+            UsurperRemake.Systems.CompanionSystem.Instance.ModifyLoyalty(
+                UsurperRemake.Systems.CompanionId.Vex, 20, "Listened to his truth");
+        }
+        else
+        {
+            terminal.SetColor("white");
+            terminal.WriteLine("He wipes his eyes and forces a smile.");
+            terminal.WriteLine("\"Thanks for not making me say it alone.\"");
+            UsurperRemake.Systems.CompanionSystem.Instance.ModifyLoyalty(
+                UsurperRemake.Systems.CompanionId.Vex, 15, "Respected his truth");
+        }
+
+        story.SetStoryFlag("vex_bucket_truth", true);
+        terminal.SetColor("gray");
+        terminal.WriteLine("");
+        terminal.WriteLine("[Bucket List: Tell Someone the Truth - COMPLETE]");
+    }
+
+    #endregion
 }
 
 /// <summary>

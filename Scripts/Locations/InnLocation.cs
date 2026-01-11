@@ -397,6 +397,16 @@ public class InnLocation : BaseLocation
             terminal.WriteLine("");
         }
 
+        // Show recruited companions waiting at the inn
+        var recruitedCompanions = CompanionSystem.Instance.GetAllCompanions()
+            .Where(c => c.IsRecruited && !c.IsDead).ToList();
+        if (recruitedCompanions.Any())
+        {
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine($"Your companions ({recruitedCompanions.Count}) are resting at a nearby table.");
+            terminal.WriteLine("");
+        }
+
         terminal.SetColor("cyan");
         terminal.WriteLine("Special Areas:");
 
@@ -429,6 +439,19 @@ public class InnLocation : BaseLocation
             terminal.Write("] ");
             terminal.SetColor("bright_magenta");
             terminal.WriteLine($"Approach the stranger ({recruitableCompanions.Count} available)");
+        }
+
+        // Show party management if player has companions
+        if (recruitedCompanions.Any())
+        {
+            terminal.SetColor("darkgray");
+            terminal.Write("[");
+            terminal.SetColor("bright_cyan");
+            terminal.Write("P");
+            terminal.SetColor("darkgray");
+            terminal.Write("] ");
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine($"Manage your party ({recruitedCompanions.Count} companions)");
         }
         terminal.WriteLine("");
 
@@ -515,6 +538,10 @@ public class InnLocation : BaseLocation
 
             case "A":
                 await ApproachCompanions();
+                return false;
+
+            case "P":
+                await ManageParty();
                 return false;
 
             case "Q":
@@ -1320,4 +1347,666 @@ public class InnLocation : BaseLocation
 
         await terminal.PressAnyKey();
     }
+
+    #region Party Management
+
+    /// <summary>
+    /// Manage your recruited companions
+    /// </summary>
+    private async Task ManageParty()
+    {
+        var allCompanions = CompanionSystem.Instance.GetAllCompanions()
+            .Where(c => c.IsRecruited && !c.IsDead).ToList();
+
+        if (!allCompanions.Any())
+        {
+            terminal.WriteLine("You don't have any companions yet.", "gray");
+            await terminal.PressAnyKey();
+            return;
+        }
+
+        while (true)
+        {
+            terminal.ClearScreen();
+
+            // Show pending notifications first
+            if (CompanionSystem.Instance.HasPendingNotifications)
+            {
+                terminal.SetColor("bright_yellow");
+                terminal.WriteLine("==============================================================================");
+                terminal.WriteLine("                              NOTIFICATIONS                                   ");
+                terminal.WriteLine("==============================================================================");
+                terminal.WriteLine("");
+
+                foreach (var notification in CompanionSystem.Instance.GetAndClearNotifications())
+                {
+                    terminal.SetColor("bright_cyan");
+                    terminal.WriteLine(notification);
+                    terminal.WriteLine("");
+                }
+
+                terminal.SetColor("gray");
+                terminal.WriteLine("Press any key to continue...");
+                await terminal.ReadKeyAsync();
+                terminal.ClearScreen();
+            }
+
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine("==============================================================================");
+            terminal.WriteLine("                           P A R T Y   M A N A G E M E N T                    ");
+            terminal.WriteLine("==============================================================================");
+            terminal.WriteLine("");
+
+            // Show active companions
+            var activeCompanions = CompanionSystem.Instance.GetActiveCompanions().ToList();
+            terminal.SetColor("bright_green");
+            terminal.WriteLine($"ACTIVE COMPANIONS ({activeCompanions.Count}/{CompanionSystem.MaxActiveCompanions}):");
+            terminal.WriteLine("");
+
+            if (activeCompanions.Any())
+            {
+                foreach (var companion in activeCompanions)
+                {
+                    DisplayCompanionSummary(companion, true);
+                }
+            }
+            else
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine("  (No active companions - select from reserves below)");
+            }
+            terminal.WriteLine("");
+
+            // Show reserved companions
+            var reserveCompanions = allCompanions.Where(c => !c.IsActive).ToList();
+            if (reserveCompanions.Any())
+            {
+                terminal.SetColor("yellow");
+                terminal.WriteLine("RESERVE COMPANIONS:");
+                terminal.WriteLine("");
+                foreach (var companion in reserveCompanions)
+                {
+                    DisplayCompanionSummary(companion, false);
+                }
+                terminal.WriteLine("");
+            }
+
+            // Show fallen companions
+            var fallen = CompanionSystem.Instance.GetFallenCompanions().ToList();
+            if (fallen.Any())
+            {
+                terminal.SetColor("dark_red");
+                terminal.WriteLine("FALLEN COMPANIONS:");
+                foreach (var (companion, death) in fallen)
+                {
+                    terminal.SetColor("gray");
+                    terminal.WriteLine($"  {companion.Name} - {companion.Title}");
+                    terminal.SetColor("dark_gray");
+                    terminal.WriteLine($"    Died: {death.Circumstance}");
+                }
+                terminal.WriteLine("");
+            }
+
+            // Menu options
+            terminal.SetColor("yellow");
+            terminal.WriteLine("Options:");
+            terminal.SetColor("white");
+            int index = 1;
+            foreach (var companion in allCompanions)
+            {
+                terminal.WriteLine($"  [{index}] Talk to {companion.Name}");
+                index++;
+            }
+            terminal.WriteLine("");
+            terminal.SetColor("cyan");
+            terminal.WriteLine("  [S] Switch active companions");
+            terminal.SetColor("yellow");
+            terminal.WriteLine("  [0] Return to the bar");
+            terminal.WriteLine("");
+
+            var choice = await terminal.GetInput("Choice: ");
+
+            if (choice == "0" || string.IsNullOrWhiteSpace(choice))
+                break;
+
+            if (choice.ToUpper() == "S")
+            {
+                await SwitchActiveCompanions(allCompanions);
+                continue;
+            }
+
+            if (int.TryParse(choice, out int selection) && selection > 0 && selection <= allCompanions.Count)
+            {
+                await TalkToRecruitedCompanion(allCompanions[selection - 1]);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Display a companion's summary in the party menu
+    /// </summary>
+    private void DisplayCompanionSummary(Companion companion, bool isActive)
+    {
+        var companionSystem = CompanionSystem.Instance;
+        int currentHP = companionSystem.GetCompanionHP(companion.Id);
+        int maxHP = companion.BaseStats.HP;
+
+        // Name and title
+        terminal.SetColor(isActive ? "bright_white" : "white");
+        terminal.Write($"  {companion.Name}");
+        terminal.SetColor("gray");
+        terminal.WriteLine($" - {companion.Title}");
+
+        // Stats line
+        terminal.SetColor("dark_gray");
+        terminal.Write($"    Lvl {companion.Level} {companion.CombatRole} | ");
+
+        // HP with color coding
+        terminal.SetColor(currentHP > maxHP / 2 ? "green" : currentHP > maxHP / 4 ? "yellow" : "red");
+        terminal.Write($"HP: {currentHP}/{maxHP}");
+        terminal.SetColor("dark_gray");
+        terminal.WriteLine("");
+
+        // Loyalty and trust
+        string loyaltyColor = companion.LoyaltyLevel >= 75 ? "bright_green" :
+                              companion.LoyaltyLevel >= 50 ? "yellow" :
+                              companion.LoyaltyLevel >= 25 ? "orange" : "red";
+        terminal.SetColor("dark_gray");
+        terminal.Write("    Loyalty: ");
+        terminal.SetColor(loyaltyColor);
+        terminal.Write($"{companion.LoyaltyLevel}%");
+        terminal.SetColor("dark_gray");
+        terminal.Write(" | Trust: ");
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"{companion.TrustLevel}%");
+
+        // Personal quest status
+        if (companion.PersonalQuestCompleted)
+        {
+            terminal.SetColor("bright_magenta");
+            terminal.WriteLine($"    Quest: {companion.PersonalQuestName} (COMPLETE)");
+        }
+        else if (companion.PersonalQuestStarted)
+        {
+            terminal.SetColor("magenta");
+            terminal.WriteLine($"    Quest: {companion.PersonalQuestName} (In Progress)");
+            if (!string.IsNullOrEmpty(companion.PersonalQuestLocationHint))
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine($"      -> {companion.PersonalQuestLocationHint}");
+            }
+        }
+        else if (companion.LoyaltyLevel >= 50 || companion.PersonalQuestAvailable)
+        {
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine($"    Quest: {companion.PersonalQuestName} (UNLOCKED - Talk to begin!)");
+        }
+        else
+        {
+            terminal.SetColor("dark_gray");
+            terminal.WriteLine($"    Quest: Build more loyalty ({companion.LoyaltyLevel}/50)");
+        }
+
+        // Romance level (if applicable)
+        if (companion.RomanceAvailable && companion.RomanceLevel > 0)
+        {
+            terminal.SetColor("bright_magenta");
+            string hearts = new string('*', Math.Min(companion.RomanceLevel, 10));
+            terminal.WriteLine($"    Romance: {hearts} ({companion.RomanceLevel}/10)");
+        }
+
+        terminal.WriteLine("");
+    }
+
+    /// <summary>
+    /// Switch which companions are active in dungeon
+    /// </summary>
+    private async Task SwitchActiveCompanions(List<Companion> allCompanions)
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("cyan");
+        terminal.WriteLine("==============================================================================");
+        terminal.WriteLine("                      SELECT ACTIVE COMPANIONS                                 ");
+        terminal.WriteLine("==============================================================================");
+        terminal.WriteLine("");
+
+        terminal.SetColor("gray");
+        terminal.WriteLine($"You can have up to {CompanionSystem.MaxActiveCompanions} companions active in the dungeon.");
+        terminal.WriteLine("Active companions fight alongside you but can also be hurt or killed.");
+        terminal.WriteLine("");
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine("Select companions to activate (enter numbers separated by spaces):");
+        terminal.WriteLine("");
+
+        int index = 1;
+        foreach (var companion in allCompanions)
+        {
+            bool isCurrentlyActive = companion.IsActive;
+            terminal.SetColor(isCurrentlyActive ? "bright_green" : "white");
+            terminal.Write($"  [{index}] {companion.Name}");
+            terminal.SetColor("gray");
+            terminal.Write($" ({companion.CombatRole})");
+            if (isCurrentlyActive)
+            {
+                terminal.SetColor("bright_green");
+                terminal.Write(" [ACTIVE]");
+            }
+            terminal.WriteLine("");
+            index++;
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("yellow");
+        terminal.WriteLine("Example: '1 3' to activate companions 1 and 3");
+        terminal.WriteLine("Enter nothing to keep current selection");
+        terminal.WriteLine("");
+
+        var input = await terminal.GetInput("Activate: ");
+
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            terminal.WriteLine("No changes made.", "gray");
+            await Task.Delay(1000);
+            return;
+        }
+
+        // Parse selection
+        var selections = input.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var selectedIds = new List<CompanionId>();
+
+        foreach (var sel in selections)
+        {
+            if (int.TryParse(sel.Trim(), out int num) && num > 0 && num <= allCompanions.Count)
+            {
+                if (selectedIds.Count < CompanionSystem.MaxActiveCompanions)
+                {
+                    selectedIds.Add(allCompanions[num - 1].Id);
+                }
+            }
+        }
+
+        if (selectedIds.Count == 0)
+        {
+            terminal.WriteLine("No valid companions selected. No changes made.", "yellow");
+            await Task.Delay(1500);
+            return;
+        }
+
+        // Apply selection
+        bool success = CompanionSystem.Instance.SetActiveCompanions(selectedIds);
+        if (success)
+        {
+            terminal.SetColor("bright_green");
+            terminal.WriteLine("");
+            terminal.WriteLine("Party updated!");
+            foreach (var id in selectedIds)
+            {
+                var c = CompanionSystem.Instance.GetCompanion(id);
+                terminal.WriteLine($"  {c?.Name} is now active.");
+            }
+        }
+        else
+        {
+            terminal.WriteLine("Failed to update party.", "red");
+        }
+
+        await Task.Delay(2000);
+    }
+
+    /// <summary>
+    /// Have a conversation with a recruited companion
+    /// </summary>
+    private async Task TalkToRecruitedCompanion(Companion companion)
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine($"╔{'═'.ToString().PadRight(76, '═')}╗");
+        terminal.WriteLine($"║  {companion.Name} - {companion.Title}".PadRight(77) + "║");
+        terminal.WriteLine($"╚{'═'.ToString().PadRight(76, '═')}╝");
+        terminal.WriteLine("");
+
+        // Show full description
+        terminal.SetColor("white");
+        terminal.WriteLine(companion.Description);
+        terminal.WriteLine("");
+
+        // Show backstory
+        terminal.SetColor("gray");
+        terminal.WriteLine("Background:");
+        terminal.SetColor("dark_cyan");
+        terminal.WriteLine(companion.BackstoryBrief);
+        terminal.WriteLine("");
+
+        // Dialogue based on loyalty level
+        terminal.SetColor("cyan");
+        string dialogueHint = GetCompanionDialogue(companion);
+        terminal.WriteLine($"\"{dialogueHint}\"");
+        terminal.WriteLine("");
+
+        // Show stats
+        terminal.SetColor("yellow");
+        terminal.WriteLine("Stats:");
+        terminal.SetColor("white");
+        terminal.WriteLine($"  Level: {companion.Level} | Role: {companion.CombatRole}");
+        terminal.WriteLine($"  HP: {companion.BaseStats.HP} | ATK: {companion.BaseStats.Attack} | DEF: {companion.BaseStats.Defense}");
+        terminal.WriteLine($"  Abilities: {string.Join(", ", companion.Abilities)}");
+        terminal.WriteLine("");
+
+        // Menu options
+        terminal.SetColor("yellow");
+        terminal.WriteLine("Options:");
+        terminal.SetColor("white");
+
+        // Show personal quest option if available
+        if (!companion.PersonalQuestStarted && companion.LoyaltyLevel >= 50)
+        {
+            terminal.SetColor("bright_magenta");
+            terminal.WriteLine("  [Q] Begin Personal Quest: " + companion.PersonalQuestName);
+        }
+        else if (companion.PersonalQuestStarted && !companion.PersonalQuestCompleted)
+        {
+            terminal.SetColor("magenta");
+            terminal.WriteLine("  [Q] Discuss Quest Progress");
+        }
+
+        if (companion.RomanceAvailable)
+        {
+            terminal.SetColor("bright_magenta");
+            terminal.WriteLine("  [R] Deepen your bond...");
+        }
+
+        terminal.SetColor("white");
+        terminal.WriteLine("  [G] Give a gift");
+        terminal.WriteLine("  [H] View history together");
+        terminal.SetColor("yellow");
+        terminal.WriteLine("  [0] Return");
+        terminal.WriteLine("");
+
+        var choice = await terminal.GetInput("Choice: ");
+
+        switch (choice.ToUpper())
+        {
+            case "Q":
+                await HandlePersonalQuestInteraction(companion);
+                break;
+            case "R":
+                if (companion.RomanceAvailable)
+                    await HandleRomanceInteraction(companion);
+                break;
+            case "G":
+                await HandleGiveGift(companion);
+                break;
+            case "H":
+                await ShowCompanionHistory(companion);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Get contextual dialogue based on companion's state
+    /// </summary>
+    private string GetCompanionDialogue(Companion companion)
+    {
+        // High loyalty dialogue
+        if (companion.LoyaltyLevel >= 80)
+        {
+            return companion.Id switch
+            {
+                CompanionId.Lyris => "I never thought I'd find someone I could trust again. You've given me hope.",
+                CompanionId.Aldric => "You remind me of what I used to fight for. It's... good to feel that again.",
+                CompanionId.Mira => "With you, healing feels like it means something. Thank you for that.",
+                CompanionId.Vex => "You know, for once... I'm glad I'm still here. Don't tell anyone I said that.",
+                _ => "We've been through a lot together."
+            };
+        }
+        // Medium loyalty
+        else if (companion.LoyaltyLevel >= 50)
+        {
+            return companion.Id switch
+            {
+                CompanionId.Lyris => "There's something about you... like we've met before, in another life.",
+                CompanionId.Aldric => "You fight well. I'm glad to have my shield at your side.",
+                CompanionId.Mira => "I've been thinking about what you said. Maybe there is a reason to keep going.",
+                CompanionId.Vex => "Not bad for an adventurer. Maybe I'll stick around a bit longer.",
+                _ => "We're starting to understand each other."
+            };
+        }
+        // Low loyalty - use default hints
+        else if (companion.DialogueHints.Length > 0)
+        {
+            int hintIndex = Math.Min(companion.LoyaltyLevel / 20, companion.DialogueHints.Length - 1);
+            return companion.DialogueHints[hintIndex];
+        }
+
+        return "...";
+    }
+
+    /// <summary>
+    /// Handle personal quest interaction
+    /// </summary>
+    private async Task HandlePersonalQuestInteraction(Companion companion)
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine($"═══ {companion.PersonalQuestName} ═══");
+        terminal.WriteLine("");
+
+        if (!companion.PersonalQuestStarted)
+        {
+            // Start the quest
+            terminal.SetColor("white");
+            terminal.WriteLine($"{companion.Name} speaks quietly:");
+            terminal.WriteLine("");
+            terminal.SetColor("cyan");
+            terminal.WriteLine($"\"{companion.PersonalQuestDescription}\"");
+            terminal.WriteLine("");
+
+            terminal.SetColor("yellow");
+            terminal.WriteLine("[Y] Accept this quest");
+            terminal.WriteLine("[N] Not yet");
+            terminal.WriteLine("");
+
+            var choice = await terminal.GetInput("Will you help? ");
+
+            if (choice.ToUpper() == "Y")
+            {
+                bool started = CompanionSystem.Instance.StartPersonalQuest(companion.Id);
+                if (started)
+                {
+                    terminal.SetColor("bright_green");
+                    terminal.WriteLine("");
+                    terminal.WriteLine($"Quest Begun: {companion.PersonalQuestName}");
+                    terminal.WriteLine("");
+                    terminal.SetColor("white");
+                    terminal.WriteLine($"{companion.Name} nods gratefully.");
+                    CompanionSystem.Instance.ModifyLoyalty(companion.Id, 10, "Accepted personal quest");
+                }
+            }
+        }
+        else
+        {
+            // Quest in progress - show status
+            terminal.SetColor("white");
+            terminal.WriteLine("Quest Status: In Progress");
+            terminal.WriteLine("");
+            terminal.SetColor("gray");
+            terminal.WriteLine($"\"{companion.PersonalQuestDescription}\"");
+            terminal.WriteLine("");
+            terminal.SetColor("yellow");
+            terminal.WriteLine("Seek clues in the dungeon depths...");
+        }
+
+        await terminal.PressAnyKey();
+    }
+
+    /// <summary>
+    /// Handle romance interaction
+    /// </summary>
+    private async Task HandleRomanceInteraction(Companion companion)
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("═══ A Quiet Moment ═══");
+        terminal.WriteLine("");
+
+        if (companion.RomanceLevel < 1)
+        {
+            terminal.SetColor("white");
+            terminal.WriteLine($"You and {companion.Name} find a quiet corner to talk.");
+            terminal.WriteLine("The noise of the tavern fades into background murmur.");
+            terminal.WriteLine("");
+            terminal.SetColor("cyan");
+            terminal.WriteLine($"\"{companion.DialogueHints[0]}\"");
+        }
+        else
+        {
+            string milestone = companion.RomanceLevel switch
+            {
+                1 => $"You share a moment of understanding with {companion.Name}.",
+                2 => $"Your eyes meet, and something unspoken passes between you.",
+                3 => $"{companion.Name}'s hand brushes against yours.",
+                4 => "The world seems to shrink to just the two of you.",
+                5 => $"{companion.Name} leans closer, voice soft.",
+                _ => $"The bond between you and {companion.Name} deepens."
+            };
+            terminal.SetColor("white");
+            terminal.WriteLine(milestone);
+        }
+
+        terminal.WriteLine("");
+
+        // Advance romance if loyalty is high enough
+        if (companion.LoyaltyLevel >= 60)
+        {
+            bool advanced = CompanionSystem.Instance.AdvanceRomance(companion.Id, 1);
+            if (advanced)
+            {
+                terminal.SetColor("bright_magenta");
+                terminal.WriteLine("Your bond has grown stronger.");
+            }
+        }
+        else
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("(Build more trust before deepening this connection)");
+        }
+
+        await terminal.PressAnyKey();
+    }
+
+    /// <summary>
+    /// Give a gift to a companion
+    /// </summary>
+    private async Task HandleGiveGift(Companion companion)
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("yellow");
+        terminal.WriteLine("═══ Give a Gift ═══");
+        terminal.WriteLine("");
+
+        if (currentPlayer.Gold < 50)
+        {
+            terminal.WriteLine("You don't have enough gold to buy a meaningful gift. (Need 50g)", "red");
+            await terminal.PressAnyKey();
+            return;
+        }
+
+        terminal.SetColor("white");
+        terminal.WriteLine("Gift Options:");
+        terminal.WriteLine("");
+        terminal.WriteLine("  [1] Simple Gift (50 gold) - +3 loyalty");
+        terminal.WriteLine("  [2] Fine Gift (200 gold) - +8 loyalty");
+
+        if (currentPlayer.Gold >= 500)
+        {
+            terminal.WriteLine("  [3] Rare Gift (500 gold) - +15 loyalty");
+        }
+
+        terminal.WriteLine("  [0] Cancel");
+        terminal.WriteLine("");
+
+        var choice = await terminal.GetInput("Choose: ");
+
+        int cost = 0;
+        int loyaltyGain = 0;
+        string giftDesc = "";
+
+        switch (choice)
+        {
+            case "1":
+                cost = 50;
+                loyaltyGain = 3;
+                giftDesc = "a thoughtful trinket";
+                break;
+            case "2":
+                if (currentPlayer.Gold >= 200)
+                {
+                    cost = 200;
+                    loyaltyGain = 8;
+                    giftDesc = "a fine piece of jewelry";
+                }
+                break;
+            case "3":
+                if (currentPlayer.Gold >= 500)
+                {
+                    cost = 500;
+                    loyaltyGain = 15;
+                    giftDesc = "a rare artifact";
+                }
+                break;
+        }
+
+        if (cost > 0 && currentPlayer.Gold >= cost)
+        {
+            currentPlayer.Gold -= cost;
+            CompanionSystem.Instance.ModifyLoyalty(companion.Id, loyaltyGain, $"Received gift: {giftDesc}");
+
+            terminal.SetColor("bright_green");
+            terminal.WriteLine("");
+            terminal.WriteLine($"You give {companion.Name} {giftDesc}.");
+            terminal.WriteLine($"{companion.Name} smiles warmly. (+{loyaltyGain} loyalty)");
+        }
+
+        await terminal.PressAnyKey();
+    }
+
+    /// <summary>
+    /// Show history with this companion
+    /// </summary>
+    private async Task ShowCompanionHistory(Companion companion)
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"═══ History with {companion.Name} ═══");
+        terminal.WriteLine("");
+
+        if (companion.History.Count == 0)
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("Your journey together has just begun...");
+        }
+        else
+        {
+            terminal.SetColor("white");
+            // Show last 10 events
+            var recentHistory = companion.History.TakeLast(10).Reverse();
+            foreach (var evt in recentHistory)
+            {
+                terminal.SetColor("gray");
+                terminal.Write($"  {evt.Timestamp:MMM dd} - ");
+                terminal.SetColor("white");
+                terminal.WriteLine(evt.Description);
+            }
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("yellow");
+        terminal.WriteLine($"Days together: {(companion.RecruitedDay > 0 ? StoryProgressionSystem.Instance.CurrentGameDay - companion.RecruitedDay : 0)}");
+        terminal.WriteLine($"Total loyalty gained: {companion.LoyaltyLevel}%");
+
+        await terminal.PressAnyKey();
+    }
+
+    #endregion
 } 

@@ -68,24 +68,24 @@ public class Player : Character
         AccountCreated = DateTime.Now;
         LastLogin = DateTime.Now;
         TotalLogins = 1;
-        
-        // Initialize with starting resources
+
+        // Initialize with starting resources - use safe defaults if config unavailable
         var config = ConfigManager.GetConfig();
-        Gold = config.StartingGold;
-        TurnsRemaining = config.StartingTurns;
+        Gold = config?.StartingGold ?? GameConfig.DefaultStartingGold;
+        TurnsRemaining = config?.StartingTurns ?? GameConfig.TurnsPerDay;
     }
-    
+
     public Player(string realName, string characterName, CharacterClass charClass) : base()
     {
         RealName = realName;
         AccountCreated = DateTime.Now;
         LastLogin = DateTime.Now;
         TotalLogins = 1;
-        
-        // Initialize with starting resources
+
+        // Initialize with starting resources - use safe defaults if config unavailable
         var config = ConfigManager.GetConfig();
-        Gold = config.StartingGold;
-        TurnsRemaining = config.StartingTurns;
+        Gold = config?.StartingGold ?? GameConfig.DefaultStartingGold;
+        TurnsRemaining = config?.StartingTurns ?? GameConfig.TurnsPerDay;
     }
     
     private void CheckForNewAbilities()

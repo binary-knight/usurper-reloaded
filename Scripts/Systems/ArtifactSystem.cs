@@ -276,6 +276,9 @@ namespace UsurperRemake.Systems
             // Add to story progression
             story.CollectArtifact(type);
 
+            // Track archetype - Artifacts are Explorer/Sage items
+            ArchetypeTracker.Instance.RecordArtifactCollected();
+
             // Apply stat bonuses
             ApplyArtifactBonuses(player, artifact);
 

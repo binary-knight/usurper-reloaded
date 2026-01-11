@@ -41,6 +41,7 @@ public class HomeLocation : BaseLocation
             "View family (F)",
             "Spend time with spouse (P)",
             "Visit bedroom (B)",
+            "Upgrade home (U)",
             "Status (S)",
             "Return to town (Q)"
         };
@@ -105,16 +106,66 @@ public class HomeLocation : BaseLocation
         // Show family info if applicable
         var romance = RomanceTracker.Instance;
         var children = FamilySystem.Instance.GetChildrenOf(currentPlayer);
-        if (romance.Spouses.Count > 0 || romance.CurrentLovers.Count > 0 || children.Count > 0)
+
+        // Check which partners are actually at home
+        var partnersAtHome = new List<string>();
+        var partnersAway = new List<(string name, string location)>();
+
+        foreach (var spouse in romance.Spouses)
         {
-            terminal.SetColor("bright_magenta");
-            terminal.Write("Your loved ones are here with you");
-            if (children.Count > 0)
+            var npc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == spouse.NPCId);
+            var name = npc?.Name ?? spouse.NPCName;
+            if (npc != null && (npc.CurrentLocation == "Home" || npc.CurrentLocation == "Your Home"))
+            {
+                partnersAtHome.Add(name);
+            }
+            else if (npc != null)
+            {
+                partnersAway.Add((name, npc.CurrentLocation));
+            }
+        }
+
+        foreach (var lover in romance.CurrentLovers)
+        {
+            var npc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == lover.NPCId);
+            var name = npc?.Name ?? lover.NPCName;
+            if (npc != null && (npc.CurrentLocation == "Home" || npc.CurrentLocation == "Your Home"))
+            {
+                partnersAtHome.Add(name);
+            }
+            else if (npc != null)
+            {
+                partnersAway.Add((name, npc.CurrentLocation));
+            }
+        }
+
+        if (partnersAtHome.Count > 0 || partnersAway.Count > 0 || children.Count > 0)
+        {
+            if (partnersAtHome.Count > 0)
+            {
+                terminal.SetColor("bright_magenta");
+                terminal.Write($"{string.Join(" and ", partnersAtHome)} {(partnersAtHome.Count == 1 ? "is" : "are")} here with you");
+                if (children.Count > 0)
+                {
+                    terminal.SetColor("bright_yellow");
+                    terminal.Write($" ({children.Count} child{(children.Count != 1 ? "ren" : "")})");
+                }
+                terminal.WriteLine(".");
+            }
+            else if (children.Count > 0)
             {
                 terminal.SetColor("bright_yellow");
-                terminal.Write($" ({children.Count} child{(children.Count != 1 ? "ren" : "")})");
+                terminal.WriteLine($"Your {children.Count} child{(children.Count != 1 ? "ren are" : " is")} here.");
             }
-            terminal.WriteLine(".");
+
+            if (partnersAway.Count > 0)
+            {
+                terminal.SetColor("gray");
+                foreach (var (name, loc) in partnersAway)
+                {
+                    terminal.WriteLine($"  {name} is at {loc}.");
+                }
+            }
             terminal.WriteLine("");
         }
 
@@ -291,6 +342,9 @@ public class HomeLocation : BaseLocation
                 return false;
             case "S":
                 await ShowStatus();
+                return false;
+            case "U":
+                await ShowHomeUpgrades();
                 return false;
             case "Q":
             case "M": // Also allow M for Main Street
@@ -658,21 +712,49 @@ public class HomeLocation : BaseLocation
             terminal.WriteLine();
         }
 
-        // Show exes
-        if (romance.Exes.Count > 0)
+        // Show ex-spouses (detailed records)
+        if (romance.ExSpouses.Count > 0)
+        {
+            terminal.SetColor("dark_red");
+            terminal.WriteLine($"  EX-SPOUSES: {romance.ExSpouses.Count}");
+            terminal.SetColor("gray");
+            foreach (var ex in romance.ExSpouses)
+            {
+                var marriageDuration = (ex.DivorceDate - ex.MarriedDate).Days;
+                var daysSinceDivorce = (DateTime.Now - ex.DivorceDate).Days;
+                var initiator = ex.PlayerInitiated ? "you" : "them";
+
+                terminal.Write($"    - {ex.NPCName}");
+                terminal.SetColor("dark_gray");
+                terminal.WriteLine($" (married {marriageDuration} days, divorced {daysSinceDivorce} days ago by {initiator})");
+                terminal.SetColor("gray");
+
+                if (ex.ChildrenTogether > 0)
+                {
+                    terminal.SetColor("yellow");
+                    terminal.WriteLine($"      ^ {ex.ChildrenTogether} child(ren) together");
+                    terminal.SetColor("gray");
+                }
+            }
+            terminal.WriteLine();
+        }
+
+        // Show other exes (ex-lovers, not ex-spouses)
+        var exLoversOnly = romance.Exes.Where(id => !romance.ExSpouses.Any(es => es.NPCId == id)).ToList();
+        if (exLoversOnly.Count > 0)
         {
             terminal.SetColor("dark_gray");
-            terminal.WriteLine($"  PAST RELATIONSHIPS: {romance.Exes.Count}");
+            terminal.WriteLine($"  PAST RELATIONSHIPS: {exLoversOnly.Count}");
             terminal.SetColor("gray");
-            foreach (var exId in romance.Exes.Take(5)) // Show max 5
+            foreach (var exId in exLoversOnly.Take(5)) // Show max 5
             {
                 var npc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == exId);
                 var name = npc?.Name ?? exId;
                 terminal.WriteLine($"    - {name}");
             }
-            if (romance.Exes.Count > 5)
+            if (exLoversOnly.Count > 5)
             {
-                terminal.WriteLine($"    ... and {romance.Exes.Count - 5} more");
+                terminal.WriteLine($"    ... and {exLoversOnly.Count - 5} more");
             }
             terminal.WriteLine();
         }
@@ -774,6 +856,8 @@ public class HomeLocation : BaseLocation
         {
             terminal.SetColor("bright_red");
             terminal.WriteLine("  [5] Retire to the bedroom...");
+            terminal.SetColor("yellow");
+            terminal.WriteLine("  [6] Discuss our relationship...");
         }
         terminal.SetColor("gray");
         terminal.WriteLine("  [0] Cancel");
@@ -847,12 +931,1443 @@ public class HomeLocation : BaseLocation
                 terminal.WriteLine("Invalid choice.", "gray");
                 break;
 
+            case 6: // Discuss relationship (spouse only)
+                if (relationType == "spouse")
+                {
+                    await DiscussRelationship(partner);
+                    return;
+                }
+                terminal.WriteLine("Invalid choice.", "gray");
+                break;
+
             default:
                 terminal.WriteLine("Invalid choice.", "gray");
                 break;
         }
 
         await terminal.WaitForKey();
+    }
+
+    private async Task DiscussRelationship(NPC spouse)
+    {
+        var romance = RomanceTracker.Instance;
+        var spouseData = romance.Spouses.FirstOrDefault(s => s.NPCId == spouse.ID);
+
+        terminal.WriteLine("\n", "white");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine("      RELATIONSHIP DISCUSSION");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine();
+
+        terminal.SetColor("white");
+        terminal.WriteLine($"You sit down with {spouse.Name} to discuss your relationship.");
+        terminal.WriteLine();
+
+        // Show current status
+        if (spouseData != null)
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine($"  Marriage duration: {(int)(DateTime.Now - spouseData.MarriedDate).TotalDays} days");
+            terminal.WriteLine($"  Children together: {spouseData.Children}");
+            terminal.WriteLine($"  Polyamory status: {(spouseData.AcceptsPolyamory ? "Open" : "Monogamous")}");
+            terminal.WriteLine();
+        }
+
+        terminal.SetColor("white");
+        terminal.WriteLine("What would you like to discuss?");
+        terminal.WriteLine();
+        terminal.WriteLine("  [1] Express your love and commitment");
+
+        if (spouseData != null && !spouseData.AcceptsPolyamory)
+        {
+            terminal.SetColor("magenta");
+            terminal.WriteLine("  [2] Discuss opening our marriage (polyamory)");
+        }
+        else if (spouseData != null && spouseData.AcceptsPolyamory)
+        {
+            terminal.SetColor("magenta");
+            terminal.WriteLine("  [2] Discuss returning to monogamy");
+        }
+
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("  [3] Discuss intimate fantasies...");
+        terminal.WriteLine("  [4] Discuss alternative arrangements...");
+
+        terminal.SetColor("red");
+        terminal.WriteLine("  [5] Discuss separation/divorce...");
+        terminal.SetColor("gray");
+        terminal.WriteLine("  [0] Never mind");
+        terminal.WriteLine();
+
+        var input = await terminal.GetInput("Choice: ");
+        if (!int.TryParse(input, out int choice) || choice < 1)
+        {
+            terminal.WriteLine("You decide to talk about something else.", "gray");
+            await terminal.WaitForKey();
+            return;
+        }
+
+        switch (choice)
+        {
+            case 1:
+                await ExpressLove(spouse);
+                break;
+            case 2:
+                await DiscussPolyamory(spouse, spouseData);
+                break;
+            case 3:
+                await DiscussIntimateFantasies(spouse, spouseData);
+                break;
+            case 4:
+                await DiscussAlternativeArrangements(spouse, spouseData);
+                break;
+            case 5:
+                await DiscussDivorce(spouse, spouseData);
+                break;
+            default:
+                terminal.WriteLine("Invalid choice.", "gray");
+                break;
+        }
+
+        await terminal.WaitForKey();
+    }
+
+    private async Task ExpressLove(NPC spouse)
+    {
+        terminal.WriteLine();
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine($"You take {spouse.Name}'s hands in yours and look into their eyes.");
+        terminal.WriteLine();
+
+        await Task.Delay(1000);
+
+        terminal.SetColor("white");
+        terminal.WriteLine("\"I just wanted you to know how much you mean to me.\"");
+        terminal.WriteLine("\"Every day with you is a blessing.\"");
+        terminal.WriteLine();
+
+        await Task.Delay(1500);
+
+        var personality = spouse.Brain?.Personality;
+        float romanticism = personality?.Romanticism ?? 0.5f;
+
+        terminal.SetColor("bright_cyan");
+        if (romanticism > 0.6f)
+        {
+            terminal.WriteLine($"{spouse.Name}'s eyes glisten with emotion.");
+            terminal.WriteLine($"\"And I love you more than words can express,\" they whisper.");
+        }
+        else
+        {
+            terminal.WriteLine($"{spouse.Name} smiles warmly.");
+            terminal.WriteLine($"\"I know. And I feel the same way.\"");
+        }
+
+        // Boost relationship (lower number = better in this system)
+        var spouseRecord = RomanceTracker.Instance.Spouses.FirstOrDefault(s => s.NPCId == spouse.ID);
+        if (spouseRecord != null)
+        {
+            spouseRecord.LoveLevel = Math.Max(1, spouseRecord.LoveLevel - 2);
+        }
+
+        terminal.SetColor("bright_green");
+        terminal.WriteLine();
+        terminal.WriteLine("Your bond deepens.");
+    }
+
+    private async Task DiscussPolyamory(NPC spouse, Spouse? spouseData)
+    {
+        if (spouseData == null) return;
+
+        terminal.WriteLine();
+
+        if (!spouseData.AcceptsPolyamory)
+        {
+            // Trying to open the marriage
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"You broach a difficult subject with {spouse.Name}...");
+            terminal.WriteLine();
+
+            await Task.Delay(1000);
+
+            terminal.SetColor("white");
+            terminal.WriteLine("\"I've been thinking about our relationship,\" you begin carefully.");
+            terminal.WriteLine("\"I love you deeply, and I want to be honest with you.\"");
+            terminal.WriteLine("\"I've been wondering if you might be open to...\"");
+            terminal.WriteLine("\"...the idea of us having other partners as well?\"");
+            terminal.WriteLine();
+
+            await Task.Delay(2000);
+
+            var personality = spouse.Brain?.Personality;
+            // Use Adventurousness as proxy for openness to new relationship structures
+            float openness = personality?.Adventurousness ?? 0.5f;
+            float jealousy = personality?.Jealousy ?? 0.5f;
+
+            // Check if spouse would accept based on personality
+            bool wouldAccept = openness > 0.6f && jealousy < 0.4f;
+
+            // Also factor in relationship strength
+            int loveLevel = spouseData.LoveLevel;
+            if (loveLevel >= 15 && jealousy < 0.5f) wouldAccept = true;
+
+            terminal.SetColor("bright_cyan");
+            if (wouldAccept)
+            {
+                terminal.WriteLine($"{spouse.Name} is quiet for a long moment, then takes your hand.");
+                terminal.WriteLine();
+                terminal.WriteLine($"\"I... I've thought about this too, actually.\"");
+                terminal.WriteLine($"\"Our love is strong. I don't think it would diminish\"");
+                terminal.WriteLine($"\"what we have if you found connection elsewhere.\"");
+                terminal.WriteLine();
+
+                await Task.Delay(1500);
+
+                terminal.SetColor("bright_magenta");
+                terminal.WriteLine($"\"Yes. I'm willing to try this. But promise me...\"");
+                terminal.WriteLine($"\"Promise me you'll always come home to me.\"");
+                terminal.WriteLine();
+
+                terminal.SetColor("bright_green");
+                terminal.WriteLine("Your marriage is now open to polyamory!");
+
+                spouseData.AcceptsPolyamory = true;
+                spouseData.KnowsAboutOthers = true;
+            }
+            else
+            {
+                terminal.WriteLine($"{spouse.Name}'s expression falls.");
+                terminal.WriteLine();
+
+                if (jealousy > 0.6f)
+                {
+                    terminal.SetColor("red");
+                    terminal.WriteLine($"\"What? You want to be with OTHER people?\"");
+                    terminal.WriteLine($"\"Am I not enough for you? Is that what you're saying?\"");
+                    terminal.WriteLine();
+                    terminal.SetColor("yellow");
+                    terminal.WriteLine("The conversation becomes tense...");
+
+                    // Damage relationship (higher number = worse in this system)
+                    if (spouseData != null)
+                    {
+                        spouseData.LoveLevel = Math.Min(100, spouseData.LoveLevel + 3);
+                    }
+                }
+                else
+                {
+                    terminal.SetColor("yellow");
+                    terminal.WriteLine($"\"I... I understand what you're asking, but...\"");
+                    terminal.WriteLine($"\"I don't think I could handle that. I'm sorry.\"");
+                    terminal.WriteLine($"\"I need our relationship to be just us.\"");
+                    terminal.WriteLine();
+                    terminal.SetColor("gray");
+                    terminal.WriteLine("They're not ready for that conversation yet.");
+
+                    // Small relationship impact (higher number = worse)
+                    if (spouseData != null)
+                    {
+                        spouseData.LoveLevel = Math.Min(100, spouseData.LoveLevel + 1);
+                    }
+                }
+            }
+        }
+        else
+        {
+            // Already poly, discussing returning to monogamy
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"You approach {spouse.Name} about your open marriage...");
+            terminal.WriteLine();
+
+            await Task.Delay(1000);
+
+            terminal.SetColor("white");
+            terminal.WriteLine("\"I've been thinking... maybe we should close our marriage.\"");
+            terminal.WriteLine("\"Just be with each other. What do you think?\"");
+            terminal.WriteLine();
+
+            await Task.Delay(1500);
+
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine($"{spouse.Name} nods thoughtfully.");
+            terminal.WriteLine($"\"If that's what you want, I'm happy with that.\"");
+            terminal.WriteLine($"\"What matters most is that we're together.\"");
+            terminal.WriteLine();
+
+            terminal.SetColor("bright_green");
+            terminal.WriteLine("Your marriage is now monogamous.");
+
+            spouseData.AcceptsPolyamory = false;
+
+            // Note: This doesn't automatically remove other lovers
+            // The player will need to handle those relationships separately
+            if (RomanceTracker.Instance.CurrentLovers.Count > 0)
+            {
+                terminal.SetColor("yellow");
+                terminal.WriteLine();
+                terminal.WriteLine("(Note: You should end your other relationships to honor this commitment.)");
+            }
+        }
+    }
+
+    private async Task DiscussDivorce(NPC spouse, Spouse? spouseData)
+    {
+        if (spouseData == null) return;
+
+        terminal.WriteLine();
+        terminal.SetColor("red");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine("         A DIFFICULT CONVERSATION");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine();
+
+        terminal.SetColor("white");
+        terminal.WriteLine($"You take a deep breath before speaking to {spouse.Name}...");
+        terminal.WriteLine();
+
+        await Task.Delay(1500);
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine("\"We need to talk about us. About our future.\"");
+        terminal.WriteLine("\"I've been doing a lot of thinking, and...\"");
+        terminal.WriteLine();
+
+        await Task.Delay(1500);
+
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine($"{spouse.Name} looks at you with growing concern.");
+        terminal.WriteLine($"\"What is it? You're scaring me...\"");
+        terminal.WriteLine();
+
+        await Task.Delay(1000);
+
+        terminal.SetColor("red");
+        terminal.WriteLine("Are you sure you want to ask for a divorce?");
+
+        if (spouseData.Children > 0)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"Warning: You have {spouseData.Children} child(ren) together.");
+            terminal.WriteLine("You will lose custody of your children!");
+        }
+
+        terminal.SetColor("white");
+        terminal.WriteLine();
+        terminal.WriteLine("  [Y] Yes, I want a divorce");
+        terminal.WriteLine("  [N] No, I changed my mind");
+        terminal.WriteLine();
+
+        var input = await terminal.GetInput("Choice: ");
+        if (input.Trim().ToUpperInvariant() != "Y")
+        {
+            terminal.WriteLine();
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine($"You reach out and take {spouse.Name}'s hand.");
+            terminal.WriteLine("\"I'm sorry. I didn't mean to scare you. I love you.\"");
+            terminal.WriteLine();
+            terminal.SetColor("white");
+            terminal.WriteLine($"{spouse.Name} exhales with relief, squeezing your hand tightly.");
+            return;
+        }
+
+        // Process the divorce
+        terminal.WriteLine();
+        terminal.SetColor("white");
+        terminal.WriteLine("\"I think... I think we should end this.\"");
+        terminal.WriteLine("\"I want a divorce.\"");
+        terminal.WriteLine();
+
+        await Task.Delay(2000);
+
+        var personality = spouse.Brain?.Personality;
+        // Use Impulsiveness as proxy for emotional volatility
+        float volatility = personality?.Impulsiveness ?? 0.5f;
+
+        terminal.SetColor("bright_cyan");
+        if (volatility > 0.6f)
+        {
+            terminal.WriteLine($"{spouse.Name}'s face contorts with shock and anger.");
+            terminal.WriteLine($"\"WHAT?! After everything we've been through?!\"");
+            terminal.WriteLine($"\"How could you do this to me?!\"");
+        }
+        else
+        {
+            terminal.WriteLine($"{spouse.Name}'s eyes fill with tears.");
+            terminal.WriteLine($"\"I... I see. I suppose I knew something was wrong.\"");
+            terminal.WriteLine($"\"If that's truly what you want...\"");
+        }
+
+        terminal.WriteLine();
+        await Task.Delay(2000);
+
+        // Process divorce - try RelationshipSystem first, but don't fail if it doesn't have a record
+        // (RomanceTracker may have the marriage without RelationshipSystem knowing about it)
+        bool relationshipSystemSuccess = RelationshipSystem.ProcessDivorce(currentPlayer, spouse, out string message);
+
+        // Always process the RomanceTracker divorce if we have them as a spouse there
+        // This ensures the divorce happens even if RelationshipSystem didn't track the marriage
+        RomanceTracker.Instance.Divorce(spouse.ID, "Player requested divorce", playerInitiated: true);
+
+        // Clear marriage flags on both characters regardless
+        currentPlayer.Married = false;
+        currentPlayer.IsMarried = false;
+        currentPlayer.SpouseName = "";
+        spouse.Married = false;
+        spouse.IsMarried = false;
+        spouse.SpouseName = "";
+
+        terminal.SetColor("gray");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine();
+        terminal.SetColor("red");
+        terminal.WriteLine("Your marriage has ended.");
+        terminal.WriteLine();
+
+        if (spouseData.Children > 0)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"{spouse.Name} has taken custody of the children.");
+        }
+
+        terminal.SetColor("gray");
+        terminal.WriteLine();
+        terminal.WriteLine($"{spouse.Name} gathers their things and leaves your home.");
+
+        // Move spouse out of home
+        spouse.UpdateLocation("Inn");
+
+        // Generate news
+        NewsSystem.Instance?.WriteDivorceNews(currentPlayer.Name, spouse.Name);
+    }
+
+    private async Task DiscussIntimateFantasies(NPC spouse, Spouse? spouseData)
+    {
+        if (spouseData == null) return;
+
+        terminal.WriteLine();
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine("        INTIMATE FANTASIES");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine();
+
+        terminal.SetColor("white");
+        terminal.WriteLine($"You curl up next to {spouse.Name} and speak softly...");
+        terminal.WriteLine("\"I want to talk about fantasies. Things we might explore together.\"");
+        terminal.WriteLine();
+
+        await Task.Delay(1500);
+
+        var personality = spouse.Brain?.Personality;
+        float adventurousness = personality?.Adventurousness ?? 0.5f;
+        float voyeurism = personality?.Voyeurism ?? 0.3f;
+        float exhibitionism = personality?.Exhibitionism ?? 0.3f;
+
+        terminal.SetColor("bright_cyan");
+        if (adventurousness > 0.5f)
+        {
+            terminal.WriteLine($"{spouse.Name} smiles with a playful glint in their eye.");
+            terminal.WriteLine("\"I'm listening. What did you have in mind?\"");
+        }
+        else
+        {
+            terminal.WriteLine($"{spouse.Name} looks curious but a bit nervous.");
+            terminal.WriteLine("\"Okay... what kind of fantasies?\"");
+        }
+
+        terminal.WriteLine();
+        terminal.SetColor("white");
+        terminal.WriteLine("What do you want to discuss?");
+        terminal.WriteLine();
+        terminal.WriteLine("  [1] Group encounters (threesomes, moresomes)");
+        terminal.WriteLine("  [2] Watching (voyeurism)");
+        terminal.WriteLine("  [3] Being watched (exhibitionism)");
+        terminal.SetColor("gray");
+        terminal.WriteLine("  [0] Never mind");
+        terminal.WriteLine();
+
+        var input = await terminal.GetInput("Choice: ");
+        if (!int.TryParse(input, out int choice) || choice < 1)
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("You decide not to pursue this conversation right now.");
+            return;
+        }
+
+        switch (choice)
+        {
+            case 1:
+                await DiscussGroupEncounters(spouse, spouseData, adventurousness);
+                break;
+            case 2:
+                await DiscussVoyeurism(spouse, spouseData, voyeurism);
+                break;
+            case 3:
+                await DiscussExhibitionism(spouse, spouseData, exhibitionism);
+                break;
+        }
+    }
+
+    private async Task DiscussGroupEncounters(NPC spouse, Spouse spouseData, float adventurousness)
+    {
+        terminal.WriteLine();
+        terminal.SetColor("white");
+        terminal.WriteLine("\"Have you ever thought about... bringing someone else into our bed?\"");
+        terminal.WriteLine("\"A third person, sharing an experience together?\"");
+        terminal.WriteLine();
+
+        await Task.Delay(2000);
+
+        var personality = spouse.Brain?.Personality;
+        float jealousy = personality?.Jealousy ?? 0.5f;
+
+        // Determine if spouse would be interested
+        bool interested = adventurousness > 0.6f && jealousy < 0.5f;
+        bool veryInterested = adventurousness > 0.75f && jealousy < 0.3f;
+
+        terminal.SetColor("bright_cyan");
+        if (veryInterested)
+        {
+            terminal.WriteLine($"{spouse.Name}'s eyes light up with excitement.");
+            terminal.WriteLine("\"Actually... I've thought about that too.\"");
+            terminal.WriteLine("\"It could be incredible, experiencing that together.\"");
+            terminal.WriteLine();
+
+            terminal.SetColor("bright_green");
+            terminal.WriteLine($"{spouse.Name} is open to group encounters!");
+
+            // Mark as consenting
+            RomanceTracker.Instance.AgreedStructures[spouse.ID] = RelationshipStructure.OpenRelationship;
+        }
+        else if (interested)
+        {
+            terminal.WriteLine($"{spouse.Name} considers the idea carefully.");
+            terminal.WriteLine("\"I... I'm not sure. It's a big step.\"");
+            terminal.WriteLine("\"Maybe someday, if the right person came along...\"");
+            terminal.WriteLine();
+
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"{spouse.Name} might be open to this in the future.");
+        }
+        else if (jealousy > 0.6f)
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine($"{spouse.Name}'s expression hardens.");
+            terminal.WriteLine("\"Absolutely not. I don't share. Period.\"");
+            terminal.WriteLine("\"I can't believe you'd even suggest that!\"");
+            terminal.WriteLine();
+
+            terminal.SetColor("yellow");
+            terminal.WriteLine("The conversation has seriously upset them...");
+
+            // Severe damage and moderate divorce chance for jealous spouse
+            await HandleSensitiveTopicRejection(spouse, spouseData, 8, 0.08f, "threesomes");
+        }
+        else
+        {
+            terminal.WriteLine($"{spouse.Name} shakes their head gently.");
+            terminal.WriteLine("\"That's not really something I'm interested in.\"");
+            terminal.WriteLine("\"I prefer it to just be us.\"");
+            terminal.WriteLine();
+
+            terminal.SetColor("gray");
+            terminal.WriteLine("They're not interested in group encounters.");
+
+            // Mild damage for gentle rejection
+            await HandleSensitiveTopicRejection(spouse, spouseData, 3, 0.02f, "group encounters");
+        }
+    }
+
+    private async Task DiscussVoyeurism(NPC spouse, Spouse spouseData, float voyeurism)
+    {
+        terminal.WriteLine();
+        terminal.SetColor("white");
+        terminal.WriteLine("\"I want to share something with you...\"");
+        terminal.WriteLine("\"I find the idea of watching... arousing.\"");
+        terminal.WriteLine();
+
+        await Task.Delay(1500);
+
+        var personality = spouse.Brain?.Personality;
+        float adventurousness = personality?.Adventurousness ?? 0.5f;
+
+        terminal.SetColor("bright_cyan");
+        if (voyeurism > 0.6f || (adventurousness > 0.7f && voyeurism > 0.4f))
+        {
+            terminal.WriteLine($"{spouse.Name} leans in closer, intrigued.");
+            terminal.WriteLine("\"Watching me with someone else? Or watching together?\"");
+            terminal.WriteLine("\"I have to admit... the idea excites me too.\"");
+            terminal.WriteLine();
+
+            terminal.SetColor("bright_green");
+            terminal.WriteLine("They're open to exploring voyeuristic fantasies!");
+        }
+        else if (adventurousness > 0.5f)
+        {
+            terminal.WriteLine($"{spouse.Name} tilts their head thoughtfully.");
+            terminal.WriteLine("\"That's... interesting. I've never really considered it.\"");
+            terminal.WriteLine("\"What exactly did you have in mind?\"");
+            terminal.WriteLine();
+
+            terminal.SetColor("yellow");
+            terminal.WriteLine("They're curious but cautious.");
+        }
+        else
+        {
+            terminal.WriteLine($"{spouse.Name} looks puzzled.");
+            terminal.WriteLine("\"I'm not really into that sort of thing.\"");
+            terminal.WriteLine("\"I prefer to be the only one in your eyes.\"");
+            terminal.WriteLine();
+
+            terminal.SetColor("gray");
+            terminal.WriteLine("They prefer traditional intimacy.");
+
+            // Light damage for this topic
+            await HandleSensitiveTopicRejection(spouse, spouseData, 2, 0.01f, "voyeurism");
+        }
+    }
+
+    private async Task DiscussExhibitionism(NPC spouse, Spouse spouseData, float exhibitionism)
+    {
+        terminal.WriteLine();
+        terminal.SetColor("white");
+        terminal.WriteLine("\"There's something I want to confess...\"");
+        terminal.WriteLine("\"The idea of being watched... it excites me.\"");
+        terminal.WriteLine();
+
+        await Task.Delay(1500);
+
+        var personality = spouse.Brain?.Personality;
+        float adventurousness = personality?.Adventurousness ?? 0.5f;
+
+        terminal.SetColor("bright_cyan");
+        if (exhibitionism > 0.6f || (adventurousness > 0.7f && exhibitionism > 0.4f))
+        {
+            terminal.WriteLine($"{spouse.Name}'s eyes darken with desire.");
+            terminal.WriteLine("\"Really? Because I've had similar thoughts...\"");
+            terminal.WriteLine("\"The thrill of being seen, together...\"");
+            terminal.WriteLine();
+
+            terminal.SetColor("bright_green");
+            terminal.WriteLine("They share your exhibitionist interests!");
+        }
+        else if (adventurousness > 0.5f)
+        {
+            terminal.WriteLine($"{spouse.Name} looks surprised but not put off.");
+            terminal.WriteLine("\"That's... bold. I never knew that about you.\"");
+            terminal.WriteLine("\"I'm not sure I'd be comfortable with it, but I don't judge.\"");
+            terminal.WriteLine();
+
+            terminal.SetColor("yellow");
+            terminal.WriteLine("They're understanding but not personally interested.");
+        }
+        else
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine($"{spouse.Name} looks uncomfortable.");
+            terminal.WriteLine("\"I could never do something like that.\"");
+            terminal.WriteLine("\"What we share should be private.\"");
+            terminal.WriteLine();
+
+            terminal.SetColor("gray");
+            terminal.WriteLine("They strongly prefer privacy.");
+
+            // Moderate damage - exhibitionism can be uncomfortable for conservative partners
+            await HandleSensitiveTopicRejection(spouse, spouseData, 4, 0.03f, "exhibitionism");
+        }
+    }
+
+    private async Task DiscussAlternativeArrangements(NPC spouse, Spouse? spouseData)
+    {
+        if (spouseData == null) return;
+
+        terminal.WriteLine();
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine("    ALTERNATIVE ARRANGEMENTS");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine();
+
+        terminal.SetColor("white");
+        terminal.WriteLine($"You broach a sensitive subject with {spouse.Name}...");
+        terminal.WriteLine("\"I want to discuss some... unconventional relationship dynamics.\"");
+        terminal.WriteLine();
+
+        await Task.Delay(1500);
+
+        var personality = spouse.Brain?.Personality;
+        float adventurousness = personality?.Adventurousness ?? 0.5f;
+
+        terminal.SetColor("bright_cyan");
+        if (adventurousness > 0.5f)
+        {
+            terminal.WriteLine($"{spouse.Name} raises an eyebrow but nods.");
+            terminal.WriteLine("\"I'm listening. What's on your mind?\"");
+        }
+        else
+        {
+            terminal.WriteLine($"{spouse.Name} looks uncertain.");
+            terminal.WriteLine("\"What do you mean by unconventional?\"");
+        }
+
+        terminal.WriteLine();
+        terminal.SetColor("white");
+        terminal.WriteLine("What arrangement do you want to discuss?");
+        terminal.WriteLine();
+        terminal.WriteLine("  [1] Hotwifing/Hothusbanding (your partner with others while you watch/know)");
+        terminal.WriteLine("  [2] Cuckolding (a specific power dynamic version)");
+        terminal.WriteLine("  [3] Stag/Vixen (you enjoy sharing your partner)");
+        terminal.SetColor("gray");
+        terminal.WriteLine("  [0] Never mind");
+        terminal.WriteLine();
+
+        var input = await terminal.GetInput("Choice: ");
+        if (!int.TryParse(input, out int choice) || choice < 1)
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("You decide not to pursue this conversation.");
+            return;
+        }
+
+        switch (choice)
+        {
+            case 1:
+                await DiscussHotwifing(spouse, spouseData);
+                break;
+            case 2:
+                await DiscussCuckolding(spouse, spouseData);
+                break;
+            case 3:
+                await DiscussStagVixen(spouse, spouseData);
+                break;
+        }
+    }
+
+    private async Task DiscussHotwifing(NPC spouse, Spouse spouseData)
+    {
+        terminal.WriteLine();
+        terminal.SetColor("white");
+        terminal.WriteLine("\"I've been thinking about something...\"");
+        terminal.WriteLine($"\"The idea of you being with someone else, with my blessing...\"");
+        terminal.WriteLine("\"It's called hotwifing. Or hothusbanding. Depending on the dynamic.\"");
+        terminal.WriteLine();
+
+        await Task.Delay(2000);
+
+        var personality = spouse.Brain?.Personality;
+        float adventurousness = personality?.Adventurousness ?? 0.5f;
+        float flirtatiousness = personality?.Flirtatiousness ?? 0.5f;
+        float sensuality = personality?.Sensuality ?? 0.5f;
+
+        // Higher chance if spouse is adventurous, flirtatious, and sensual
+        bool interested = (adventurousness > 0.6f && flirtatiousness > 0.5f) ||
+                         (sensuality > 0.7f && adventurousness > 0.5f);
+
+        terminal.SetColor("bright_cyan");
+        if (interested)
+        {
+            terminal.WriteLine($"{spouse.Name} is quiet for a moment, processing.");
+            terminal.WriteLine("\"You're saying... you'd want me to be with others?\"");
+            terminal.WriteLine("\"And you'd... enjoy that? Knowing about it?\"");
+            terminal.WriteLine();
+
+            await Task.Delay(1500);
+
+            terminal.WriteLine("A slow smile crosses their face.");
+            terminal.WriteLine("\"I never thought I'd hear you say that.\"");
+            terminal.WriteLine("\"I... I think I could enjoy that. With the right person.\"");
+            terminal.WriteLine();
+
+            terminal.SetColor("bright_green");
+            terminal.WriteLine($"{spouse.Name} agrees to try hotwifing/hothusbanding!");
+
+            // Set up arrangement tracking
+            spouseData.AcceptsPolyamory = true;
+            spouseData.KnowsAboutOthers = true;
+            RomanceTracker.Instance.AgreedStructures[spouse.ID] = RelationshipStructure.OpenRelationship;
+
+            await Task.Delay(1500);
+
+            // Offer to try it now
+            terminal.WriteLine();
+            terminal.SetColor("white");
+            terminal.WriteLine("Do you want them to try it tonight?");
+            terminal.WriteLine();
+            terminal.WriteLine("  [Y] Yes, let's try it");
+            terminal.WriteLine("  [N] No, maybe another time");
+            terminal.WriteLine();
+
+            var input = await terminal.GetInput("Choice: ");
+            if (input.Trim().ToUpperInvariant() == "Y")
+            {
+                await PlayHotwifingScene(spouse, spouseData);
+            }
+        }
+        else if (adventurousness > 0.4f)
+        {
+            terminal.WriteLine($"{spouse.Name} looks genuinely surprised.");
+            terminal.WriteLine("\"That's... a lot to take in.\"");
+            terminal.WriteLine("\"I'm not saying no, but I need time to think about it.\"");
+            terminal.WriteLine();
+
+            terminal.SetColor("yellow");
+            terminal.WriteLine("They need time to consider this.");
+        }
+        else
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine($"{spouse.Name}'s face flushes.");
+            terminal.WriteLine("\"What? You want me to be with other people?\"");
+            terminal.WriteLine("\"That's not something I'd ever be comfortable with.\"");
+            terminal.WriteLine();
+
+            terminal.SetColor("yellow");
+            terminal.WriteLine("The suggestion has upset them.");
+
+            // Significant damage - hotwifing is a major ask
+            await HandleSensitiveTopicRejection(spouse, spouseData, 6, 0.06f, "hotwifing");
+        }
+    }
+
+    private async Task PlayHotwifingScene(NPC spouse, Spouse spouseData)
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine("          A NIGHT TO REMEMBER");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine();
+
+        // Find a suitable third party NPC
+        var potentialDates = NPCSpawnSystem.Instance?.ActiveNPCs?
+            .Where(n => n.IsAlive && n.ID != spouse.ID)
+            .Where(n => spouse.Sex == CharacterSex.Female ? n.Sex == CharacterSex.Male : n.Sex == CharacterSex.Female)
+            .OrderByDescending(n => n.Level)
+            .Take(5)
+            .ToList() ?? new List<NPC>();
+
+        if (potentialDates.Count == 0)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("Unfortunately, there's no one suitable available tonight.");
+            terminal.WriteLine($"{spouse.Name} gives you a playful shrug. \"Another time, perhaps.\"");
+            return;
+        }
+
+        // Select a random one
+        var random = new Random();
+        var thirdParty = potentialDates[random.Next(potentialDates.Count)];
+        string thirdName = thirdParty.Name;
+        string spouseGender = spouse.Sex == CharacterSex.Female ? "she" : "he";
+        string spousePossessive = spouse.Sex == CharacterSex.Female ? "her" : "his";
+        string thirdGender = thirdParty.Sex == CharacterSex.Female ? "she" : "he";
+
+        terminal.SetColor("white");
+        terminal.WriteLine($"{spouse.Name} gets ready for the evening, choosing {spousePossessive} most alluring outfit.");
+        terminal.WriteLine($"You watch with a mix of excitement and nervousness as {spouseGender} prepares.");
+        terminal.WriteLine();
+
+        await Task.Delay(2000);
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"\"{thirdName} asked me out last week,\" {spouseGender} admits.");
+        terminal.WriteLine($"\"I told {(thirdParty.Sex == CharacterSex.Female ? "her" : "him")} I was married, but now...\"");
+        terminal.WriteLine($"{spouseGender.ToUpperInvariant()[0]}{spouseGender.Substring(1)} smiles mischievously. \"Now I have your permission.\"");
+        terminal.WriteLine();
+
+        await Task.Delay(2000);
+
+        terminal.SetColor("gray");
+        terminal.WriteLine("════════════════════════════════════════");
+        terminal.WriteLine($"  {spouse.Name} leaves for {spousePossessive} date...");
+        terminal.WriteLine("════════════════════════════════════════");
+        terminal.WriteLine();
+
+        await Task.Delay(1500);
+
+        terminal.SetColor("white");
+        terminal.WriteLine("The hours pass slowly. You imagine what might be happening...");
+        terminal.WriteLine("The anticipation is almost unbearable.");
+        terminal.WriteLine();
+
+        await Task.Delay(2000);
+
+        // The date scene (described, not shown)
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("════════════════════════════════════════");
+        terminal.WriteLine("  LATER THAT NIGHT...");
+        terminal.WriteLine("════════════════════════════════════════");
+        terminal.WriteLine();
+
+        await Task.Delay(1500);
+
+        terminal.SetColor("white");
+        terminal.WriteLine($"The door opens. {spouse.Name} returns, flushed and breathless.");
+        terminal.WriteLine($"{spouseGender.ToUpperInvariant()[0]}{spouseGender.Substring(1)} looks at you with smoldering eyes.");
+        terminal.WriteLine();
+
+        await Task.Delay(1500);
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"\"{thirdName} was... very attentive,\" {spouseGender} whispers, coming closer.");
+        terminal.WriteLine($"\"We had dinner, then drinks, and then...\"");
+        terminal.WriteLine();
+
+        await Task.Delay(2000);
+
+        // Spouse describes the encounter
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine($"{spouseGender.ToUpperInvariant()[0]}{spouseGender.Substring(1)} tells you everything.");
+        terminal.WriteLine($"How {thirdName}'s hands felt. The first kiss. The passion.");
+        terminal.WriteLine($"Every detail, whispered in your ear as {spouseGender} presses against you.");
+        terminal.WriteLine();
+
+        await Task.Delay(2500);
+
+        terminal.SetColor("white");
+        terminal.WriteLine($"\"But I came home to you,\" {spouseGender} breathes.");
+        terminal.WriteLine($"\"I always come home to you.\"");
+        terminal.WriteLine();
+
+        await Task.Delay(1500);
+
+        // The reclamation
+        terminal.SetColor("bright_red");
+        terminal.WriteLine("════════════════════════════════════════");
+        terminal.WriteLine("          RECLAMATION");
+        terminal.WriteLine("════════════════════════════════════════");
+        terminal.WriteLine();
+
+        await Task.Delay(1000);
+
+        terminal.SetColor("white");
+        terminal.WriteLine("The fire between you ignites like never before.");
+        terminal.WriteLine($"Every touch is electric, possessive, passionate.");
+        terminal.WriteLine($"You claim what's yours, and {spouseGender} surrenders completely.");
+        terminal.WriteLine();
+
+        await Task.Delay(2000);
+
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("The night that follows is unlike any other.");
+        terminal.WriteLine($"The stories {spouseGender} tells only fuel the passion.");
+        terminal.WriteLine("By morning, you're both exhausted... and closer than ever.");
+        terminal.WriteLine();
+
+        await Task.Delay(1500);
+
+        // Record the encounter and set up arrangement
+        RomanceTracker.Instance.SetupCuckoldArrangement(spouse.ID, thirdParty.ID, true);
+
+        // Relationship boost
+        spouseData.LoveLevel = Math.Max(1, spouseData.LoveLevel - 3);
+
+        terminal.SetColor("bright_green");
+        terminal.WriteLine("Your bond with each other has deepened through this shared experience.");
+        terminal.WriteLine();
+
+        await terminal.GetInput("Press Enter to continue...");
+    }
+
+    private async Task DiscussCuckolding(NPC spouse, Spouse spouseData)
+    {
+        terminal.WriteLine();
+        terminal.SetColor("white");
+        terminal.WriteLine("\"This is difficult to explain, but I want to be honest with you...\"");
+        terminal.WriteLine("\"There's a dynamic called cuckolding. It involves power exchange.\"");
+        terminal.WriteLine("\"You would be with others, and I would... submit to that knowledge.\"");
+        terminal.WriteLine("\"Here. In our home. While I watch.\"");
+        terminal.WriteLine();
+
+        await Task.Delay(2500);
+
+        var personality = spouse.Brain?.Personality;
+        float adventurousness = personality?.Adventurousness ?? 0.5f;
+        float dominance = 1.0f - (personality?.Tenderness ?? 0.5f); // Higher tenderness = less dominant
+
+        // Cuckolding requires specific personality combination
+        bool compatible = adventurousness > 0.6f && dominance > 0.5f;
+
+        terminal.SetColor("bright_cyan");
+        if (compatible)
+        {
+            terminal.WriteLine($"{spouse.Name} studies your face intently.");
+            terminal.WriteLine("\"So... you're saying you want me to be dominant?\"");
+            terminal.WriteLine("\"To take other lovers while you... watch? In our own home?\"");
+            terminal.WriteLine();
+
+            await Task.Delay(1500);
+
+            terminal.WriteLine("Something shifts in their demeanor.");
+            terminal.WriteLine("\"I have to admit... the idea of having that power is intriguing.\"");
+            terminal.WriteLine("\"If that's what you truly want...\"");
+            terminal.WriteLine();
+
+            terminal.SetColor("bright_green");
+            terminal.WriteLine($"{spouse.Name} agrees to explore cuckolding!");
+
+            // Set up cuckold arrangement
+            spouseData.AcceptsPolyamory = true;
+            RomanceTracker.Instance.AgreedStructures[spouse.ID] = RelationshipStructure.OpenRelationship;
+
+            await Task.Delay(1500);
+
+            // Offer to try it now
+            terminal.WriteLine();
+            terminal.SetColor("white");
+            terminal.WriteLine("Do you want to try it tonight?");
+            terminal.WriteLine();
+            terminal.WriteLine("  [Y] Yes, let's try it");
+            terminal.WriteLine("  [N] No, maybe another time");
+            terminal.WriteLine();
+
+            var input = await terminal.GetInput("Choice: ");
+            if (input.Trim().ToUpperInvariant() == "Y")
+            {
+                await PlayCuckoldingScene(spouse, spouseData);
+            }
+        }
+        else if (adventurousness > 0.4f)
+        {
+            terminal.WriteLine($"{spouse.Name} looks confused.");
+            terminal.WriteLine("\"I... I'm not sure I understand what you're asking.\"");
+            terminal.WriteLine("\"This seems very complicated. Are you sure this is healthy?\"");
+            terminal.WriteLine();
+
+            terminal.SetColor("yellow");
+            terminal.WriteLine("They don't understand or connect with this dynamic.");
+
+            // Moderate damage for confusion
+            await HandleSensitiveTopicRejection(spouse, spouseData, 4, 0.03f, "cuckolding");
+        }
+        else
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine($"{spouse.Name} looks disturbed.");
+            terminal.WriteLine("\"Why would you want that? It sounds like punishment.\"");
+            terminal.WriteLine("\"I don't want that kind of relationship at all.\"");
+            terminal.WriteLine();
+
+            terminal.SetColor("yellow");
+            terminal.WriteLine("This has seriously upset them.");
+
+            // Severe damage - cuckolding request can be very disturbing to some
+            await HandleSensitiveTopicRejection(spouse, spouseData, 10, 0.12f, "cuckolding");
+        }
+    }
+
+    private async Task PlayCuckoldingScene(NPC spouse, Spouse spouseData)
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine("          THE ARRANGEMENT");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine();
+
+        // Find a suitable third party NPC
+        var potentialLovers = NPCSpawnSystem.Instance?.ActiveNPCs?
+            .Where(n => n.IsAlive && n.ID != spouse.ID)
+            .Where(n => spouse.Sex == CharacterSex.Female ? n.Sex == CharacterSex.Male : n.Sex == CharacterSex.Female)
+            .OrderByDescending(n => n.Level)
+            .Take(5)
+            .ToList() ?? new List<NPC>();
+
+        if (potentialLovers.Count == 0)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("Unfortunately, there's no one suitable available tonight.");
+            terminal.WriteLine($"{spouse.Name} gives you a knowing look. \"We'll find someone.\"");
+            return;
+        }
+
+        // Select a random one
+        var random = new Random();
+        var thirdParty = potentialLovers[random.Next(potentialLovers.Count)];
+        string thirdName = thirdParty.Name;
+        string spouseGender = spouse.Sex == CharacterSex.Female ? "she" : "he";
+        string spousePossessive = spouse.Sex == CharacterSex.Female ? "her" : "his";
+        string thirdGender = thirdParty.Sex == CharacterSex.Female ? "she" : "he";
+        string thirdPossessive = thirdParty.Sex == CharacterSex.Female ? "her" : "his";
+
+        terminal.SetColor("white");
+        terminal.WriteLine($"{spouse.Name} sends a message to {thirdName}.");
+        terminal.WriteLine($"\"Come over tonight. My spouse... wants to watch.\"");
+        terminal.WriteLine();
+
+        await Task.Delay(2000);
+
+        terminal.SetColor("gray");
+        terminal.WriteLine("════════════════════════════════════════");
+        terminal.WriteLine("  An hour later, there's a knock at the door...");
+        terminal.WriteLine("════════════════════════════════════════");
+        terminal.WriteLine();
+
+        await Task.Delay(1500);
+
+        terminal.SetColor("white");
+        terminal.WriteLine($"{thirdName} enters, looking uncertain at first.");
+        terminal.WriteLine($"{spouse.Name} takes {thirdPossessive} hand confidently.");
+        terminal.WriteLine($"\"Don't worry about {(currentPlayer?.Sex == CharacterSex.Female ? "her" : "him")},\" {spouseGender} says.");
+        terminal.WriteLine($"\"{(currentPlayer?.Sex == CharacterSex.Female ? "She" : "He")} wants this. Don't you?\"");
+        terminal.WriteLine();
+
+        await Task.Delay(2000);
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"{spouse.Name} looks at you with a new intensity in {spousePossessive} eyes.");
+        terminal.WriteLine($"\"Sit there,\" {spouseGender} commands, pointing to the chair in the corner.");
+        terminal.WriteLine($"\"And watch.\"");
+        terminal.WriteLine();
+
+        await Task.Delay(2000);
+
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("════════════════════════════════════════");
+        terminal.WriteLine("  You take your place...");
+        terminal.WriteLine("════════════════════════════════════════");
+        terminal.WriteLine();
+
+        await Task.Delay(1500);
+
+        terminal.SetColor("white");
+        terminal.WriteLine($"{spouse.Name} and {thirdName} move toward each other.");
+        terminal.WriteLine($"The first kiss is tentative, then grows more passionate.");
+        terminal.WriteLine($"You watch from your chair, heart racing.");
+        terminal.WriteLine();
+
+        await Task.Delay(2000);
+
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine($"{spouse.Name} glances at you occasionally, making sure you're watching.");
+        terminal.WriteLine($"There's power in {spousePossessive} gaze. Control. Dominance.");
+        terminal.WriteLine($"This is what you asked for, and {spouseGender} owns it completely.");
+        terminal.WriteLine();
+
+        await Task.Delay(2500);
+
+        // The scene progresses
+        terminal.SetColor("cyan");
+        terminal.WriteLine("Clothing falls away. Bodies intertwine.");
+        terminal.WriteLine($"{spouse.Name} is in complete control, directing every moment.");
+        terminal.WriteLine($"Sometimes {spouseGender} looks at you. Sometimes {spouseGender} ignores you entirely.");
+        terminal.WriteLine("Both feel equally intense.");
+        terminal.WriteLine();
+
+        await Task.Delay(2500);
+
+        terminal.SetColor("white");
+        terminal.WriteLine("The sounds. The movements. The way they move together.");
+        terminal.WriteLine($"You sit there, exactly where {spouse.Name} told you to.");
+        terminal.WriteLine("Watching everything unfold in your own bedroom.");
+        terminal.WriteLine();
+
+        await Task.Delay(2000);
+
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("════════════════════════════════════════");
+        terminal.WriteLine("  LATER...");
+        terminal.WriteLine("════════════════════════════════════════");
+        terminal.WriteLine();
+
+        await Task.Delay(1500);
+
+        terminal.SetColor("white");
+        terminal.WriteLine($"{thirdName} gathers {thirdPossessive} things and leaves.");
+        terminal.WriteLine($"A knowing nod to you on the way out.");
+        terminal.WriteLine();
+
+        await Task.Delay(1500);
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"{spouse.Name} lies back on the bed, satisfied, powerful.");
+        terminal.WriteLine($"\"{spouseGender.ToUpperInvariant()[0]}{spouseGender.Substring(1)} beckons you over.\"");
+        terminal.WriteLine($"\"You may approach now.\"");
+        terminal.WriteLine();
+
+        await Task.Delay(2000);
+
+        terminal.SetColor("white");
+        terminal.WriteLine("The dynamic has shifted between you forever.");
+        terminal.WriteLine($"{spouse.Name} has discovered something in {spousePossessive}self.");
+        terminal.WriteLine("And you've given them that power willingly.");
+        terminal.WriteLine();
+
+        await Task.Delay(1500);
+
+        // Record the encounter
+        RomanceTracker.Instance.SetupCuckoldArrangement(spouse.ID, thirdParty.ID, true);
+
+        // This is a complex dynamic - relationship may strengthen or become more complicated
+        spouseData.LoveLevel = Math.Max(1, spouseData.LoveLevel - 1);
+
+        terminal.SetColor("bright_green");
+        terminal.WriteLine("A new chapter in your relationship has begun.");
+        terminal.WriteLine();
+
+        await terminal.GetInput("Press Enter to continue...");
+    }
+
+    private async Task DiscussStagVixen(NPC spouse, Spouse spouseData)
+    {
+        terminal.WriteLine();
+        terminal.SetColor("white");
+        terminal.WriteLine("\"I want to share something with you...\"");
+        terminal.WriteLine("\"The idea of you being with someone else, while I watch or participate...\"");
+        terminal.WriteLine("\"Not out of submission, but pride. Stag and Vixen, they call it.\"");
+        terminal.WriteLine("\"I want to show you off. Share you. Celebrate you.\"");
+        terminal.WriteLine();
+
+        await Task.Delay(2000);
+
+        var personality = spouse.Brain?.Personality;
+        float adventurousness = personality?.Adventurousness ?? 0.5f;
+        float exhibitionism = personality?.Exhibitionism ?? 0.3f;
+        float sensuality = personality?.Sensuality ?? 0.5f;
+
+        // Stag/Vixen appeals to adventurous, exhibitionist personalities
+        bool interested = (adventurousness > 0.5f && exhibitionism > 0.4f) ||
+                         (sensuality > 0.6f && adventurousness > 0.55f);
+
+        terminal.SetColor("bright_cyan");
+        if (interested)
+        {
+            terminal.WriteLine($"{spouse.Name}'s breath catches.");
+            terminal.WriteLine("\"You want to... watch me? Show me off?\"");
+            terminal.WriteLine("\"That's... actually kind of hot.\"");
+            terminal.WriteLine();
+
+            await Task.Delay(1500);
+
+            terminal.WriteLine("A mischievous smile forms on their lips.");
+            terminal.WriteLine("\"I like being admired. And the idea of you being proud...\"");
+            terminal.WriteLine("\"Yes. I think I'd like to try that.\"");
+            terminal.WriteLine();
+
+            terminal.SetColor("bright_green");
+            terminal.WriteLine($"{spouse.Name} agrees to explore the Stag/Vixen dynamic!");
+
+            spouseData.AcceptsPolyamory = true;
+            spouseData.KnowsAboutOthers = true;
+            RomanceTracker.Instance.AgreedStructures[spouse.ID] = RelationshipStructure.OpenRelationship;
+        }
+        else if (adventurousness > 0.4f)
+        {
+            terminal.WriteLine($"{spouse.Name} considers this thoughtfully.");
+            terminal.WriteLine("\"It's flattering that you see me that way...\"");
+            terminal.WriteLine("\"But I'm not sure I'm comfortable being... shared.\"");
+            terminal.WriteLine();
+
+            terminal.SetColor("yellow");
+            terminal.WriteLine("They're flattered but not ready.");
+
+            // Light damage - they took it well
+            await HandleSensitiveTopicRejection(spouse, spouseData, 2, 0.01f, "sharing");
+        }
+        else
+        {
+            terminal.WriteLine($"{spouse.Name} shakes their head.");
+            terminal.WriteLine("\"I don't want to be with anyone else.\"");
+            terminal.WriteLine("\"You're all I need. Why isn't that enough?\"");
+            terminal.WriteLine();
+
+            terminal.SetColor("gray");
+            terminal.WriteLine("They prefer monogamy.");
+
+            // Mild damage plus slight hurt feelings
+            await HandleSensitiveTopicRejection(spouse, spouseData, 4, 0.03f, "sharing me with others");
+        }
+    }
+
+    /// <summary>
+    /// Handle relationship damage when a sensitive topic is rejected.
+    /// Includes chance of spouse initiating divorce for severe rejections.
+    /// </summary>
+    /// <param name="spouse">The NPC spouse</param>
+    /// <param name="spouseData">The spouse data from RomanceTracker</param>
+    /// <param name="damageAmount">How much to increase LoveLevel (higher = worse)</param>
+    /// <param name="divorceChance">Probability (0-1) of spouse initiating divorce</param>
+    /// <param name="topicName">Name of the topic for dialogue</param>
+    private async Task HandleSensitiveTopicRejection(NPC spouse, Spouse spouseData, int damageAmount, float divorceChance, string topicName)
+    {
+        // Apply relationship damage
+        spouseData.LoveLevel = Math.Min(100, spouseData.LoveLevel + damageAmount);
+
+        // Check if relationship is severely damaged (LoveLevel > 70 is bad)
+        bool relationshipStrained = spouseData.LoveLevel > 60;
+
+        // Roll for divorce chance (higher if relationship already strained)
+        var random = new Random();
+        float effectiveDivorceChance = divorceChance;
+        if (relationshipStrained)
+        {
+            effectiveDivorceChance *= 2.0f; // Double chance if already strained
+        }
+
+        // High jealousy spouses are more likely to divorce over these topics
+        float jealousy = spouse.Brain?.Personality?.Jealousy ?? 0.5f;
+        if (jealousy > 0.7f)
+        {
+            effectiveDivorceChance *= 1.5f;
+        }
+
+        bool spouseWantsDivorce = random.NextDouble() < effectiveDivorceChance;
+
+        if (spouseWantsDivorce && spouseData.LoveLevel > 40)
+        {
+            terminal.WriteLine();
+            await Task.Delay(2000);
+
+            terminal.SetColor("red");
+            terminal.WriteLine("═══════════════════════════════════════");
+            terminal.WriteLine("          A TERRIBLE SILENCE");
+            terminal.WriteLine("═══════════════════════════════════════");
+            terminal.WriteLine();
+
+            await Task.Delay(1500);
+
+            string spouseGender = spouse.Sex == CharacterSex.Female ? "she" : "he";
+            string spousePossessive = spouse.Sex == CharacterSex.Female ? "her" : "his";
+
+            terminal.SetColor("white");
+            terminal.WriteLine($"{spouse.Name} is quiet for a very long time.");
+            terminal.WriteLine($"When {spouseGender} finally speaks, {spousePossessive} voice is cold.");
+            terminal.WriteLine();
+
+            await Task.Delay(2000);
+
+            terminal.SetColor("bright_red");
+            terminal.WriteLine($"\"I've been trying to make this work. I really have.\"");
+            terminal.WriteLine($"\"But this... asking me about {topicName}...\"");
+            terminal.WriteLine($"\"It makes me realize we want very different things.\"");
+            terminal.WriteLine();
+
+            await Task.Delay(2000);
+
+            terminal.SetColor("red");
+            terminal.WriteLine($"\"I want a divorce.\"");
+            terminal.WriteLine();
+
+            await Task.Delay(1500);
+
+            terminal.SetColor("yellow");
+            terminal.WriteLine("Your spouse has asked for a divorce.");
+            terminal.WriteLine();
+            terminal.WriteLine("  [A] Accept the divorce");
+            terminal.WriteLine("  [P] Plead with them to reconsider");
+            terminal.WriteLine();
+
+            var input = await terminal.GetInput("Choice: ");
+
+            if (input.Trim().ToUpperInvariant() == "P")
+            {
+                // Pleading - small chance to save marriage
+                float pleadSuccess = 0.3f - (spouseData.LoveLevel / 300f); // Harder if relationship worse
+                if (jealousy > 0.6f) pleadSuccess -= 0.1f;
+
+                await Task.Delay(1000);
+
+                terminal.SetColor("white");
+                terminal.WriteLine();
+                terminal.WriteLine("\"Please... I'm sorry. I didn't mean to hurt you.\"");
+                terminal.WriteLine("\"I love you. Can we please work through this?\"");
+                terminal.WriteLine();
+
+                await Task.Delay(2000);
+
+                if (random.NextDouble() < pleadSuccess)
+                {
+                    terminal.SetColor("bright_cyan");
+                    terminal.WriteLine($"{spouse.Name}'s expression softens slightly.");
+                    terminal.WriteLine($"\"I... I don't know. Maybe we can try counseling.\"");
+                    terminal.WriteLine($"\"But if you ever bring up something like that again...\"");
+                    terminal.WriteLine();
+
+                    terminal.SetColor("yellow");
+                    terminal.WriteLine("Your marriage has been saved... barely.");
+                    terminal.WriteLine("But the damage will take time to heal.");
+
+                    // Severe relationship damage but no divorce
+                    spouseData.LoveLevel = Math.Min(100, spouseData.LoveLevel + 10);
+                }
+                else
+                {
+                    terminal.SetColor("red");
+                    terminal.WriteLine($"{spouse.Name} shakes {spousePossessive} head.");
+                    terminal.WriteLine($"\"No. I've made up my mind. This is over.\"");
+                    terminal.WriteLine();
+
+                    await ProcessSpouseDivorce(spouse, spouseData);
+                }
+            }
+            else
+            {
+                // Accept divorce
+                terminal.SetColor("gray");
+                terminal.WriteLine();
+                terminal.WriteLine("You accept their decision in silence.");
+                terminal.WriteLine();
+
+                await ProcessSpouseDivorce(spouse, spouseData);
+            }
+        }
+        else if (relationshipStrained)
+        {
+            // Relationship is strained but no divorce... yet
+            terminal.WriteLine();
+            terminal.SetColor("yellow");
+            terminal.WriteLine("You sense your relationship is becoming strained.");
+            terminal.WriteLine("Perhaps it's best to be more careful with sensitive topics.");
+        }
+    }
+
+    /// <summary>
+    /// Process a spouse-initiated divorce
+    /// </summary>
+    private async Task ProcessSpouseDivorce(NPC spouse, Spouse spouseData)
+    {
+        terminal.SetColor("red");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine("         YOUR MARRIAGE HAS ENDED");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine();
+
+        await Task.Delay(1500);
+
+        // Process divorce - try RelationshipSystem first, but don't fail if it doesn't have a record
+        bool relationshipSystemSuccess = RelationshipSystem.ProcessDivorce(currentPlayer, spouse, out string message);
+
+        // Always process the RomanceTracker divorce - this ensures the divorce happens
+        // even if RelationshipSystem didn't track the marriage
+        RomanceTracker.Instance.Divorce(spouse.ID, "Spouse left due to incompatible relationship views", playerInitiated: false);
+
+        // Clear marriage flags on both characters regardless
+        currentPlayer.Married = false;
+        currentPlayer.IsMarried = false;
+        currentPlayer.SpouseName = "";
+        spouse.Married = false;
+        spouse.IsMarried = false;
+        spouse.SpouseName = "";
+
+        if (spouseData.Children > 0)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"{spouse.Name} has taken custody of the children.");
+            terminal.WriteLine();
+        }
+
+        terminal.SetColor("gray");
+        terminal.WriteLine($"{spouse.Name} packs their belongings and leaves.");
+        terminal.WriteLine("The door closes with a terrible finality.");
+
+        // Move spouse out of home
+        spouse.UpdateLocation("Inn");
+
+        // Generate news
+        NewsSystem.Instance?.WriteDivorceNews(spouse.Name, currentPlayer.Name);
+
+        await Task.Delay(1500);
     }
 
     private async Task VisitBedroom()
@@ -875,13 +2390,13 @@ public class HomeLocation : BaseLocation
             return;
         }
 
-        // Check if spouse is home
+        // Check if spouse is home (location can be "Home" or "Your Home")
         var availablePartners = new List<NPC>();
 
         foreach (var spouse in romance.Spouses)
         {
             var npc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == spouse.NPCId);
-            if (npc != null && npc.CurrentLocation == "Your Home")
+            if (npc != null && (npc.CurrentLocation == "Home" || npc.CurrentLocation == "Your Home"))
             {
                 availablePartners.Add(npc);
             }
@@ -890,7 +2405,7 @@ public class HomeLocation : BaseLocation
         foreach (var lover in romance.CurrentLovers)
         {
             var npc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == lover.NPCId);
-            if (npc != null && npc.CurrentLocation == "Your Home")
+            if (npc != null && (npc.CurrentLocation == "Home" || npc.CurrentLocation == "Your Home"))
             {
                 availablePartners.Add(npc);
             }
@@ -954,4 +2469,283 @@ public class HomeLocation : BaseLocation
             }
         }
     }
+
+    #region Home Upgrade System - End Game Gold Sink
+
+    /// <summary>
+    /// Home upgrades - expensive purchases for late-game gold sinks
+    /// </summary>
+    private async Task ShowHomeUpgrades()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║                    HOME IMPROVEMENTS                          ║");
+        terminal.WriteLine("║          Master Craftsman's Renovation Services               ║");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine();
+
+        terminal.SetColor("gray");
+        terminal.WriteLine($"Your gold: {currentPlayer.Gold:N0}");
+        terminal.WriteLine();
+
+        // Get current upgrade levels from player
+        int homeLevel = currentPlayer.HomeLevel;
+        int chestLevel = currentPlayer.ChestLevel;
+        int trainingLevel = currentPlayer.TrainingRoomLevel;
+        int gardenLevel = currentPlayer.GardenLevel;
+
+        // Define upgrade costs (exponentially increasing)
+        var upgrades = new[]
+        {
+            ("Estate Expansion", "Larger home with better rest bonuses", GetEstateUpgradeCost(homeLevel), homeLevel, 5, "Home"),
+            ("Reinforced Vault", "Store more items in your chest", GetChestUpgradeCost(chestLevel), chestLevel, 5, "Chest"),
+            ("Training Room", "Permanent stat bonuses", GetTrainingRoomCost(trainingLevel), trainingLevel, 10, "Training"),
+            ("Mystical Garden", "Daily passive bonuses", GetGardenCost(gardenLevel), gardenLevel, 5, "Garden")
+        };
+
+        int optionNum = 1;
+        foreach (var (name, desc, cost, level, maxLevel, type) in upgrades)
+        {
+            bool maxed = level >= maxLevel;
+            bool affordable = currentPlayer.Gold >= cost;
+
+            if (maxed)
+            {
+                terminal.SetColor("bright_green");
+                terminal.WriteLine($"[{optionNum}] {name} - MAXED (Level {level}/{maxLevel})");
+                terminal.SetColor("gray");
+                terminal.WriteLine($"    {desc}");
+            }
+            else
+            {
+                terminal.SetColor(affordable ? "white" : "dark_gray");
+                terminal.WriteLine($"[{optionNum}] {name} (Level {level} -> {level + 1})");
+                terminal.SetColor(affordable ? "yellow" : "dark_gray");
+                terminal.WriteLine($"    Cost: {cost:N0} gold - {desc}");
+            }
+            terminal.WriteLine();
+            optionNum++;
+        }
+
+        // Special one-time purchases
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("─── Special Purchases ───");
+        terminal.WriteLine();
+
+        // Trophy Room
+        bool hasTrophyRoom = currentPlayer.HasTrophyRoom;
+        long trophyRoomCost = 500_000;
+        terminal.SetColor(hasTrophyRoom ? "dark_gray" : (currentPlayer.Gold >= trophyRoomCost ? "white" : "dark_gray"));
+        terminal.WriteLine($"[5] Trophy Room - {(hasTrophyRoom ? "OWNED" : $"{trophyRoomCost:N0} gold")}");
+        terminal.SetColor("gray");
+        terminal.WriteLine("    Display your achievements and defeated bosses");
+        terminal.WriteLine();
+
+        // Teleportation Circle
+        bool hasTeleport = currentPlayer.HasTeleportCircle;
+        long teleportCost = 1_000_000;
+        terminal.SetColor(hasTeleport ? "dark_gray" : (currentPlayer.Gold >= teleportCost ? "white" : "dark_gray"));
+        terminal.WriteLine($"[6] Teleportation Circle - {(hasTeleport ? "OWNED" : $"{teleportCost:N0} gold")}");
+        terminal.SetColor("gray");
+        terminal.WriteLine("    Instantly return home from anywhere");
+        terminal.WriteLine();
+
+        // Legendary Armory
+        bool hasArmory = currentPlayer.HasLegendaryArmory;
+        long armoryCost = 2_500_000;
+        terminal.SetColor(hasArmory ? "dark_gray" : (currentPlayer.Gold >= armoryCost ? "white" : "dark_gray"));
+        terminal.WriteLine($"[7] Legendary Armory - {(hasArmory ? "OWNED" : $"{armoryCost:N0} gold")}");
+        terminal.SetColor("gray");
+        terminal.WriteLine("    +5% damage and +5% defense permanently");
+        terminal.WriteLine();
+
+        // Fountain of Vitality
+        bool hasFountain = currentPlayer.HasVitalityFountain;
+        long fountainCost = 5_000_000;
+        terminal.SetColor(hasFountain ? "dark_gray" : (currentPlayer.Gold >= fountainCost ? "white" : "dark_gray"));
+        terminal.WriteLine($"[8] Fountain of Vitality - {(hasFountain ? "OWNED" : $"{fountainCost:N0} gold")}");
+        terminal.SetColor("gray");
+        terminal.WriteLine("    +10% max HP permanently");
+        terminal.WriteLine();
+
+        terminal.SetColor("white");
+        terminal.WriteLine("[0] Return");
+        terminal.WriteLine();
+
+        var input = await terminal.GetInput("Select upgrade: ");
+        if (!int.TryParse(input, out int choice) || choice < 1)
+        {
+            return;
+        }
+
+        switch (choice)
+        {
+            case 1:
+                await PurchaseUpgrade("Estate Expansion", GetEstateUpgradeCost(homeLevel),
+                    homeLevel < 5, () => { currentPlayer.HomeLevel++; ApplyEstateBonus(); });
+                break;
+            case 2:
+                await PurchaseUpgrade("Reinforced Vault", GetChestUpgradeCost(chestLevel),
+                    chestLevel < 5, () => { currentPlayer.ChestLevel++; });
+                break;
+            case 3:
+                await PurchaseUpgrade("Training Room", GetTrainingRoomCost(trainingLevel),
+                    trainingLevel < 10, () => { currentPlayer.TrainingRoomLevel++; ApplyTrainingBonus(); });
+                break;
+            case 4:
+                await PurchaseUpgrade("Mystical Garden", GetGardenCost(gardenLevel),
+                    gardenLevel < 5, () => { currentPlayer.GardenLevel++; });
+                break;
+            case 5:
+                await PurchaseUpgrade("Trophy Room", trophyRoomCost,
+                    !hasTrophyRoom, () => { currentPlayer.HasTrophyRoom = true; });
+                break;
+            case 6:
+                await PurchaseUpgrade("Teleportation Circle", teleportCost,
+                    !hasTeleport, () => { currentPlayer.HasTeleportCircle = true; });
+                break;
+            case 7:
+                await PurchaseUpgrade("Legendary Armory", armoryCost,
+                    !hasArmory, () => { currentPlayer.HasLegendaryArmory = true; ApplyArmoryBonus(); });
+                break;
+            case 8:
+                await PurchaseUpgrade("Fountain of Vitality", fountainCost,
+                    !hasFountain, () => { currentPlayer.HasVitalityFountain = true; ApplyFountainBonus(); });
+                break;
+        }
+    }
+
+    private long GetEstateUpgradeCost(int level) => level switch
+    {
+        0 => 50_000,
+        1 => 150_000,
+        2 => 400_000,
+        3 => 1_000_000,
+        4 => 2_500_000,
+        _ => long.MaxValue
+    };
+
+    private long GetChestUpgradeCost(int level) => level switch
+    {
+        0 => 25_000,
+        1 => 75_000,
+        2 => 200_000,
+        3 => 500_000,
+        4 => 1_200_000,
+        _ => long.MaxValue
+    };
+
+    private long GetTrainingRoomCost(int level) => level switch
+    {
+        0 => 100_000,
+        1 => 200_000,
+        2 => 350_000,
+        3 => 550_000,
+        4 => 800_000,
+        5 => 1_100_000,
+        6 => 1_500_000,
+        7 => 2_000_000,
+        8 => 2_700_000,
+        9 => 3_500_000,
+        _ => long.MaxValue
+    };
+
+    private long GetGardenCost(int level) => level switch
+    {
+        0 => 75_000,
+        1 => 250_000,
+        2 => 600_000,
+        3 => 1_500_000,
+        4 => 3_000_000,
+        _ => long.MaxValue
+    };
+
+    private async Task PurchaseUpgrade(string name, long cost, bool available, Action applyUpgrade)
+    {
+        if (!available)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"{name} is already at maximum level!");
+            await terminal.WaitForKey();
+            return;
+        }
+
+        if (currentPlayer.Gold < cost)
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine($"You need {cost:N0} gold for {name}!");
+            terminal.WriteLine($"You only have {currentPlayer.Gold:N0} gold.");
+            await terminal.WaitForKey();
+            return;
+        }
+
+        terminal.SetColor("yellow");
+        terminal.WriteLine($"Purchase {name} for {cost:N0} gold?");
+        var confirm = await terminal.GetInput("(Y/N): ");
+
+        if (confirm.Trim().ToUpperInvariant() == "Y")
+        {
+            currentPlayer.Gold -= cost;
+            applyUpgrade();
+            currentPlayer.RecalculateStats();
+
+            terminal.SetColor("bright_green");
+            terminal.WriteLine($"\n*** {name.ToUpper()} PURCHASED! ***");
+            terminal.WriteLine("The craftsmen get to work immediately...");
+            await Task.Delay(1500);
+            terminal.WriteLine("Your home has been upgraded!");
+        }
+        else
+        {
+            terminal.WriteLine("Purchase cancelled.", "gray");
+        }
+        await terminal.WaitForKey();
+    }
+
+    private void ApplyEstateBonus()
+    {
+        // Each estate level gives +2% HP regen when resting at home
+        // (Already handled by rest function checking HomeLevel)
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"Estate upgraded to level {currentPlayer.HomeLevel}!");
+        terminal.WriteLine($"Rest at home now restores {100 + currentPlayer.HomeLevel * 5}% HP!");
+    }
+
+    private void ApplyTrainingBonus()
+    {
+        // Each training room level gives +1 to all base stats
+        currentPlayer.BaseStrength++;
+        currentPlayer.BaseDexterity++;
+        currentPlayer.BaseConstitution++;
+        currentPlayer.BaseIntelligence++;
+        currentPlayer.BaseWisdom++;
+        currentPlayer.BaseCharisma++;
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"Training Room upgraded to level {currentPlayer.TrainingRoomLevel}!");
+        terminal.WriteLine("+1 to ALL base stats!");
+    }
+
+    private void ApplyArmoryBonus()
+    {
+        // Permanent damage and defense bonus
+        currentPlayer.PermanentDamageBonus += 5;
+        currentPlayer.PermanentDefenseBonus += 5;
+        terminal.SetColor("cyan");
+        terminal.WriteLine("Legendary Armory installed!");
+        terminal.WriteLine("+5% damage and +5% defense permanently!");
+    }
+
+    private void ApplyFountainBonus()
+    {
+        // Permanent HP bonus
+        long hpBonus = currentPlayer.MaxHP / 10;
+        currentPlayer.BonusMaxHP += hpBonus;
+        terminal.SetColor("cyan");
+        terminal.WriteLine("Fountain of Vitality constructed!");
+        terminal.WriteLine($"+{hpBonus} max HP permanently!");
+    }
+
+    #endregion
 } 

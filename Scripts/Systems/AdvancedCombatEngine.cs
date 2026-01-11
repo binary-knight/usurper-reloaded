@@ -13,10 +13,13 @@ using System.Threading.Tasks;
 public class AdvancedCombatEngine : Node
 {
     private NewsSystem newsSystem;
-    
+
     // Note: MailSystem and SpellSystem are static - use static access directly
-    
+
     private RelationshipSystem relationshipSystem;
+
+    // Static random instance to avoid predictable sequences from rapid new Random() calls
+    private static readonly Random random = new Random();
     
     // Pascal global variables from PLVSMON.PAS
     private bool globalKilled = false;
@@ -124,11 +127,9 @@ public class AdvancedCombatEngine : Node
     /// <summary>
     /// Retreat function - Pascal PLVSMON.PAS Retreat function
     /// </summary>
-    private async Task<bool> AttemptRetreat(Character player, List<Monster> monsters, 
+    private async Task<bool> AttemptRetreat(Character player, List<Monster> monsters,
         AdvancedCombatResult result, TerminalEmulator terminal)
     {
-        var random = new Random();
-        
         switch (random.Next(2))
         {
             case 0: // Successful retreat
@@ -182,8 +183,6 @@ public class AdvancedCombatEngine : Node
     /// </summary>
     private void CalculateMonsterAttacks(List<Monster> monsters, int mode)
     {
-        var random = new Random();
-        
         foreach (var monster in monsters.Where(m => m.IsAlive))
         {
             monster.Punch = 0;
@@ -260,11 +259,9 @@ public class AdvancedCombatEngine : Node
     /// <summary>
     /// Process monster death and loot - Pascal PLVSMON.PAS has_monster_died
     /// </summary>
-    private async Task ProcessMonsterDeath(Monster monster, Character player, List<Character> teammates, 
+    private async Task ProcessMonsterDeath(Monster monster, Character player, List<Character> teammates,
         AdvancedCombatResult result, TerminalEmulator terminal)
     {
-        var random = new Random();
-        
         terminal.WriteLine($"\n{GameConfig.DeathColor}The {monster.Name} has been slain!{GameConfig.TextColor}");
         
         // Experience gain
@@ -465,10 +462,9 @@ public class AdvancedCombatEngine : Node
     /// <summary>
     /// Beg for mercy - Pascal PLVSPLC.PAS beg for mercy logic
     /// </summary>
-    private async Task ProcessBegForMercy(Character attacker, Character defender, AdvancedCombatResult result, 
+    private async Task ProcessBegForMercy(Character attacker, Character defender, AdvancedCombatResult result,
         TerminalEmulator terminal)
     {
-        var random = new Random();
         globalBegged = true;
         
         terminal.WriteLine($"\n{GameConfig.WarningColor}*Surrender!*{GameConfig.TextColor}");
@@ -517,11 +513,9 @@ public class AdvancedCombatEngine : Node
     /// <summary>
     /// No mercy kill - Pascal PLVSPLC.PAS no mercy logic
     /// </summary>
-    private async Task ProcessNoMercyKill(Character attacker, Character defender, AdvancedCombatResult result, 
+    private async Task ProcessNoMercyKill(Character attacker, Character defender, AdvancedCombatResult result,
         TerminalEmulator terminal)
     {
-        var random = new Random();
-        
         terminal.WriteLine($"\n{GameConfig.DeathColor}NO MERCY!{GameConfig.TextColor}");
         terminal.WriteLine($"{GameConfig.PlayerColor}{defender.Name2}{GameConfig.TextColor} shows no compassion!");
         
@@ -745,9 +739,8 @@ public class AdvancedCombatEngine : Node
     /// </summary>
     private string GetRandomDeathMessage(string playerName)
     {
-        var random = new Random();
         string coloredName = $"{GameConfig.NewsColorPlayer}{playerName}{GameConfig.NewsColorDefault}";
-        
+
         return random.Next(4) switch
         {
             0 => $"{coloredName} was killed by a monster, when trying to escape battle!",
@@ -868,18 +861,326 @@ public class AdvancedCombatEngine : Node
         };
     }
     
-    // Placeholder methods for complete compilation
-    private async Task InitializeMonsterCombat(AdvancedCombatResult result, TerminalEmulator terminal) { }
-    private async Task DisplayMonsterStatus(List<Monster> monsters, TerminalEmulator terminal) { }
-    private async Task ProcessPlayerCombatAction(CombatAction action, Character player, List<Monster> monsters, AdvancedCombatResult result, TerminalEmulator terminal) { }
-    private async Task ProcessTeammateTurn(Character teammate, List<Monster> monsters, AdvancedCombatResult result, TerminalEmulator terminal) { }
-    private async Task ProcessMonsterAttackPhase(List<Monster> monsters, Character player, List<Character> teammates, AdvancedCombatResult result, TerminalEmulator terminal) { }
-    private async Task DetermineMonsterCombatOutcome(AdvancedCombatResult result, TerminalEmulator terminal) { }
-    private async Task InitializePlayerVsPlayerCombat(Character attacker, Character defender, AdvancedCombatResult result, TerminalEmulator terminal) { }
-    private async Task DisplayPvPStatus(Character attacker, Character defender, TerminalEmulator terminal) { }
-    private async Task ProcessPvPAction(PvPCombatAction action, Character attacker, Character defender, AdvancedCombatResult result, TerminalEmulator terminal) { }
-    private async Task ProcessComputerPvPTurn(Character computer, Character opponent, AdvancedCombatResult result, TerminalEmulator terminal) { }
-    private async Task DeterminePvPOutcome(Character attacker, Character defender, AdvancedCombatResult result, TerminalEmulator terminal) { }
+    /// <summary>
+    /// Initialize monster combat - display intro and prepare for battle
+    /// </summary>
+    private async Task InitializeMonsterCombat(AdvancedCombatResult result, TerminalEmulator terminal)
+    {
+        terminal.WriteLine($"\n{GameConfig.CombatColor}=== COMBAT BEGINS ==={GameConfig.TextColor}");
+        terminal.WriteLine("");
+
+        foreach (var monster in result.Monsters.Where(m => m.IsAlive))
+        {
+            terminal.WriteLine($"A {GameConfig.MonsterColor}{monster.Name}{GameConfig.TextColor} appears!");
+        }
+
+        terminal.WriteLine("");
+        await Task.Delay(500);
+    }
+
+    /// <summary>
+    /// Display status of all monsters in combat
+    /// </summary>
+    private async Task DisplayMonsterStatus(List<Monster> monsters, TerminalEmulator terminal)
+    {
+        terminal.WriteLine("");
+        foreach (var monster in monsters.Where(m => m.IsAlive))
+        {
+            string hpColor = monster.HP > monster.MaxHP / 2 ? GameConfig.HPColor : "red";
+            terminal.WriteLine($"{GameConfig.MonsterColor}{monster.Name}{GameConfig.TextColor} HP: {hpColor}{monster.HP:N0}{GameConfig.TextColor}");
+        }
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Process player's combat action against monsters
+    /// </summary>
+    private async Task ProcessPlayerCombatAction(CombatAction action, Character player, List<Monster> monsters,
+        AdvancedCombatResult result, TerminalEmulator terminal)
+    {
+        var target = monsters.FirstOrDefault(m => m.IsAlive);
+        if (target == null) return;
+
+        switch (action.Type)
+        {
+            case CombatActionType.Attack:
+                // Standard attack - safely convert long stats to int for calculation
+                int weapDmg = (int)Math.Min(player.WeapPow, int.MaxValue);
+                int strMod = random.Next(Math.Max(1, (int)Math.Min(player.Strength, int.MaxValue)));
+                int baseDamage = weapDmg + strMod;
+                baseDamage = (int)DifficultySystem.ApplyPlayerDamageMultiplier(baseDamage);
+                target.HP -= baseDamage;
+                terminal.WriteLine($"You attack {target.Name} for {GameConfig.DamageColor}{baseDamage:N0}{GameConfig.TextColor} damage!");
+
+                if (target.HP <= 0)
+                {
+                    await ProcessMonsterDeath(target, player, result.Teammates, result, terminal);
+                }
+                break;
+
+            case CombatActionType.Heal:
+                int healAmount = Math.Min((int)(player.MaxHP - player.HP), (int)(player.MaxHP / 4));
+                player.HP += healAmount;
+                terminal.WriteLine($"You heal yourself for {GameConfig.HealColor}{healAmount:N0}{GameConfig.TextColor} HP!");
+                break;
+
+            case CombatActionType.QuickHeal:
+                int quickHeal = Math.Min((int)(player.MaxHP - player.HP), (int)(player.MaxHP / 8));
+                player.HP += quickHeal;
+                terminal.WriteLine($"Quick heal: {GameConfig.HealColor}{quickHeal:N0}{GameConfig.TextColor} HP!");
+                break;
+
+            case CombatActionType.Retreat:
+                await AttemptRetreat(player, monsters, result, terminal);
+                break;
+
+            case CombatActionType.Status:
+                terminal.WriteLine($"\n{GameConfig.PlayerColor}Your Status:{GameConfig.TextColor}");
+                terminal.WriteLine($"HP: {player.HP:N0}/{player.MaxHP:N0}  MP: {player.Mana:N0}/{player.MaxMana:N0}");
+                terminal.WriteLine($"Level: {player.Level}  Class: {player.Class}");
+                break;
+
+            default:
+                terminal.WriteLine("You hesitate...");
+                break;
+        }
+
+        await Task.Delay(300);
+    }
+
+    /// <summary>
+    /// Process teammate's turn in combat
+    /// </summary>
+    private async Task ProcessTeammateTurn(Character teammate, List<Monster> monsters,
+        AdvancedCombatResult result, TerminalEmulator terminal)
+    {
+        var target = monsters.FirstOrDefault(m => m.IsAlive);
+        if (target == null) return;
+
+        int tmWeapDmg = (int)Math.Min(teammate.WeapPow, int.MaxValue);
+        int tmStrMod = random.Next(Math.Max(1, (int)Math.Min(teammate.Strength, int.MaxValue)));
+        int damage = tmWeapDmg + tmStrMod;
+        damage = (int)DifficultySystem.ApplyPlayerDamageMultiplier(damage);
+        target.HP -= damage;
+
+        terminal.WriteLine($"{GameConfig.PlayerColor}{teammate.Name2}{GameConfig.TextColor} attacks {target.Name} for {GameConfig.DamageColor}{damage:N0}{GameConfig.TextColor} damage!");
+
+        if (target.HP <= 0)
+        {
+            await ProcessMonsterDeath(target, result.Player, result.Teammates, result, terminal);
+        }
+
+        await Task.Delay(200);
+    }
+
+    /// <summary>
+    /// Process monster attack phase against player and teammates
+    /// </summary>
+    private async Task ProcessMonsterAttackPhase(List<Monster> monsters, Character player, List<Character> teammates,
+        AdvancedCombatResult result, TerminalEmulator terminal)
+    {
+        CalculateMonsterAttacks(monsters, result.MonsterMode);
+
+        foreach (var monster in monsters.Where(m => m.IsAlive))
+        {
+            // Monster attacks player or random teammate
+            var targets = new List<Character> { player };
+            targets.AddRange(teammates.Where(t => t.IsAlive));
+            var target = targets[random.Next(targets.Count)];
+
+            int damage = (int)Math.Min(monster.Punch, int.MaxValue);
+            damage = (int)DifficultySystem.ApplyMonsterDamageMultiplier(damage);
+            damage = Math.Max(1, damage - (int)Math.Min(target.ArmPow / 3, int.MaxValue));
+
+            target.HP -= damage;
+            terminal.WriteLine($"{GameConfig.MonsterColor}{monster.Name}{GameConfig.TextColor} attacks {target.Name2} for {GameConfig.DamageColor}{damage:N0}{GameConfig.TextColor} damage!");
+
+            if (target.HP <= 0)
+            {
+                if (target == player)
+                {
+                    globalKilled = true;
+                    result.Outcome = AdvancedCombatOutcome.PlayerDied;
+                    terminal.WriteLine($"\n{GameConfig.DeathColor}You have been slain!{GameConfig.TextColor}");
+                    await HandlePlayerDeath(player, $"killed by {monster.Name}", terminal);
+                }
+                else
+                {
+                    terminal.WriteLine($"{GameConfig.DeathColor}{target.Name2} has fallen!{GameConfig.TextColor}");
+                }
+            }
+        }
+
+        await Task.Delay(300);
+    }
+
+    /// <summary>
+    /// Determine final outcome of monster combat
+    /// </summary>
+    private async Task DetermineMonsterCombatOutcome(AdvancedCombatResult result, TerminalEmulator terminal)
+    {
+        if (!result.Monsters.Any(m => m.IsAlive))
+        {
+            result.Outcome = AdvancedCombatOutcome.Victory;
+            result.IsComplete = true;
+            terminal.WriteLine("\n=== VICTORY! ===", "bright_green");
+            terminal.WriteLine($"Experience gained: {GameConfig.ExperienceColor}{result.ExperienceGained:N0}{GameConfig.TextColor}");
+            terminal.WriteLine($"Gold gained: {GameConfig.GoldColor}{result.GoldGained:N0}{GameConfig.TextColor}");
+        }
+        else if (globalKilled || !result.Player.IsAlive)
+        {
+            result.Outcome = AdvancedCombatOutcome.PlayerDied;
+            result.IsComplete = true;
+        }
+        else if (globalEscape)
+        {
+            result.Outcome = AdvancedCombatOutcome.PlayerEscaped;
+            result.IsComplete = true;
+        }
+
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Initialize PvP combat
+    /// </summary>
+    private async Task InitializePlayerVsPlayerCombat(Character attacker, Character defender,
+        AdvancedCombatResult result, TerminalEmulator terminal)
+    {
+        terminal.WriteLine($"\n{GameConfig.CombatColor}=== PvP COMBAT ==={GameConfig.TextColor}");
+        terminal.WriteLine($"{GameConfig.PlayerColor}{attacker.Name2}{GameConfig.TextColor} vs {GameConfig.PlayerColor}{defender.Name2}{GameConfig.TextColor}");
+        terminal.WriteLine("");
+        await Task.Delay(500);
+    }
+
+    /// <summary>
+    /// Display PvP status
+    /// </summary>
+    private async Task DisplayPvPStatus(Character attacker, Character defender, TerminalEmulator terminal)
+    {
+        terminal.WriteLine("");
+        terminal.WriteLine($"{GameConfig.PlayerColor}{attacker.Name2}{GameConfig.TextColor} HP: {GameConfig.HPColor}{attacker.HP:N0}{GameConfig.TextColor}");
+        terminal.WriteLine($"{GameConfig.PlayerColor}{defender.Name2}{GameConfig.TextColor} HP: {GameConfig.HPColor}{defender.HP:N0}{GameConfig.TextColor}");
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Process PvP combat action
+    /// </summary>
+    private async Task ProcessPvPAction(PvPCombatAction action, Character attacker, Character defender,
+        AdvancedCombatResult result, TerminalEmulator terminal)
+    {
+        switch (action.Type)
+        {
+            case PvPActionType.Attack:
+                int atkWeapDmg = (int)Math.Min(attacker.WeapPow, int.MaxValue);
+                int atkStrMod = random.Next(Math.Max(1, (int)Math.Min(attacker.Strength, int.MaxValue)));
+                int pvpDamage = atkWeapDmg + atkStrMod;
+                pvpDamage = (int)DifficultySystem.ApplyPlayerDamageMultiplier(pvpDamage);
+                pvpDamage = Math.Max(1, pvpDamage - (int)Math.Min(defender.ArmPow / 3, int.MaxValue));
+                defender.HP -= pvpDamage;
+                terminal.WriteLine($"You attack {defender.Name2} for {GameConfig.DamageColor}{pvpDamage:N0}{GameConfig.TextColor} damage!");
+                break;
+
+            case PvPActionType.Heal:
+                int healAmount = Math.Min((int)(attacker.MaxHP - attacker.HP), (int)(attacker.MaxHP / 4));
+                attacker.HP += healAmount;
+                terminal.WriteLine($"You heal yourself for {GameConfig.HealColor}{healAmount:N0}{GameConfig.TextColor} HP!");
+                break;
+
+            case PvPActionType.QuickHeal:
+                int quickHeal = Math.Min((int)(attacker.MaxHP - attacker.HP), (int)(attacker.MaxHP / 8));
+                attacker.HP += quickHeal;
+                terminal.WriteLine($"Quick heal: {GameConfig.HealColor}{quickHeal:N0}{GameConfig.TextColor} HP!");
+                break;
+
+            case PvPActionType.Status:
+                terminal.WriteLine($"\n{GameConfig.PlayerColor}Your Status:{GameConfig.TextColor}");
+                terminal.WriteLine($"HP: {attacker.HP:N0}/{attacker.MaxHP:N0}  MP: {attacker.Mana:N0}/{attacker.MaxMana:N0}");
+                break;
+
+            default:
+                break;
+        }
+
+        await Task.Delay(300);
+    }
+
+    /// <summary>
+    /// Process computer-controlled PvP turn
+    /// </summary>
+    private async Task ProcessComputerPvPTurn(Character computer, Character opponent,
+        AdvancedCombatResult result, TerminalEmulator terminal)
+    {
+        // Simple AI: attack if HP is good, heal if low
+        if (computer.HP < computer.MaxHP / 3 && random.Next(3) == 0)
+        {
+            int healAmount = Math.Min((int)(computer.MaxHP - computer.HP), (int)(computer.MaxHP / 4));
+            computer.HP += healAmount;
+            terminal.WriteLine($"{GameConfig.PlayerColor}{computer.Name2}{GameConfig.TextColor} heals for {GameConfig.HealColor}{healAmount:N0}{GameConfig.TextColor} HP!");
+        }
+        else
+        {
+            int damage = (int)(computer.WeapPow + random.Next(Math.Max(1, (int)Math.Min(computer.Strength, int.MaxValue))));
+            damage = Math.Max(1, damage - (int)Math.Min(opponent.ArmPow / 3, int.MaxValue));
+            opponent.HP -= damage;
+            terminal.WriteLine($"{GameConfig.PlayerColor}{computer.Name2}{GameConfig.TextColor} attacks you for {GameConfig.DamageColor}{damage:N0}{GameConfig.TextColor} damage!");
+        }
+
+        await Task.Delay(300);
+    }
+
+    /// <summary>
+    /// Determine PvP outcome
+    /// </summary>
+    private async Task DeterminePvPOutcome(Character attacker, Character defender,
+        AdvancedCombatResult result, TerminalEmulator terminal)
+    {
+        if (defender.HP <= 0)
+        {
+            result.Outcome = AdvancedCombatOutcome.Victory;
+            result.IsComplete = true;
+
+            // Update kill stats
+            attacker.PKills++;
+            defender.PDefeats++;
+
+            // Transfer gold
+            long goldTaken = defender.Gold;
+            attacker.Gold += goldTaken;
+            defender.Gold = 0;
+            result.GoldGained = goldTaken;
+
+            // Experience
+            long expGain = (random.Next(50) + 250) * defender.Level;
+            attacker.Experience += expGain;
+            result.ExperienceGained = expGain;
+
+            terminal.WriteLine("\n=== VICTORY! ===", "bright_green");
+            terminal.WriteLine($"You defeated {defender.Name2}!");
+            terminal.WriteLine($"Gold taken: {GameConfig.GoldColor}{goldTaken:N0}{GameConfig.TextColor}");
+            terminal.WriteLine($"Experience: {GameConfig.ExperienceColor}{expGain:N0}{GameConfig.TextColor}");
+
+            // News
+            NewsSystem.Instance.Newsy($"Player Fight! {attacker.Name2} defeated {defender.Name2} in combat!", true, GameConfig.NewsCategory.General);
+        }
+        else if (attacker.HP <= 0)
+        {
+            result.Outcome = AdvancedCombatOutcome.PlayerDied;
+            result.IsComplete = true;
+
+            // Update stats
+            attacker.PDefeats++;
+            defender.PKills++;
+
+            terminal.WriteLine($"\n{GameConfig.DeathColor}=== DEFEAT ==={GameConfig.TextColor}");
+            terminal.WriteLine($"You were slain by {defender.Name2}!");
+
+            await HandlePlayerDeath(attacker, $"killed by {defender.Name2}", terminal);
+        }
+
+        await Task.CompletedTask;
+    }
     
     #endregion
     

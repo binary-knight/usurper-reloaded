@@ -543,6 +543,9 @@ public class ArmorShopLocation : BaseLocation
             currentPlayer.Gold += adjustedPrice;
         }
 
+        // Auto-save after purchase
+        await SaveSystem.Instance.AutoSave(currentPlayer);
+
         await Pause();
     }
 
@@ -692,6 +695,9 @@ public class ArmorShopLocation : BaseLocation
         if (purchased > 0)
         {
             currentPlayer.RecalculateStats();
+
+            // Auto-save after purchase
+            await SaveSystem.Instance.AutoSave(currentPlayer);
         }
 
         await Pause();

@@ -161,7 +161,7 @@ namespace UsurperRemake.Systems
 
             // Get relationship status
             int relationLevel = RelationshipSystem.GetRelationshipStatus(player, npc);
-            var romanceType = RomanceTracker.Instance.GetRelationType(npc.Name2);
+            var romanceType = RomanceTracker.Instance.GetRelationType(npc.ID);
 
             // Display conversation header
             await ShowConversationHeader(npc, relationLevel, romanceType);
@@ -177,7 +177,7 @@ namespace UsurperRemake.Systems
 
                 // Update relation level for next iteration
                 relationLevel = RelationshipSystem.GetRelationshipStatus(player, npc);
-                romanceType = RomanceTracker.Instance.GetRelationType(npc.Name2);
+                romanceType = RomanceTracker.Instance.GetRelationType(npc.ID);
             }
         }
 
@@ -530,7 +530,9 @@ namespace UsurperRemake.Systems
             });
 
             // Flirtation - with cooldown and escalation
-            if (relationLevel <= 80 && isAttracted && flirtCountThisSession < 3)
+            // Allow more attempts if player hasn't reached 2 successful flirts yet (needed for confession)
+            int maxFlirtsThisSession = state.FlirtSuccessCount < 2 ? 5 : 3;
+            if (relationLevel <= 80 && isAttracted && flirtCountThisSession < maxFlirtsThisSession)
             {
                 string flirtText = GetFlirtLine(npc, state, relationLevel, flirtCountThisSession);
                 if (flirtText != null)
@@ -543,7 +545,7 @@ namespace UsurperRemake.Systems
                     });
                 }
             }
-            else if (flirtCountThisSession >= 3 && relationLevel > 30)
+            else if (flirtCountThisSession >= maxFlirtsThisSession && relationLevel > 30)
             {
                 // Too much flirting - they notice
                 options.Add(new ConversationOption
@@ -820,16 +822,25 @@ namespace UsurperRemake.Systems
             // Third flirt - make it count
             else if (sessionFlirts == 2)
             {
-                if (state.FlirtSuccessCount >= 2)
+                // Direct flirts if they've been receptive
+                var directFlirts = new[]
                 {
-                    var directFlirts = new[]
-                    {
-                        "*moves closer* I really enjoy being around you...",
-                        "I have to admit, you've been on my mind a lot.",
-                        "Is it just me, or is there something between us?"
-                    };
-                    return directFlirts[random.Next(directFlirts.Length)];
-                }
+                    "*moves closer* I really enjoy being around you...",
+                    "I have to admit, you've been on my mind a lot.",
+                    "Is it just me, or is there something between us?"
+                };
+                return directFlirts[random.Next(directFlirts.Length)];
+            }
+            // Allow more flirt attempts if still building relationship
+            else if (sessionFlirts >= 3 && state.FlirtSuccessCount < 2)
+            {
+                var persistentFlirts = new[]
+                {
+                    "I just... I like being around you.",
+                    "You make me smile, you know?",
+                    "Sorry, I can't help myself around you."
+                };
+                return persistentFlirts[random.Next(persistentFlirts.Length)];
             }
             return null;
         }
@@ -896,7 +907,7 @@ namespace UsurperRemake.Systems
         private async Task HandleConversationChoice(NPC npc, ConversationOption option, int relationLevel)
         {
             terminal!.ClearScreen();
-            await ShowConversationHeader(npc, relationLevel, RomanceTracker.Instance.GetRelationType(npc.Name2));
+            await ShowConversationHeader(npc, relationLevel, RomanceTracker.Instance.GetRelationType(npc.ID));
 
             // Don't process disabled options
             if (option.Disabled)
@@ -1437,7 +1448,7 @@ namespace UsurperRemake.Systems
 
             await Task.Delay(500);
 
-            var romanceType = RomanceTracker.Instance.GetRelationType(npc.Name2);
+            var romanceType = RomanceTracker.Instance.GetRelationType(npc.ID);
 
             if (romanceType == RomanceRelationType.Spouse || romanceType == RomanceRelationType.Lover)
             {
@@ -1489,7 +1500,7 @@ namespace UsurperRemake.Systems
 
             await Task.Delay(500);
 
-            var romanceType = RomanceTracker.Instance.GetRelationType(npc.Name2);
+            var romanceType = RomanceTracker.Instance.GetRelationType(npc.ID);
 
             if (romanceType == RomanceRelationType.Spouse ||
                 romanceType == RomanceRelationType.Lover ||

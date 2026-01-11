@@ -65,7 +65,7 @@ namespace UsurperRemake.Systems
             var profile = primaryPartner.Brain?.Personality;
 
             // Determine if this is their first time together
-            isFirstTime = !RomanceTracker.Instance.EncounterHistory.Any(e => e.PartnerIds.Contains(primaryPartner.Name2));
+            isFirstTime = !RomanceTracker.Instance.EncounterHistory.Any(e => e.PartnerIds.Contains(primaryPartner.ID));
 
             terminal!.ClearScreen();
 
@@ -92,7 +92,7 @@ namespace UsurperRemake.Systems
             {
                 Date = DateTime.Now,
                 Location = "Private quarters",
-                PartnerIds = partners.Select(p => p.Name2).ToList(),
+                PartnerIds = partners.Select(p => p.ID).ToList(),
                 Type = partners.Count > 1 ? EncounterType.Group : EncounterType.Solo,
                 Mood = mood,
                 IsFirstTime = isFirstTime
@@ -100,9 +100,12 @@ namespace UsurperRemake.Systems
             RomanceTracker.Instance.RecordEncounter(encounter);
 
             // Relationship boost from intimacy - significant boost with override to break friendship cap
+            // Steps are affected by difficulty: Easy = more gain, Hard/Nightmare = less gain
+            int baseSteps = 10;
+            int adjustedSteps = DifficultySystem.ApplyRelationshipMultiplier(baseSteps);
             foreach (var partner in partners)
             {
-                RelationshipSystem.UpdateRelationship(player!, partner, 1, 10, false, true);
+                RelationshipSystem.UpdateRelationship(player!, partner, 1, adjustedSteps, false, true);
             }
 
             // Check for pregnancy (only for opposite-sex spouse encounters)
@@ -621,7 +624,7 @@ namespace UsurperRemake.Systems
             await Task.Delay(1000);
 
             float romanticism = profile?.Romanticism ?? 0.5f;
-            var romanceType = RomanceTracker.Instance.GetRelationType(partner.Name2);
+            var romanceType = RomanceTracker.Instance.GetRelationType(partner.ID);
 
             if (romanticism > 0.7f || romanceType == RomanceRelationType.Spouse)
             {

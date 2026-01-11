@@ -113,33 +113,54 @@ public partial class NPC : Character
     }
     
     /// <summary>
-    /// Parameter-less constructor for legacy compatibility (creates a level-1 generic citizen).
+    /// Parameter-less constructor for deserialization/restoration (defers system initialization).
+    /// Call EnsureSystemsInitialized() after setting Name1/Name2 to properly initialize AI.
     /// </summary>
-    public NPC() : this("Unknown", "citizen", CharacterClass.Warrior, 1) {}
+    public NPC()
+    {
+        // Minimal setup for deserialization - don't initialize systems with "Unknown" name
+        AI = CharacterAI.Computer;
+        Class = CharacterClass.Warrior;
+        Level = 1;
+        Archetype = "citizen";
+        // Note: Brain, Personality, Memory, etc. will be null until EnsureSystemsInitialized() is called
+    }
+
+    /// <summary>
+    /// Ensures NPC AI systems are initialized. Call this after setting Name1/Name2 on a deserialized NPC.
+    /// Safe to call multiple times - will only initialize if Brain is null.
+    /// </summary>
+    public void EnsureSystemsInitialized()
+    {
+        if (Brain == null)
+        {
+            InitializeNPCSystems();
+        }
+    }
     
     /// <summary>
     /// Initialize NPC AI systems
     /// </summary>
     private void InitializeNPCSystems()
     {
-        // Create personality based on archetype
-        Personality = PersonalityProfile.GenerateForArchetype(Archetype);
-        
+        // Create personality based on archetype (only if not already set, e.g., from save restoration)
+        Personality ??= PersonalityProfile.GenerateForArchetype(Archetype);
+
         // Initialize memory system
-        Memory = new MemorySystem();
-        
+        Memory ??= new MemorySystem();
+
         // Initialize relationship manager
-        Relationships = new RelationshipManager();
-        
+        Relationships ??= new RelationshipManager();
+
         // Initialize emotional state
-        EmotionalState = new EmotionalState();
-        
+        EmotionalState ??= new EmotionalState();
+
         // Initialize goal system (stubbed dependency injection for now)
-        Goals = new GoalSystem(Personality);
-        
+        Goals ??= new GoalSystem(Personality);
+
         // Create brain with minimal required parameters
-        Brain = new NPCBrain(this, Personality);
-        
+        Brain ??= new NPCBrain(this, Personality);
+
         // Check if this is a special Pascal NPC
         CheckForSpecialNPC();
     }

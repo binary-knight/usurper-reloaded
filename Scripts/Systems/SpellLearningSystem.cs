@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using UsurperRemake.Utils;
+using UsurperRemake.Systems;
 
 /// <summary>
 /// Simple spell-learning interface that lets players study spells outside combat.
@@ -29,8 +30,8 @@ public static class SpellLearningSystem
             terminal.WriteLine("═══ SPELL LIBRARY ═══", "bright_magenta");
             terminal.WriteLine($"Class: {player.Class} | Level: {player.Level} | Mana: {player.Mana}/{player.MaxMana}", "cyan");
             terminal.WriteLine("");
-            terminal.WriteLine("Lvl  Req  Name                     Known  ManaCost  Description", "cyan");
-            terminal.WriteLine("───────────────────────────────────────────────────────────────────────────────", "cyan");
+            terminal.WriteLine("Lvl  Req  Name                   Known  Mana  Description", "cyan");
+            terminal.WriteLine("─────────────────────────────────────────────────────────────────────────────────────────", "cyan");
 
             // Get ALL spells for this class, not just learned ones
             var allSpells = SpellSystem.GetAllSpellsForClass(player.Class).OrderBy(s => s.Level).ToList();
@@ -50,10 +51,7 @@ public static class SpellLearningSystem
                 string knownStr = known ? "YES" : (canLearn ? "---" : "   ");
                 string levelMark = canLearn ? "+" : " ";
 
-                // Truncate description to fit
-                string shortDesc = spell.Description.Length > 35 ? spell.Description.Substring(0, 32) + "..." : spell.Description;
-
-                terminal.WriteLine($"{levelMark}{spell.Level,2}   {levelReq,2}   {spell.Name,-20}   {knownStr}    {cost,3}     {shortDesc}", color);
+                terminal.WriteLine($"{levelMark}{spell.Level,2}   {levelReq,2}   {spell.Name,-18}   {knownStr}   {cost,3}   {spell.Description}", color);
             }
 
             terminal.WriteLine("");
@@ -95,6 +93,10 @@ public static class SpellLearningSystem
             bool already = player.Spell[lvl - 1][0];
             player.Spell[lvl - 1][0] = !already;
             terminal.WriteLine(already ? $"You forget {chosen.Name}." : $"You have learned {chosen.Name}!", "bright_green");
+
+            // Auto-save after learning/forgetting a spell
+            await SaveSystem.Instance.AutoSave(player);
+
             await Task.Delay(1000);
         }
     }

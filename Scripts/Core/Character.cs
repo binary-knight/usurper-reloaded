@@ -243,6 +243,19 @@ public class Character
     public Dictionary<string, TrainingSystem.ProficiencyLevel> SkillProficiencies { get; set; } = new();
     public Dictionary<string, int> SkillTrainingProgress { get; set; } = new();
 
+    // Home Upgrade System - Gold sinks
+    public int HomeLevel { get; set; } = 0;
+    public int ChestLevel { get; set; } = 0;
+    public int TrainingRoomLevel { get; set; } = 0;
+    public int GardenLevel { get; set; } = 0;
+    public bool HasTrophyRoom { get; set; } = false;
+    public bool HasTeleportCircle { get; set; } = false;
+    public bool HasLegendaryArmory { get; set; } = false;
+    public bool HasVitalityFountain { get; set; } = false;
+    public int PermanentDamageBonus { get; set; } = 0;
+    public int PermanentDefenseBonus { get; set; } = 0;
+    public long BonusMaxHP { get; set; } = 0;
+
     // Weapon configuration detection
     public bool IsDualWielding =>
         EquippedItems.TryGetValue(EquipmentSlot.MainHand, out var mainId) && mainId > 0 &&

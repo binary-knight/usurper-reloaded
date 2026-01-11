@@ -675,6 +675,9 @@ public class WeaponShopLocation : BaseLocation
             currentPlayer.Gold += adjustedPrice;
         }
 
+        // Auto-save after purchase
+        await SaveSystem.Instance.AutoSave(currentPlayer);
+
         await Pause();
     }
 
@@ -766,6 +769,10 @@ public class WeaponShopLocation : BaseLocation
         terminal.WriteLine("You are now dual-wielding! (+1 attack, -10% defense)");
 
         currentPlayer.RecalculateStats();
+
+        // Auto-save after purchase
+        await SaveSystem.Instance.AutoSave(currentPlayer);
+
         await Pause();
     }
 
@@ -917,6 +924,9 @@ public class WeaponShopLocation : BaseLocation
             terminal.WriteLine($"Failed: {message}");
             currentPlayer.Gold += allWeapons.Value;
         }
+
+        // Auto-save after purchase
+        await SaveSystem.Instance.AutoSave(currentPlayer);
 
         await Pause();
     }

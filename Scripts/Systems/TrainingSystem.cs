@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using UsurperRemake.Utils;
+using UsurperRemake.Systems;
 
 /// <summary>
 /// Training System - D&D-style proficiency and roll mechanics
@@ -597,6 +598,9 @@ public static class TrainingSystem
             var needed = GetPointsForNextLevel(proficiency);
             terminal.WriteLine($"Training {skillName}... Progress: {progress}/{needed}", "green");
         }
+
+        // Auto-save after training
+        await SaveSystem.Instance.AutoSave(player);
 
         await Task.Delay(1500);
     }

@@ -16,7 +16,15 @@ public partial class MagicShopLocation : BaseLocation
 {
     private const string ShopTitle = "Magic Shop";
     private static string _ownerName = GameConfig.DefaultMagicShopOwner;
-    private static int _identificationCost = GameConfig.DefaultIdentificationCost;
+
+    /// <summary>
+    /// Calculate level-scaled identification cost. Minimum 100 gold, scales with level.
+    /// At level 1: 100 gold. At level 50: 2,600 gold. At level 100: 5,100 gold.
+    /// </summary>
+    private static long GetIdentificationCost(int playerLevel)
+    {
+        return Math.Max(100, 100 + (playerLevel * 50));
+    }
     
     // Available magic items for sale
     private static List<Item> _magicInventory = new List<Item>();
@@ -768,26 +776,27 @@ public partial class MagicShopLocation : BaseLocation
         }
         
         DisplayMessage("");
-        DisplayMessage($"Identification costs {_identificationCost:N0} gold per item.", "gray");
+        long identifyCost = GetIdentificationCost(player.Level);
+        DisplayMessage($"Identification costs {identifyCost:N0} gold per item.", "gray");
         DisplayMessage("Enter item # to identify (0 to cancel): ", "yellow", false);
         string input = Console.ReadLine();
-        
+
         if (int.TryParse(input, out int itemIndex) && itemIndex > 0 && itemIndex <= unidentifiedItems.Count)
         {
-            if (player.Gold < _identificationCost)
+            if (player.Gold < identifyCost)
             {
                 DisplayMessage("You don't have enough gold for identification!", "red");
                 return;
             }
-            
+
             var item = unidentifiedItems[itemIndex - 1];
-            DisplayMessage($"Identify {item.Name} for {_identificationCost:N0} gold? (Y/N): ", "yellow", false);
+            DisplayMessage($"Identify {item.Name} for {identifyCost:N0} gold? (Y/N): ", "yellow", false);
             var confirm = Console.ReadKey().KeyChar.ToString().ToUpper();
             DisplayMessage("");
-            
+
             if (confirm == "Y")
             {
-                player.Gold -= _identificationCost;
+                player.Gold -= identifyCost;
                 item.IsIdentified = true;
                 
                 DisplayMessage($"{_ownerName} examines the {item.Name} carefully...", "gray");
@@ -1415,16 +1424,8 @@ public partial class MagicShopLocation : BaseLocation
         }
     }
     
-    /// <summary>
-    /// Set identification cost (from configuration)
-    /// </summary>
-    public static void SetIdentificationCost(int cost)
-    {
-        if (cost > 0)
-        {
-            _identificationCost = cost;
-        }
-    }
+    // Note: SetIdentificationCost is no longer used - identification cost now scales dynamically with player level
+    // See GetIdentificationCost() method
     
     /// <summary>
     /// Get available magic items for external systems
