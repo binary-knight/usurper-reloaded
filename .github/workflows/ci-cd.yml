@@ -9,7 +9,6 @@ on:
     types: [ published ]
 
 env:
-  GODOT_VERSION: 4.3.0
   EXPORT_NAME: usurper-reloaded
   DOTNET_SYSTEM_GLOBALIZATION_INVARIANT: 1
 
@@ -27,7 +26,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '6.0.x'
+          dotnet-version: '8.0.x'
 
       - name: Cache .NET packages
         uses: actions/cache@v4
@@ -68,14 +67,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '6.0.x'
-
-      - name: Install Godot
-        uses: chickensoft-games/setup-godot@v2
-        with:
-          version: ${{ env.GODOT_VERSION }}
-          use-dotnet: true
-          include-templates: true
+          dotnet-version: '8.0.x'
 
       - name: Build C# project
         run: dotnet build usurper-reloaded.csproj --configuration Release
@@ -104,7 +96,7 @@ jobs:
           
           SOURCE CODE LOCATION:
           - Full source: usurper-reloaded-source.zip (included)
-          - Online repository: https://github.com/YOUR_USERNAME/usurper-reloaded
+          - Online repository: https://github.com/binary-knight/usurper-reloaded
           
           LICENSE:
           See LICENSE file for complete GPL v2 terms and conditions.
@@ -120,11 +112,6 @@ jobs:
           mkdir -p build/linux
           mkdir -p build/mac
 
-      - name: Import project resources
-        run: |
-          echo "Importing project resources..."
-          godot --headless --import --quit
-          
       # --- Publish platform executables directly from main project ---
       - name: Publish Windows executable
         run: |
@@ -246,7 +233,7 @@ jobs:
           echo "This is truly FREE software - you own it completely!" >> build/windows/README.txt
           echo "" >> build/windows/README.txt
           echo "## Repository" >> build/windows/README.txt
-          echo "https://github.com/YOUR_USERNAME/usurper-reloaded" >> build/windows/README.txt
+          echo "https://github.com/binary-knight/usurper-reloaded" >> build/windows/README.txt
           
           # Copy README to other platforms
           cp build/windows/README.txt build/linux/README.txt
@@ -422,7 +409,7 @@ jobs:
           
           **SOURCE CODE INCLUDED:**
           - Complete source code archive included with every download
-          - Online repository: https://github.com/YOUR_USERNAME/usurper-reloaded
+          - Online repository: https://github.com/binary-knight/usurper-reloaded
           - All build scripts, assets, and documentation included
           
           **This is truly FREE software - you own it completely!**
