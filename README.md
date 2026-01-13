@@ -1,8 +1,23 @@
 # Usurper Reborn
 
+## ALPHA v0.1 - Now Seeking Testers!
+
 **FREE AND OPEN SOURCE SOFTWARE - GPL v2 Licensed**
 
 A faithful recreation of the classic 1993 BBS door game "Usurper" by Jakob Dangarden, transformed with revolutionary AI systems, deep narrative systems, and philosophical storytelling while maintaining 100% Pascal source compatibility.
+
+### Quick Start for Alpha Testers
+
+**Download the latest build for your platform:**
+- Go to [Actions](https://github.com/binary-knight/usurper-reloaded/actions) → Latest successful run → Download artifact
+- Or check [Releases](https://github.com/binary-knight/usurper-reloaded/releases) for packaged builds
+
+**Run the game:**
+- **Windows**: Run `UsurperReborn.bat` or `UsurperRemake.exe`
+- **Linux**: Run `./usurper-reborn.sh` or `./UsurperRemake`
+- **macOS**: Run `usurper-reborn-mac.command` or the app bundle
+
+**Report bugs**: https://discord.gg/BqY66QkPGE (or GitHub Issues)
 
 ## About
 
@@ -233,10 +248,22 @@ Choose your challenge level:
 ### Family System (NEW)
 Marriage and children with real consequences:
 - **Marriage** - Court NPCs through the relationship system, marry at the Church
+- **Polyamory Support** - Multiple marriages allowed for those who prefer it
 - **Children** - Have children who inherit traits from both parents
+- **Child Bonuses** - Children under 18 provide stat boosts to parents:
+  - +2% XP per child (up to +10% for 5+ children)
+  - +50 Max HP, +5 Strength, +3 Charisma per child
+  - +100 Gold/day per child
+  - Alignment bonuses based on children's behavior
 - **Aging System** - Children grow up over time (1 week real time = 1 year in-game)
 - **Coming of Age** - At 18, children become adult NPCs who join the world
 - **Custody & Divorce** - Family drama with real mechanical effects
+
+### Game Preferences (NEW)
+Quick settings accessible from anywhere via `[~]Prefs`:
+- **Combat Speed** - Normal, Fast, or Instant text display
+- **Auto-heal** - Toggle automatic healing potion use in combat
+- **Skip Intimate Scenes** - "Fade to black" option for romantic content
 
 ## Estimated Playtime
 
@@ -303,4 +330,28 @@ Join our Discord server for discussions, feedback, and updates:
 
 *In the realm of Usurper, death is not the end—it's just another beginning. The cycle continues until you remember. Will you find the Seven Seals? Will you discover what you truly are? Will you finally... wake up?*
 
-**Status**: Active Development - Play-testable Alpha
+## Alpha Testing Notes
+
+### What to Test
+- Character creation and early game flow
+- Combat balance across difficulty modes
+- Dungeon exploration (floors 1-100)
+- NPC interactions and relationships
+- Quest system and achievements
+- Romance/marriage/family systems
+- Story progression and endings
+
+### Known Issues (Alpha)
+- Some edge cases in combat may cause unexpected behavior
+- NPC AI occasionally makes suboptimal decisions
+- Save files from pre-alpha may not be compatible
+
+### How to Report Bugs
+1. Join Discord: https://discord.gg/BqY66QkPGE
+2. Describe what you were doing
+3. Include any error messages
+4. Note your platform (Windows/Linux/Mac)
+
+---
+
+**Status**: ALPHA v0.1 - Actively seeking testers!
