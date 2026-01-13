@@ -1573,6 +1573,13 @@ public partial class CombatEngine
             expReward += divineXPAmount;
         }
 
+        // Child XP bonus - having children motivates the parent to fight harder
+        float childXPMult = FamilySystem.Instance?.GetChildXPMultiplier(result.Player) ?? 1.0f;
+        if (childXPMult > 1.0f)
+        {
+            expReward = (long)(expReward * childXPMult);
+        }
+
         result.Player.Experience += expReward;
         result.Player.Gold += goldReward;
         result.Player.MKills++;
@@ -3714,6 +3721,13 @@ public partial class CombatEngine
         adjustedExp = (long)(adjustedExp * xpMult);
         adjustedGold = (long)(adjustedGold * goldMult);
 
+        // Apply child XP bonus
+        float childXPMult = FamilySystem.Instance?.GetChildXPMultiplier(result.Player) ?? 1.0f;
+        if (childXPMult > 1.0f)
+        {
+            adjustedExp = (long)(adjustedExp * childXPMult);
+        }
+
         // Apply rewards
         result.Player.Experience += adjustedExp;
         result.Player.Gold += adjustedGold;
@@ -3802,6 +3816,13 @@ public partial class CombatEngine
         float goldMult = DifficultySystem.GetGoldMultiplier(DifficultySystem.CurrentDifficulty);
         adjustedExp = (long)(adjustedExp * xpMult);
         adjustedGold = (long)(adjustedGold * goldMult);
+
+        // Apply child XP bonus
+        float childXPMult = FamilySystem.Instance?.GetChildXPMultiplier(result.Player) ?? 1.0f;
+        if (childXPMult > 1.0f)
+        {
+            adjustedExp = (long)(adjustedExp * childXPMult);
+        }
 
         result.Player.Experience += adjustedExp;
         result.Player.Gold += adjustedGold;

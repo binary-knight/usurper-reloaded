@@ -563,6 +563,7 @@ namespace UsurperRemake.Systems
     /// </summary>
     public class PersonalityData
     {
+        // Core traits
         public float Aggression { get; set; }
         public float Loyalty { get; set; }
         public float Intelligence { get; set; }
@@ -571,6 +572,27 @@ namespace UsurperRemake.Systems
         public float Courage { get; set; }
         public float Honesty { get; set; }
         public float Ambition { get; set; }
+        public float Vengefulness { get; set; }
+        public float Impulsiveness { get; set; }
+        public float Caution { get; set; }
+        public float Mysticism { get; set; }
+        public float Patience { get; set; }
+
+        // Romance/Intimacy traits
+        public GenderIdentity Gender { get; set; } = GenderIdentity.Male;
+        public SexualOrientation Orientation { get; set; } = SexualOrientation.Bisexual;
+        public RomanceStyle IntimateStyle { get; set; } = RomanceStyle.Switch;
+        public RelationshipPreference RelationshipPref { get; set; } = RelationshipPreference.Undecided;
+        public float Romanticism { get; set; }
+        public float Sensuality { get; set; }
+        public float Jealousy { get; set; }
+        public float Commitment { get; set; }
+        public float Adventurousness { get; set; }
+        public float Exhibitionism { get; set; }
+        public float Voyeurism { get; set; }
+        public float Flirtatiousness { get; set; }
+        public float Passion { get; set; }
+        public float Tenderness { get; set; }
     }
 
     /// <summary>

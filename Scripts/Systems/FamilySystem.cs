@@ -77,6 +77,100 @@ namespace UsurperRemake.Systems
             ).ToList();
         }
 
+        #region Child Bonuses
+
+        /// <summary>
+        /// Get the stat bonuses a player receives from their children
+        /// Children under 18 provide bonuses that scale with the number of children
+        /// Bonuses are removed when children come of age
+        /// </summary>
+        public ChildBonuses CalculateChildBonuses(Character parent)
+        {
+            var children = GetChildrenOf(parent);
+            var minorChildren = children.Where(c => c.Age < ADULT_AGE).ToList();
+
+            if (minorChildren.Count == 0)
+                return new ChildBonuses();
+
+            // Base bonus per child (diminishing returns after 5 children)
+            int childCount = minorChildren.Count;
+            float effectiveChildren = childCount <= 5 ? childCount : 5 + (childCount - 5) * 0.5f;
+
+            var bonuses = new ChildBonuses
+            {
+                ChildCount = childCount,
+                // +2% XP bonus per effective child (max ~15% at 10 children)
+                XPMultiplier = 1.0f + (effectiveChildren * 0.02f),
+                // +50 max HP per effective child (motivation to protect family)
+                BonusMaxHP = (int)(effectiveChildren * 50),
+                // +5 strength per effective child (parental determination)
+                BonusStrength = (int)(effectiveChildren * 5),
+                // +3 charisma per effective child (family status)
+                BonusCharisma = (int)(effectiveChildren * 3),
+                // +100 gold income per child (family enterprise, child labor in medieval times)
+                DailyGoldBonus = childCount * 100
+            };
+
+            // Royal children provide additional prestige bonuses
+            int royalChildren = minorChildren.Count(c => c.Royal > 0);
+            if (royalChildren > 0)
+            {
+                bonuses.BonusCharisma += royalChildren * 5; // Extra charisma for royal heirs
+                bonuses.DailyGoldBonus += royalChildren * 500; // Royal stipend
+            }
+
+            // Good/evil children affect alignment bonuses
+            int goodChildren = minorChildren.Count(c => c.Soul > 100);
+            int evilChildren = minorChildren.Count(c => c.Soul < -100);
+            bonuses.ChivalryBonus = goodChildren * 10;
+            bonuses.DarknessBonus = evilChildren * 10;
+
+            return bonuses;
+        }
+
+        /// <summary>
+        /// Apply child bonuses to a player's stats
+        /// Should be called during stat recalculation
+        /// </summary>
+        public void ApplyChildBonuses(Character player)
+        {
+            if (player == null) return;
+
+            var bonuses = CalculateChildBonuses(player);
+            if (bonuses.ChildCount == 0) return;
+
+            // Apply stat bonuses (these are temporary, recalculated each time)
+            player.MaxHP += bonuses.BonusMaxHP;
+            player.Strength += bonuses.BonusStrength;
+            player.Charisma += bonuses.BonusCharisma;
+            player.Chivalry += bonuses.ChivalryBonus;
+            player.Darkness += bonuses.DarknessBonus;
+
+            // Note: XP multiplier and daily gold bonus are applied elsewhere
+            // XP: in CombatEngine when awarding XP
+            // Gold: in DailyManager during daily income calculation
+        }
+
+        /// <summary>
+        /// Get the XP multiplier from children (for use in combat XP calculation)
+        /// </summary>
+        public float GetChildXPMultiplier(Character player)
+        {
+            if (player == null) return 1.0f;
+            return CalculateChildBonuses(player).XPMultiplier;
+        }
+
+        /// <summary>
+        /// Get daily gold bonus from children (for use in daily income)
+        /// </summary>
+        public int GetChildDailyGoldBonus(Character player)
+        {
+            if (player == null) return 0;
+            return CalculateChildBonuses(player).DailyGoldBonus;
+        }
+
+        #endregion
+
         /// <summary>
         /// Process daily aging for all children
         /// Called from MaintenanceSystem or WorldSimulator
@@ -158,8 +252,9 @@ namespace UsurperRemake.Systems
                 npc.Gold += 1000 * child.Royal;
             }
 
-            // Create personality based on child's soul
-            var personality = new PersonalityProfile();
+            // Create personality based on child's soul - use GenerateForArchetype to get romance traits
+            var personality = PersonalityProfile.GenerateForArchetype("commoner");
+            personality.Gender = child.Sex == CharacterSex.Female ? GenderIdentity.Female : GenderIdentity.Male;
             if (child.Soul > 100)
             {
                 personality.Aggression = 0.2f;
@@ -173,6 +268,7 @@ namespace UsurperRemake.Systems
                 personality.Greed = 0.7f;
             }
 
+            npc.Personality = personality;
             npc.Brain = new NPCBrain(npc, personality);
 
             // Register with NPC system

@@ -319,6 +319,7 @@ namespace UsurperRemake.Systems
 
             // Create NPCBrain with the personality profile
             npc.Brain = new NPCBrain(npc, profile);
+            npc.Personality = profile;  // Also set direct reference for easy access
 
             // Adjust based on alignment
             switch (alignment.ToLower())

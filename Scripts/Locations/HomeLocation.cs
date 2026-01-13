@@ -990,12 +990,8 @@ public class HomeLocation : BaseLocation
             terminal.WriteLine("  [2] Discuss returning to monogamy");
         }
 
-        terminal.SetColor("bright_magenta");
-        terminal.WriteLine("  [3] Discuss intimate fantasies...");
-        terminal.WriteLine("  [4] Discuss alternative arrangements...");
-
         terminal.SetColor("red");
-        terminal.WriteLine("  [5] Discuss separation/divorce...");
+        terminal.WriteLine("  [3] Discuss separation/divorce...");
         terminal.SetColor("gray");
         terminal.WriteLine("  [0] Never mind");
         terminal.WriteLine();
@@ -1017,12 +1013,6 @@ public class HomeLocation : BaseLocation
                 await DiscussPolyamory(spouse, spouseData);
                 break;
             case 3:
-                await DiscussIntimateFantasies(spouse, spouseData);
-                break;
-            case 4:
-                await DiscussAlternativeArrangements(spouse, spouseData);
-                break;
-            case 5:
                 await DiscussDivorce(spouse, spouseData);
                 break;
             default:

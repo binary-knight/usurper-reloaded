@@ -407,6 +407,9 @@ public class Character
         // Agility bonus to Defense (evasion component)
         Defence += StatEffectsSystem.GetAgilityDefenseBonus(Agility);
 
+        // Apply child bonuses (family provides stat boosts)
+        UsurperRemake.Systems.FamilySystem.Instance?.ApplyChildBonuses(this);
+
         // Keep current HP/Mana within bounds
         HP = Math.Min(HP, MaxHP);
         Mana = Math.Min(Mana, MaxMana);

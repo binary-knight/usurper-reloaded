@@ -349,4 +349,39 @@ public class Child
         
         return description;
     }
-} 
+}
+
+/// <summary>
+/// Bonuses provided by having children
+/// Children under 18 provide stat bonuses to their parents
+/// </summary>
+public class ChildBonuses
+{
+    public int ChildCount { get; set; }
+    public float XPMultiplier { get; set; } = 1.0f;
+    public int BonusMaxHP { get; set; }
+    public int BonusStrength { get; set; }
+    public int BonusCharisma { get; set; }
+    public int DailyGoldBonus { get; set; }
+    public int ChivalryBonus { get; set; }
+    public int DarknessBonus { get; set; }
+
+    /// <summary>
+    /// Get a summary of all bonuses for display
+    /// </summary>
+    public string GetBonusSummary()
+    {
+        if (ChildCount == 0)
+            return "No children - no family bonuses.";
+
+        var summary = $"Family Bonuses ({ChildCount} child{(ChildCount != 1 ? "ren" : "")}):\n";
+        if (BonusMaxHP > 0) summary += $"  +{BonusMaxHP} Max HP\n";
+        if (BonusStrength > 0) summary += $"  +{BonusStrength} Strength\n";
+        if (BonusCharisma > 0) summary += $"  +{BonusCharisma} Charisma\n";
+        if (XPMultiplier > 1.0f) summary += $"  +{(XPMultiplier - 1) * 100:F0}% XP Bonus\n";
+        if (DailyGoldBonus > 0) summary += $"  +{DailyGoldBonus} Gold/day\n";
+        if (ChivalryBonus > 0) summary += $"  +{ChivalryBonus} Chivalry (good children)\n";
+        if (DarknessBonus > 0) summary += $"  +{DarknessBonus} Darkness (evil children)\n";
+        return summary;
+    }
+}

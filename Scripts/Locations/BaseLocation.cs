@@ -941,6 +941,10 @@ public abstract class BaseLocation
         terminal.WriteLine("");
         terminal.SetColor("gray");
         terminal.WriteLine("  [0] Walk away");
+
+        // Debug option
+        terminal.SetColor("dark_gray");
+        terminal.WriteLine("  [9] (DEBUG) View personality traits");
         terminal.WriteLine("");
 
         string action = await terminal.GetInput("Your choice: ");
@@ -965,6 +969,9 @@ public abstract class BaseLocation
             case "5":
                 // Full visual novel style conversation
                 await UsurperRemake.Systems.VisualNovelDialogueSystem.Instance.StartConversation(currentPlayer, npc, terminal);
+                break;
+            case "9":
+                await ShowNPCDebugTraits(npc);
                 break;
             default:
                 terminal.SetColor("gray");
@@ -1130,6 +1137,107 @@ public abstract class BaseLocation
         await terminal.PressAnyKey();
     }
 
+    /// <summary>
+    /// DEBUG: Show NPC personality and relationship traits
+    /// </summary>
+    private async Task ShowNPCDebugTraits(NPC npc)
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine($"║  DEBUG: {npc.Name2,-64}  ║");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+
+        var profile = npc.Personality;
+        if (profile == null)
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine("  No personality profile found!");
+            await terminal.PressAnyKey();
+            return;
+        }
+
+        // Basic identity
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("  === IDENTITY ===");
+        terminal.SetColor("white");
+        terminal.WriteLine($"  Gender Identity:    {profile.Gender}");
+        terminal.WriteLine($"  Sexual Orientation: {profile.Orientation}");
+        terminal.WriteLine("");
+
+        // Relationship preferences
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("  === RELATIONSHIP STYLE ===");
+        terminal.SetColor("white");
+        terminal.WriteLine($"  Relationship Pref:  {profile.RelationshipPref}");
+        terminal.WriteLine($"  Intimate Style:     {profile.IntimateStyle}");
+        terminal.WriteLine("");
+
+        // Romance traits
+        terminal.SetColor("bright_green");
+        terminal.WriteLine("  === ROMANCE TRAITS (0.0-1.0) ===");
+        terminal.SetColor("white");
+
+        // Color code based on value - using inline method
+        PrintTraitLine("Romanticism:", profile.Romanticism, "(romantic vs practical)");
+        PrintTraitLine("Sensuality:", profile.Sensuality, "(physical desire)");
+        PrintTraitLine("Passion:", profile.Passion, "(intensity)");
+        PrintTraitLine("Flirtatiousness:", profile.Flirtatiousness, "(likely to flirt)");
+        PrintTraitLine("Commitment:", profile.Commitment, "(marriage-minded)");
+        PrintTraitLine("Tenderness:", profile.Tenderness, "(gentle vs rough)");
+        PrintTraitLine("Jealousy:", profile.Jealousy, "(possessiveness)");
+        terminal.WriteLine("");
+
+        // Polyamory assessment
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("  === POLYAMORY ASSESSMENT ===");
+
+        bool openToPolyamory = profile.RelationshipPref == RelationshipPreference.OpenRelationship ||
+                               profile.RelationshipPref == RelationshipPreference.Polyamorous;
+        bool lowJealousy = profile.Jealousy < 0.4f;
+        bool lowCommitment = profile.Commitment < 0.5f;
+
+        terminal.SetColor("white");
+        terminal.Write("  Open to polyamory: ");
+        if (openToPolyamory && lowJealousy)
+        {
+            terminal.SetColor("bright_green");
+            terminal.WriteLine("VERY LIKELY");
+        }
+        else if (openToPolyamory || (lowJealousy && lowCommitment))
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("POSSIBLE");
+        }
+        else
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine("UNLIKELY");
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("dark_gray");
+        terminal.WriteLine("  Key factors: OpenRelationship/Polyamorous preference + Low Jealousy");
+        terminal.WriteLine("");
+
+        await terminal.PressAnyKey();
+        await InteractWithNPC(npc); // Return to interaction menu
+    }
+
+    /// <summary>
+    /// Helper to print a trait line with color coding based on value
+    /// </summary>
+    private void PrintTraitLine(string name, float value, string description)
+    {
+        string color = value >= 0.7f ? "bright_green" : value >= 0.4f ? "yellow" : "gray";
+        terminal.SetColor(color);
+        terminal.Write($"  {name,-18} ");
+        terminal.SetColor("white");
+        terminal.Write($"{value:F2}");
+        terminal.SetColor("dark_gray");
+        terminal.WriteLine($"  {description}");
+    }
     /// <summary>
     /// Challenge NPC to a duel
     /// </summary>

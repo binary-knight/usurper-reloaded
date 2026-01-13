@@ -939,9 +939,10 @@ namespace UsurperRemake.Systems
         private PersonalityData? SerializePersonality(PersonalityProfile? profile)
         {
             if (profile == null) return null;
-            
+
             return new PersonalityData
             {
+                // Core traits
                 Aggression = profile.Aggression,
                 Loyalty = profile.Loyalty,
                 Intelligence = profile.Intelligence,
@@ -949,7 +950,28 @@ namespace UsurperRemake.Systems
                 Compassion = profile.Sociability, // Use Sociability as Compassion
                 Courage = profile.Courage,
                 Honesty = profile.Trustworthiness, // Use Trustworthiness as Honesty
-                Ambition = profile.Ambition
+                Ambition = profile.Ambition,
+                Vengefulness = profile.Vengefulness,
+                Impulsiveness = profile.Impulsiveness,
+                Caution = profile.Caution,
+                Mysticism = profile.Mysticism,
+                Patience = profile.Patience,
+
+                // Romance/Intimacy traits
+                Gender = profile.Gender,
+                Orientation = profile.Orientation,
+                IntimateStyle = profile.IntimateStyle,
+                RelationshipPref = profile.RelationshipPref,
+                Romanticism = profile.Romanticism,
+                Sensuality = profile.Sensuality,
+                Jealousy = profile.Jealousy,
+                Commitment = profile.Commitment,
+                Adventurousness = profile.Adventurousness,
+                Exhibitionism = profile.Exhibitionism,
+                Voyeurism = profile.Voyeurism,
+                Flirtatiousness = profile.Flirtatiousness,
+                Passion = profile.Passion,
+                Tenderness = profile.Tenderness
             };
         }
         

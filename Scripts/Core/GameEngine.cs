@@ -1506,13 +1506,37 @@ public partial class GameEngine : Node
                 // Reconstruct PersonalityProfile from saved PersonalityData
                 npc.Personality = new PersonalityProfile
                 {
+                    // Core traits
                     Aggression = data.PersonalityProfile.Aggression,
                     Loyalty = data.PersonalityProfile.Loyalty,
                     Intelligence = data.PersonalityProfile.Intelligence,
                     Greed = data.PersonalityProfile.Greed,
+                    Sociability = data.PersonalityProfile.Compassion, // Compassion maps to Sociability
                     Courage = data.PersonalityProfile.Courage,
+                    Trustworthiness = data.PersonalityProfile.Honesty, // Honesty maps to Trustworthiness
                     Ambition = data.PersonalityProfile.Ambition,
-                    Archetype = data.Archetype ?? "Balanced"
+                    Vengefulness = data.PersonalityProfile.Vengefulness,
+                    Impulsiveness = data.PersonalityProfile.Impulsiveness,
+                    Caution = data.PersonalityProfile.Caution,
+                    Mysticism = data.PersonalityProfile.Mysticism,
+                    Patience = data.PersonalityProfile.Patience,
+                    Archetype = data.Archetype ?? "Balanced",
+
+                    // Romance/Intimacy traits
+                    Gender = data.PersonalityProfile.Gender,
+                    Orientation = data.PersonalityProfile.Orientation,
+                    IntimateStyle = data.PersonalityProfile.IntimateStyle,
+                    RelationshipPref = data.PersonalityProfile.RelationshipPref,
+                    Romanticism = data.PersonalityProfile.Romanticism,
+                    Sensuality = data.PersonalityProfile.Sensuality,
+                    Jealousy = data.PersonalityProfile.Jealousy,
+                    Commitment = data.PersonalityProfile.Commitment,
+                    Adventurousness = data.PersonalityProfile.Adventurousness,
+                    Exhibitionism = data.PersonalityProfile.Exhibitionism,
+                    Voyeurism = data.PersonalityProfile.Voyeurism,
+                    Flirtatiousness = data.PersonalityProfile.Flirtatiousness,
+                    Passion = data.PersonalityProfile.Passion,
+                    Tenderness = data.PersonalityProfile.Tenderness
                 };
                 npc.Archetype = data.Archetype ?? "citizen";
             }

@@ -561,10 +561,17 @@ public class WorldInitializerSystem
 
     private NPC? CreateReplacementNPC()
     {
-        string[] firstNames = { "Marcus", "Elena", "Torval", "Lyra", "Bran", "Mira", "Theron", "Kira", "Aldric", "Sela" };
-        string[] lastNames = { "Stormwind", "Darkwater", "Ironforge", "Swiftblade", "Thornwood", "Shadowmere" };
+        // Gender-appropriate first names
+        string[] maleFirstNames = { "Marcus", "Torval", "Bran", "Theron", "Aldric", "Gareth", "Roland", "Viktor", "Cedric", "Brennan" };
+        string[] femaleFirstNames = { "Elena", "Lyra", "Mira", "Kira", "Sela", "Rowena", "Astrid", "Freya", "Isolde", "Gwyneth" };
+        string[] lastNames = { "Stormwind", "Darkwater", "Ironforge", "Swiftblade", "Thornwood", "Shadowmere", "Brightblade", "Duskwalker" };
 
-        string name = $"{firstNames[random.Next(firstNames.Length)]} {lastNames[random.Next(lastNames.Length)]}";
+        // Pick gender first, then appropriate name
+        CharacterSex sex = random.Next(2) == 0 ? CharacterSex.Male : CharacterSex.Female;
+        string firstName = sex == CharacterSex.Male
+            ? maleFirstNames[random.Next(maleFirstNames.Length)]
+            : femaleFirstNames[random.Next(femaleFirstNames.Length)];
+        string name = $"{firstName} {lastNames[random.Next(lastNames.Length)]}";
 
         // Start at level 1-3
         int level = random.Next(1, 4);
@@ -578,7 +585,7 @@ public class WorldInitializerSystem
             Race = CharacterRace.Human,
             Level = level,
             Age = random.Next(18, 35),
-            Sex = random.Next(2) == 0 ? CharacterSex.Male : CharacterSex.Female,
+            Sex = sex,
             AI = CharacterAI.Computer,
             HP = 50 + level * 20,
             MaxHP = 50 + level * 20,
@@ -588,8 +595,11 @@ public class WorldInitializerSystem
             CurrentLocation = "Main Street"
         };
 
-        // Give basic personality
-        var profile = new PersonalityProfile { Archetype = "adventurer" };
+        // Give basic personality with generated romance traits
+        var profile = PersonalityProfile.GenerateForArchetype("adventurer");
+        // Set Gender based on NPC's sex
+        profile.Gender = sex == CharacterSex.Female ? GenderIdentity.Female : GenderIdentity.Male;
+        npc.Personality = profile;
         npc.Brain = new NPCBrain(npc, profile);
 
         return npc;
