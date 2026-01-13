@@ -205,6 +205,7 @@ namespace UsurperRemake.Systems
         // Character settings
         public bool AutoHeal { get; set; }  // Auto-heal in battle
         public CombatSpeed CombatSpeed { get; set; } = CombatSpeed.Normal;  // Combat text speed
+        public bool SkipIntimateScenes { get; set; }  // Skip detailed intimate scenes (fade to black)
         public int Loyalty { get; set; }    // Loyalty percentage (0-100)
         public int Haunt { get; set; }      // How many demons haunt player
         public char Master { get; set; }    // Level master player uses

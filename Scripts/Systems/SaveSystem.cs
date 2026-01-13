@@ -580,6 +580,7 @@ namespace UsurperRemake.Systems
                 // Character settings
                 AutoHeal = player.AutoHeal,
                 CombatSpeed = player.CombatSpeed,
+                SkipIntimateScenes = player.SkipIntimateScenes,
                 Loyalty = player.Loyalty,
                 Haunt = player.Haunt,
                 Master = player.Master,

@@ -586,6 +586,13 @@ public class MainStreetLocation : BaseLocation
                 await TalkToNPC();
                 return false;
 
+            // Quick preferences (accessible from any location)
+            case "~":
+            case "PREFS":
+            case "PREFERENCES":
+                await ShowPreferencesMenu();
+                return false;
+
             default:
                 terminal.WriteLine("Invalid choice! Type ? for help.", "red");
                 await Task.Delay(1500);
@@ -1575,10 +1582,11 @@ public class MainStreetLocation : BaseLocation
             terminal.WriteLine("5. Delete Save Files");
             terminal.WriteLine("6. View Save File Information");
             terminal.WriteLine("7. Force Daily Reset");
-            terminal.WriteLine("8. Back to Main Street");
+            terminal.WriteLine("8. Game Preferences (Combat Speed, Content Settings)");
+            terminal.WriteLine("9. Back to Main Street");
             terminal.WriteLine("");
-            
-            var choice = await terminal.GetInput("Enter your choice (1-8): ");
+
+            var choice = await terminal.GetInput("Enter your choice (1-9): ");
             
             switch (choice)
             {
@@ -1609,17 +1617,163 @@ public class MainStreetLocation : BaseLocation
                 case "7":
                     await ForceDailyReset();
                     break;
-                    
+
                 case "8":
+                    await ShowGamePreferences();
+                    break;
+
+                case "9":
                     exitSettings = true;
                     break;
-                    
+
                 default:
                     terminal.WriteLine("Invalid choice!", "red");
                     await Task.Delay(1000);
                     break;
             }
         }
+    }
+
+    /// <summary>
+    /// Show game preferences menu (combat speed, content settings)
+    /// </summary>
+    private async Task ShowGamePreferences()
+    {
+        bool exitPrefs = false;
+
+        while (!exitPrefs)
+        {
+            terminal.ClearScreen();
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+            terminal.WriteLine("║                             GAME PREFERENCES                                 ║");
+            terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+            terminal.WriteLine("");
+
+            terminal.SetColor("white");
+            terminal.WriteLine("Current Settings:");
+            terminal.WriteLine("");
+
+            // Combat Speed
+            string speedDesc = currentPlayer.CombatSpeed switch
+            {
+                CombatSpeed.Instant => "Instant (no delays)",
+                CombatSpeed.Fast => "Fast (50% delays)",
+                _ => "Normal (full delays)"
+            };
+            terminal.WriteLine($"  Combat Speed: {speedDesc}", "yellow");
+
+            // Auto-heal
+            terminal.WriteLine($"  Auto-heal in Battle: {(currentPlayer.AutoHeal ? "Enabled" : "Disabled")}", "yellow");
+
+            // Skip intimate scenes
+            terminal.WriteLine($"  Skip Intimate Scenes: {(currentPlayer.SkipIntimateScenes ? "Enabled (Fade to Black)" : "Disabled (Full Scenes)")}", "yellow");
+            terminal.WriteLine("");
+
+            terminal.WriteLine("Options:");
+            terminal.WriteLine("1. Change Combat Speed");
+            terminal.WriteLine("2. Toggle Auto-heal in Battle");
+            terminal.WriteLine("3. Toggle Skip Intimate Scenes");
+            terminal.WriteLine("4. Back to Settings");
+            terminal.WriteLine("");
+
+            var choice = await terminal.GetInput("Enter your choice (1-4): ");
+
+            switch (choice)
+            {
+                case "1":
+                    await ChangeCombatSpeed();
+                    break;
+
+                case "2":
+                    currentPlayer.AutoHeal = !currentPlayer.AutoHeal;
+                    terminal.WriteLine($"Auto-heal is now {(currentPlayer.AutoHeal ? "ENABLED" : "DISABLED")}", "green");
+                    await GameEngine.Instance.SaveCurrentGame();
+                    await Task.Delay(1000);
+                    break;
+
+                case "3":
+                    currentPlayer.SkipIntimateScenes = !currentPlayer.SkipIntimateScenes;
+                    if (currentPlayer.SkipIntimateScenes)
+                    {
+                        terminal.WriteLine("Intimate scenes will now 'fade to black' - showing a brief summary", "green");
+                        terminal.WriteLine("instead of detailed romantic content.", "gray");
+                    }
+                    else
+                    {
+                        terminal.WriteLine("Intimate scenes will now show full romantic content.", "green");
+                    }
+                    await GameEngine.Instance.SaveCurrentGame();
+                    await Task.Delay(1500);
+                    break;
+
+                case "4":
+                    exitPrefs = true;
+                    break;
+
+                default:
+                    terminal.WriteLine("Invalid choice!", "red");
+                    await Task.Delay(1000);
+                    break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Change combat speed setting
+    /// </summary>
+    private async Task ChangeCombatSpeed()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine("           COMBAT SPEED");
+        terminal.WriteLine("═══════════════════════════════════════");
+        terminal.WriteLine("");
+
+        terminal.SetColor("white");
+        terminal.WriteLine("Choose how fast combat text appears:");
+        terminal.WriteLine("");
+
+        terminal.WriteLine("1. Normal (Recommended)", "yellow");
+        terminal.WriteLine("   - Full delays between combat actions");
+        terminal.WriteLine("   - Best for reading and immersion");
+        terminal.WriteLine("");
+
+        terminal.WriteLine("2. Fast", "yellow");
+        terminal.WriteLine("   - 50% of normal delays");
+        terminal.WriteLine("   - Quicker combat, still readable");
+        terminal.WriteLine("");
+
+        terminal.WriteLine("3. Instant", "yellow");
+        terminal.WriteLine("   - No delays at all");
+        terminal.WriteLine("   - Maximum speed, combat flies by");
+        terminal.WriteLine("");
+
+        var choice = await terminal.GetInput("Select speed (1-3) or 0 to cancel: ");
+
+        CombatSpeed? newSpeed = choice switch
+        {
+            "1" => CombatSpeed.Normal,
+            "2" => CombatSpeed.Fast,
+            "3" => CombatSpeed.Instant,
+            _ => null
+        };
+
+        if (newSpeed.HasValue)
+        {
+            currentPlayer.CombatSpeed = newSpeed.Value;
+            string desc = newSpeed.Value switch
+            {
+                CombatSpeed.Instant => "Instant",
+                CombatSpeed.Fast => "Fast",
+                _ => "Normal"
+            };
+            terminal.WriteLine($"Combat speed changed to: {desc}", "green");
+            await GameEngine.Instance.SaveCurrentGame();
+        }
+
+        await Task.Delay(1000);
     }
     
     /// <summary>

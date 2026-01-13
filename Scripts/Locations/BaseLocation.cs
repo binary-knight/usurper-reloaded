@@ -626,8 +626,18 @@ public abstract class BaseLocation
             terminal.SetColor("darkgray");
             terminal.Write("]");
             terminal.SetColor("white");
-            terminal.Write($" Talk ({npcsHere.Count})");
+            terminal.Write($" Talk ({npcsHere.Count})  ");
         }
+
+        // Show Preferences option
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("yellow");
+        terminal.Write("~");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("Prefs");
 
         terminal.WriteLine("");
         terminal.WriteLine("");
@@ -695,6 +705,11 @@ public abstract class BaseLocation
             case "TALK":
                 await TalkToNPC();
                 break;
+            case "~":
+            case "PREFS":
+            case "PREFERENCES":
+                await ShowPreferencesMenu();
+                break;
             default:
                 terminal.SetColor("red");
                 terminal.WriteLine($"Invalid choice: '{choice}'");
@@ -759,6 +774,107 @@ public abstract class BaseLocation
     {
         var inventorySystem = new InventorySystem(terminal, currentPlayer);
         await inventorySystem.ShowInventory();
+    }
+
+    /// <summary>
+    /// Show quick preferences menu (accessible from any location via ~)
+    /// </summary>
+    protected virtual async Task ShowPreferencesMenu()
+    {
+        bool exitPrefs = false;
+
+        while (!exitPrefs)
+        {
+            terminal.ClearScreen();
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+            terminal.WriteLine("║                           QUICK PREFERENCES                                  ║");
+            terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+            terminal.WriteLine("");
+
+            terminal.SetColor("white");
+            terminal.WriteLine("Current Settings:");
+            terminal.WriteLine("");
+
+            // Combat Speed
+            string speedDesc = currentPlayer.CombatSpeed switch
+            {
+                CombatSpeed.Instant => "Instant (no delays)",
+                CombatSpeed.Fast => "Fast (50% delays)",
+                _ => "Normal (full delays)"
+            };
+            terminal.WriteLine($"  Combat Speed: {speedDesc}", "yellow");
+
+            // Auto-heal
+            terminal.WriteLine($"  Auto-heal in Battle: {(currentPlayer.AutoHeal ? "Enabled" : "Disabled")}", "yellow");
+
+            // Skip intimate scenes
+            terminal.WriteLine($"  Skip Intimate Scenes: {(currentPlayer.SkipIntimateScenes ? "Enabled (Fade to Black)" : "Disabled (Full Scenes)")}", "yellow");
+            terminal.WriteLine("");
+
+            terminal.SetColor("white");
+            terminal.WriteLine("Options:");
+            terminal.WriteLine("[1] Toggle Combat Speed (Normal -> Fast -> Instant)");
+            terminal.WriteLine("[2] Toggle Auto-heal in Battle");
+            terminal.WriteLine("[3] Toggle Skip Intimate Scenes");
+            terminal.WriteLine("[0] Back");
+            terminal.WriteLine("");
+
+            var choice = await terminal.GetInput("Choice: ");
+
+            switch (choice.Trim())
+            {
+                case "1":
+                    // Cycle through combat speeds
+                    currentPlayer.CombatSpeed = currentPlayer.CombatSpeed switch
+                    {
+                        CombatSpeed.Normal => CombatSpeed.Fast,
+                        CombatSpeed.Fast => CombatSpeed.Instant,
+                        _ => CombatSpeed.Normal
+                    };
+                    string newSpeed = currentPlayer.CombatSpeed switch
+                    {
+                        CombatSpeed.Instant => "Instant",
+                        CombatSpeed.Fast => "Fast",
+                        _ => "Normal"
+                    };
+                    terminal.WriteLine($"Combat speed set to: {newSpeed}", "green");
+                    await GameEngine.Instance.SaveCurrentGame();
+                    await Task.Delay(800);
+                    break;
+
+                case "2":
+                    currentPlayer.AutoHeal = !currentPlayer.AutoHeal;
+                    terminal.WriteLine($"Auto-heal is now {(currentPlayer.AutoHeal ? "ENABLED" : "DISABLED")}", "green");
+                    await GameEngine.Instance.SaveCurrentGame();
+                    await Task.Delay(800);
+                    break;
+
+                case "3":
+                    currentPlayer.SkipIntimateScenes = !currentPlayer.SkipIntimateScenes;
+                    if (currentPlayer.SkipIntimateScenes)
+                    {
+                        terminal.WriteLine("Intimate scenes will now 'fade to black'", "green");
+                    }
+                    else
+                    {
+                        terminal.WriteLine("Intimate scenes will now show full content", "green");
+                    }
+                    await GameEngine.Instance.SaveCurrentGame();
+                    await Task.Delay(1000);
+                    break;
+
+                case "0":
+                case "":
+                    exitPrefs = true;
+                    break;
+
+                default:
+                    terminal.WriteLine("Invalid choice.", "red");
+                    await Task.Delay(500);
+                    break;
+            }
+        }
     }
 
     /// <summary>

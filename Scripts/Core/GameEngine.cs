@@ -1096,6 +1096,7 @@ public partial class GameEngine : Node
             // Character settings
             AutoHeal = playerData.AutoHeal,
             CombatSpeed = playerData.CombatSpeed,
+            SkipIntimateScenes = playerData.SkipIntimateScenes,
             Loyalty = playerData.Loyalty,
             Haunt = playerData.Haunt,
             Master = playerData.Master,

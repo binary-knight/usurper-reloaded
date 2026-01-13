@@ -69,25 +69,35 @@ namespace UsurperRemake.Systems
 
             terminal!.ClearScreen();
 
-            // Scene header
-            await ShowSceneHeader(primaryPartner, mood);
+            // Check if player wants to skip intimate scenes
+            if (player?.SkipIntimateScenes == true)
+            {
+                // Show "fade to black" version - simple, tasteful summary
+                await PlayFadeToBlackScene(primaryPartner, isFirstTime);
+            }
+            else
+            {
+                // Full scene with all phases
+                // Scene header
+                await ShowSceneHeader(primaryPartner, mood);
 
-            // Phase 1: Anticipation / Setting the mood
-            await PlayAnticipationPhase(primaryPartner, profile, mood);
+                // Phase 1: Anticipation / Setting the mood
+                await PlayAnticipationPhase(primaryPartner, profile, mood);
 
-            // Phase 2: Exploration
-            await PlayExplorationPhase(primaryPartner, profile, mood, isFirstTime);
+                // Phase 2: Exploration
+                await PlayExplorationPhase(primaryPartner, profile, mood, isFirstTime);
 
-            // Phase 3: Escalation
-            await PlayEscalationPhase(primaryPartner, profile, mood);
+                // Phase 3: Escalation
+                await PlayEscalationPhase(primaryPartner, profile, mood);
 
-            // Phase 4: Climax
-            await PlayClimaxPhase(primaryPartner, profile, mood);
+                // Phase 4: Climax
+                await PlayClimaxPhase(primaryPartner, profile, mood);
 
-            // Phase 5: Afterglow
-            await PlayAfterglowPhase(primaryPartner, profile, mood);
+                // Phase 5: Afterglow
+                await PlayAfterglowPhase(primaryPartner, profile, mood);
+            }
 
-            // Record the encounter
+            // Record the encounter (always happens regardless of skip setting)
             var encounter = new IntimateEncounter
             {
                 Date = DateTime.Now,
@@ -110,6 +120,56 @@ namespace UsurperRemake.Systems
 
             // Check for pregnancy (only for opposite-sex spouse encounters)
             await CheckForPregnancy(primaryPartner);
+        }
+
+        /// <summary>
+        /// "Fade to black" version of intimate scene for players who prefer to skip details
+        /// Still provides all the mechanical benefits (relationship boost, pregnancy chance)
+        /// </summary>
+        private async Task PlayFadeToBlackScene(NPC partner, bool isFirstTime)
+        {
+            string gender = partner.Sex == CharacterSex.Female ? "she" : "he";
+            string their = partner.Sex == CharacterSex.Female ? "her" : "his";
+
+            terminal!.SetColor("dark_magenta");
+            terminal.WriteLine("====================================================================");
+            terminal.SetColor("bright_magenta");
+            terminal.WriteLine("                         INTIMATE MOMENT                            ");
+            terminal.SetColor("dark_magenta");
+            terminal.WriteLine("====================================================================");
+            terminal.WriteLine("");
+
+            terminal.SetColor("gray");
+            if (isFirstTime)
+            {
+                terminal.WriteLine($"  You and {partner.Name2} share an intimate moment together");
+                terminal.WriteLine($"  for the first time. {their.Substring(0, 1).ToUpper() + their.Substring(1)} eyes meet yours with nervous excitement.");
+            }
+            else
+            {
+                terminal.WriteLine($"  You and {partner.Name2} share a tender, intimate moment together.");
+                terminal.WriteLine($"  The familiarity between you makes it all the sweeter.");
+            }
+            terminal.WriteLine("");
+
+            await Task.Delay(1500);
+
+            terminal.SetColor("dark_magenta");
+            terminal.WriteLine("  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .");
+            terminal.WriteLine("");
+
+            await Task.Delay(1000);
+
+            terminal.SetColor("white");
+            terminal.WriteLine($"  Later, you lie together in comfortable silence.");
+            terminal.WriteLine($"  {partner.Name2} rests {their} head against you, content.");
+            terminal.WriteLine("");
+
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine("  Your bond with each other has grown stronger.");
+            terminal.WriteLine("");
+
+            await terminal.GetInput("  Press Enter to continue...");
         }
 
         /// <summary>
