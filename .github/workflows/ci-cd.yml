@@ -258,6 +258,38 @@ jobs:
           name: mac-build
           path: build/mac/
 
+  attach-to-release:
+    name: Attach Builds to Release
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.event_name == 'release'
+    permissions:
+      contents: write
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: "*-build"
+
+      - name: Create release zip files
+        run: |
+          # Create zip archives for each platform
+          cd windows-build && zip -r ../UsurperReborn-${{ github.ref_name }}-Windows.zip . && cd ..
+          cd linux-build && zip -r ../UsurperReborn-${{ github.ref_name }}-Linux.zip . && cd ..
+          cd mac-build && zip -r ../UsurperReborn-${{ github.ref_name }}-macOS.zip . && cd ..
+
+          ls -la *.zip
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            UsurperReborn-${{ github.ref_name }}-Windows.zip
+            UsurperReborn-${{ github.ref_name }}-Linux.zip
+            UsurperReborn-${{ github.ref_name }}-macOS.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   steam-prep:
     name: Steam Release Preparation
     runs-on: ubuntu-latest
