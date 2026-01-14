@@ -9,7 +9,6 @@ on:
     types: [ published ]
 
 env:
-  EXPORT_NAME: usurper-reloaded
   DOTNET_SYSTEM_GLOBALIZATION_INVARIANT: 1
 
 jobs:
@@ -278,29 +277,32 @@ jobs:
         run: |
           mkdir -p steam-build/depot-windows
           mkdir -p steam-build/depot-linux
-          mkdir -p steam-build/depot-mac
-          
+
           # Copy build artifacts if they exist
           [ -d "windows-build" ] && cp -r windows-build/* steam-build/depot-windows/ || echo "Windows build not found"
           [ -d "linux-build" ] && cp -r linux-build/* steam-build/depot-linux/ || echo "Linux build not found"
-          [ -d "mac-build" ] && cp -r mac-build/* steam-build/depot-mac/ || echo "Mac build not found"
 
       - name: Generate Steam configuration
+        env:
+          STEAM_APP_ID: ${{ vars.STEAM_APP_ID || 'YOUR_STEAM_APP_ID' }}
+          STEAM_DEPOT_WINDOWS: ${{ vars.STEAM_DEPOT_WINDOWS || 'YOUR_WINDOWS_DEPOT_ID' }}
+          STEAM_DEPOT_LINUX: ${{ vars.STEAM_DEPOT_LINUX || 'YOUR_LINUX_DEPOT_ID' }}
         run: |
-          cat > steam-build/app_build.vdf << 'EOF'
+          # Generate app_build.vdf with actual IDs from repository variables
+          cat > steam-build/app_build.vdf << EOF
           "appbuild"
           {
-            "appid" "YOUR_STEAM_APP_ID"
+            "appid" "${STEAM_APP_ID}"
             "desc" "Usurper Reloaded v${{ github.ref_name || 'development' }} (GPL v2)"
             "buildoutput" "../steam-logs/"
             "contentroot" ""
             "setlive" ""
             "preview" "0"
             "local" ""
-            
+
             "depots"
             {
-              "YOUR_WINDOWS_DEPOT_ID"
+              "${STEAM_DEPOT_WINDOWS}"
               {
                 "FileMapping"
                 {
@@ -309,8 +311,8 @@ jobs:
                   "recursive" "1"
                 }
               }
-              
-              "YOUR_LINUX_DEPOT_ID"
+
+              "${STEAM_DEPOT_LINUX}"
               {
                 "FileMapping"
                 {
@@ -319,19 +321,11 @@ jobs:
                   "recursive" "1"
                 }
               }
-              
-              "YOUR_MAC_DEPOT_ID"
-              {
-                "FileMapping"
-                {
-                  "LocalPath" "depot-mac/*"
-                  "DepotPath" "."
-                  "recursive" "1"
-                }
-              }
             }
           }
           EOF
+
+          echo "Generated app_build.vdf with App ID: ${STEAM_APP_ID}"
 
       - name: Create Steam launch configuration guide
         run: |
@@ -350,15 +344,9 @@ jobs:
           - **Arguments:** (none needed)
           - **Launch Type:** Launch (Default)
 
-          ### macOS
-          - **Executable:** `usurper-reborn-mac.command`
-          - **Arguments:** (none needed)
-          - **Launch Type:** Launch (Default)
-
           ## Notes
           - The launchers spawn terminal windows to run the console game
           - Linux launcher auto-detects available terminal emulators
-          - macOS .command files auto-open in Terminal.app
           - Windows .bat files open in cmd.exe
           EOF
 
@@ -422,6 +410,50 @@ jobs:
         with:
           name: steam-release
           path: steam-build/
+
+  steam-upload:
+    name: Upload to Steam
+    runs-on: ubuntu-latest
+    needs: [steam-prep]
+    # Only upload on release tags or manual trigger
+    if: github.event_name == 'release'
+    steps:
+      - name: Download Steam artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: steam-release
+          path: steam-build/
+
+      - name: Install steamcmd
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lib32gcc-s1
+          mkdir -p ~/steamcmd
+          cd ~/steamcmd
+          curl -sqL "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz" | tar zxvf -
+
+      - name: Configure Steam authentication
+        env:
+          STEAM_CONFIG_VDF: ${{ secrets.STEAM_CONFIG_VDF }}
+        run: |
+          mkdir -p ~/Steam/config
+          echo "$STEAM_CONFIG_VDF" | base64 -d > ~/Steam/config/config.vdf
+          chmod 600 ~/Steam/config/config.vdf
+
+      - name: Upload to Steam
+        env:
+          STEAM_USERNAME: ${{ secrets.STEAM_USERNAME }}
+        run: |
+          cd steam-build
+          ~/steamcmd/steamcmd.sh +login "$STEAM_USERNAME" +run_app_build app_build.vdf +quit
+          echo "Steam upload complete!"
+
+      - name: Upload Steam logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: steam-upload-logs
+          path: steam-logs/
 
   report:
     name: Build Report
