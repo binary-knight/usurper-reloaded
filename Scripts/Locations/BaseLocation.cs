@@ -653,13 +653,43 @@ public abstract class BaseLocation
     }
     
     /// <summary>
+    /// Try to process global quick commands (* for inventory, ? for help, etc.)
+    /// Returns (handled, shouldExit) - if handled is true, the command was processed
+    /// </summary>
+    protected async Task<(bool handled, bool shouldExit)> TryProcessGlobalCommand(string choice)
+    {
+        if (string.IsNullOrWhiteSpace(choice))
+            return (false, false);
+
+        var upperChoice = choice.ToUpper().Trim();
+
+        switch (upperChoice)
+        {
+            case "*":
+                await ShowInventory();
+                return (true, false);
+            case "~":
+            case "PREFS":
+            case "PREFERENCES":
+                await ShowPreferencesMenu();
+                return (true, false);
+            case "0":
+            case "TALK":
+                await TalkToNPC();
+                return (true, false);
+            default:
+                return (false, false);
+        }
+    }
+
+    /// <summary>
     /// Process user choice - returns true if should exit location
     /// </summary>
     protected virtual async Task<bool> ProcessChoice(string choice)
     {
         if (string.IsNullOrWhiteSpace(choice))
             return false;
-            
+
         var upperChoice = choice.ToUpper().Trim();
         
         // Check for exits first
@@ -1591,7 +1621,7 @@ public abstract class BaseLocation
 
         // Pagination - Page 1 break
         terminal.SetColor("gray");
-        terminal.Write("Press Space to continue...");
+        terminal.Write("Press Enter to continue...");
         await terminal.GetInput("");
         terminal.WriteLine("");
 
@@ -1730,7 +1760,7 @@ public abstract class BaseLocation
 
         // Pagination - Page 2 break
         terminal.SetColor("gray");
-        terminal.Write("Press Space to continue...");
+        terminal.Write("Press Enter to continue...");
         await terminal.GetInput("");
         terminal.WriteLine("");
 
@@ -1941,7 +1971,7 @@ public abstract class BaseLocation
 
         // Pagination - Page 3 break
         terminal.SetColor("gray");
-        terminal.Write("Press Space to continue...");
+        terminal.Write("Press Enter to continue...");
         await terminal.GetInput("");
         terminal.WriteLine("");
 

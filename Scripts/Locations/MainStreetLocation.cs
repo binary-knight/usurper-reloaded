@@ -409,12 +409,16 @@ public class MainStreetLocation : BaseLocation
     
     protected override async Task<bool> ProcessChoice(string choice)
     {
+        // Handle global quick commands first
+        var (handled, shouldExit) = await TryProcessGlobalCommand(choice);
+        if (handled) return shouldExit;
+
         if (string.IsNullOrWhiteSpace(choice))
             return false;
-            
+
         var upperChoice = choice.ToUpper().Trim();
-        
-        // Handle Main Street specific commands first
+
+        // Handle Main Street specific commands
         switch (upperChoice)
         {
             case "S":
@@ -555,7 +559,7 @@ public class MainStreetLocation : BaseLocation
                 throw new LocationExitException(GameLocation.DarkAlley);
                 
             case "?":
-                // Menu is always shown
+                await ShowHelp();
                 return false;
                 
             case "3":
@@ -2143,6 +2147,69 @@ public class MainStreetLocation : BaseLocation
         await MailSystem.ReadPlayerMail(currentPlayer.Name2, terminal);
         terminal.WriteLine("Press ENTER to return to Main Street.", "gray");
         await terminal.GetInput("");
+    }
+
+    /// <summary>
+    /// Show help screen with game commands and tips
+    /// </summary>
+    private async Task ShowHelp()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║                              HELP & COMMANDS                                 ║");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("=== LOCATIONS ===");
+        terminal.SetColor("white");
+        terminal.WriteLine("  [D] Dungeons      - Fight monsters, find treasure, gain experience");
+        terminal.WriteLine("  [I] Inn           - Rest, socialize, gamble, and romance");
+        terminal.WriteLine("  [W] Weapon Shop   - Buy and sell weapons");
+        terminal.WriteLine("  [A] Armor Shop    - Buy and sell armor");
+        terminal.WriteLine("  [M] Magic Shop    - Buy spells and magical items");
+        terminal.WriteLine("  [H] Healer        - Cure wounds, poison, and ailments");
+        terminal.WriteLine("  [B] Bank          - Deposit/withdraw gold, take loans");
+        terminal.WriteLine("  [T] Temple        - Pray, donate, receive blessings");
+        terminal.WriteLine("  [C] Castle        - Visit the royal court");
+        terminal.WriteLine("  [Y] Your Home     - Rest and manage your belongings");
+        terminal.WriteLine("  [*] Level Master  - Train to increase your level");
+        terminal.WriteLine("  [K] Marketplace   - Trade goods and find bargains");
+        terminal.WriteLine("  [X] Dark Alley    - Shady dealings and criminal activity");
+        terminal.WriteLine("");
+
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("=== INFORMATION ===");
+        terminal.SetColor("white");
+        terminal.WriteLine("  [S] Status        - View your character stats");
+        terminal.WriteLine("  [L] List Players  - See other characters in the realm");
+        terminal.WriteLine("  [N] News          - Read the daily news");
+        terminal.WriteLine("  [F] Fame          - View the hall of fame");
+        terminal.WriteLine("  [R] Relations     - Check your relationships with NPCs");
+        terminal.WriteLine("  [$] World Events  - See current events affecting the realm");
+        terminal.WriteLine("");
+
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("=== ACTIONS ===");
+        terminal.SetColor("white");
+        terminal.WriteLine("  [G] Good Deeds    - Perform charitable acts (+Chivalry)");
+        terminal.WriteLine("  [E] Evil Deeds    - Commit dark acts (+Darkness)");
+        terminal.WriteLine("  [0] Talk to NPCs  - Interact with characters at your location");
+        terminal.WriteLine("");
+
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("=== TIPS ===");
+        terminal.SetColor("gray");
+        terminal.WriteLine("  - Visit the Dungeons to gain experience and gold");
+        terminal.WriteLine("  - When you have enough experience, visit your Level Master to advance");
+        terminal.WriteLine("  - Keep gold in the Bank to protect it from thieves");
+        terminal.WriteLine("  - Build relationships with NPCs - they can become allies or enemies");
+        terminal.WriteLine("  - Your alignment (Chivalry vs Darkness) affects how NPCs treat you");
+        terminal.WriteLine("");
+
+        terminal.SetColor("cyan");
+        await terminal.PressAnyKey("Press any key to return to Main Street...");
     }
 
     /// <summary>

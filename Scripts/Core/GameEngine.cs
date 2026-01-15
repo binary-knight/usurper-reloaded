@@ -44,13 +44,37 @@ public partial class GameEngine : Node
     }
     
     // Missing properties for compilation
-    public Character? CurrentPlayer 
-    { 
-        get => currentPlayer; 
-        set => currentPlayer = value; 
+    public Character? CurrentPlayer
+    {
+        get => currentPlayer;
+        set => currentPlayer = value;
     }
-    
+
     public static string DataPath => GameConfig.DataPath;
+
+    // Dungeon party NPC IDs (spouses, team members, lovers) - persisted across saves
+    private List<string> dungeonPartyNPCIds = new();
+
+    /// <summary>
+    /// Get the list of NPC IDs currently in the dungeon party
+    /// </summary>
+    public List<string> DungeonPartyNPCIds => dungeonPartyNPCIds;
+
+    /// <summary>
+    /// Set dungeon party NPC IDs (called from DungeonLocation when party changes)
+    /// </summary>
+    public void SetDungeonPartyNPCs(IEnumerable<string> npcIds)
+    {
+        dungeonPartyNPCIds = npcIds.ToList();
+    }
+
+    /// <summary>
+    /// Clear dungeon party NPCs (called when leaving dungeon or on death)
+    /// </summary>
+    public void ClearDungeonParty()
+    {
+        dungeonPartyNPCIds.Clear();
+    }
     
     // Terminal access for systems
     public TerminalEmulator Terminal => terminal;
@@ -1550,6 +1574,31 @@ public partial class GameEngine : Node
             // This will use the restored personality if available, or generate one if not
             npc.EnsureSystemsInitialized();
 
+            // Fix Experience if it's 0 - legacy saves may not have tracked NPC XP
+            // NPCs need proper XP to level up correctly from combat
+            if (npc.Experience <= 0 && npc.Level > 1)
+            {
+                npc.Experience = GetExperienceForNPCLevel(npc.Level);
+                GD.Print($"[GameEngine] Initialized {npc.Name}'s XP to {npc.Experience} for level {npc.Level}");
+            }
+
+            // Initialize base stats if they're not set (legacy save compatibility)
+            // This ensures RecalculateStats() works correctly after level-ups
+            if (npc.BaseMaxHP <= 0)
+            {
+                npc.BaseMaxHP = npc.MaxHP;
+                npc.BaseStrength = npc.Strength;
+                npc.BaseDefence = npc.Defence;
+                npc.BaseDexterity = npc.Dexterity;
+                npc.BaseAgility = npc.Agility;
+                npc.BaseStamina = npc.Stamina;
+                npc.BaseConstitution = npc.Constitution;
+                npc.BaseIntelligence = npc.Intelligence;
+                npc.BaseWisdom = npc.Wisdom;
+                npc.BaseCharisma = npc.Charisma;
+                npc.BaseMaxMana = npc.MaxMana;
+            }
+
             // Add to spawn system
             NPCSpawnSystem.Instance.AddRestoredNPC(npc);
 
@@ -1573,7 +1622,22 @@ public partial class GameEngine : Node
         GD.Print($"Restored {npcData.Count} NPCs from save data");
         await Task.CompletedTask;
     }
-    
+
+    /// <summary>
+    /// XP formula matching the player's curve (level^1.8 * 50)
+    /// Used to initialize NPC XP when loading legacy saves
+    /// </summary>
+    private static long GetExperienceForNPCLevel(int level)
+    {
+        if (level <= 1) return 0;
+        long exp = 0;
+        for (int i = 2; i <= level; i++)
+        {
+            exp += (long)(Math.Pow(i, 1.8) * 50);
+        }
+        return exp;
+    }
+
     /// <summary>
     /// Save current game state
     /// </summary>

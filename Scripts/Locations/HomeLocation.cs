@@ -305,6 +305,10 @@ public class HomeLocation : BaseLocation
 
     protected override async Task<bool> ProcessChoice(string choice)
     {
+        // Handle global quick commands first
+        var (handled, shouldExit) = await TryProcessGlobalCommand(choice);
+        if (handled) return shouldExit;
+
         var c = choice.Trim().ToUpperInvariant();
         switch (c)
         {
@@ -561,17 +565,236 @@ public class HomeLocation : BaseLocation
         {
             var item = currentPlayer.Inventory[idx - 1];
 
-            // Apply the item's effects
-            item.ApplyEffects(currentPlayer);
-            currentPlayer.Inventory.RemoveAt(idx - 1);
-            currentPlayer.RecalculateStats();
-            terminal.WriteLine($"Used {item.GetDisplayName()}!", "bright_green");
+            // Check if this is an equippable item (weapon, armor, etc.)
+            if (IsEquippableItem(item))
+            {
+                await EquipItemProper(item, idx - 1);
+            }
+            else
+            {
+                // Non-equippable items (potions, food, etc.) - just apply effects
+                item.ApplyEffects(currentPlayer);
+                currentPlayer.Inventory.RemoveAt(idx - 1);
+                currentPlayer.RecalculateStats();
+                terminal.WriteLine($"Used {item.GetDisplayName()}!", "bright_green");
+            }
         }
         else
         {
             terminal.WriteLine("Cancelled.", "gray");
         }
         await terminal.WaitForKey();
+    }
+
+    /// <summary>
+    /// Check if an item is equippable (weapon, armor, shield, etc.)
+    /// </summary>
+    private bool IsEquippableItem(ModelItem item)
+    {
+        return item.Type switch
+        {
+            ObjType.Weapon => true,
+            ObjType.Shield => true,
+            ObjType.Body => true,
+            ObjType.Head => true,
+            ObjType.Arms => true,
+            ObjType.Hands => true,
+            ObjType.Legs => true,
+            ObjType.Feet => true,
+            ObjType.Waist => true,
+            ObjType.Neck => true,
+            ObjType.Face => true,
+            ObjType.Fingers => true,
+            ObjType.Magic => (int)item.MagicType == 5 || (int)item.MagicType == 9 || (int)item.MagicType == 10, // Ring, Belt, Amulet
+            _ => false
+        };
+    }
+
+    /// <summary>
+    /// Properly equip an item using the Equipment system with slot selection
+    /// </summary>
+    private async Task EquipItemProper(ModelItem item, int inventoryIndex)
+    {
+        // Determine which slot this item goes in
+        EquipmentSlot targetSlot = item.Type switch
+        {
+            ObjType.Weapon => EquipmentSlot.MainHand,
+            ObjType.Shield => EquipmentSlot.OffHand,
+            ObjType.Body => EquipmentSlot.Body,
+            ObjType.Head => EquipmentSlot.Head,
+            ObjType.Arms => EquipmentSlot.Arms,
+            ObjType.Hands => EquipmentSlot.Hands,
+            ObjType.Legs => EquipmentSlot.Legs,
+            ObjType.Feet => EquipmentSlot.Feet,
+            ObjType.Waist => EquipmentSlot.Waist,
+            ObjType.Neck => EquipmentSlot.Neck,
+            ObjType.Face => EquipmentSlot.Face,
+            ObjType.Fingers => EquipmentSlot.LFinger,
+            ObjType.Magic => (int)item.MagicType switch
+            {
+                5 => EquipmentSlot.LFinger,  // Ring
+                9 => EquipmentSlot.Waist,    // Belt
+                10 => EquipmentSlot.Neck,    // Amulet
+                _ => EquipmentSlot.MainHand
+            },
+            _ => EquipmentSlot.MainHand
+        };
+
+        // Determine handedness for weapons
+        WeaponHandedness handedness = WeaponHandedness.OneHanded;
+        if (item.Type == ObjType.Weapon)
+        {
+            // Check if it's a two-handed weapon based on name or attack power
+            string nameLower = item.Name.ToLower();
+            if (nameLower.Contains("two-hand") || nameLower.Contains("2h") ||
+                nameLower.Contains("greatsword") || nameLower.Contains("greataxe") ||
+                nameLower.Contains("halberd") || nameLower.Contains("pike") ||
+                nameLower.Contains("longbow") || nameLower.Contains("crossbow") ||
+                nameLower.Contains("staff") || nameLower.Contains("quarterstaff"))
+            {
+                handedness = WeaponHandedness.TwoHanded;
+            }
+        }
+        else if (item.Type == ObjType.Shield)
+        {
+            handedness = WeaponHandedness.OffHandOnly;
+        }
+
+        // Convert Item to Equipment
+        var equipment = new Equipment
+        {
+            Name = item.Name,
+            Slot = targetSlot,
+            Handedness = handedness,
+            WeaponPower = item.Attack,
+            ArmorClass = item.Armor,
+            ShieldBonus = item.Type == ObjType.Shield ? item.Armor : 0,
+            DefenceBonus = item.Defence,
+            StrengthBonus = item.Strength,
+            DexterityBonus = item.Dexterity,
+            WisdomBonus = item.Wisdom,
+            CharismaBonus = item.Charisma,
+            MaxHPBonus = item.HP,
+            MaxManaBonus = item.Mana,
+            Value = item.Value,
+            IsCursed = item.IsCursed,
+            Rarity = EquipmentRarity.Common
+        };
+
+        // Register in database to get an ID
+        EquipmentDatabase.RegisterDynamic(equipment);
+
+        // For rings, ask which finger
+        if (targetSlot == EquipmentSlot.LFinger)
+        {
+            terminal.WriteLine("");
+            terminal.SetColor("cyan");
+            terminal.WriteLine("Equip to which finger?");
+            terminal.SetColor("white");
+            terminal.WriteLine("  (L) Left finger");
+            terminal.WriteLine("  (R) Right finger");
+            terminal.WriteLine("  (C) Cancel");
+            terminal.Write("Choice: ");
+            var fingerChoice = await terminal.GetInput("");
+            if (fingerChoice.ToUpper() == "R")
+            {
+                targetSlot = EquipmentSlot.RFinger;
+                equipment.Slot = EquipmentSlot.RFinger;
+            }
+            else if (fingerChoice.ToUpper() != "L")
+            {
+                terminal.WriteLine("Cancelled.", "gray");
+                return;
+            }
+        }
+
+        // For one-handed weapons, ask which slot to use
+        EquipmentSlot? finalSlot = null;
+        if (Character.RequiresSlotSelection(equipment))
+        {
+            finalSlot = await PromptForWeaponSlotHome();
+            if (finalSlot == null)
+            {
+                terminal.WriteLine("Cancelled.", "gray");
+                return;
+            }
+        }
+
+        // Equip the item
+        if (currentPlayer.EquipItem(equipment, finalSlot, out string message))
+        {
+            // Remove from inventory
+            currentPlayer.Inventory.RemoveAt(inventoryIndex);
+            currentPlayer.RecalculateStats();
+
+            terminal.SetColor("bright_green");
+            terminal.WriteLine($"Equipped {item.GetDisplayName()}!");
+            if (!string.IsNullOrEmpty(message))
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine(message);
+            }
+        }
+        else
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine($"Cannot equip: {message}");
+        }
+    }
+
+    /// <summary>
+    /// Prompt player to choose which hand to equip a one-handed weapon in
+    /// </summary>
+    private async Task<EquipmentSlot?> PromptForWeaponSlotHome()
+    {
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        terminal.WriteLine("This is a one-handed weapon. Where would you like to equip it?");
+        terminal.WriteLine("");
+
+        // Show current equipment in both slots
+        var mainHandItem = currentPlayer.GetEquipment(EquipmentSlot.MainHand);
+        var offHandItem = currentPlayer.GetEquipment(EquipmentSlot.OffHand);
+
+        terminal.SetColor("white");
+        terminal.Write("  (M) Main Hand: ");
+        if (mainHandItem != null)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine(mainHandItem.Name);
+        }
+        else
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("Empty");
+        }
+
+        terminal.SetColor("white");
+        terminal.Write("  (O) Off-Hand:  ");
+        if (offHandItem != null)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine(offHandItem.Name);
+        }
+        else
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("Empty");
+        }
+
+        terminal.SetColor("white");
+        terminal.WriteLine("  (C) Cancel");
+        terminal.WriteLine("");
+
+        terminal.Write("Your choice: ");
+        var slotChoice = await terminal.GetInput("");
+
+        return slotChoice.ToUpper() switch
+        {
+            "M" => EquipmentSlot.MainHand,
+            "O" => EquipmentSlot.OffHand,
+            _ => null // Cancel
+        };
     }
 
     private async Task ShowFamily()

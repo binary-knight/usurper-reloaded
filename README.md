@@ -1,6 +1,6 @@
 # Usurper Reborn
 
-## ALPHA v0.1 - Now Seeking Testers!
+## ALPHA v0 - Now Seeking Testers!
 
 **FREE AND OPEN SOURCE SOFTWARE - GPL v2 Licensed**
 

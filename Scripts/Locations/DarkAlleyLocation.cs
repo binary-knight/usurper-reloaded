@@ -51,6 +51,10 @@ namespace UsurperRemake.Locations
 
         protected override async Task<bool> ProcessChoice(string choice)
         {
+            // Handle global quick commands first
+            var (handled, shouldExit) = await TryProcessGlobalCommand(choice);
+            if (handled) return shouldExit;
+
             switch (choice.ToUpperInvariant())
             {
                 case "D":

@@ -1227,7 +1227,18 @@ namespace UsurperRemake.Systems
 
                     // Restore level and experience
                     companion.Level = save.Level > 0 ? save.Level : Math.Max(1, companion.RecruitLevel + 5);
-                    companion.Experience = save.Experience;
+
+                    // If Experience is 0 or missing, initialize it to the proper value for their level
+                    // This handles legacy saves that didn't track companion XP
+                    if (save.Experience > 0)
+                    {
+                        companion.Experience = save.Experience;
+                    }
+                    else
+                    {
+                        companion.Experience = GetExperienceForLevel(companion.Level);
+                        Godot.GD.Print($"[Companion] Initialized {companion.Name}'s XP to {companion.Experience} for level {companion.Level}");
+                    }
 
                     // Restore base stats if saved (otherwise they keep defaults)
                     if (save.BaseStatsHP > 0)

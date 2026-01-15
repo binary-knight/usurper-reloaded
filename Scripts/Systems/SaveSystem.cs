@@ -1196,6 +1196,7 @@ namespace UsurperRemake.Systems
                 }).ToList();
 
                 data.ActiveCompanionIds = companionData.ActiveCompanions.Select(c => (int)c).ToList();
+                GD.Print($"[SaveSystem] Saving {data.ActiveCompanionIds.Count} active companions: [{string.Join(", ", data.ActiveCompanionIds)}]");
 
                 data.FallenCompanions = companionData.FallenCompanions.Select(d => new CompanionDeathInfo
                 {
@@ -1207,6 +1208,17 @@ namespace UsurperRemake.Systems
                 }).ToList();
             }
             catch { /* Companion system not initialized */ }
+
+            // Dungeon Party NPCs - save NPC teammates (spouses, team members, lovers)
+            try
+            {
+                data.DungeonPartyNPCIds = GameEngine.Instance?.DungeonPartyNPCIds?.ToList() ?? new List<string>();
+                if (data.DungeonPartyNPCIds.Count > 0)
+                {
+                    GD.Print($"[SaveSystem] Saving {data.DungeonPartyNPCIds.Count} dungeon party NPCs: [{string.Join(", ", data.DungeonPartyNPCIds)}]");
+                }
+            }
+            catch { /* GameEngine not initialized */ }
 
             // Family System - save children
             try
@@ -1307,12 +1319,16 @@ namespace UsurperRemake.Systems
             // Companion System - restore companion states
             try
             {
-                if (data.Companions != null && data.Companions.Count > 0)
+                // Restore if we have companion states OR active companion IDs
+                bool hasCompanionData = (data.Companions != null && data.Companions.Count > 0);
+                bool hasActiveCompanions = (data.ActiveCompanionIds != null && data.ActiveCompanionIds.Count > 0);
+
+                if (hasCompanionData || hasActiveCompanions)
                 {
                     // Convert CompanionSaveInfo back to CompanionSystemData format
                     var companionSystemData = new CompanionSystemData
                     {
-                        CompanionStates = data.Companions.Select(c => new CompanionSaveData
+                        CompanionStates = data.Companions?.Select(c => new CompanionSaveData
                         {
                             Id = (CompanionId)c.Id,
                             IsRecruited = c.IsRecruited,
@@ -1324,7 +1340,7 @@ namespace UsurperRemake.Systems
                             PersonalQuestStarted = c.PersonalQuestStarted,
                             PersonalQuestCompleted = c.PersonalQuestCompleted,
                             RecruitedDay = c.RecruitedDay
-                        }).ToList(),
+                        }).ToList() ?? new List<CompanionSaveData>(),
 
                         ActiveCompanions = data.ActiveCompanionIds?.Select(id => (CompanionId)id).ToList() ?? new List<CompanionId>(),
 
@@ -1339,9 +1355,21 @@ namespace UsurperRemake.Systems
                     };
 
                     CompanionSystem.Instance.Deserialize(companionSystemData);
+                    GD.Print($"[SaveSystem] Restored {companionSystemData.ActiveCompanions.Count} active companions");
                 }
             }
             catch { /* Companion system not available */ }
+
+            // Dungeon Party NPCs - restore NPC teammates
+            try
+            {
+                if (data.DungeonPartyNPCIds != null && data.DungeonPartyNPCIds.Count > 0)
+                {
+                    GameEngine.Instance?.SetDungeonPartyNPCs(data.DungeonPartyNPCIds);
+                    GD.Print($"[SaveSystem] Restored {data.DungeonPartyNPCIds.Count} dungeon party NPCs");
+                }
+            }
+            catch { /* GameEngine not available */ }
 
             // Family System - restore children
             try

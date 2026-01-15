@@ -46,7 +46,8 @@
       "Bash(Select-String -Pattern \"error|Error|Build\")",
       "Bash(Select-String \"warning CS\")",
       "Bash(Measure-Object)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(godot4:*)"
     ]
   }
 }

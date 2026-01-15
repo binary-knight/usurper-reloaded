@@ -471,6 +471,10 @@ public class WeaponShopLocation : BaseLocation
 
     protected override async Task<bool> ProcessChoice(string choice)
     {
+        // Handle global quick commands first
+        var (handled, shouldExit) = await TryProcessGlobalCommand(choice);
+        if (handled) return shouldExit;
+
         if (currentPlayer == null) return true;
 
         if (currentPlayer.WeapHag < 1)
@@ -656,7 +660,23 @@ public class WeaponShopLocation : BaseLocation
         // Process city tax share from this sale
         CityControlSystem.Instance.ProcessSaleTax(adjustedPrice);
 
-        if (currentPlayer.EquipItem(item, out string message))
+        // For one-handed weapons, ask which slot to use
+        EquipmentSlot? targetSlot = null;
+        if (Character.RequiresSlotSelection(item))
+        {
+            targetSlot = await PromptForWeaponSlot();
+            if (targetSlot == null)
+            {
+                // Player cancelled - refund and add to inventory instead
+                currentPlayer.Gold += adjustedPrice;
+                terminal.SetColor("yellow");
+                terminal.WriteLine("Purchase cancelled.");
+                await Pause();
+                return;
+            }
+        }
+
+        if (currentPlayer.EquipItem(item, targetSlot, out string message))
         {
             terminal.SetColor("bright_green");
             terminal.WriteLine("");
@@ -906,7 +926,23 @@ public class WeaponShopLocation : BaseLocation
         // Process city tax share from this sale
         CityControlSystem.Instance.ProcessSaleTax(adjustedAllWeaponsPrice);
 
-        if (currentPlayer.EquipItem(allWeapons, out string message))
+        // For one-handed weapons, ask which slot to use
+        EquipmentSlot? targetSlot = null;
+        if (Character.RequiresSlotSelection(allWeapons))
+        {
+            targetSlot = await PromptForWeaponSlot();
+            if (targetSlot == null)
+            {
+                // Player cancelled - refund
+                currentPlayer.Gold += adjustedAllWeaponsPrice;
+                terminal.SetColor("yellow");
+                terminal.WriteLine("Purchase cancelled.");
+                await Pause();
+                return;
+            }
+        }
+
+        if (currentPlayer.EquipItem(allWeapons, targetSlot, out string message))
         {
             terminal.SetColor("bright_green");
             terminal.WriteLine($"Bought and equipped {allWeapons.Name}!");
@@ -922,7 +958,7 @@ public class WeaponShopLocation : BaseLocation
         {
             terminal.SetColor("red");
             terminal.WriteLine($"Failed: {message}");
-            currentPlayer.Gold += allWeapons.Value;
+            currentPlayer.Gold += adjustedAllWeaponsPrice;
         }
 
         // Auto-save after purchase
@@ -936,6 +972,61 @@ public class WeaponShopLocation : BaseLocation
         terminal.SetColor("gray");
         terminal.Write("Press ENTER to continue...");
         await terminal.GetInput("");
+    }
+
+    /// <summary>
+    /// Prompt player to choose which hand to equip a one-handed weapon in
+    /// </summary>
+    private async Task<EquipmentSlot?> PromptForWeaponSlot()
+    {
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        terminal.WriteLine("This is a one-handed weapon. Where would you like to equip it?");
+        terminal.WriteLine("");
+
+        // Show current equipment in both slots
+        var mainHandItem = currentPlayer.GetEquipment(EquipmentSlot.MainHand);
+        var offHandItem = currentPlayer.GetEquipment(EquipmentSlot.OffHand);
+
+        terminal.SetColor("white");
+        terminal.Write("  (M) Main Hand: ");
+        if (mainHandItem != null)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine(mainHandItem.Name);
+        }
+        else
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("Empty");
+        }
+
+        terminal.SetColor("white");
+        terminal.Write("  (O) Off-Hand:  ");
+        if (offHandItem != null)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine(offHandItem.Name);
+        }
+        else
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("Empty");
+        }
+
+        terminal.SetColor("white");
+        terminal.WriteLine("  (C) Cancel");
+        terminal.WriteLine("");
+
+        terminal.Write("Your choice: ");
+        var slotChoice = await terminal.GetInput("");
+
+        return slotChoice.ToUpper() switch
+        {
+            "M" => EquipmentSlot.MainHand,
+            "O" => EquipmentSlot.OffHand,
+            _ => null // Cancel
+        };
     }
 
     private static string FormatNumber(long value)

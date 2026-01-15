@@ -365,6 +365,10 @@ public class ArmorShopLocation : BaseLocation
 
     protected override async Task<bool> ProcessChoice(string choice)
     {
+        // Handle global quick commands first
+        var (handled, shouldExit) = await TryProcessGlobalCommand(choice);
+        if (handled) return shouldExit;
+
         if (currentPlayer == null) return true;
 
         if (currentPlayer.ArmHag < 1)

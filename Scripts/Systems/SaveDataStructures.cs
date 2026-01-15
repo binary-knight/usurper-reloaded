@@ -35,10 +35,13 @@ namespace UsurperRemake.Systems
         // Seven Seals
         public List<int> CollectedSeals { get; set; } = new();
 
-        // Companions
+        // Companions (story characters like Lyris, Kael, Mira, Vex)
         public List<CompanionSaveInfo> Companions { get; set; } = new();
         public List<int> ActiveCompanionIds { get; set; } = new();
         public List<CompanionDeathInfo> FallenCompanions { get; set; } = new();
+
+        // Dungeon party NPCs (spouses, team members, lovers added via party management)
+        public List<string> DungeonPartyNPCIds { get; set; } = new();
 
         // Grief state
         public int GriefStage { get; set; }

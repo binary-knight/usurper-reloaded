@@ -285,9 +285,31 @@ public class Character
     }
 
     /// <summary>
-    /// Equip an item to the appropriate slot
+    /// Check if an item requires the player to choose which slot to equip it in.
+    /// Returns true for one-handed weapons (can go in MainHand or OffHand for dual wielding).
+    /// </summary>
+    public static bool RequiresSlotSelection(Equipment item)
+    {
+        if (item == null) return false;
+        // Only one-handed weapons can be equipped in either hand
+        return item.Handedness == WeaponHandedness.OneHanded;
+    }
+
+    /// <summary>
+    /// Equip an item to the appropriate slot (auto-determines slot)
+    /// If there's an existing item in the slot, it will be moved to inventory
     /// </summary>
     public bool EquipItem(Equipment item, out string message)
+    {
+        return EquipItem(item, null, out message);
+    }
+
+    /// <summary>
+    /// Equip an item to a specific slot (or auto-determine if targetSlot is null)
+    /// If there's an existing item in the slot, it will be moved to inventory (or off-hand if applicable)
+    /// For one-handed weapons, caller should prompt user and pass targetSlot explicitly.
+    /// </summary>
+    public bool EquipItem(Equipment item, EquipmentSlot? targetSlot, out string message)
     {
         message = "";
 
@@ -304,33 +326,127 @@ public class Character
             return false;
         }
 
-        // Handle two-handed weapons - must unequip off-hand
+        // Handle two-handed weapons - must unequip BOTH main hand and off-hand
         if (item.Handedness == WeaponHandedness.TwoHanded)
         {
+            // Unequip main hand first
+            if (EquippedItems.TryGetValue(EquipmentSlot.MainHand, out var mainId) && mainId > 0)
+            {
+                var mainHandItem = UnequipSlot(EquipmentSlot.MainHand);
+                if (mainHandItem != null)
+                {
+                    var legacyMainHand = ConvertEquipmentToItem(mainHandItem);
+                    Inventory.Add(legacyMainHand);
+                    message = $"Moved {mainHandItem.Name} to inventory. ";
+                }
+            }
+
+            // Unequip off-hand
             if (EquippedItems.TryGetValue(EquipmentSlot.OffHand, out var offId) && offId > 0)
             {
-                UnequipSlot(EquipmentSlot.OffHand);
-                message = "Unequipped off-hand to use two-handed weapon. ";
+                var offHandItem = UnequipSlot(EquipmentSlot.OffHand);
+                if (offHandItem != null)
+                {
+                    var legacyOffHand = ConvertEquipmentToItem(offHandItem);
+                    Inventory.Add(legacyOffHand);
+                    message += $"Moved {offHandItem.Name} to inventory. ";
+                }
             }
         }
 
-        // Handle shields/off-hand - must unequip if using 2H weapon
-        if (item.Slot == EquipmentSlot.OffHand && IsTwoHanding)
+        // Determine the correct slot for this item
+        EquipmentSlot slot;
+
+        if (targetSlot.HasValue)
         {
-            message = "Cannot equip off-hand item while using two-handed weapon";
-            return false;
+            // Use the explicitly specified slot
+            slot = targetSlot.Value;
+
+            // Validate the target slot is appropriate for this item
+            if (item.Handedness == WeaponHandedness.OneHanded)
+            {
+                // One-handed weapons can go in either hand
+                if (slot != EquipmentSlot.MainHand && slot != EquipmentSlot.OffHand)
+                {
+                    message = "One-handed weapons can only be equipped in MainHand or OffHand";
+                    return false;
+                }
+            }
+            else if (item.Handedness == WeaponHandedness.TwoHanded)
+            {
+                if (slot != EquipmentSlot.MainHand)
+                {
+                    message = "Two-handed weapons must be equipped in MainHand";
+                    return false;
+                }
+            }
+            else if (item.Handedness == WeaponHandedness.OffHandOnly)
+            {
+                if (slot != EquipmentSlot.OffHand)
+                {
+                    message = "Shields must be equipped in OffHand";
+                    return false;
+                }
+            }
+        }
+        else
+        {
+            // Auto-determine slot based on item type
+            slot = item.Slot;
+
+            // For weapons, determine the correct slot
+            if (item.Handedness == WeaponHandedness.OneHanded || item.Handedness == WeaponHandedness.TwoHanded)
+                slot = EquipmentSlot.MainHand;
+            else if (item.Handedness == WeaponHandedness.OffHandOnly)
+                slot = EquipmentSlot.OffHand;
         }
 
-        // Unequip current item in slot if any
-        var slot = item.Slot;
+        // Handle shields/off-hand - must unequip 2H weapon first if equipping off-hand
+        if (slot == EquipmentSlot.OffHand && IsTwoHanding)
+        {
+            // Unequip the 2H weapon to allow off-hand equip
+            var twoHandItem = UnequipSlot(EquipmentSlot.MainHand);
+            if (twoHandItem != null)
+            {
+                var legacyTwoHand = ConvertEquipmentToItem(twoHandItem);
+                Inventory.Add(legacyTwoHand);
+                message += $"Moved {twoHandItem.Name} to inventory. ";
+            }
+        }
 
-        // For weapons, determine the correct slot
-        if (item.Handedness == WeaponHandedness.OneHanded || item.Handedness == WeaponHandedness.TwoHanded)
-            slot = EquipmentSlot.MainHand;
-        else if (item.Handedness == WeaponHandedness.OffHandOnly)
-            slot = EquipmentSlot.OffHand;
+        // Check if we're equipping to main hand and should try to move existing item to off-hand
+        if (slot == EquipmentSlot.MainHand && item.Handedness == WeaponHandedness.OneHanded)
+        {
+            var currentMainHand = GetEquipment(EquipmentSlot.MainHand);
+            var currentOffHand = GetEquipment(EquipmentSlot.OffHand);
 
-        UnequipSlot(slot);
+            // If main hand has a 1H weapon and off-hand is empty, move main hand to off-hand
+            if (currentMainHand != null &&
+                currentMainHand.Handedness == WeaponHandedness.OneHanded &&
+                currentOffHand == null)
+            {
+                // Move main hand to off-hand (don't unequip, just reassign)
+                EquippedItems[EquipmentSlot.OffHand] = currentMainHand.Id;
+                EquippedItems.Remove(EquipmentSlot.MainHand);
+                message += $"Moved {currentMainHand.Name} to off-hand. ";
+
+                // Now equip the new item to main hand
+                EquippedItems[slot] = item.Id;
+                item.ApplyToCharacter(this);
+                message += $"Equipped {item.Name} in main hand";
+                return true;
+            }
+        }
+
+        // Unequip current item in slot if any and move to inventory
+        var oldEquipment = UnequipSlot(slot);
+        if (oldEquipment != null)
+        {
+            // Convert Equipment to legacy Item and add to inventory
+            var legacyItem = ConvertEquipmentToItem(oldEquipment);
+            Inventory.Add(legacyItem);
+            message += $"Moved {oldEquipment.Name} to inventory. ";
+        }
 
         // Equip the new item
         EquippedItems[slot] = item.Id;
@@ -338,8 +454,69 @@ public class Character
         // Apply stats
         item.ApplyToCharacter(this);
 
-        message += $"Equipped {item.Name}";
+        string slotName = slot == EquipmentSlot.MainHand ? "main hand" : (slot == EquipmentSlot.OffHand ? "off-hand" : slot.ToString());
+        message += $"Equipped {item.Name} in {slotName}";
         return true;
+    }
+
+    /// <summary>
+    /// Convert Equipment to legacy Item for inventory storage
+    /// </summary>
+    private global::Item ConvertEquipmentToItem(Equipment equipment)
+    {
+        // Determine the item type based on handedness/weapon type first, then slot
+        global::ObjType itemType;
+
+        // Check if it's a weapon (has weapon power and is not a shield)
+        if (equipment.Handedness == WeaponHandedness.OneHanded ||
+            equipment.Handedness == WeaponHandedness.TwoHanded)
+        {
+            itemType = global::ObjType.Weapon;
+        }
+        else if (equipment.Handedness == WeaponHandedness.OffHandOnly ||
+                 equipment.ShieldBonus > 0)
+        {
+            itemType = global::ObjType.Shield;
+        }
+        else
+        {
+            // Use slot to determine type for non-weapons
+            itemType = equipment.Slot switch
+            {
+                EquipmentSlot.MainHand => global::ObjType.Weapon,
+                EquipmentSlot.OffHand => global::ObjType.Shield,
+                EquipmentSlot.Body => global::ObjType.Body,
+                EquipmentSlot.Head => global::ObjType.Head,
+                EquipmentSlot.Arms => global::ObjType.Arms,
+                EquipmentSlot.Hands => global::ObjType.Hands,
+                EquipmentSlot.Legs => global::ObjType.Legs,
+                EquipmentSlot.Feet => global::ObjType.Feet,
+                EquipmentSlot.LFinger => global::ObjType.Fingers,
+                EquipmentSlot.RFinger => global::ObjType.Fingers,
+                EquipmentSlot.Neck => global::ObjType.Neck,
+                EquipmentSlot.Face => global::ObjType.Face,
+                EquipmentSlot.Waist => global::ObjType.Waist,
+                _ => global::ObjType.Abody
+            };
+        }
+
+        var item = new global::Item
+        {
+            Name = equipment.Name,
+            Type = itemType,
+            Attack = equipment.WeaponPower,
+            Armor = equipment.ArmorClass + equipment.ShieldBonus,
+            Value = equipment.Value,
+            Strength = equipment.StrengthBonus,
+            Dexterity = equipment.DexterityBonus,
+            Wisdom = equipment.WisdomBonus,
+            HP = equipment.MaxHPBonus,
+            Mana = equipment.MaxManaBonus,
+            Defence = equipment.DefenceBonus,
+            IsCursed = equipment.IsCursed,
+            Cursed = equipment.IsCursed
+        };
+        return item;
     }
 
     /// <summary>

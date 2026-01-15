@@ -98,8 +98,12 @@ namespace UsurperRemake.Locations
         /// </summary>
         protected override async Task<bool> ProcessChoice(string choice)
         {
+            // Handle global quick commands first
+            var (handled, shouldExit) = await TryProcessGlobalCommand(choice);
+            if (handled) return shouldExit;
+
             var upperChoice = choice.ToUpper().Trim();
-            
+
             switch (upperChoice)
             {
                 case "C": // Donate to Church (Collection)

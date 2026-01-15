@@ -510,15 +510,48 @@ namespace UsurperRemake.Systems
                 return;
             }
 
+            // Determine handedness for weapons
+            WeaponHandedness handedness = WeaponHandedness.OneHanded;
+            if (item.Type == ObjType.Weapon)
+            {
+                // Check if it's a two-handed weapon based on name
+                string nameLower = item.Name.ToLower();
+                if (nameLower.Contains("two-hand") || nameLower.Contains("2h") ||
+                    nameLower.Contains("greatsword") || nameLower.Contains("greataxe") ||
+                    nameLower.Contains("halberd") || nameLower.Contains("pike") ||
+                    nameLower.Contains("longbow") || nameLower.Contains("crossbow") ||
+                    nameLower.Contains("staff") || nameLower.Contains("quarterstaff"))
+                {
+                    handedness = WeaponHandedness.TwoHanded;
+                }
+            }
+            else if (item.Type == ObjType.Shield)
+            {
+                handedness = WeaponHandedness.OffHandOnly;
+            }
+
             // For rings, ask which finger
             if (item.Type == ObjType.Fingers || (int)item.MagicType == 5)
             {
-                terminal.WriteLine("Equip to [L]eft or [R]ight finger?", "yellow");
+                terminal.WriteLine("");
+                terminal.SetColor("cyan");
+                terminal.WriteLine("Equip to which finger?");
+                terminal.SetColor("white");
+                terminal.WriteLine("  (L) Left finger");
+                terminal.WriteLine("  (R) Right finger");
+                terminal.WriteLine("  (C) Cancel");
+                terminal.Write("Choice: ");
                 var fingerChoice = await terminal.GetInput("");
                 if (fingerChoice.ToUpper() == "R")
                     targetSlot = EquipmentSlot.RFinger;
-                else
+                else if (fingerChoice.ToUpper() == "L")
                     targetSlot = EquipmentSlot.LFinger;
+                else
+                {
+                    terminal.WriteLine("Cancelled.", "gray");
+                    await Task.Delay(1000);
+                    return;
+                }
             }
 
             // Convert Item to Equipment and register in database
@@ -526,8 +559,10 @@ namespace UsurperRemake.Systems
             {
                 Name = item.Name,
                 Slot = targetSlot,
+                Handedness = handedness,
                 WeaponPower = item.Attack,
                 ArmorClass = item.Armor,
+                ShieldBonus = item.Type == ObjType.Shield ? item.Armor : 0,
                 DefenceBonus = item.Defence,
                 StrengthBonus = item.Strength,
                 DexterityBonus = item.Dexterity,
@@ -543,60 +578,32 @@ namespace UsurperRemake.Systems
             // Register in database to get an ID
             EquipmentDatabase.RegisterDynamic(equipment);
 
-            // Get current equipped item to put in backpack
-            var currentEquipped = player.GetEquipment(targetSlot);
-
-            // Unequip current item first
-            if (currentEquipped != null)
+            // For one-handed weapons, ask which slot to use
+            EquipmentSlot? finalSlot = null;
+            if (Character.RequiresSlotSelection(equipment))
             {
-                player.UnequipSlot(targetSlot);
-
-                // Convert old equipment back to Item and add to backpack
-                var oldItem = new global::Item
+                finalSlot = await PromptForWeaponSlot();
+                if (finalSlot == null)
                 {
-                    Name = currentEquipped.Name,
-                    Attack = currentEquipped.WeaponPower,
-                    Armor = currentEquipped.ArmorClass,
-                    Defence = currentEquipped.DefenceBonus,
-                    Strength = currentEquipped.StrengthBonus,
-                    Dexterity = currentEquipped.DexterityBonus,
-                    Wisdom = currentEquipped.WisdomBonus,
-                    Charisma = currentEquipped.CharismaBonus,
-                    HP = currentEquipped.MaxHPBonus,
-                    Mana = currentEquipped.MaxManaBonus,
-                    Value = currentEquipped.Value,
-                    IsCursed = currentEquipped.IsCursed,
-                    Type = targetSlot switch
-                    {
-                        EquipmentSlot.MainHand => ObjType.Weapon,
-                        EquipmentSlot.OffHand => ObjType.Shield,
-                        EquipmentSlot.Head => ObjType.Head,
-                        EquipmentSlot.Body => ObjType.Body,
-                        EquipmentSlot.Arms => ObjType.Arms,
-                        EquipmentSlot.Hands => ObjType.Hands,
-                        EquipmentSlot.Legs => ObjType.Legs,
-                        EquipmentSlot.Feet => ObjType.Feet,
-                        EquipmentSlot.Waist => ObjType.Waist,
-                        EquipmentSlot.Face => ObjType.Face,
-                        EquipmentSlot.Neck => ObjType.Neck,
-                        EquipmentSlot.LFinger or EquipmentSlot.RFinger => ObjType.Fingers,
-                        _ => ObjType.Magic
-                    }
-                };
-                player.Inventory.Add(oldItem);
+                    terminal.WriteLine("Cancelled.", "gray");
+                    await Task.Delay(1000);
+                    return;
+                }
             }
 
-            // Equip the new item
-            if (player.EquipItem(equipment, out string message))
+            // Equip the new item (EquipItem handles old equipment management)
+            if (player.EquipItem(equipment, finalSlot, out string message))
             {
                 // Remove from backpack
                 player.Inventory.RemoveAt(itemIndex);
 
                 terminal.SetColor("green");
-                if (currentEquipped != null)
-                    terminal.WriteLine($"Equipped {item.Name}. {currentEquipped.Name} moved to backpack.");
-                else
-                    terminal.WriteLine($"Equipped {item.Name}.");
+                terminal.WriteLine($"Equipped {item.Name}.");
+                if (!string.IsNullOrEmpty(message))
+                {
+                    terminal.SetColor("gray");
+                    terminal.WriteLine(message);
+                }
             }
             else
             {
@@ -606,6 +613,61 @@ namespace UsurperRemake.Systems
 
             player.RecalculateStats();
             await Task.Delay(1500);
+        }
+
+        /// <summary>
+        /// Prompt player to choose which hand to equip a one-handed weapon in
+        /// </summary>
+        private async Task<EquipmentSlot?> PromptForWeaponSlot()
+        {
+            terminal.WriteLine("");
+            terminal.SetColor("cyan");
+            terminal.WriteLine("This is a one-handed weapon. Where would you like to equip it?");
+            terminal.WriteLine("");
+
+            // Show current equipment in both slots
+            var mainHandItem = player.GetEquipment(EquipmentSlot.MainHand);
+            var offHandItem = player.GetEquipment(EquipmentSlot.OffHand);
+
+            terminal.SetColor("white");
+            terminal.Write("  (M) Main Hand: ");
+            if (mainHandItem != null)
+            {
+                terminal.SetColor("yellow");
+                terminal.WriteLine(mainHandItem.Name);
+            }
+            else
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine("Empty");
+            }
+
+            terminal.SetColor("white");
+            terminal.Write("  (O) Off-Hand:  ");
+            if (offHandItem != null)
+            {
+                terminal.SetColor("yellow");
+                terminal.WriteLine(offHandItem.Name);
+            }
+            else
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine("Empty");
+            }
+
+            terminal.SetColor("white");
+            terminal.WriteLine("  (C) Cancel");
+            terminal.WriteLine("");
+
+            terminal.Write("Your choice: ");
+            var slotChoice = await terminal.GetInput("");
+
+            return slotChoice.ToUpper() switch
+            {
+                "M" => EquipmentSlot.MainHand,
+                "O" => EquipmentSlot.OffHand,
+                _ => null // Cancel
+            };
         }
 
         private async Task DropItem()
@@ -781,9 +843,38 @@ namespace UsurperRemake.Systems
             foreach (var slot in Enum.GetValues<EquipmentSlot>())
             {
                 if (slot == EquipmentSlot.None) continue;
-                var item = player.UnequipSlot(slot);
-                if (item != null)
+                var equipment = player.UnequipSlot(slot);
+                if (equipment != null)
                 {
+                    // Convert equipment to legacy Item and add to backpack
+                    var item = new global::Item
+                    {
+                        Name = equipment.Name,
+                        Type = equipment.Slot switch
+                        {
+                            EquipmentSlot.MainHand or EquipmentSlot.OffHand => ObjType.Weapon,
+                            EquipmentSlot.Body => ObjType.Body,
+                            EquipmentSlot.Head => ObjType.Head,
+                            EquipmentSlot.Arms => ObjType.Arms,
+                            EquipmentSlot.Legs => ObjType.Legs,
+                            EquipmentSlot.Hands => ObjType.Arms,
+                            EquipmentSlot.Feet => ObjType.Legs,
+                            EquipmentSlot.LFinger or EquipmentSlot.RFinger => ObjType.Fingers,
+                            EquipmentSlot.Neck or EquipmentSlot.Neck2 => ObjType.Neck,
+                            _ => ObjType.Body
+                        },
+                        Attack = equipment.WeaponPower,
+                        Armor = equipment.ArmorClass + equipment.ShieldBonus,
+                        Defence = equipment.DefenceBonus,
+                        Strength = equipment.StrengthBonus,
+                        Dexterity = equipment.DexterityBonus,
+                        Wisdom = equipment.WisdomBonus,
+                        HP = equipment.MaxHPBonus,
+                        Mana = equipment.MaxManaBonus,
+                        Value = equipment.Value,
+                        IsCursed = equipment.IsCursed
+                    };
+                    player.Inventory.Add(item);
                     count++;
                 }
             }
@@ -791,9 +882,7 @@ namespace UsurperRemake.Systems
             if (count > 0)
             {
                 terminal.SetColor("green");
-                terminal.WriteLine($"Unequipped {count} item(s).");
-                terminal.SetColor("gray");
-                terminal.WriteLine("(Items returned to shop inventories)");
+                terminal.WriteLine($"Unequipped {count} item(s) to your backpack.");
             }
             else
             {

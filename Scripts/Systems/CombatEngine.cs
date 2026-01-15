@@ -1178,14 +1178,18 @@ public partial class CombatEngine
             return;
         }
 
-        // === COMPANION TARGETING ===
-        // 30% chance monster attacks a companion instead of player (if companions present)
-        var aliveCompanions = result.Teammates?.Where(t => t.IsCompanion && t.IsAlive).ToList();
-        if (aliveCompanions != null && aliveCompanions.Count > 0 && random.Next(100) < 30)
+        // === SMART MONSTER TARGETING ===
+        // Monsters intelligently choose targets based on threat, class roles, and positioning
+        var aliveTeammates = result.Teammates?.Where(t => t.IsAlive).ToList();
+        if (aliveTeammates != null && aliveTeammates.Count > 0)
         {
-            var targetCompanion = aliveCompanions[random.Next(aliveCompanions.Count)];
-            await MonsterAttacksCompanion(monster, targetCompanion, result);
-            return;
+            var targetChoice = SelectMonsterTarget(player, aliveTeammates, monster, random);
+            if (targetChoice != null && targetChoice != player)
+            {
+                await MonsterAttacksCompanion(monster, targetChoice, result);
+                return;
+            }
+            // If targetChoice is player, fall through to normal player attack
         }
 
         // === MONSTER SPECIAL ABILITIES ===
@@ -1941,43 +1945,84 @@ public partial class CombatEngine
         switch (choice.ToUpper())
         {
             case "E":
-                // Equip immediately - add power directly
-                if (lootItem.IsCursed)
-                {
-                    terminal.SetColor("red");
-                    terminal.WriteLine("");
-                    terminal.WriteLine("You equip the item... and feel a dark presence bind to you!");
-                    terminal.WriteLine("The curse takes hold! You cannot remove this item normally.");
-                }
-                else
-                {
-                    terminal.SetColor("green");
-                    terminal.WriteLine($"You equip the {lootItem.Name}!");
-                }
-
+                // Convert Item to Equipment and equip properly
+                Equipment equipment;
                 if (lootItem.Type == global::ObjType.Weapon)
                 {
-                    player.WeapPow += lootItem.Attack;
-                    player.WeaponCursed = lootItem.IsCursed;
+                    equipment = Equipment.CreateWeapon(
+                        id: 10000 + random.Next(10000),
+                        name: lootItem.Name,
+                        handedness: WeaponHandedness.OneHanded,
+                        weaponType: WeaponType.Sword,
+                        power: lootItem.Attack,
+                        value: lootItem.Value,
+                        rarity: ConvertRarityToEquipmentRarity(LootGenerator.GetItemRarity(lootItem))
+                    );
                 }
                 else
                 {
-                    player.ArmPow += lootItem.Armor;
-                    player.ArmorCursed = lootItem.IsCursed;
+                    equipment = Equipment.CreateArmor(
+                        id: 10000 + random.Next(10000),
+                        name: lootItem.Name,
+                        slot: EquipmentSlot.Body,
+                        armorType: ArmorType.Chain,
+                        ac: lootItem.Armor,
+                        value: lootItem.Value,
+                        rarity: ConvertRarityToEquipmentRarity(LootGenerator.GetItemRarity(lootItem))
+                    );
                 }
 
-                // Apply bonus stats
-                player.Strength += lootItem.Strength;
-                player.Dexterity += lootItem.Dexterity;
-                player.Wisdom += lootItem.Wisdom;
-                player.MaxHP += lootItem.HP;
-                player.HP = Math.Min(player.HP + lootItem.HP, player.MaxHP);
-                player.MaxMana += lootItem.Mana;
-                player.Mana = Math.Min(player.Mana + lootItem.Mana, player.MaxMana);
-                player.Defence += lootItem.Defence;
+                // Apply bonus stats to equipment
+                if (lootItem.Strength != 0) equipment = equipment.WithStrength(lootItem.Strength);
+                if (lootItem.Dexterity != 0) equipment = equipment.WithDexterity(lootItem.Dexterity);
+                if (lootItem.Wisdom != 0) equipment = equipment.WithWisdom(lootItem.Wisdom);
+                if (lootItem.HP != 0) equipment = equipment.WithMaxHP(lootItem.HP);
+                if (lootItem.Mana != 0) equipment = equipment.WithMaxMana(lootItem.Mana);
+                if (lootItem.Defence != 0) equipment = equipment.WithDefence(lootItem.Defence);
+                if (lootItem.IsCursed) equipment.IsCursed = true;
 
-                // Also add to inventory for tracking
-                player.Inventory.Add(lootItem);
+                // Register the equipment in the database so it can be looked up later
+                EquipmentDatabase.RegisterDynamic(equipment);
+
+                // For one-handed weapons, ask which slot to use
+                EquipmentSlot? targetSlot = null;
+                if (Character.RequiresSlotSelection(equipment))
+                {
+                    targetSlot = await PromptForWeaponSlot(player);
+                    if (targetSlot == null)
+                    {
+                        // Player cancelled - add to inventory instead
+                        player.Inventory.Add(lootItem);
+                        terminal.SetColor("cyan");
+                        terminal.WriteLine($"Added {lootItem.Name} to your inventory.");
+                        break;
+                    }
+                }
+
+                // Try to equip the item
+                if (player.EquipItem(equipment, targetSlot, out string equipMsg))
+                {
+                    if (lootItem.IsCursed)
+                    {
+                        terminal.SetColor("red");
+                        terminal.WriteLine("");
+                        terminal.WriteLine("You equip the item... and feel a dark presence bind to you!");
+                        terminal.WriteLine("The curse takes hold! You cannot remove this item normally.");
+                    }
+                    else
+                    {
+                        terminal.SetColor("green");
+                        terminal.WriteLine(equipMsg);
+                    }
+                }
+                else
+                {
+                    // Equip failed - add to inventory instead
+                    player.Inventory.Add(lootItem);
+                    terminal.SetColor("yellow");
+                    terminal.WriteLine($"Could not equip: {equipMsg}");
+                    terminal.WriteLine($"Added {lootItem.Name} to your inventory.");
+                }
                 break;
 
             case "T":
@@ -1994,6 +2039,78 @@ public partial class CombatEngine
         }
 
         await Task.Delay(GetCombatDelay(1500));
+    }
+
+    /// <summary>
+    /// Convert LootGenerator rarity to Equipment rarity
+    /// </summary>
+    private EquipmentRarity ConvertRarityToEquipmentRarity(LootGenerator.ItemRarity rarity)
+    {
+        return rarity switch
+        {
+            LootGenerator.ItemRarity.Common => EquipmentRarity.Common,
+            LootGenerator.ItemRarity.Uncommon => EquipmentRarity.Uncommon,
+            LootGenerator.ItemRarity.Rare => EquipmentRarity.Rare,
+            LootGenerator.ItemRarity.Epic => EquipmentRarity.Epic,
+            LootGenerator.ItemRarity.Legendary => EquipmentRarity.Legendary,
+            LootGenerator.ItemRarity.Artifact => EquipmentRarity.Artifact,
+            _ => EquipmentRarity.Common
+        };
+    }
+
+    /// <summary>
+    /// Prompt player to choose which hand to equip a one-handed weapon in
+    /// </summary>
+    private async Task<EquipmentSlot?> PromptForWeaponSlot(Character player)
+    {
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        terminal.WriteLine("This is a one-handed weapon. Where would you like to equip it?");
+        terminal.WriteLine("");
+
+        // Show current equipment in both slots
+        var mainHandItem = player.GetEquipment(EquipmentSlot.MainHand);
+        var offHandItem = player.GetEquipment(EquipmentSlot.OffHand);
+
+        terminal.SetColor("white");
+        terminal.Write("  (M) Main Hand: ");
+        if (mainHandItem != null)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine(mainHandItem.Name);
+        }
+        else
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("Empty");
+        }
+
+        terminal.SetColor("white");
+        terminal.Write("  (O) Off-Hand:  ");
+        if (offHandItem != null)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine(offHandItem.Name);
+        }
+        else
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("Empty");
+        }
+
+        terminal.SetColor("white");
+        terminal.WriteLine("  (C) Cancel - Add to inventory instead");
+        terminal.WriteLine("");
+
+        terminal.Write("Your choice: ");
+        var slotChoice = await terminal.GetKeyInput();
+
+        return slotChoice.ToUpper() switch
+        {
+            "M" => EquipmentSlot.MainHand,
+            "O" => EquipmentSlot.OffHand,
+            _ => null // Cancel
+        };
     }
 
     // ==================== MULTI-MONSTER COMBAT HELPER METHODS ====================
@@ -2567,11 +2684,16 @@ public partial class CombatEngine
                     {
                         action.SpellIndex = spellIndex;
 
-                        // Check if spell is AoE
+                        // Check spell type - buff/heal spells target self, not enemies
                         var spellInfo = SpellSystem.GetSpellInfo(player.Class, spellIndex);
-                        if (spellInfo?.IsMultiTarget == true)
+                        if (spellInfo?.SpellType == "Buff" || spellInfo?.SpellType == "Heal")
                         {
-                            // Ask if player wants to hit all or just one
+                            // Self-targeting spell - no target selection needed
+                            action.TargetIndex = null;
+                        }
+                        else if (spellInfo?.IsMultiTarget == true)
+                        {
+                            // AoE attack spell - ask if player wants to hit all or just one
                             terminal.WriteLine("");
                             terminal.Write("Target all monsters? (Y/N): ");
                             var targetAllResponse = await terminal.GetInput("");
@@ -2584,7 +2706,7 @@ public partial class CombatEngine
                         }
                         else
                         {
-                            // Single target spell
+                            // Single target attack/debuff spell - select target
                             action.TargetIndex = await GetTargetSelection(monsters, allowRandom: false);
                         }
                         return (action, false);
@@ -3426,27 +3548,39 @@ public partial class CombatEngine
             return;
         }
 
-        // Deduct mana
-        player.Mana -= manaCost;
+        // Use SpellSystem.CastSpell for proper spell execution with all effects
+        var spellResult = SpellSystem.CastSpell(player, spellInfo.Level, null);
 
         terminal.WriteLine("");
         terminal.SetColor("magenta");
         terminal.WriteLine($"You cast {spellInfo.Name}!");
+        terminal.WriteLine(spellResult.Message);
         await Task.Delay(GetCombatDelay(1000));
 
-        if (action.TargetAllMonsters && spellInfo.IsMultiTarget)
+        // Handle buff/heal spells - apply effects to caster
+        if (spellInfo.SpellType == "Buff" || spellInfo.SpellType == "Heal")
         {
-            // AoE spell - split damage among all living monsters
-            // Calculate base damage (spells use fixed values, we'll use spell level * 50 as base)
-            long totalDamage = spellInfo.Level * 50 + (player.Intelligence / 2);
+            ApplySpellEffects(player, null, spellResult);
+            result.CombatLog.Add($"{player.DisplayName} casts {spellInfo.Name}.");
+        }
+        // Handle AoE attack spells
+        else if (action.TargetAllMonsters && spellInfo.IsMultiTarget)
+        {
+            // Use the spell's calculated damage
+            long totalDamage = spellResult.Damage;
+            if (totalDamage <= 0)
+            {
+                // Fallback if spell didn't set damage
+                totalDamage = spellInfo.Level * 50 + (player.Intelligence / 2);
+            }
             totalDamage = DifficultySystem.ApplyPlayerDamageMultiplier(totalDamage);
             await ApplyAoEDamage(monsters, totalDamage, result, spellInfo.Name);
         }
+        // Handle single target attack/debuff spells
         else
         {
-            // Single target spell
             Monster target = null;
-            if (action.TargetIndex.HasValue)
+            if (action.TargetIndex.HasValue && action.TargetIndex.Value < monsters.Count)
             {
                 target = monsters[action.TargetIndex.Value];
             }
@@ -3457,11 +3591,57 @@ public partial class CombatEngine
 
             if (target != null && target.IsAlive)
             {
-                // Calculate spell damage
-                long damage = spellInfo.Level * 50 + (player.Intelligence / 2);
-                damage = DifficultySystem.ApplyPlayerDamageMultiplier(damage);
-                await ApplySingleMonsterDamage(target, damage, result, spellInfo.Name, player);
+                // Use the spell's calculated damage
+                long damage = spellResult.Damage;
+                if (damage <= 0 && spellInfo.SpellType == "Attack")
+                {
+                    // Fallback if spell didn't set damage
+                    damage = spellInfo.Level * 50 + (player.Intelligence / 2);
+                }
+
+                if (damage > 0)
+                {
+                    damage = DifficultySystem.ApplyPlayerDamageMultiplier(damage);
+                    await ApplySingleMonsterDamage(target, damage, result, spellInfo.Name, player);
+                }
+
+                // Handle debuff special effects
+                if (!string.IsNullOrEmpty(spellResult.SpecialEffect))
+                {
+                    HandleSpecialSpellEffectOnMonster(target, spellResult.SpecialEffect, spellResult.Duration);
+                }
             }
+        }
+    }
+
+    /// <summary>
+    /// Apply special spell effects to a monster (sleep, fear, etc.)
+    /// </summary>
+    private void HandleSpecialSpellEffectOnMonster(Monster target, string effect, int duration)
+    {
+        switch (effect.ToLower())
+        {
+            case "sleep":
+                target.IsSleeping = true;
+                target.SleepDuration = duration > 0 ? duration : 3;
+                terminal.WriteLine($"{target.Name} falls asleep!", "cyan");
+                break;
+            case "fear":
+                target.IsFeared = true;
+                target.FearDuration = duration > 0 ? duration : 3;
+                terminal.WriteLine($"{target.Name} cowers in fear!", "yellow");
+                break;
+            case "stun":
+            case "lightning":
+                target.IsStunned = true;
+                target.StunDuration = duration > 0 ? duration : 1;
+                terminal.WriteLine($"{target.Name} is stunned!", "bright_yellow");
+                break;
+            case "slow":
+                target.IsSlowed = true;
+                target.SlowDuration = duration > 0 ? duration : 3;
+                terminal.WriteLine($"{target.Name} is slowed!", "gray");
+                break;
         }
     }
 
@@ -3592,6 +3772,133 @@ public partial class CombatEngine
         }
 
         return (true, sacrificingCompanion.Id);
+    }
+
+    /// <summary>
+    /// Smart monster targeting - selects who the monster attacks based on threat, class, and positioning
+    /// Returns null to attack player, or a teammate to attack instead
+    /// </summary>
+    private Character? SelectMonsterTarget(Character player, List<Character> aliveTeammates, Monster monster, Random random)
+    {
+        // Build a list of all potential targets with weights
+        var targetWeights = new List<(Character target, int weight)>();
+
+        // Player base weight - squishy classes get lower weight (less likely to be targeted)
+        int playerWeight = GetTargetWeight(player);
+        targetWeights.Add((player, playerWeight));
+
+        // Add all alive teammates with their weights
+        foreach (var teammate in aliveTeammates)
+        {
+            int teammateWeight = GetTargetWeight(teammate);
+            targetWeights.Add((teammate, teammateWeight));
+        }
+
+        // Calculate total weight
+        int totalWeight = targetWeights.Sum(tw => tw.weight);
+        if (totalWeight <= 0) return null; // Attack player by default
+
+        // Roll to select target
+        int roll = random.Next(totalWeight);
+        int cumulative = 0;
+
+        foreach (var (target, weight) in targetWeights)
+        {
+            cumulative += weight;
+            if (roll < cumulative)
+            {
+                return target == player ? null : target;
+            }
+        }
+
+        return null; // Default to player
+    }
+
+    /// <summary>
+    /// Calculate target weight based on class role, armor, and threat level
+    /// Higher weight = more likely to be targeted
+    /// Tanks have high weight (draw aggro), squishies have low weight
+    /// </summary>
+    private int GetTargetWeight(Character character)
+    {
+        int baseWeight = 100;
+
+        // Class-based modifiers - tank classes draw more aggro
+        // Classes: Alchemist, Assassin, Barbarian, Bard, Cleric, Jester, Magician, Paladin, Ranger, Sage, Warrior
+        switch (character.Class)
+        {
+            // Tank classes - HIGH aggro (frontline fighters)
+            case CharacterClass.Paladin:
+                baseWeight = 180; // Holy warriors draw attention, heavily armored
+                break;
+            case CharacterClass.Barbarian:
+                baseWeight = 170; // Raging warriors are intimidating and threatening
+                break;
+            case CharacterClass.Warrior:
+                baseWeight = 160; // Primary frontline fighters
+                break;
+
+            // Off-tank / Melee classes - MEDIUM-HIGH aggro
+            case CharacterClass.Ranger:
+                baseWeight = 130; // Can hold their own in combat
+                break;
+            case CharacterClass.Bard:
+                baseWeight = 110; // Versatile but stays somewhat back
+                break;
+            case CharacterClass.Jester:
+                baseWeight = 100; // Unpredictable, average targeting
+                break;
+
+            // Support / Squishy classes - LOW aggro (stay in back)
+            case CharacterClass.Assassin:
+                baseWeight = 70; // Sneaky, hard to target, stays in shadows
+                break;
+            case CharacterClass.Cleric:
+                baseWeight = 80; // Healers stay in the back
+                break;
+            case CharacterClass.Magician:
+                baseWeight = 60; // Squishy casters stay far back
+                break;
+            case CharacterClass.Sage:
+                baseWeight = 65; // Scholars avoid direct combat
+                break;
+            case CharacterClass.Alchemist:
+                baseWeight = 75; // Support class, stays back
+                break;
+
+            default:
+                baseWeight = 100;
+                break;
+        }
+
+        // Armor modifier - heavily armored characters draw more attention (they're in front)
+        // ArmPow roughly indicates how armored someone is
+        if (character.ArmPow > 50)
+            baseWeight += 30;
+        else if (character.ArmPow > 30)
+            baseWeight += 15;
+        else if (character.ArmPow < 15)
+            baseWeight -= 20; // Lightly armored stay back
+
+        // HP modifier - characters with more max HP are assumed to be more in the fray
+        if (character.MaxHP > 500)
+            baseWeight += 20;
+        else if (character.MaxHP < 100)
+            baseWeight -= 20;
+
+        // Low HP modifier - monsters may finish off weakened targets
+        double hpPercent = (double)character.HP / Math.Max(1, character.MaxHP);
+        if (hpPercent < 0.25)
+            baseWeight += 25; // Monsters smell blood
+        else if (hpPercent < 0.5)
+            baseWeight += 10;
+
+        // Defending characters draw aggro (they're actively blocking)
+        if (character.IsDefending)
+            baseWeight += 40;
+
+        // Ensure minimum weight of 10
+        return Math.Max(10, baseWeight);
     }
 
     /// <summary>

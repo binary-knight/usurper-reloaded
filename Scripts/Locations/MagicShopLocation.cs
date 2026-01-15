@@ -59,6 +59,10 @@ public partial class MagicShopLocation : BaseLocation
 
     protected override async Task<bool> ProcessChoice(string choice)
     {
+        // Handle global quick commands first
+        var (handled, shouldExit) = await TryProcessGlobalCommand(choice);
+        if (handled) return shouldExit;
+
         return await HandleMagicShopChoice(choice.ToUpper(), currentPlayer);
     }
     

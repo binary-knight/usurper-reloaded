@@ -88,6 +88,16 @@ public class Monster
     public int StunRounds { get; set; } = 0;
     public int WeakenRounds { get; set; } = 0;
 
+    // Spell effect status flags
+    public bool IsSleeping { get; set; } = false;
+    public int SleepDuration { get; set; } = 0;
+    public bool IsFeared { get; set; } = false;
+    public int FearDuration { get; set; } = 0;
+    public bool IsStunned { get; set; } = false;
+    public int StunDuration { get; set; } = 0;
+    public bool IsSlowed { get; set; } = false;
+    public int SlowDuration { get; set; } = 0;
+
     // Ability use tracking to prevent infinite stacking
     public bool HasHardenedArmor { get; set; } = false;
     public bool HasEnraged { get; set; } = false;

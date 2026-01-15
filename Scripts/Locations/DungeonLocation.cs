@@ -89,6 +89,9 @@ public class DungeonLocation : BaseLocation
         // Add active companions to the teammates list
         await AddCompanionsToParty(player, term);
 
+        // Restore NPC teammates (spouses, team members, lovers) from saved state
+        await RestoreNPCTeammates(term);
+
         // Call base to enter the location loop
         await base.EnterLocation(player, term);
     }
@@ -504,6 +507,55 @@ public class DungeonLocation : BaseLocation
             term.WriteLine("");
             await Task.Delay(1500);
         }
+    }
+
+    /// <summary>
+    /// Restore NPC teammates (spouses, team members, lovers) from saved state
+    /// </summary>
+    private async Task RestoreNPCTeammates(TerminalEmulator term)
+    {
+        var savedNPCIds = GameEngine.Instance?.DungeonPartyNPCIds;
+        if (savedNPCIds == null || savedNPCIds.Count == 0)
+            return;
+
+        var npcSystem = UsurperRemake.Systems.NPCSpawnSystem.Instance;
+        if (npcSystem == null)
+            return;
+
+        int restoredCount = 0;
+        foreach (var npcId in savedNPCIds)
+        {
+            var npc = npcSystem.ActiveNPCs?.FirstOrDefault(n => n.ID == npcId && n.IsAlive);
+            if (npc != null && !teammates.Any(t => t is NPC existingNpc && existingNpc.ID == npcId))
+            {
+                teammates.Add(npc);
+                npc.UpdateLocation("Dungeon");
+                restoredCount++;
+            }
+        }
+
+        if (restoredCount > 0)
+        {
+            term.WriteLine("");
+            term.SetColor("bright_cyan");
+            term.WriteLine($"═══ PARTY RESTORED ═══");
+            term.SetColor("green");
+            term.WriteLine($"{restoredCount} ally/allies rejoin your dungeon party from your last session.");
+            term.WriteLine("");
+            await Task.Delay(1500);
+        }
+    }
+
+    /// <summary>
+    /// Sync current NPC teammates to GameEngine for persistence
+    /// </summary>
+    private void SyncNPCTeammatesToGameEngine()
+    {
+        var npcIds = teammates
+            .OfType<NPC>()
+            .Select(n => n.ID)
+            .ToList();
+        GameEngine.Instance?.SetDungeonPartyNPCs(npcIds);
     }
 
     /// <summary>
@@ -1194,6 +1246,15 @@ public class DungeonLocation : BaseLocation
 
         terminal.SetColor("darkgray");
         terminal.Write("[");
+        terminal.SetColor("cyan");
+        terminal.Write("=");
+        terminal.SetColor("darkgray");
+        terminal.Write("] ");
+        terminal.SetColor("white");
+        terminal.Write("Status  ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
         terminal.SetColor("red");
         terminal.Write("Q");
         terminal.SetColor("darkgray");
@@ -1531,6 +1592,10 @@ public class DungeonLocation : BaseLocation
 
     protected override async Task<bool> ProcessChoice(string choice)
     {
+        // Handle global quick commands first
+        var (handled, shouldExit) = await TryProcessGlobalCommand(choice);
+        if (handled) return shouldExit;
+
         if (string.IsNullOrWhiteSpace(choice))
             return false;
 
@@ -1594,6 +1659,7 @@ public class DungeonLocation : BaseLocation
                 return false;
 
             case "S":
+            case "=":
                 await ShowStatus();
                 return false;
 
@@ -1875,11 +1941,15 @@ public class DungeonLocation : BaseLocation
                 return false;
 
             case "I":
-                await ShowStatus();
+                await ShowInventory();
                 return false;
 
             case "P":
                 await UsePotions();
+                return false;
+
+            case "=":
+                await ShowStatus();
                 return false;
 
             case "Q":
@@ -4824,7 +4894,7 @@ public class DungeonLocation : BaseLocation
         public string Type { get; set; } = ""; // weapon, armor, ring, amulet, special
         public int Power { get; set; }
         public bool Sold { get; set; } = false;
-        public Action<Character>? Effect { get; set; }
+        public Func<Character, Task>? EffectAsync { get; set; }
     }
 
     private List<MerchantRareItem> GenerateMerchantRareItems(int level)
@@ -4889,7 +4959,7 @@ public class DungeonLocation : BaseLocation
             Price = basePrice + (weaponPower * 100),
             Type = "weapon",
             Power = weaponPower,
-            Effect = (p) => {
+            EffectAsync = async (p) => {
                 // Create actual equipment and equip it
                 var weapon = Equipment.CreateWeapon(
                     id: 9000 + dungeonRandom.Next(1000),
@@ -4901,7 +4971,16 @@ public class DungeonLocation : BaseLocation
                     rarity: EquipmentRarity.Rare
                 );
                 weapon.Description = weaponDesc;
-                if (p.EquipItem(weapon, out string msg))
+                EquipmentDatabase.RegisterDynamic(weapon);
+
+                // For one-handed weapons, ask which slot to use
+                EquipmentSlot? targetSlot = null;
+                if (Character.RequiresSlotSelection(weapon))
+                {
+                    targetSlot = await PromptForWeaponSlotDungeon(p);
+                }
+
+                if (p.EquipItem(weapon, targetSlot, out string msg))
                 {
                     terminal?.WriteLine(msg, "green");
                 }
@@ -4925,7 +5004,7 @@ public class DungeonLocation : BaseLocation
             Price = basePrice + (armorPower * 80),
             Type = "armor",
             Power = armorPower,
-            Effect = (p) => {
+            EffectAsync = async (p) => {
                 // Create actual equipment and equip it
                 var armor = Equipment.CreateArmor(
                     id: 9000 + dungeonRandom.Next(1000),
@@ -4937,6 +5016,7 @@ public class DungeonLocation : BaseLocation
                     rarity: EquipmentRarity.Rare
                 );
                 armor.Description = armorDesc;
+                EquipmentDatabase.RegisterDynamic(armor);
                 if (p.EquipItem(armor, out string msg))
                 {
                     terminal?.WriteLine(msg, "green");
@@ -4947,51 +5027,205 @@ public class DungeonLocation : BaseLocation
                     p.ArmPow += armorPower;
                     terminal?.WriteLine($"Armor power increased by {armorPower}!", "yellow");
                 }
+                await Task.CompletedTask; // Make method async
             }
         });
 
         var ringChoice = rings[dungeonRandom.Next(rings.Length)];
+        var ringName = ringChoice.Item1;
+        var ringDesc = ringChoice.Item2;
+        var ringPower = ringChoice.Item3;
+        var ringPrice = basePrice / 2 + (ringPower * 50);
         items.Add(new MerchantRareItem
         {
-            Name = ringChoice.Item1,
-            Description = ringChoice.Item2,
-            Price = basePrice / 2 + (ringChoice.Item3 * 50),
+            Name = ringName,
+            Description = ringDesc,
+            Price = ringPrice,
             Type = "ring",
-            Power = ringChoice.Item3,
-            Effect = ringChoice.Item1 switch
-            {
-                "Ring of Might" => (p) => { p.Strength += 5; },
-                "Ring of Vitality" => (p) => { p.MaxHP += 50; p.HP += 50; },
-                "Ring of the Thief" => (p) => { p.Dexterity += 5; },
-                "Ring of Wisdom" => (p) => { p.Intelligence += 5; },
-                "Ring of Fortune" => (p) => { }, // passive effect, just mark as owned
-                "Ring of Protection" => (p) => { p.ArmPow += 3; },
-                _ => (p) => { }
+            Power = ringPower,
+            EffectAsync = async (p) => {
+                // Create actual ring equipment
+                var ring = Equipment.CreateAccessory(
+                    id: 9000 + dungeonRandom.Next(1000),
+                    name: ringName,
+                    slot: EquipmentSlot.LFinger,
+                    value: ringPrice,
+                    rarity: EquipmentRarity.Rare
+                );
+                ring.Description = ringDesc;
+
+                // Apply appropriate bonuses based on ring type
+                switch (ringName)
+                {
+                    case "Ring of Might":
+                        ring = ring.WithStrength(5);
+                        break;
+                    case "Ring of Vitality":
+                        ring = ring.WithMaxHP(50);
+                        break;
+                    case "Ring of the Thief":
+                        ring = ring.WithDexterity(5);
+                        break;
+                    case "Ring of Wisdom":
+                        ring = ring.WithWisdom(5);
+                        break;
+                    case "Ring of Fortune":
+                        // Passive gold find effect - just equip it
+                        break;
+                    case "Ring of Protection":
+                        ring = ring.WithDefence(3);
+                        break;
+                }
+
+                EquipmentDatabase.RegisterDynamic(ring);
+                if (p.EquipItem(ring, out string msg))
+                {
+                    terminal?.WriteLine(msg, "green");
+                }
+                else
+                {
+                    // Try RFinger slot if LFinger is occupied
+                    ring.Slot = EquipmentSlot.RFinger;
+                    if (p.EquipItem(ring, out string msg2))
+                    {
+                        terminal?.WriteLine(msg2, "green");
+                    }
+                    else
+                    {
+                        // Fallback: apply stats directly
+                        switch (ringName)
+                        {
+                            case "Ring of Might": p.Strength += 5; break;
+                            case "Ring of Vitality": p.MaxHP += 50; p.HP += 50; break;
+                            case "Ring of the Thief": p.Dexterity += 5; break;
+                            case "Ring of Wisdom": p.Intelligence += 5; break;
+                            case "Ring of Protection": p.ArmPow += 3; break;
+                        }
+                        terminal?.WriteLine($"Ring power applied!", "yellow");
+                    }
+                }
+                await Task.CompletedTask; // Make method async
             }
         });
 
         var specialChoice = specials[dungeonRandom.Next(specials.Length)];
+        var specialName = specialChoice.Item1;
+        var specialDesc = specialChoice.Item2;
+        var specialPower = specialChoice.Item3;
+        var specialPrice = basePrice + 1000;
         items.Add(new MerchantRareItem
         {
-            Name = specialChoice.Item1,
-            Description = specialChoice.Item2,
-            Price = basePrice + 1000,
+            Name = specialName,
+            Description = specialDesc,
+            Price = specialPrice,
             Type = "special",
-            Power = specialChoice.Item3,
-            Effect = specialChoice.Item1 switch
-            {
-                "Amulet of Life" => (p) => { p.MaxHP += 100; p.HP += 100; },
-                "Charm of Speed" => (p) => { p.Dexterity += 10; p.Agility += 10; },
-                "Talisman of Power" => (p) => {
-                    p.Strength += 10; p.Intelligence += 10; p.Wisdom += 10;
-                    p.Dexterity += 10; p.Constitution += 10; p.Charisma += 10;
-                },
-                "Lucky Coin" => (p) => { }, // passive effect
-                _ => (p) => { }
+            Power = specialPower,
+            EffectAsync = async (p) => {
+                // Create actual amulet/accessory equipment
+                var amulet = Equipment.CreateAccessory(
+                    id: 9000 + dungeonRandom.Next(1000),
+                    name: specialName,
+                    slot: EquipmentSlot.Neck,
+                    value: specialPrice,
+                    rarity: EquipmentRarity.Epic
+                );
+                amulet.Description = specialDesc;
+
+                // Apply appropriate bonuses based on item type
+                switch (specialName)
+                {
+                    case "Amulet of Life":
+                        amulet = amulet.WithMaxHP(100);
+                        break;
+                    case "Charm of Speed":
+                        amulet = amulet.WithDexterity(10).WithAgility(10);
+                        break;
+                    case "Talisman of Power":
+                        amulet = amulet.WithStrength(10).WithIntelligence(10).WithWisdom(10)
+                            .WithDexterity(10).WithConstitution(10).WithCharisma(10);
+                        break;
+                    case "Lucky Coin":
+                        // Passive gold find effect - just equip it
+                        break;
+                }
+
+                EquipmentDatabase.RegisterDynamic(amulet);
+                if (p.EquipItem(amulet, out string msg))
+                {
+                    terminal?.WriteLine(msg, "green");
+                }
+                else
+                {
+                    // Fallback: apply stats directly
+                    switch (specialName)
+                    {
+                        case "Amulet of Life": p.MaxHP += 100; p.HP += 100; break;
+                        case "Charm of Speed": p.Dexterity += 10; p.Agility += 10; break;
+                        case "Talisman of Power":
+                            p.Strength += 10; p.Intelligence += 10; p.Wisdom += 10;
+                            p.Dexterity += 10; p.Constitution += 10; p.Charisma += 10;
+                            break;
+                    }
+                    terminal?.WriteLine($"Amulet power applied!", "yellow");
+                }
+                await Task.CompletedTask; // Make method async
             }
         });
 
         return items;
+    }
+
+    /// <summary>
+    /// Prompt player to choose which hand to equip a one-handed weapon in (dungeon version)
+    /// </summary>
+    private async Task<EquipmentSlot?> PromptForWeaponSlotDungeon(Character player)
+    {
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        terminal.WriteLine("This is a one-handed weapon. Where would you like to equip it?");
+        terminal.WriteLine("");
+
+        // Show current equipment in both slots
+        var mainHandItem = player.GetEquipment(EquipmentSlot.MainHand);
+        var offHandItem = player.GetEquipment(EquipmentSlot.OffHand);
+
+        terminal.SetColor("white");
+        terminal.Write("  (M) Main Hand: ");
+        if (mainHandItem != null)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine(mainHandItem.Name);
+        }
+        else
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("Empty");
+        }
+
+        terminal.SetColor("white");
+        terminal.Write("  (O) Off-Hand:  ");
+        if (offHandItem != null)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine(offHandItem.Name);
+        }
+        else
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("Empty");
+        }
+
+        terminal.WriteLine("");
+
+        terminal.Write("Your choice: ");
+        var slotChoice = await terminal.GetInput("");
+
+        return slotChoice.ToUpper() switch
+        {
+            "M" => EquipmentSlot.MainHand,
+            "O" => EquipmentSlot.OffHand,
+            _ => EquipmentSlot.MainHand // Default to main hand
+        };
     }
 
     private async Task PurchaseRareItem(Character player, MerchantRareItem item)
@@ -5021,7 +5255,8 @@ public class DungeonLocation : BaseLocation
         {
             player.Gold -= item.Price;
             item.Sold = true;
-            item.Effect?.Invoke(player);
+            if (item.EffectAsync != null)
+                await item.EffectAsync(player);
 
             terminal.SetColor("bright_yellow");
             terminal.WriteLine("");
@@ -5495,6 +5730,9 @@ public class DungeonLocation : BaseLocation
             // Move NPC to dungeon
             npc.UpdateLocation("Dungeon");
 
+            // Sync to GameEngine for persistence
+            SyncNPCTeammatesToGameEngine();
+
             terminal.SetColor("green");
             terminal.WriteLine($"{npc.DisplayName} joins your dungeon party!");
             terminal.WriteLine("They will fight alongside you against monsters.");
@@ -5529,6 +5767,9 @@ public class DungeonLocation : BaseLocation
             {
                 npc.UpdateLocation("Main Street");
             }
+
+            // Sync to GameEngine for persistence
+            SyncNPCTeammatesToGameEngine();
 
             terminal.SetColor("yellow");
             terminal.WriteLine($"{member.DisplayName} leaves the dungeon party and returns to town.");
