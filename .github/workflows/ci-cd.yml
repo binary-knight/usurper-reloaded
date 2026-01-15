@@ -107,23 +107,39 @@ jobs:
 
       - name: Create build directories
         run: |
-          mkdir -p build/windows
+          mkdir -p build/windows-x64
+          mkdir -p build/windows-x86
           mkdir -p build/linux
           mkdir -p build/mac
 
       # --- Publish platform executables directly from main project ---
-      - name: Publish Windows executable
+      - name: Publish Windows 64-bit executable
         run: |
-          echo "Publishing Windows executable..."
-          dotnet publish usurper-reloaded.csproj -c Release -r win-x64 -o build/windows \
+          echo "Publishing Windows 64-bit executable..."
+          dotnet publish usurper-reloaded.csproj -c Release -r win-x64 -o build/windows-x64 \
             -p:PublishSingleFile=true -p:SelfContained=true -p:InvariantGlobalization=true
-          if [ -f "build/windows/UsurperRemake.exe" ]; then
+          if [ -f "build/windows-x64/UsurperRemake.exe" ]; then
             # Copy Windows launcher
-            cp launchers/UsurperReborn.bat build/windows/
-            echo "✅ Windows publish successful"
+            cp launchers/UsurperReborn.bat build/windows-x64/
+            echo "✅ Windows 64-bit publish successful"
           else
-            echo "Windows publish failed"
-            ls -la build/windows/
+            echo "Windows 64-bit publish failed"
+            ls -la build/windows-x64/
+            exit 1
+          fi
+
+      - name: Publish Windows 32-bit executable
+        run: |
+          echo "Publishing Windows 32-bit executable..."
+          dotnet publish usurper-reloaded.csproj -c Release -r win-x86 -o build/windows-x86 \
+            -p:PublishSingleFile=true -p:SelfContained=true -p:InvariantGlobalization=true
+          if [ -f "build/windows-x86/UsurperRemake.exe" ]; then
+            # Copy Windows launcher
+            cp launchers/UsurperReborn.bat build/windows-x86/
+            echo "✅ Windows 32-bit publish successful"
+          else
+            echo "Windows 32-bit publish failed"
+            ls -la build/windows-x86/
             exit 1
           fi
 
@@ -202,49 +218,56 @@ jobs:
       - name: Add GPL compliance files to builds
         run: |
           # Copy GPL compliance files to all build directories
-          for dir in build/windows build/linux build/mac; do
+          for dir in build/windows-x64 build/windows-x86 build/linux build/mac; do
             cp LICENSE "$dir/"
             cp GPL_NOTICE.txt "$dir/"
             cp usurper-reloaded-source.zip "$dir/"
           done
-          
+
           # Create README files for each platform
-          echo "# Usurper Reloaded - Complete Medieval World Simulation" > build/windows/README.txt
-          echo "" >> build/windows/README.txt
-          echo "**FREE AND OPEN SOURCE SOFTWARE - GPL v2 Licensed**" >> build/windows/README.txt
-          echo "" >> build/windows/README.txt
-          echo "## About" >> build/windows/README.txt
-          echo "A faithful remake of the classic BBS door game Usurper with advanced NPC AI." >> build/windows/README.txt
-          echo "From peasant to ruler, the path of the Usurper awaits!" >> build/windows/README.txt
-          echo "" >> build/windows/README.txt
-          echo "## GPL v2 COMPLIANCE" >> build/windows/README.txt
-          echo "- This software is licensed under GPL v2" >> build/windows/README.txt
-          echo "- Complete source code included: usurper-reloaded-source.zip" >> build/windows/README.txt
-          echo "- License terms: LICENSE file" >> build/windows/README.txt
-          echo "- Full notice: GPL_NOTICE.txt" >> build/windows/README.txt
-          echo "" >> build/windows/README.txt
-          echo "## Your Rights" >> build/windows/README.txt
-          echo "✅ Use for any purpose (personal, commercial, educational)" >> build/windows/README.txt
-          echo "✅ Study and modify the complete source code" >> build/windows/README.txt
-          echo "✅ Distribute copies freely" >> build/windows/README.txt
-          echo "✅ Distribute your modifications under GPL v2" >> build/windows/README.txt
-          echo "" >> build/windows/README.txt
-          echo "This is truly FREE software - you own it completely!" >> build/windows/README.txt
-          echo "" >> build/windows/README.txt
-          echo "## Repository" >> build/windows/README.txt
-          echo "https://github.com/binary-knight/usurper-reloaded" >> build/windows/README.txt
-          
+          echo "# Usurper Reloaded - Complete Medieval World Simulation" > build/windows-x64/README.txt
+          echo "" >> build/windows-x64/README.txt
+          echo "**FREE AND OPEN SOURCE SOFTWARE - GPL v2 Licensed**" >> build/windows-x64/README.txt
+          echo "" >> build/windows-x64/README.txt
+          echo "## About" >> build/windows-x64/README.txt
+          echo "A faithful remake of the classic BBS door game Usurper with advanced NPC AI." >> build/windows-x64/README.txt
+          echo "From peasant to ruler, the path of the Usurper awaits!" >> build/windows-x64/README.txt
+          echo "" >> build/windows-x64/README.txt
+          echo "## GPL v2 COMPLIANCE" >> build/windows-x64/README.txt
+          echo "- This software is licensed under GPL v2" >> build/windows-x64/README.txt
+          echo "- Complete source code included: usurper-reloaded-source.zip" >> build/windows-x64/README.txt
+          echo "- License terms: LICENSE file" >> build/windows-x64/README.txt
+          echo "- Full notice: GPL_NOTICE.txt" >> build/windows-x64/README.txt
+          echo "" >> build/windows-x64/README.txt
+          echo "## Your Rights" >> build/windows-x64/README.txt
+          echo "✅ Use for any purpose (personal, commercial, educational)" >> build/windows-x64/README.txt
+          echo "✅ Study and modify the complete source code" >> build/windows-x64/README.txt
+          echo "✅ Distribute copies freely" >> build/windows-x64/README.txt
+          echo "✅ Distribute your modifications under GPL v2" >> build/windows-x64/README.txt
+          echo "" >> build/windows-x64/README.txt
+          echo "This is truly FREE software - you own it completely!" >> build/windows-x64/README.txt
+          echo "" >> build/windows-x64/README.txt
+          echo "## Repository" >> build/windows-x64/README.txt
+          echo "https://github.com/binary-knight/usurper-reloaded" >> build/windows-x64/README.txt
+
           # Copy README to other platforms
-          cp build/windows/README.txt build/linux/README.txt
-          cp build/windows/README.txt build/mac/README.txt
-          
+          cp build/windows-x64/README.txt build/windows-x86/README.txt
+          cp build/windows-x64/README.txt build/linux/README.txt
+          cp build/windows-x64/README.txt build/mac/README.txt
+
           echo "GPL compliance files added to all builds"
 
-      - name: Upload Windows Build
+      - name: Upload Windows 64-bit Build
         uses: actions/upload-artifact@v4
         with:
-          name: windows-build
-          path: build/windows/
+          name: windows-x64-build
+          path: build/windows-x64/
+
+      - name: Upload Windows 32-bit Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x86-build
+          path: build/windows-x86/
 
       - name: Upload Linux Build
         uses: actions/upload-artifact@v4
@@ -274,9 +297,10 @@ jobs:
       - name: Create release zip files
         run: |
           # Create zip archives for each platform
-          cd windows-build && zip -r ../UsurperReborn-${{ github.ref_name }}-Windows.zip . && cd ..
-          cd linux-build && zip -r ../UsurperReborn-${{ github.ref_name }}-Linux.zip . && cd ..
-          cd mac-build && zip -r ../UsurperReborn-${{ github.ref_name }}-macOS.zip . && cd ..
+          cd windows-x64-build && zip -r ../UsurperReborn-${{ github.ref_name }}-Windows-x64.zip . && cd ..
+          cd windows-x86-build && zip -r ../UsurperReborn-${{ github.ref_name }}-Windows-x86.zip . && cd ..
+          cd linux-build && zip -r ../UsurperReborn-${{ github.ref_name }}-Linux-x64.zip . && cd ..
+          cd mac-build && zip -r ../UsurperReborn-${{ github.ref_name }}-macOS-x64.zip . && cd ..
 
           ls -la *.zip
 
@@ -284,9 +308,10 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            UsurperReborn-${{ github.ref_name }}-Windows.zip
-            UsurperReborn-${{ github.ref_name }}-Linux.zip
-            UsurperReborn-${{ github.ref_name }}-macOS.zip
+            UsurperReborn-${{ github.ref_name }}-Windows-x64.zip
+            UsurperReborn-${{ github.ref_name }}-Windows-x86.zip
+            UsurperReborn-${{ github.ref_name }}-Linux-x64.zip
+            UsurperReborn-${{ github.ref_name }}-macOS-x64.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -308,18 +333,19 @@ jobs:
         run: |
           echo "=== Directory structure after download ==="
           ls -la
-          ls -la windows-build/ || echo "No windows-build dir"
+          ls -la windows-x64-build/ || echo "No windows-x64-build dir"
           ls -la linux-build/ || echo "No linux-build dir"
 
           mkdir -p steam-build/depot-windows
           mkdir -p steam-build/depot-linux
 
           # Copy build artifacts - download-artifact creates directories named after artifacts
-          if [ -d "windows-build" ]; then
-            cp -r windows-build/* steam-build/depot-windows/
+          # Steam uses 64-bit Windows build
+          if [ -d "windows-x64-build" ]; then
+            cp -r windows-x64-build/* steam-build/depot-windows/
             echo "Windows files copied: $(ls steam-build/depot-windows/ | wc -l) files"
           else
-            echo "ERROR: windows-build directory not found!"
+            echo "ERROR: windows-x64-build directory not found!"
             exit 1
           fi
 
