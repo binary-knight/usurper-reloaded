@@ -303,16 +303,37 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           pattern: "*-build"
-          merge-multiple: true
 
       - name: Create Steam structure
         run: |
+          echo "=== Directory structure after download ==="
+          ls -la
+          ls -la windows-build/ || echo "No windows-build dir"
+          ls -la linux-build/ || echo "No linux-build dir"
+
           mkdir -p steam-build/depot-windows
           mkdir -p steam-build/depot-linux
 
-          # Copy build artifacts if they exist
-          [ -d "windows-build" ] && cp -r windows-build/* steam-build/depot-windows/ || echo "Windows build not found"
-          [ -d "linux-build" ] && cp -r linux-build/* steam-build/depot-linux/ || echo "Linux build not found"
+          # Copy build artifacts - download-artifact creates directories named after artifacts
+          if [ -d "windows-build" ]; then
+            cp -r windows-build/* steam-build/depot-windows/
+            echo "Windows files copied: $(ls steam-build/depot-windows/ | wc -l) files"
+          else
+            echo "ERROR: windows-build directory not found!"
+            exit 1
+          fi
+
+          if [ -d "linux-build" ]; then
+            cp -r linux-build/* steam-build/depot-linux/
+            echo "Linux files copied: $(ls steam-build/depot-linux/ | wc -l) files"
+          else
+            echo "ERROR: linux-build directory not found!"
+            exit 1
+          fi
+
+          echo "=== Steam depot contents ==="
+          ls -la steam-build/depot-windows/
+          ls -la steam-build/depot-linux/
 
       - name: Generate Steam configuration
         env:
