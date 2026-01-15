@@ -476,8 +476,11 @@ jobs:
         env:
           STEAM_USERNAME: ${{ secrets.STEAM_USERNAME }}
         run: |
-          cd steam-build
-          ~/steamcmd/steamcmd.sh +login "$STEAM_USERNAME" +run_app_build app_build.vdf +quit
+          # Use absolute path for app_build.vdf
+          BUILD_FILE="$(pwd)/steam-build/app_build.vdf"
+          echo "Build file: $BUILD_FILE"
+          ls -la steam-build/
+          ~/steamcmd/steamcmd.sh +login "$STEAM_USERNAME" +run_app_build "$BUILD_FILE" +quit
           echo "Steam upload complete!"
 
       - name: Upload Steam logs
