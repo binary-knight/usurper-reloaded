@@ -4879,25 +4879,75 @@ public class DungeonLocation : BaseLocation
 
         // Pick random items for this merchant
         var weaponChoice = weapons[dungeonRandom.Next(weapons.Length)];
+        var weaponPower = weaponChoice.Item3;
+        var weaponName = weaponChoice.Item1;
+        var weaponDesc = weaponChoice.Item2;
         items.Add(new MerchantRareItem
         {
-            Name = weaponChoice.Item1,
-            Description = $"+{weaponChoice.Item3} Weapon Power - {weaponChoice.Item2}",
-            Price = basePrice + (weaponChoice.Item3 * 100),
+            Name = weaponName,
+            Description = $"+{weaponPower} Weapon Power - {weaponDesc}",
+            Price = basePrice + (weaponPower * 100),
             Type = "weapon",
-            Power = weaponChoice.Item3,
-            Effect = (p) => { p.WeapPow += weaponChoice.Item3; }
+            Power = weaponPower,
+            Effect = (p) => {
+                // Create actual equipment and equip it
+                var weapon = Equipment.CreateWeapon(
+                    id: 9000 + dungeonRandom.Next(1000),
+                    name: weaponName,
+                    handedness: WeaponHandedness.OneHanded,
+                    weaponType: WeaponType.Sword,
+                    power: weaponPower,
+                    value: basePrice + (weaponPower * 100),
+                    rarity: EquipmentRarity.Rare
+                );
+                weapon.Description = weaponDesc;
+                if (p.EquipItem(weapon, out string msg))
+                {
+                    terminal?.WriteLine(msg, "green");
+                }
+                else
+                {
+                    // Fallback: add power directly if equip fails
+                    p.WeapPow += weaponPower;
+                    terminal?.WriteLine($"Weapon power increased by {weaponPower}!", "yellow");
+                }
+            }
         });
 
         var armorChoice = armors[dungeonRandom.Next(armors.Length)];
+        var armorPower = armorChoice.Item3;
+        var armorName = armorChoice.Item1;
+        var armorDesc = armorChoice.Item2;
         items.Add(new MerchantRareItem
         {
-            Name = armorChoice.Item1,
-            Description = $"+{armorChoice.Item3} Armor Power - {armorChoice.Item2}",
-            Price = basePrice + (armorChoice.Item3 * 80),
+            Name = armorName,
+            Description = $"+{armorPower} Armor Power - {armorDesc}",
+            Price = basePrice + (armorPower * 80),
             Type = "armor",
-            Power = armorChoice.Item3,
-            Effect = (p) => { p.ArmPow += armorChoice.Item3; }
+            Power = armorPower,
+            Effect = (p) => {
+                // Create actual equipment and equip it
+                var armor = Equipment.CreateArmor(
+                    id: 9000 + dungeonRandom.Next(1000),
+                    name: armorName,
+                    slot: EquipmentSlot.Body,
+                    armorType: ArmorType.Chain,
+                    ac: armorPower,
+                    value: basePrice + (armorPower * 80),
+                    rarity: EquipmentRarity.Rare
+                );
+                armor.Description = armorDesc;
+                if (p.EquipItem(armor, out string msg))
+                {
+                    terminal?.WriteLine(msg, "green");
+                }
+                else
+                {
+                    // Fallback: add power directly if equip fails
+                    p.ArmPow += armorPower;
+                    terminal?.WriteLine($"Armor power increased by {armorPower}!", "yellow");
+                }
+            }
         });
 
         var ringChoice = rings[dungeonRandom.Next(rings.Length)];
