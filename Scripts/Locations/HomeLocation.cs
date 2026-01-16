@@ -116,11 +116,11 @@ public class HomeLocation : BaseLocation
         {
             var npc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == spouse.NPCId);
             var name = npc?.Name ?? spouse.NPCName;
-            if (npc != null && (npc.CurrentLocation == "Home" || npc.CurrentLocation == "Your Home"))
+            if (npc != null && npc.IsAlive == true && (npc.CurrentLocation == "Home" || npc.CurrentLocation == "Your Home"))
             {
                 partnersAtHome.Add(name);
             }
-            else if (npc != null)
+            else if (npc != null && npc.IsAlive == true)
             {
                 partnersAway.Add((name, npc.CurrentLocation));
             }
@@ -130,11 +130,11 @@ public class HomeLocation : BaseLocation
         {
             var npc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == lover.NPCId);
             var name = npc?.Name ?? lover.NPCName;
-            if (npc != null && (npc.CurrentLocation == "Home" || npc.CurrentLocation == "Your Home"))
+            if (npc != null && npc.IsAlive == true && (npc.CurrentLocation == "Home" || npc.CurrentLocation == "Your Home"))
             {
                 partnersAtHome.Add(name);
             }
-            else if (npc != null)
+            else if (npc != null && npc.IsAlive == true )
             {
                 partnersAway.Add((name, npc.CurrentLocation));
             }
