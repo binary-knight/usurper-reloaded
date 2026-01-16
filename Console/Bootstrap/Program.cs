@@ -109,6 +109,9 @@ namespace UsurperConsole
             if (_exitRequested) return;
             _exitRequested = true;
 
+            // If this is an intentional exit from the game menu, don't show warning
+            if (GameEngine.IsIntentionalExit) return;
+
             try
             {
                 Console.ForegroundColor = ConsoleColor.Red;

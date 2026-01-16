@@ -22,6 +22,11 @@ public partial class GameEngine : Node
     private Character? currentPlayer;
 
     /// <summary>
+    /// Flag indicating an intentional exit (quit from menu) vs unexpected termination
+    /// </summary>
+    public static bool IsIntentionalExit { get; private set; } = false;
+
+    /// <summary>
     /// Thread-safe singleton accessor using Lazy initialization
     /// </summary>
     public static GameEngine Instance
@@ -526,6 +531,7 @@ public partial class GameEngine : Node
                     await ShowCredits();
                     break;
                 case "Q":
+                    IsIntentionalExit = true;
                     done = true;
                     break;
             }
@@ -1985,6 +1991,9 @@ public partial class GameEngine : Node
 
         terminal.WriteLine("Goodbye!", "green");
         await Task.Delay(1000);
+
+        // Mark as intentional exit so bootstrap doesn't show warning
+        IsIntentionalExit = true;
 
         // GetTree().Quit(); // Godot API not available, use alternative
         Environment.Exit(0);
