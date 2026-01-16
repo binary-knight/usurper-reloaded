@@ -100,7 +100,7 @@ public class TeamCornerLocation : BaseLocation
         terminal.SetColor("cyan");
         terminal.WriteLine("Communication:");
         terminal.SetColor("white");
-        WriteMenuOption("M", "Message Teammates", "*", "Resurrect Teammate");
+        WriteMenuOption("M", "Message Teammates", "!", "Resurrect Teammate");
         terminal.WriteLine("");
 
         terminal.SetColor("yellow");
@@ -199,7 +199,7 @@ public class TeamCornerLocation : BaseLocation
                 await SackMember();
                 return false;
 
-            case "*":
+            case "!":
                 await ResurrectTeammate();
                 return false;
 
