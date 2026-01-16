@@ -760,7 +760,8 @@ namespace UsurperRemake.Systems
             terminal.WriteLine("  Levers:", "white");
             for (int i = 0; i < leverCount; i++)
             {
-                bool pulled = puzzle.CurrentState.Contains(i.ToString());
+                // CurrentState now stores 1-indexed lever numbers
+                bool pulled = puzzle.CurrentState.Contains((i + 1).ToString());
                 string status = pulled ? "[PULLED]" : "[------]";
                 string color = pulled ? "green" : "gray";
                 terminal.WriteLine($"    {i + 1}. {status}", color);
@@ -886,9 +887,10 @@ namespace UsurperRemake.Systems
             // Add to current sequence
             if (int.TryParse(input, out int leverNum))
             {
-                leverNum--; // Convert to 0-indexed
-                if (leverNum >= 0 && leverNum < puzzle.Solution.Count)
+                // Validate lever number is in valid range (1-indexed input)
+                if (leverNum >= 1 && leverNum <= puzzle.Solution.Count)
                 {
+                    // Store as 1-indexed string to match Solution format
                     puzzle.CurrentState.Add(leverNum.ToString());
 
                     // Check if sequence matches so far
