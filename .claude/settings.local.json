@@ -51,7 +51,10 @@
       "Bash(python3:*)",
       "Bash(powershell -Command \"''╔════════════════════════════════════════════════════════════════════════════╗''.Length\")",
       "Bash(powershell -Command \"''║                           -= MAIN STREET =-                                ║''.Length\")",
-      "Bash(powershell -Command \"''                           -= MAIN STREET =-                                ''.Length\")"
+      "Bash(powershell -Command \"''                           -= MAIN STREET =-                                ''.Length\")",
+      "Bash(git show-ref:*)",
+      "Bash(git tag:*)",
+      "Bash(git fetch:*)"
     ]
   }
 }

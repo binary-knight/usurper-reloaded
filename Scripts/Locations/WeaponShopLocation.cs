@@ -181,7 +181,7 @@ public class WeaponShopLocation : BaseLocation
         terminal.SetColor("darkgray");
         terminal.Write("] ");
         terminal.SetColor("white");
-        terminal.WriteLine("ell equipped weapons/shields");
+        terminal.WriteLine("ell weapons/shields");
 
         // Auto-equip
         terminal.SetColor("darkgray");
@@ -804,13 +804,18 @@ public class WeaponShopLocation : BaseLocation
         terminal.WriteLine("═══ Sell Weapons/Shields ═══");
         terminal.WriteLine("");
 
-        var equipped = new List<(EquipmentSlot slot, Equipment item)>();
+        // Track all sellable items - equipped and inventory
+        var sellableItems = new List<(bool isEquipped, EquipmentSlot? slot, int? invIndex, string name, long value, bool isCursed)>();
         int num = 1;
+
+        // Show equipped items first
+        terminal.SetColor("cyan");
+        terminal.WriteLine("[ EQUIPPED ]");
 
         var mainHand = currentPlayer.GetEquipment(EquipmentSlot.MainHand);
         if (mainHand != null)
         {
-            equipped.Add((EquipmentSlot.MainHand, mainHand));
+            sellableItems.Add((true, EquipmentSlot.MainHand, null, mainHand.Name, mainHand.Value, mainHand.IsCursed));
             terminal.SetColor("bright_cyan");
             terminal.Write($"{num}. ");
             terminal.SetColor("white");
@@ -823,7 +828,7 @@ public class WeaponShopLocation : BaseLocation
         var offHand = currentPlayer.GetEquipment(EquipmentSlot.OffHand);
         if (offHand != null)
         {
-            equipped.Add((EquipmentSlot.OffHand, offHand));
+            sellableItems.Add((true, EquipmentSlot.OffHand, null, offHand.Name, offHand.Value, offHand.IsCursed));
             terminal.SetColor("bright_cyan");
             terminal.Write($"{num}. ");
             terminal.SetColor("white");
@@ -833,10 +838,39 @@ public class WeaponShopLocation : BaseLocation
             num++;
         }
 
-        if (equipped.Count == 0)
+        // Show inventory weapons/shields
+        var inventoryWeapons = currentPlayer.Inventory?
+            .Select((item, index) => (item, index))
+            .Where(x => x.item.Type == ObjType.Weapon || x.item.Type == ObjType.Shield)
+            .ToList() ?? new List<(Item item, int index)>();
+
+        if (inventoryWeapons.Count > 0)
+        {
+            terminal.WriteLine("");
+            terminal.SetColor("cyan");
+            terminal.WriteLine("[ INVENTORY ]");
+
+            foreach (var (item, invIndex) in inventoryWeapons)
+            {
+                sellableItems.Add((false, null, invIndex, item.Name, item.Value, item.IsCursed));
+                terminal.SetColor("bright_cyan");
+                terminal.Write($"{num}. ");
+                terminal.SetColor("white");
+                terminal.Write($"{item.Name}");
+                if (item.Type == ObjType.Weapon)
+                    terminal.Write($" (WP:{item.Attack})");
+                else
+                    terminal.Write($" (Shield)");
+                terminal.SetColor("yellow");
+                terminal.WriteLine($" - Sell for {FormatNumber(item.Value / 2)} gold");
+                num++;
+            }
+        }
+
+        if (sellableItems.Count == 0)
         {
             terminal.SetColor("gray");
-            terminal.WriteLine("You have no weapons or shields equipped to sell.");
+            terminal.WriteLine("You have no weapons or shields to sell.");
             await Pause();
             return;
         }
@@ -845,24 +879,24 @@ public class WeaponShopLocation : BaseLocation
         terminal.Write("Sell which? (0 to cancel): ");
         var input = await terminal.GetInput("");
 
-        if (!int.TryParse(input, out int sellChoice) || sellChoice < 1 || sellChoice > equipped.Count)
+        if (!int.TryParse(input, out int sellChoice) || sellChoice < 1 || sellChoice > sellableItems.Count)
         {
             return;
         }
 
-        var (sellSlot, sellItem) = equipped[sellChoice - 1];
-        long price = sellItem.Value / 2;
+        var selected = sellableItems[sellChoice - 1];
+        long price = selected.value / 2;
 
-        if (sellItem.IsCursed)
+        if (selected.isCursed)
         {
             terminal.SetColor("red");
             terminal.WriteLine("");
-            terminal.WriteLine($"The {sellItem.Name} is CURSED and cannot be removed!");
+            terminal.WriteLine($"The {selected.name} is CURSED and cannot be sold!");
             await Pause();
             return;
         }
 
-        terminal.Write($"Sell {sellItem.Name} for ");
+        terminal.Write($"Sell {selected.name} for ");
         terminal.SetColor("yellow");
         terminal.Write(FormatNumber(price));
         terminal.SetColor("white");
@@ -871,13 +905,23 @@ public class WeaponShopLocation : BaseLocation
         var confirm = await terminal.GetInput("");
         if (confirm.ToUpper() == "Y")
         {
-            currentPlayer.UnequipSlot(sellSlot);
+            if (selected.isEquipped && selected.slot.HasValue)
+            {
+                // Unequip and sell equipped item
+                currentPlayer.UnequipSlot(selected.slot.Value);
+            }
+            else if (selected.invIndex.HasValue)
+            {
+                // Remove from inventory
+                currentPlayer.Inventory.RemoveAt(selected.invIndex.Value);
+            }
+
             currentPlayer.Gold += price;
             currentPlayer.RecalculateStats();
 
             terminal.SetColor("bright_green");
             terminal.WriteLine("");
-            terminal.WriteLine($"Sold {sellItem.Name} for {FormatNumber(price)} gold!");
+            terminal.WriteLine($"Sold {selected.name} for {FormatNumber(price)} gold!");
         }
 
         await Pause();
@@ -893,8 +937,8 @@ public class WeaponShopLocation : BaseLocation
         var currentWeapon = currentPlayer.GetEquipment(EquipmentSlot.MainHand);
         int currentPow = currentWeapon?.WeaponPower ?? 0;
 
-        // Find best affordable upgrade
-        var allWeapons = EquipmentDatabase.GetWeaponsByHandedness(WeaponHandedness.OneHanded)
+        // Get all affordable upgrades sorted by power (best first)
+        var affordableWeapons = EquipmentDatabase.GetWeaponsByHandedness(WeaponHandedness.OneHanded)
             .Concat(EquipmentDatabase.GetWeaponsByHandedness(WeaponHandedness.TwoHanded))
             .Where(w => w.WeaponPower > currentPow)
             .Where(w => w.Value <= currentPlayer.Gold)
@@ -902,9 +946,9 @@ public class WeaponShopLocation : BaseLocation
             .Where(w => !w.RequiresEvil || currentPlayer.Darkness > currentPlayer.Chivalry)
             .OrderByDescending(w => w.WeaponPower)
             .ThenBy(w => w.Value)
-            .FirstOrDefault();
+            .ToList();
 
-        if (allWeapons == null)
+        if (affordableWeapons.Count == 0)
         {
             if (currentWeapon != null)
             {
@@ -920,52 +964,134 @@ public class WeaponShopLocation : BaseLocation
             return;
         }
 
-        // Apply city control discount
-        long adjustedAllWeaponsPrice = CityControlSystem.Instance.ApplyDiscount(allWeapons.Value, currentPlayer);
-        currentPlayer.Gold -= adjustedAllWeaponsPrice;
-        currentPlayer.Statistics.RecordPurchase(adjustedAllWeaponsPrice);
+        terminal.SetColor("white");
+        terminal.WriteLine($"Current weapon: {currentWeapon?.Name ?? "(none)"} (WP: {currentPow})");
+        terminal.WriteLine($"Your gold: {FormatNumber(currentPlayer.Gold)}");
+        terminal.WriteLine("");
 
-        // Process city tax share from this sale
-        CityControlSystem.Instance.ProcessSaleTax(adjustedAllWeaponsPrice);
+        // Iterate through weapons, letting player choose
+        int weaponIndex = 0;
+        bool purchased = false;
 
-        // For one-handed weapons, ask which slot to use
-        EquipmentSlot? targetSlot = null;
-        if (Character.RequiresSlotSelection(allWeapons))
+        while (weaponIndex < affordableWeapons.Count)
         {
-            targetSlot = await PromptForWeaponSlot();
-            if (targetSlot == null)
+            // Re-check affordability (gold may have changed)
+            var weapon = affordableWeapons[weaponIndex];
+            long adjustedPrice = CityControlSystem.Instance.ApplyDiscount(weapon.Value, currentPlayer);
+
+            if (adjustedPrice > currentPlayer.Gold)
             {
-                // Player cancelled - refund
-                currentPlayer.Gold += adjustedAllWeaponsPrice;
-                terminal.SetColor("yellow");
-                terminal.WriteLine("Purchase cancelled.");
-                await Pause();
-                return;
+                weaponIndex++;
+                continue;
+            }
+
+            // Show the weapon offer
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine("─────────────────────────────────────");
+            terminal.SetColor("cyan");
+            terminal.WriteLine($"  {weapon.Name}");
+            terminal.SetColor("white");
+            terminal.WriteLine($"  Weapon Power: {weapon.WeaponPower} (currently: {currentPow}, +{weapon.WeaponPower - currentPow})");
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"  Price: {FormatNumber(adjustedPrice)} gold");
+            terminal.SetColor("gray");
+            terminal.WriteLine($"  (Gold after purchase: {FormatNumber(currentPlayer.Gold - adjustedPrice)})");
+            terminal.WriteLine("");
+
+            terminal.SetColor("white");
+            terminal.WriteLine("  [Y] Buy this weapon");
+            terminal.WriteLine("  [N] Skip, show next option");
+            terminal.WriteLine("  [S] Skip weapon slot entirely");
+            terminal.WriteLine("  [C] Cancel auto-buy");
+            terminal.WriteLine("");
+            terminal.Write("Your choice: ");
+
+            var choice = await terminal.GetInput("");
+            terminal.WriteLine("");
+
+            switch (choice.ToUpper().Trim())
+            {
+                case "Y":
+                    // Purchase this weapon
+                    currentPlayer.Gold -= adjustedPrice;
+                    currentPlayer.Statistics.RecordPurchase(adjustedPrice);
+                    CityControlSystem.Instance.ProcessSaleTax(adjustedPrice);
+
+                    // For one-handed weapons, ask which slot to use
+                    EquipmentSlot? targetSlot = null;
+                    if (Character.RequiresSlotSelection(weapon))
+                    {
+                        targetSlot = await PromptForWeaponSlot();
+                        if (targetSlot == null)
+                        {
+                            // Player cancelled - refund
+                            currentPlayer.Gold += adjustedPrice;
+                            terminal.SetColor("yellow");
+                            terminal.WriteLine("Purchase cancelled.");
+                            await Pause();
+                            return;
+                        }
+                    }
+
+                    if (currentPlayer.EquipItem(weapon, targetSlot, out string message))
+                    {
+                        terminal.SetColor("bright_green");
+                        terminal.WriteLine($"Bought and equipped {weapon.Name}!");
+                        if (!string.IsNullOrEmpty(message))
+                        {
+                            terminal.SetColor("gray");
+                            terminal.WriteLine(message);
+                        }
+                        purchased = true;
+                        currentPlayer.RecalculateStats();
+                    }
+                    else
+                    {
+                        terminal.SetColor("red");
+                        terminal.WriteLine($"Failed: {message}");
+                        currentPlayer.Gold += adjustedPrice;
+                    }
+
+                    // Done with auto-buy after purchasing
+                    if (purchased)
+                    {
+                        await SaveSystem.Instance.AutoSave(currentPlayer);
+                    }
+                    await Pause();
+                    return;
+
+                case "N":
+                    // Skip to next weapon option
+                    weaponIndex++;
+                    terminal.SetColor("gray");
+                    terminal.WriteLine("Skipped.");
+                    terminal.WriteLine("");
+                    break;
+
+                case "S":
+                    // Skip weapon slot entirely
+                    terminal.SetColor("gray");
+                    terminal.WriteLine("Skipping weapon slot.");
+                    await Pause();
+                    return;
+
+                case "C":
+                    // Cancel entirely
+                    terminal.SetColor("yellow");
+                    terminal.WriteLine("Auto-buy cancelled.");
+                    await Pause();
+                    return;
+
+                default:
+                    terminal.SetColor("red");
+                    terminal.WriteLine("Invalid choice. Please enter Y, N, S, or C.");
+                    break;
             }
         }
 
-        if (currentPlayer.EquipItem(allWeapons, targetSlot, out string message))
-        {
-            terminal.SetColor("bright_green");
-            terminal.WriteLine($"Bought and equipped {allWeapons.Name}!");
-            terminal.SetColor("gray");
-            terminal.WriteLine($"Weapon Power: {allWeapons.WeaponPower}");
-            terminal.WriteLine($"Cost: {FormatNumber(allWeapons.Value)} gold");
-            if (!string.IsNullOrEmpty(message))
-                terminal.WriteLine(message);
-
-            currentPlayer.RecalculateStats();
-        }
-        else
-        {
-            terminal.SetColor("red");
-            terminal.WriteLine($"Failed: {message}");
-            currentPlayer.Gold += adjustedAllWeaponsPrice;
-        }
-
-        // Auto-save after purchase
-        await SaveSystem.Instance.AutoSave(currentPlayer);
-
+        // No more options
+        terminal.SetColor("gray");
+        terminal.WriteLine("No more affordable weapon upgrades available.");
         await Pause();
     }
 

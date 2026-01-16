@@ -27,6 +27,9 @@ public partial class CombatEngine
     // Current player reference for combat speed setting
     private Character currentPlayer;
 
+    // Current teammates for healing/support actions
+    private List<Character> currentTeammates;
+
     // Combat tip system - shows helpful hints occasionally
     private int combatTipCounter = 0;
     private static readonly string[] CombatTips = new string[]
@@ -155,6 +158,9 @@ public partial class CombatEngine
     {
         // Store player reference for combat speed setting
         currentPlayer = player;
+
+        // Store teammates for healing/support actions
+        currentTeammates = teammates ?? new List<Character>();
 
         // Reset temporary flags per battle
         player.IsRaging = false;
@@ -1930,6 +1936,9 @@ public partial class CombatEngine
             terminal.WriteLine("  Visit the Magic Shop to remove the curse.");
         }
 
+        // Show comparison with currently equipped item
+        await ShowEquipmentComparison(lootItem, player);
+
         terminal.WriteLine("");
 
         // Ask player what to do
@@ -2058,6 +2067,139 @@ public partial class CombatEngine
             LootGenerator.ItemRarity.Artifact => EquipmentRarity.Artifact,
             _ => EquipmentRarity.Common
         };
+    }
+
+    /// <summary>
+    /// Show comparison between dropped item and currently equipped item
+    /// </summary>
+    private async Task ShowEquipmentComparison(Item lootItem, Character player)
+    {
+        terminal.WriteLine("");
+        terminal.SetColor("gray");
+        terminal.WriteLine("  ─────────────────────────────────────");
+        terminal.SetColor("white");
+        terminal.WriteLine("  COMPARISON WITH EQUIPPED:");
+
+        // Determine which slot this item would go in
+        EquipmentSlot targetSlot = lootItem.Type switch
+        {
+            global::ObjType.Weapon => EquipmentSlot.MainHand,
+            global::ObjType.Shield => EquipmentSlot.OffHand,
+            global::ObjType.Body => EquipmentSlot.Body,
+            global::ObjType.Head => EquipmentSlot.Head,
+            global::ObjType.Arms => EquipmentSlot.Arms,
+            global::ObjType.Hands => EquipmentSlot.Hands,
+            global::ObjType.Legs => EquipmentSlot.Legs,
+            global::ObjType.Feet => EquipmentSlot.Feet,
+            global::ObjType.Waist => EquipmentSlot.Waist,
+            global::ObjType.Neck => EquipmentSlot.Neck,
+            global::ObjType.Face => EquipmentSlot.Face,
+            global::ObjType.Fingers => EquipmentSlot.LFinger,
+            _ => EquipmentSlot.Body
+        };
+
+        // Get currently equipped item
+        var currentEquip = player.GetEquipment(targetSlot);
+
+        if (currentEquip == null)
+        {
+            terminal.SetColor("green");
+            terminal.WriteLine($"  Slot is empty - this would be an upgrade!");
+        }
+        else
+        {
+            terminal.SetColor("cyan");
+            terminal.WriteLine($"  Currently Equipped: {currentEquip.Name}");
+
+            // Compare primary stat (Attack for weapons, Armor for armor)
+            if (lootItem.Type == global::ObjType.Weapon)
+            {
+                int currentPower = currentEquip.WeaponPower;
+                int newPower = lootItem.Attack;
+                int diff = newPower - currentPower;
+
+                terminal.SetColor("white");
+                terminal.Write($"  Attack: {currentPower} -> {newPower} ");
+                if (diff > 0)
+                {
+                    terminal.SetColor("bright_green");
+                    terminal.WriteLine($"(+{diff} UPGRADE)");
+                }
+                else if (diff < 0)
+                {
+                    terminal.SetColor("red");
+                    terminal.WriteLine($"({diff} downgrade)");
+                }
+                else
+                {
+                    terminal.SetColor("yellow");
+                    terminal.WriteLine("(same)");
+                }
+            }
+            else
+            {
+                int currentAC = currentEquip.ArmorClass;
+                int newAC = lootItem.Armor;
+                int diff = newAC - currentAC;
+
+                terminal.SetColor("white");
+                terminal.Write($"  Armor: {currentAC} -> {newAC} ");
+                if (diff > 0)
+                {
+                    terminal.SetColor("bright_green");
+                    terminal.WriteLine($"(+{diff} UPGRADE)");
+                }
+                else if (diff < 0)
+                {
+                    terminal.SetColor("red");
+                    terminal.WriteLine($"({diff} downgrade)");
+                }
+                else
+                {
+                    terminal.SetColor("yellow");
+                    terminal.WriteLine("(same)");
+                }
+            }
+
+            // Compare bonus stats if either item has them
+            var currentBonuses = new List<string>();
+            var newBonuses = new List<string>();
+
+            // Current item bonuses
+            if (currentEquip.StrengthBonus != 0) currentBonuses.Add($"Str {currentEquip.StrengthBonus:+#;-#;0}");
+            if (currentEquip.DexterityBonus != 0) currentBonuses.Add($"Dex {currentEquip.DexterityBonus:+#;-#;0}");
+            if (currentEquip.WisdomBonus != 0) currentBonuses.Add($"Wis {currentEquip.WisdomBonus:+#;-#;0}");
+            if (currentEquip.MaxHPBonus != 0) currentBonuses.Add($"HP {currentEquip.MaxHPBonus:+#;-#;0}");
+            if (currentEquip.MaxManaBonus != 0) currentBonuses.Add($"Mana {currentEquip.MaxManaBonus:+#;-#;0}");
+            if (currentEquip.DefenceBonus != 0) currentBonuses.Add($"Def {currentEquip.DefenceBonus:+#;-#;0}");
+
+            // New item bonuses
+            if (lootItem.Strength != 0) newBonuses.Add($"Str {lootItem.Strength:+#;-#;0}");
+            if (lootItem.Dexterity != 0) newBonuses.Add($"Dex {lootItem.Dexterity:+#;-#;0}");
+            if (lootItem.Wisdom != 0) newBonuses.Add($"Wis {lootItem.Wisdom:+#;-#;0}");
+            if (lootItem.HP != 0) newBonuses.Add($"HP {lootItem.HP:+#;-#;0}");
+            if (lootItem.Mana != 0) newBonuses.Add($"Mana {lootItem.Mana:+#;-#;0}");
+            if (lootItem.Defence != 0) newBonuses.Add($"Def {lootItem.Defence:+#;-#;0}");
+
+            if (currentBonuses.Count > 0 || newBonuses.Count > 0)
+            {
+                terminal.SetColor("gray");
+                if (currentBonuses.Count > 0)
+                    terminal.WriteLine($"  Current bonuses: {string.Join(", ", currentBonuses)}");
+                else
+                    terminal.WriteLine("  Current bonuses: (none)");
+
+                if (newBonuses.Count > 0)
+                    terminal.WriteLine($"  New bonuses: {string.Join(", ", newBonuses)}");
+                else
+                    terminal.WriteLine("  New bonuses: (none)");
+            }
+        }
+
+        terminal.SetColor("gray");
+        terminal.WriteLine("  ─────────────────────────────────────");
+
+        await Task.CompletedTask; // Keep async signature for consistency
     }
 
     /// <summary>
@@ -2253,6 +2395,50 @@ public partial class CombatEngine
             terminal.Write($"{player.DamageAbsorptionPool}");
         }
         terminal.WriteLine("");
+
+        // Show teammate status if we have teammates
+        if (currentTeammates != null && currentTeammates.Count > 0)
+        {
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine("╠══════════════════════════════════════════════════════════╣");
+            terminal.SetColor("gray");
+            terminal.WriteLine("║                     ALLIES                               ║");
+
+            foreach (var teammate in currentTeammates)
+            {
+                if (!teammate.IsAlive) continue;
+
+                // Calculate HP bar for teammate
+                double tmHpPercent = Math.Max(0, Math.Min(1.0, (double)teammate.HP / teammate.MaxHP));
+                int tmBarLen = 10;
+                int tmFilledBars = Math.Max(0, Math.Min(tmBarLen, (int)(tmHpPercent * tmBarLen)));
+                int tmEmptyBars = tmBarLen - tmFilledBars;
+                string tmHpBar = new string('█', tmFilledBars) + new string('░', tmEmptyBars);
+
+                terminal.SetColor("bright_cyan");
+                terminal.Write($"║ ");
+                terminal.SetColor("white");
+                terminal.Write($"{teammate.DisplayName,-16} ");
+                terminal.SetColor(tmHpPercent > 0.5 ? "green" : tmHpPercent > 0.25 ? "yellow" : "red");
+                terminal.Write($"HP:{tmHpBar} ");
+                terminal.SetColor("white");
+                terminal.Write($"{teammate.HP,4}/{teammate.MaxHP,-4} ");
+
+                // Show potions for non-healers, mana for healers
+                bool isHealer = teammate.Class == CharacterClass.Cleric || teammate.Class == CharacterClass.Paladin;
+                if (isHealer && teammate.MaxMana > 0)
+                {
+                    terminal.SetColor("cyan");
+                    terminal.Write($"MP:{teammate.Mana}/{teammate.MaxMana}");
+                }
+                else if (teammate.Healing > 0)
+                {
+                    terminal.SetColor("magenta");
+                    terminal.Write($"Pot:{teammate.Healing}");
+                }
+                terminal.WriteLine("");
+            }
+        }
 
         terminal.SetColor("bright_cyan");
         terminal.WriteLine("╚══════════════════════════════════════════════════════════╝");
@@ -2626,6 +2812,25 @@ public partial class CombatEngine
                 terminal.WriteLine("║ [I] Use Item (No Potions)              ║");
             }
 
+            // Heal Ally option - show if there are injured teammates and player has potions or heal spells
+            bool hasInjuredTeammates = currentTeammates?.Any(t => t.IsAlive && t.HP < t.MaxHP) ?? false;
+            bool canHealAlly = hasInjuredTeammates && (player.Healing > 0 || (ClassAbilitySystem.IsSpellcaster(player.Class) && player.Mana > 0));
+            if (hasInjuredTeammates)
+            {
+                if (canHealAlly)
+                {
+                    terminal.SetColor("bright_green");
+                    terminal.Write("║ [H] ");
+                    terminal.SetColor("green");
+                    terminal.WriteLine("Heal Ally                          ║");
+                }
+                else
+                {
+                    terminal.SetColor("darkgray");
+                    terminal.WriteLine("║ [H] Heal Ally (No means to heal)      ║");
+                }
+            }
+
             // Class-specific abilities
             var classInfo = GetClassSpecificActions(player);
             foreach (var (key, name, available) in classInfo)
@@ -2695,12 +2900,22 @@ public partial class CombatEngine
                     {
                         action.SpellIndex = spellIndex;
 
-                        // Check spell type - buff/heal spells target self, not enemies
+                        // Check spell type - buff/heal spells can target self or allies
                         var spellInfo = SpellSystem.GetSpellInfo(player.Class, spellIndex);
                         if (spellInfo?.SpellType == "Buff" || spellInfo?.SpellType == "Heal")
                         {
-                            // Self-targeting spell - no target selection needed
-                            action.TargetIndex = null;
+                            // For heal spells, allow targeting self or injured allies
+                            if (spellInfo.SpellType == "Heal" && currentTeammates?.Any(t => t.IsAlive && t.HP < t.MaxHP) == true)
+                            {
+                                // Prompt for heal target
+                                var allyTarget = await SelectHealTarget(player);
+                                action.AllyTargetIndex = allyTarget; // null = self, otherwise = ally index
+                            }
+                            else
+                            {
+                                // Self-targeting buff or no injured allies
+                                action.TargetIndex = null;
+                            }
                         }
                         else if (spellInfo?.IsMultiTarget == true)
                         {
@@ -2732,6 +2947,16 @@ public partial class CombatEngine
                 case "I":
                     action.Type = CombatActionType.UseItem;
                     return (action, false);
+
+                case "H":
+                    // Heal ally - give potion or cast heal spell on teammate
+                    var healAllyResult = await HandleHealAlly(player, monsters);
+                    if (healAllyResult != null)
+                    {
+                        return (healAllyResult, false);
+                    }
+                    // Player cancelled - loop back
+                    continue;
 
                 case "R":
                     action.Type = CombatActionType.Retreat;
@@ -3568,11 +3793,53 @@ public partial class CombatEngine
         terminal.WriteLine(spellResult.Message);
         await Task.Delay(GetCombatDelay(1000));
 
-        // Handle buff/heal spells - apply effects to caster
+        // Only apply effects if spell succeeded (not fumbled/failed)
+        if (!spellResult.Success)
+        {
+            result.CombatLog.Add($"{player.DisplayName}'s spell fizzles.");
+            return;
+        }
+
+        // Handle buff/heal spells - apply effects to caster or targeted ally
         if (spellInfo.SpellType == "Buff" || spellInfo.SpellType == "Heal")
         {
-            ApplySpellEffects(player, null, spellResult);
-            result.CombatLog.Add($"{player.DisplayName} casts {spellInfo.Name}.");
+            // Check if healing an ally
+            if (spellInfo.SpellType == "Heal" && action.AllyTargetIndex.HasValue && currentTeammates != null)
+            {
+                var injuredAllies = currentTeammates.Where(t => t.IsAlive && t.HP < t.MaxHP).ToList();
+                if (action.AllyTargetIndex.Value < injuredAllies.Count)
+                {
+                    var allyTarget = injuredAllies[action.AllyTargetIndex.Value];
+                    if (spellResult.Healing > 0)
+                    {
+                        long oldHP = allyTarget.HP;
+                        allyTarget.HP = Math.Min(allyTarget.MaxHP, allyTarget.HP + spellResult.Healing);
+                        long actualHeal = allyTarget.HP - oldHP;
+
+                        terminal.SetColor("bright_green");
+                        terminal.WriteLine($"{allyTarget.DisplayName} recovers {actualHeal} HP!");
+
+                        // Sync companion HP
+                        if (allyTarget.IsCompanion && allyTarget.CompanionId.HasValue)
+                        {
+                            CompanionSystem.Instance.SyncCompanionHP(allyTarget);
+                        }
+                    }
+                    result.CombatLog.Add($"{player.DisplayName} casts {spellInfo.Name} on {allyTarget.DisplayName}.");
+                }
+                else
+                {
+                    // Invalid target, heal self instead
+                    ApplySpellEffects(player, null, spellResult);
+                    result.CombatLog.Add($"{player.DisplayName} casts {spellInfo.Name}.");
+                }
+            }
+            else
+            {
+                // Self-targeting
+                ApplySpellEffects(player, null, spellResult);
+                result.CombatLog.Add($"{player.DisplayName} casts {spellInfo.Name}.");
+            }
         }
         // Handle AoE attack spells
         else if (action.TargetAllMonsters && spellInfo.IsMultiTarget)
@@ -3617,7 +3884,7 @@ public partial class CombatEngine
                 }
 
                 // Handle debuff special effects
-                if (!string.IsNullOrEmpty(spellResult.SpecialEffect))
+                if (!string.IsNullOrEmpty(spellResult.SpecialEffect) && spellResult.SpecialEffect != "fizzle" && spellResult.SpecialEffect != "fail")
                 {
                     HandleSpecialSpellEffectOnMonster(target, spellResult.SpecialEffect, spellResult.Duration);
                 }
@@ -3657,11 +3924,313 @@ public partial class CombatEngine
     }
 
     /// <summary>
-    /// Process teammate action in multi-monster combat (auto-targets weakest monster)
+    /// Handle player healing an ally - choose between potion or spell, then choose target
+    /// Returns the action to execute, or null if cancelled
+    /// </summary>
+    private async Task<CombatAction?> HandleHealAlly(Character player, List<Monster> monsters)
+    {
+        // Get injured teammates
+        var injuredTeammates = currentTeammates?.Where(t => t.IsAlive && t.HP < t.MaxHP).ToList() ?? new List<Character>();
+        if (injuredTeammates.Count == 0)
+        {
+            terminal.WriteLine("No injured allies to heal.", "yellow");
+            await Task.Delay(GetCombatDelay(1000));
+            return null;
+        }
+
+        // Determine what healing options the player has
+        bool hasPotion = player.Healing > 0;
+        bool isSpellcaster = ClassAbilitySystem.IsSpellcaster(player.Class);
+        bool hasHealSpell = isSpellcaster && player.Mana > 0; // Will check for actual heal spells below
+
+        terminal.WriteLine("");
+        terminal.SetColor("bright_green");
+        terminal.WriteLine("═══ HEAL ALLY ═══");
+        terminal.WriteLine("");
+
+        // Show healing options
+        terminal.SetColor("white");
+        int option = 1;
+        List<(int num, string type)> options = new();
+
+        if (hasPotion)
+        {
+            terminal.WriteLine($"[{option}] Give healing potion ({player.Healing} remaining)");
+            options.Add((option, "potion"));
+            option++;
+        }
+
+        if (hasHealSpell)
+        {
+            terminal.WriteLine($"[{option}] Cast healing spell");
+            options.Add((option, "spell"));
+            option++;
+        }
+
+        terminal.SetColor("gray");
+        terminal.WriteLine("[0] Cancel");
+        terminal.WriteLine("");
+
+        terminal.SetColor("white");
+        terminal.Write("Choose healing method: ");
+        var methodInput = await terminal.GetInput("");
+
+        if (!int.TryParse(methodInput, out int methodChoice) || methodChoice == 0)
+        {
+            return null;
+        }
+
+        var selectedOption = options.FirstOrDefault(o => o.num == methodChoice);
+        if (selectedOption == default)
+        {
+            terminal.WriteLine("Invalid choice.", "red");
+            await Task.Delay(GetCombatDelay(500));
+            return null;
+        }
+
+        // Now select which ally to heal
+        terminal.WriteLine("");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("Select ally to heal:");
+        for (int i = 0; i < injuredTeammates.Count; i++)
+        {
+            var ally = injuredTeammates[i];
+            int hpPercent = (int)(100 * ally.HP / ally.MaxHP);
+            string hpColor = hpPercent < 25 ? "red" : hpPercent < 50 ? "yellow" : "green";
+            terminal.SetColor(hpColor);
+            terminal.WriteLine($"  [{i + 1}] {ally.DisplayName} - HP: {ally.HP}/{ally.MaxHP} ({hpPercent}%)");
+        }
+        terminal.SetColor("gray");
+        terminal.WriteLine("  [0] Cancel");
+        terminal.WriteLine("");
+
+        terminal.SetColor("white");
+        terminal.Write("Choose target: ");
+        var targetInput = await terminal.GetInput("");
+
+        if (!int.TryParse(targetInput, out int targetChoice) || targetChoice == 0)
+        {
+            return null;
+        }
+
+        if (targetChoice < 1 || targetChoice > injuredTeammates.Count)
+        {
+            terminal.WriteLine("Invalid target.", "red");
+            await Task.Delay(GetCombatDelay(500));
+            return null;
+        }
+
+        var targetAlly = injuredTeammates[targetChoice - 1];
+
+        // Execute the healing
+        if (selectedOption.type == "potion")
+        {
+            // Use a healing potion on the ally
+            player.Healing--;
+
+            // Potion heals based on player's level
+            int healAmount = 30 + player.Level * 5 + random.Next(10, 30);
+            long oldHP = targetAlly.HP;
+            targetAlly.HP = Math.Min(targetAlly.MaxHP, targetAlly.HP + healAmount);
+            long actualHeal = targetAlly.HP - oldHP;
+
+            terminal.WriteLine("");
+            terminal.SetColor("bright_green");
+            terminal.WriteLine($"You give a healing potion to {targetAlly.DisplayName}!");
+            terminal.WriteLine($"{targetAlly.DisplayName} recovers {actualHeal} HP!", "green");
+
+            // Sync companion HP if this is a companion
+            if (targetAlly.IsCompanion && targetAlly.CompanionId.HasValue)
+            {
+                CompanionSystem.Instance.SyncCompanionHP(targetAlly);
+            }
+
+            await Task.Delay(GetCombatDelay(1000));
+
+            // Return a "no action" since healing used the turn but isn't an attack
+            return new CombatAction { Type = CombatActionType.HealAlly };
+        }
+        else // spell
+        {
+            // Show heal spells and let player choose
+            var healSpells = GetAvailableHealSpells(player);
+            if (healSpells.Count == 0)
+            {
+                terminal.WriteLine("You don't have any healing spells available.", "yellow");
+                await Task.Delay(GetCombatDelay(1000));
+                return null;
+            }
+
+            terminal.WriteLine("");
+            terminal.SetColor("bright_blue");
+            terminal.WriteLine("Select healing spell:");
+            for (int i = 0; i < healSpells.Count; i++)
+            {
+                var spell = healSpells[i];
+                terminal.SetColor("cyan");
+                terminal.WriteLine($"  [{i + 1}] {spell.Name} - Mana: {spell.ManaCost}");
+            }
+            terminal.SetColor("gray");
+            terminal.WriteLine("  [0] Cancel");
+            terminal.WriteLine("");
+
+            terminal.SetColor("white");
+            terminal.Write("Choose spell: ");
+            var spellInput = await terminal.GetInput("");
+
+            if (!int.TryParse(spellInput, out int spellChoice) || spellChoice == 0)
+            {
+                return null;
+            }
+
+            if (spellChoice < 1 || spellChoice > healSpells.Count)
+            {
+                terminal.WriteLine("Invalid spell.", "red");
+                await Task.Delay(GetCombatDelay(500));
+                return null;
+            }
+
+            var selectedSpell = healSpells[spellChoice - 1];
+
+            // Check mana
+            if (player.Mana < selectedSpell.ManaCost)
+            {
+                terminal.WriteLine("Not enough mana!", "red");
+                await Task.Delay(GetCombatDelay(1000));
+                return null;
+            }
+
+            // Cast the heal spell on the ally
+            var spellResult = SpellSystem.CastSpell(player, selectedSpell.Level, null);
+
+            terminal.WriteLine("");
+            terminal.SetColor("bright_magenta");
+            terminal.WriteLine($"You cast {selectedSpell.Name} on {targetAlly.DisplayName}!");
+            terminal.WriteLine(spellResult.Message);
+
+            if (spellResult.Success && spellResult.Healing > 0)
+            {
+                long oldHP = targetAlly.HP;
+                targetAlly.HP = Math.Min(targetAlly.MaxHP, targetAlly.HP + spellResult.Healing);
+                long actualHeal = targetAlly.HP - oldHP;
+
+                terminal.SetColor("bright_green");
+                terminal.WriteLine($"{targetAlly.DisplayName} recovers {actualHeal} HP!");
+
+                // Sync companion HP if this is a companion
+                if (targetAlly.IsCompanion && targetAlly.CompanionId.HasValue)
+                {
+                    CompanionSystem.Instance.SyncCompanionHP(targetAlly);
+                }
+            }
+            else if (!spellResult.Success)
+            {
+                terminal.SetColor("yellow");
+                terminal.WriteLine("The spell fails to take effect.");
+            }
+
+            await Task.Delay(GetCombatDelay(1000));
+
+            return new CombatAction { Type = CombatActionType.HealAlly };
+        }
+    }
+
+    /// <summary>
+    /// Get list of healing spells available to the player
+    /// </summary>
+    private List<SpellSystem.SpellInfo> GetAvailableHealSpells(Character player)
+    {
+        var result = new List<SpellSystem.SpellInfo>();
+
+        // Get spells for the player's class
+        var spells = SpellSystem.GetAllSpellsForClass(player.Class);
+        if (spells == null || spells.Count == 0) return result;
+
+        foreach (var spell in spells)
+        {
+            // Check if it's a heal spell and player can cast it
+            if (spell.SpellType == "Heal" &&
+                player.Level >= SpellSystem.GetLevelRequired(player.Class, spell.Level) &&
+                player.Mana >= spell.ManaCost)
+            {
+                result.Add(spell);
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Prompt player to select heal target (self or ally)
+    /// Returns null for self, or index of teammate to heal
+    /// </summary>
+    private async Task<int?> SelectHealTarget(Character player)
+    {
+        var injuredAllies = currentTeammates?.Where(t => t.IsAlive && t.HP < t.MaxHP).ToList() ?? new List<Character>();
+
+        terminal.WriteLine("");
+        terminal.SetColor("bright_green");
+        terminal.WriteLine("Select heal target:");
+
+        // Self option
+        int playerHpPercent = (int)(100 * player.HP / player.MaxHP);
+        string playerHpColor = playerHpPercent < 25 ? "red" : playerHpPercent < 50 ? "yellow" : "green";
+        terminal.SetColor(playerHpColor);
+        terminal.WriteLine($"  [0] Self - HP: {player.HP}/{player.MaxHP} ({playerHpPercent}%)");
+
+        // Ally options
+        for (int i = 0; i < injuredAllies.Count; i++)
+        {
+            var ally = injuredAllies[i];
+            int hpPercent = (int)(100 * ally.HP / ally.MaxHP);
+            string hpColor = hpPercent < 25 ? "red" : hpPercent < 50 ? "yellow" : "green";
+            terminal.SetColor(hpColor);
+            terminal.WriteLine($"  [{i + 1}] {ally.DisplayName} - HP: {ally.HP}/{ally.MaxHP} ({hpPercent}%)");
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("white");
+        terminal.Write("Target: ");
+        var input = await terminal.GetInput("");
+
+        if (!int.TryParse(input, out int choice))
+        {
+            return null; // Default to self
+        }
+
+        if (choice == 0)
+        {
+            return null; // Self
+        }
+
+        if (choice >= 1 && choice <= injuredAllies.Count)
+        {
+            return choice - 1; // Return index into currentTeammates
+        }
+
+        return null; // Invalid, default to self
+    }
+
+    /// <summary>
+    /// Process teammate action in multi-monster combat with intelligent healing AI
     /// </summary>
     private async Task ProcessTeammateActionMultiMonster(Character teammate, List<Monster> monsters, CombatResult result)
     {
-        // Teammate auto-targets weakest monster
+        // Build list of all party members (player + teammates) for healing decisions
+        var allPartyMembers = new List<Character> { currentPlayer };
+        if (currentTeammates != null)
+        {
+            allPartyMembers.AddRange(currentTeammates.Where(t => t.IsAlive));
+        }
+
+        // Check if teammate should heal instead of attack
+        var healAction = await TryTeammateHealAction(teammate, allPartyMembers, result);
+        if (healAction)
+        {
+            return; // Healing action was taken
+        }
+
+        // Otherwise, attack the weakest monster
         var weakestMonster = monsters
             .Where(m => m.IsAlive)
             .OrderBy(m => m.HP)
@@ -3685,6 +4254,171 @@ public partial class CombatEngine
             damage = DifficultySystem.ApplyPlayerDamageMultiplier(damage);
             await ApplySingleMonsterDamage(weakestMonster, damage, result, $"{teammate.DisplayName}'s attack", teammate);
         }
+    }
+
+    /// <summary>
+    /// Try to have a teammate perform a healing action. Returns true if healing occurred.
+    /// Uses balanced priority - heals whoever has the lowest HP percentage.
+    /// </summary>
+    private async Task<bool> TryTeammateHealAction(Character teammate, List<Character> allPartyMembers, CombatResult result)
+    {
+        // Find the most injured party member (lowest HP percentage)
+        var mostInjured = allPartyMembers
+            .Where(m => m.IsAlive && m.HP < m.MaxHP)
+            .OrderBy(m => (double)m.HP / m.MaxHP)
+            .FirstOrDefault();
+
+        if (mostInjured == null)
+        {
+            return false; // No one needs healing
+        }
+
+        double injuredPercent = (double)mostInjured.HP / mostInjured.MaxHP;
+
+        // Only heal if someone is below 60% HP
+        if (injuredPercent > 0.6)
+        {
+            return false;
+        }
+
+        // Check if teammate is a healer (Cleric) with mana
+        bool isHealer = teammate.Class == CharacterClass.Cleric || teammate.Class == CharacterClass.Paladin;
+        bool hasMana = teammate.Mana > 10;
+        bool hasPotion = teammate.Healing > 0;
+
+        // Healers prefer spells, others use potions
+        if (isHealer && hasMana)
+        {
+            // Cast a healing spell on the most injured party member
+            return await TeammateHealWithSpell(teammate, mostInjured, result);
+        }
+        else if (hasPotion)
+        {
+            // Use a healing potion (only if target is below 40%)
+            if (injuredPercent < 0.4)
+            {
+                return await TeammateHealWithPotion(teammate, mostInjured, result);
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Teammate casts a healing spell on a party member
+    /// </summary>
+    private async Task<bool> TeammateHealWithSpell(Character teammate, Character target, CombatResult result)
+    {
+        // Get best healing spell the teammate can cast
+        var healSpell = GetBestHealSpell(teammate);
+        if (healSpell == null || teammate.Mana < healSpell.ManaCost)
+        {
+            return false;
+        }
+
+        // Cast the spell
+        var spellResult = SpellSystem.CastSpell(teammate, healSpell.Level, null);
+
+        terminal.WriteLine("");
+        terminal.SetColor("bright_cyan");
+
+        string targetName = target == currentPlayer ? "you" : target.DisplayName;
+        terminal.WriteLine($"{teammate.DisplayName} casts {healSpell.Name} on {targetName}!");
+
+        if (spellResult.Success && spellResult.Healing > 0)
+        {
+            long oldHP = target.HP;
+            target.HP = Math.Min(target.MaxHP, target.HP + spellResult.Healing);
+            long actualHeal = target.HP - oldHP;
+
+            terminal.SetColor("bright_green");
+            string healTarget = target == currentPlayer ? "You recover" : $"{target.DisplayName} recovers";
+            terminal.WriteLine($"{healTarget} {actualHeal} HP!");
+
+            // Sync companion HP
+            if (target.IsCompanion && target.CompanionId.HasValue)
+            {
+                CompanionSystem.Instance.SyncCompanionHP(target);
+            }
+
+            result.CombatLog.Add($"{teammate.DisplayName} heals {target.DisplayName} for {actualHeal} HP.");
+        }
+        else
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("The spell fizzles!");
+            result.CombatLog.Add($"{teammate.DisplayName}'s healing spell fizzles.");
+        }
+
+        await Task.Delay(GetCombatDelay(800));
+        return true;
+    }
+
+    /// <summary>
+    /// Teammate uses a healing potion on a party member
+    /// </summary>
+    private async Task<bool> TeammateHealWithPotion(Character teammate, Character target, CombatResult result)
+    {
+        if (teammate.Healing <= 0)
+        {
+            return false;
+        }
+
+        teammate.Healing--;
+
+        // Potion heals a fixed amount plus some randomness
+        int healAmount = 30 + teammate.Level * 3 + random.Next(10, 25);
+        long oldHP = target.HP;
+        target.HP = Math.Min(target.MaxHP, target.HP + healAmount);
+        long actualHeal = target.HP - oldHP;
+
+        terminal.WriteLine("");
+        terminal.SetColor("bright_cyan");
+
+        string targetName = target == currentPlayer ? "you" : target.DisplayName;
+        if (target == teammate)
+        {
+            terminal.WriteLine($"{teammate.DisplayName} drinks a healing potion!");
+        }
+        else
+        {
+            terminal.WriteLine($"{teammate.DisplayName} gives a healing potion to {targetName}!");
+        }
+
+        terminal.SetColor("bright_green");
+        string healTarget = target == currentPlayer ? "You recover" : $"{target.DisplayName} recovers";
+        terminal.WriteLine($"{healTarget} {actualHeal} HP!");
+
+        // Sync companion state (HP and potions)
+        if (target.IsCompanion && target.CompanionId.HasValue)
+        {
+            CompanionSystem.Instance.SyncCompanionHP(target);
+        }
+        if (teammate.IsCompanion && teammate.CompanionId.HasValue)
+        {
+            CompanionSystem.Instance.SyncCompanionState(teammate);
+        }
+
+        result.CombatLog.Add($"{teammate.DisplayName} uses potion on {target.DisplayName} for {actualHeal} HP.");
+
+        await Task.Delay(GetCombatDelay(800));
+        return true;
+    }
+
+    /// <summary>
+    /// Get the best healing spell the character can cast based on their current mana
+    /// </summary>
+    private SpellSystem.SpellInfo? GetBestHealSpell(Character caster)
+    {
+        var spells = SpellSystem.GetAllSpellsForClass(caster.Class);
+        if (spells == null || spells.Count == 0) return null;
+
+        return spells
+            .Where(s => s.SpellType == "Heal" &&
+                        caster.Level >= SpellSystem.GetLevelRequired(caster.Class, s.Level) &&
+                        caster.Mana >= s.ManaCost)
+            .OrderByDescending(s => s.Level) // Prefer higher level heals
+            .FirstOrDefault();
     }
 
     /// <summary>
@@ -6300,7 +7034,8 @@ public enum CombatActionType
     Disarm,
     Taunt,
     Hide,
-    RangedAttack
+    RangedAttack,
+    HealAlly        // Heal a teammate with potion or spell
 }
 
 /// <summary>
@@ -6317,6 +7052,9 @@ public class CombatAction
     // Multi-monster combat support
     public int? TargetIndex { get; set; }         // Which monster (0-based index) or null for random
     public bool TargetAllMonsters { get; set; }   // True for AoE abilities
+
+    // Ally targeting for heal spells
+    public int? AllyTargetIndex { get; set; }     // Which teammate to heal (null = self)
 }
 
 /// <summary>

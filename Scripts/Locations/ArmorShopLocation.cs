@@ -180,7 +180,7 @@ public class ArmorShopLocation : BaseLocation
         terminal.SetColor("darkgray");
         terminal.Write("] ");
         terminal.SetColor("white");
-        terminal.WriteLine("ell equipped armor");
+        terminal.WriteLine("ell armor");
 
         // Auto-equip option
         terminal.SetColor("darkgray");
@@ -558,19 +558,23 @@ public class ArmorShopLocation : BaseLocation
     {
         terminal.ClearScreen();
         terminal.SetColor("bright_yellow");
-        terminal.WriteLine("═══ Sell Equipped Armor ═══");
+        terminal.WriteLine("═══ Sell Armor ═══");
         terminal.WriteLine("");
 
-        // List all equipped armor pieces
-        var equippedArmor = new List<(EquipmentSlot slot, Equipment item)>();
+        // Track all sellable items - equipped and inventory
+        var sellableItems = new List<(bool isEquipped, EquipmentSlot? slot, int? invIndex, string name, long value, bool isCursed)>();
         int num = 1;
+
+        // Show equipped armor first
+        terminal.SetColor("cyan");
+        terminal.WriteLine("[ EQUIPPED ]");
 
         foreach (var slot in ArmorSlots)
         {
             var item = currentPlayer.GetEquipment(slot);
             if (item != null)
             {
-                equippedArmor.Add((slot, item));
+                sellableItems.Add((true, slot, null, item.Name, item.Value, item.IsCursed));
                 long sellPrice = item.Value / 2;
 
                 terminal.SetColor("bright_cyan");
@@ -583,10 +587,41 @@ public class ArmorShopLocation : BaseLocation
             }
         }
 
-        if (equippedArmor.Count == 0)
+        // Show inventory armor items
+        // Armor types: Head, Body, Arms, Hands, Legs, Feet, Waist, Face, Neck, Abody (cloak)
+        var armorObjTypes = new[] { ObjType.Head, ObjType.Body, ObjType.Arms, ObjType.Hands,
+                                     ObjType.Legs, ObjType.Feet, ObjType.Waist, ObjType.Face,
+                                     ObjType.Neck, ObjType.Abody };
+
+        var inventoryArmor = currentPlayer.Inventory?
+            .Select((item, index) => (item, index))
+            .Where(x => armorObjTypes.Contains(x.item.Type))
+            .ToList() ?? new List<(Item item, int index)>();
+
+        if (inventoryArmor.Count > 0)
+        {
+            terminal.WriteLine("");
+            terminal.SetColor("cyan");
+            terminal.WriteLine("[ INVENTORY ]");
+
+            foreach (var (item, invIndex) in inventoryArmor)
+            {
+                sellableItems.Add((false, null, invIndex, item.Name, item.Value, item.IsCursed));
+                terminal.SetColor("bright_cyan");
+                terminal.Write($"{num}. ");
+                terminal.SetColor("white");
+                terminal.Write($"{item.Name}");
+                terminal.Write($" (AC:{item.Armor})");
+                terminal.SetColor("yellow");
+                terminal.WriteLine($" - Sell for {FormatNumber(item.Value / 2)} gold");
+                num++;
+            }
+        }
+
+        if (sellableItems.Count == 0)
         {
             terminal.SetColor("gray");
-            terminal.WriteLine("You have no armor equipped to sell.");
+            terminal.WriteLine("You have no armor to sell.");
             await Pause();
             return;
         }
@@ -596,26 +631,26 @@ public class ArmorShopLocation : BaseLocation
         terminal.Write("Sell which piece? (0 to cancel): ");
 
         var input = await terminal.GetInput("");
-        if (!int.TryParse(input, out int sellChoice) || sellChoice < 1 || sellChoice > equippedArmor.Count)
+        if (!int.TryParse(input, out int sellChoice) || sellChoice < 1 || sellChoice > sellableItems.Count)
         {
             return;
         }
 
-        var (sellSlot, sellItem) = equippedArmor[sellChoice - 1];
-        long price = sellItem.Value / 2;
+        var selected = sellableItems[sellChoice - 1];
+        long price = selected.value / 2;
 
         // Check if cursed
-        if (sellItem.IsCursed)
+        if (selected.isCursed)
         {
             terminal.SetColor("red");
             terminal.WriteLine("");
-            terminal.WriteLine($"The {sellItem.Name} is CURSED and cannot be removed!");
+            terminal.WriteLine($"The {selected.name} is CURSED and cannot be sold!");
             await Pause();
             return;
         }
 
         terminal.SetColor("white");
-        terminal.Write($"Sell {sellItem.Name} for ");
+        terminal.Write($"Sell {selected.name} for ");
         terminal.SetColor("yellow");
         terminal.Write(FormatNumber(price));
         terminal.SetColor("white");
@@ -624,13 +659,23 @@ public class ArmorShopLocation : BaseLocation
         var confirm = await terminal.GetInput("");
         if (confirm.ToUpper() == "Y")
         {
-            currentPlayer.UnequipSlot(sellSlot);
+            if (selected.isEquipped && selected.slot.HasValue)
+            {
+                // Unequip and sell equipped item
+                currentPlayer.UnequipSlot(selected.slot.Value);
+            }
+            else if (selected.invIndex.HasValue)
+            {
+                // Remove from inventory
+                currentPlayer.Inventory.RemoveAt(selected.invIndex.Value);
+            }
+
             currentPlayer.Gold += price;
             currentPlayer.RecalculateStats();
 
             terminal.SetColor("bright_green");
             terminal.WriteLine("");
-            terminal.WriteLine($"Sold {sellItem.Name} for {FormatNumber(price)} gold!");
+            terminal.WriteLine($"Sold {selected.name} for {FormatNumber(price)} gold!");
         }
 
         await Pause();
@@ -645,41 +690,30 @@ public class ArmorShopLocation : BaseLocation
 
         int purchased = 0;
         long totalSpent = 0;
+        bool cancelled = false;
 
         foreach (var slot in ArmorSlots)
         {
+            if (cancelled) break;
+
             var currentItem = currentPlayer.GetEquipment(slot);
             int currentAC = currentItem?.ArmorClass ?? 0;
 
-            // Find best affordable upgrade for this slot
-            var bestItem = EquipmentDatabase.GetBySlot(slot)
+            // Get all affordable upgrades for this slot, sorted by armor class (best first)
+            var affordableArmor = EquipmentDatabase.GetBySlot(slot)
                 .Where(i => i.ArmorClass > currentAC)
-                .Where(i => i.Value <= currentPlayer.Gold)
                 .Where(i => !i.RequiresGood || currentPlayer.Chivalry > currentPlayer.Darkness)
                 .Where(i => !i.RequiresEvil || currentPlayer.Darkness > currentPlayer.Chivalry)
                 .OrderByDescending(i => i.ArmorClass)
                 .ThenBy(i => i.Value)
-                .FirstOrDefault();
+                .ToList();
 
-            if (bestItem != null)
-            {
-                // Apply city control discount
-                long itemPrice = CityControlSystem.Instance.ApplyDiscount(bestItem.Value, currentPlayer);
-                currentPlayer.Gold -= itemPrice;
-                currentPlayer.Statistics.RecordPurchase(itemPrice);
-                totalSpent += itemPrice;
+            // Filter to only affordable items based on current gold
+            var currentlyAffordable = affordableArmor
+                .Where(i => CityControlSystem.Instance.ApplyDiscount(i.Value, currentPlayer) <= currentPlayer.Gold)
+                .ToList();
 
-                // Process city tax share from this sale
-                CityControlSystem.Instance.ProcessSaleTax(itemPrice);
-
-                if (currentPlayer.EquipItem(bestItem, out _))
-                {
-                    purchased++;
-                    terminal.SetColor("bright_green");
-                    terminal.WriteLine($"+ {slot.GetDisplayName()}: Bought {bestItem.Name} (AC:{bestItem.ArmorClass}) for {FormatNumber(itemPrice)}");
-                }
-            }
-            else
+            if (currentlyAffordable.Count == 0)
             {
                 if (currentItem != null)
                 {
@@ -690,6 +724,113 @@ public class ArmorShopLocation : BaseLocation
                 {
                     terminal.SetColor("darkgray");
                     terminal.WriteLine($"  {slot.GetDisplayName()}: No affordable armor found");
+                }
+                continue;
+            }
+
+            int armorIndex = 0;
+            bool slotHandled = false;
+
+            while (!slotHandled && armorIndex < currentlyAffordable.Count)
+            {
+                // Re-check affordability since gold may have changed
+                var armor = currentlyAffordable[armorIndex];
+                long itemPrice = CityControlSystem.Instance.ApplyDiscount(armor.Value, currentPlayer);
+
+                if (itemPrice > currentPlayer.Gold)
+                {
+                    armorIndex++;
+                    continue;
+                }
+
+                // Display current slot info
+                terminal.WriteLine("");
+                terminal.SetColor("bright_yellow");
+                terminal.WriteLine($"─── {slot.GetDisplayName()} ───");
+
+                if (currentItem != null)
+                {
+                    terminal.SetColor("gray");
+                    terminal.WriteLine($"  Current: {currentItem.Name} (AC: {currentItem.ArmorClass})");
+                }
+                else
+                {
+                    terminal.SetColor("darkgray");
+                    terminal.WriteLine($"  Current: (empty)");
+                }
+
+                // Show the armor offer
+                terminal.SetColor("bright_cyan");
+                terminal.WriteLine($"  Upgrade: {armor.Name}");
+                terminal.SetColor("white");
+                terminal.WriteLine($"    Armor Class: {armor.ArmorClass} (+{armor.ArmorClass - currentAC})");
+                terminal.SetColor("bright_yellow");
+                terminal.WriteLine($"    Price: {FormatNumber(itemPrice)} gold");
+                terminal.SetColor("gray");
+                terminal.WriteLine($"    Your gold: {FormatNumber(currentPlayer.Gold)}");
+
+                terminal.WriteLine("");
+                terminal.SetColor("bright_white");
+                terminal.WriteLine("  [Y] Buy this armor");
+                terminal.WriteLine("  [N] Skip, show next option");
+                terminal.WriteLine("  [S] Skip this slot entirely");
+                terminal.WriteLine("  [C] Cancel auto-buy");
+                terminal.WriteLine("");
+
+                terminal.SetColor("bright_cyan");
+                terminal.Write("Your choice: ");
+                string choice = await terminal.GetInput("");
+
+                switch (choice.ToUpper().Trim())
+                {
+                    case "Y":
+                        // Purchase the armor
+                        currentPlayer.Gold -= itemPrice;
+                        currentPlayer.Statistics.RecordPurchase(itemPrice);
+                        totalSpent += itemPrice;
+
+                        // Process city tax share from this sale
+                        CityControlSystem.Instance.ProcessSaleTax(itemPrice);
+
+                        if (currentPlayer.EquipItem(armor, out _))
+                        {
+                            purchased++;
+                            terminal.SetColor("bright_green");
+                            terminal.WriteLine($"  ✓ Purchased {armor.Name}!");
+                        }
+                        slotHandled = true;
+                        break;
+
+                    case "N":
+                        // Skip to next option for this slot
+                        armorIndex++;
+                        if (armorIndex >= currentlyAffordable.Count)
+                        {
+                            terminal.SetColor("gray");
+                            terminal.WriteLine($"  No more options for {slot.GetDisplayName()}.");
+                            slotHandled = true;
+                        }
+                        break;
+
+                    case "S":
+                        // Skip this slot entirely, move to next body part
+                        terminal.SetColor("gray");
+                        terminal.WriteLine($"  Skipping {slot.GetDisplayName()}.");
+                        slotHandled = true;
+                        break;
+
+                    case "C":
+                        // Cancel entire auto-buy
+                        terminal.SetColor("yellow");
+                        terminal.WriteLine("  Auto-buy cancelled.");
+                        cancelled = true;
+                        slotHandled = true;
+                        break;
+
+                    default:
+                        terminal.SetColor("red");
+                        terminal.WriteLine("  Invalid choice. Please enter Y, N, S, or C.");
+                        break;
                 }
             }
         }

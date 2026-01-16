@@ -510,8 +510,8 @@ namespace UsurperRemake.Systems
                 return;
             }
 
-            // Determine handedness for weapons
-            WeaponHandedness handedness = WeaponHandedness.OneHanded;
+            // Determine handedness for weapons (default to None for non-weapons like armor)
+            WeaponHandedness handedness = WeaponHandedness.None;
             if (item.Type == ObjType.Weapon)
             {
                 // Check if it's a two-handed weapon based on name
@@ -523,6 +523,10 @@ namespace UsurperRemake.Systems
                     nameLower.Contains("staff") || nameLower.Contains("quarterstaff"))
                 {
                     handedness = WeaponHandedness.TwoHanded;
+                }
+                else
+                {
+                    handedness = WeaponHandedness.OneHanded;
                 }
             }
             else if (item.Type == ObjType.Shield)

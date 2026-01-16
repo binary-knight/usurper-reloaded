@@ -500,6 +500,9 @@ namespace UsurperRemake.Systems
                     Wisdom = companion.BaseStats.HealingPower,
                     WeapPow = companion.BaseStats.Attack / 2,
                     ArmPow = companion.BaseStats.Defense / 2,
+                    Healing = companion.HealingPotions, // Copy healing potions
+                    Mana = companion.BaseStats.MagicPower * 5, // Mana for spellcasting
+                    MaxMana = companion.BaseStats.MagicPower * 5,
                     Class = companion.CombatRole switch
                     {
                         CombatRole.Tank => CharacterClass.Warrior,
@@ -597,6 +600,29 @@ namespace UsurperRemake.Systems
             {
                 companionCurrentHP[charWrapper.CompanionId.Value] = (int)charWrapper.HP;
             }
+        }
+
+        /// <summary>
+        /// Sync companion potions from Character wrapper after combat
+        /// </summary>
+        public void SyncCompanionPotions(Character charWrapper)
+        {
+            if (charWrapper.IsCompanion && charWrapper.CompanionId.HasValue)
+            {
+                if (companions.TryGetValue(charWrapper.CompanionId.Value, out var companion))
+                {
+                    companion.HealingPotions = (int)charWrapper.Healing;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Sync all companion state from Character wrappers after combat
+        /// </summary>
+        public void SyncCompanionState(Character charWrapper)
+        {
+            SyncCompanionHP(charWrapper);
+            SyncCompanionPotions(charWrapper);
         }
 
         /// <summary>
@@ -1403,6 +1429,33 @@ namespace UsurperRemake.Systems
 
             // Scale base stats to match level
             ScaleCompanionStatsToLevel(companion);
+
+            // Initialize healing potions based on level
+            RefillCompanionPotions(companion);
+        }
+
+        /// <summary>
+        /// Refill a companion's healing potions (called on recruit, rest, new day)
+        /// </summary>
+        public void RefillCompanionPotions(Companion companion)
+        {
+            // Companions get potions based on level - healers get fewer since they use spells
+            int basePotions = companion.CombatRole == CombatRole.Healer ? 2 : 5;
+            companion.HealingPotions = Math.Min(basePotions + companion.Level / 2, companion.MaxHealingPotions);
+        }
+
+        /// <summary>
+        /// Refill potions for all active companions (called on rest/new day)
+        /// </summary>
+        public void RefillAllCompanionPotions()
+        {
+            foreach (var id in activeCompanions)
+            {
+                if (companions.TryGetValue(id, out var companion) && !companion.IsDead)
+                {
+                    RefillCompanionPotions(companion);
+                }
+            }
         }
 
         /// <summary>
@@ -1567,6 +1620,10 @@ namespace UsurperRemake.Systems
         // Experience and leveling
         public int Level { get; set; } = 1;
         public long Experience { get; set; } = 0;
+
+        // Healing potions (NPCs manage their own supply)
+        public int HealingPotions { get; set; } = 0;
+        public int MaxHealingPotions => 5 + Level;
 
         public List<CompanionEvent> History { get; set; } = new();
 
