@@ -705,7 +705,17 @@ public class InnLocation : BaseLocation
         
         // Execute combat
         var result = await combatEngine.PlayerVsMonster(currentPlayer, sethMonster);
-        
+
+        // Check if player should return to temple after resurrection
+        if (result.ShouldReturnToTemple)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("You awaken at the Temple of Light...");
+            await Task.Delay(2000);
+            await NavigateToLocation(GameLocation.Temple);
+            return;
+        }
+
         // Handle combat outcome
         switch (result.Outcome)
         {
@@ -961,6 +971,16 @@ public class InnLocation : BaseLocation
 
         var combatEngine = new CombatEngine(terminal);
         var result = await combatEngine.PlayerVsMonster(currentPlayer, npcMonster);
+
+        // Check if player should return to temple after resurrection
+        if (result.ShouldReturnToTemple)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("You awaken at the Temple of Light...");
+            await Task.Delay(2000);
+            await NavigateToLocation(GameLocation.Temple);
+            return;
+        }
 
         if (result.Outcome == CombatOutcome.Victory)
         {

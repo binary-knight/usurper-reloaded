@@ -2189,7 +2189,17 @@ public class DungeonLocation : BaseLocation
 
         // Combat
         var combatEngine = new CombatEngine(terminal);
-        await combatEngine.PlayerVsMonsters(player, monsters, teammates, offerMonkEncounter: true);
+        var combatResult = await combatEngine.PlayerVsMonsters(player, monsters, teammates, offerMonkEncounter: true);
+
+        // Check if player should return to temple after resurrection
+        if (combatResult.ShouldReturnToTemple)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("You awaken at the Temple of Light...");
+            await Task.Delay(2000);
+            await NavigateToLocation(GameLocation.Temple);
+            return;
+        }
 
         // Check if player survived
         if (player.HP > 0)
@@ -2947,7 +2957,17 @@ public class DungeonLocation : BaseLocation
 
         // Use new PlayerVsMonsters method - ALL monsters fight at once!
         // Monk will appear after ALL monsters are defeated
-        await combatEngine.PlayerVsMonsters(GetCurrentPlayer(), monsters, teammates, offerMonkEncounter: true);
+        var combatResult = await combatEngine.PlayerVsMonsters(GetCurrentPlayer(), monsters, teammates, offerMonkEncounter: true);
+
+        // Check if player should return to temple after resurrection
+        if (combatResult.ShouldReturnToTemple)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("You awaken at the Temple of Light...");
+            await Task.Delay(2000);
+            await NavigateToLocation(GameLocation.Temple);
+            return;
+        }
     }
 
     /// <summary>
@@ -3101,7 +3121,17 @@ public class DungeonLocation : BaseLocation
                     
                     // Fight the undead
                     var combatEngine = new CombatEngine(terminal);
-                    await combatEngine.PlayerVsMonster(player, undead, teammates);
+                    var combatResult = await combatEngine.PlayerVsMonster(player, undead, teammates);
+
+                    // Check if player should return to temple after resurrection
+                    if (combatResult.ShouldReturnToTemple)
+                    {
+                        terminal.SetColor("yellow");
+                        terminal.WriteLine("You awaken at the Temple of Light...");
+                        await Task.Delay(2000);
+                        await NavigateToLocation(GameLocation.Temple);
+                        return;
+                    }
                 }
                 break;
                 
@@ -3278,7 +3308,17 @@ public class DungeonLocation : BaseLocation
                 undead.Level = currentDungeonLevel;
 
                 var combatEngine = new CombatEngine(terminal);
-                await combatEngine.PlayerVsMonster(currentPlayer, undead, teammates);
+                var combatResult = await combatEngine.PlayerVsMonster(currentPlayer, undead, teammates);
+
+                // Check if player should return to temple after resurrection
+                if (combatResult.ShouldReturnToTemple)
+                {
+                    terminal.SetColor("yellow");
+                    terminal.WriteLine("You awaken at the Temple of Light...");
+                    await Task.Delay(2000);
+                    await NavigateToLocation(GameLocation.Temple);
+                    return;
+                }
             }
         }
         else
@@ -3423,6 +3463,16 @@ public class DungeonLocation : BaseLocation
                 var combatEngine = new CombatEngine(terminal);
                 var result = await combatEngine.PlayerVsMonster(currentPlayer, guardian, teammates);
 
+                // Check if player should return to temple after resurrection
+                if (result.ShouldReturnToTemple)
+                {
+                    terminal.SetColor("yellow");
+                    terminal.WriteLine("You awaken at the Temple of Light...");
+                    await Task.Delay(2000);
+                    await NavigateToLocation(GameLocation.Temple);
+                    return;
+                }
+
                 if (result.Victory)
                 {
                     terminal.SetColor("green");
@@ -3535,6 +3585,16 @@ public class DungeonLocation : BaseLocation
 
             var combatEngine = new CombatEngine(terminal);
             var result = await combatEngine.PlayerVsMonster(currentPlayer, duelistMonster, null);
+
+            // Check if player should return to temple after resurrection
+            if (result.ShouldReturnToTemple)
+            {
+                terminal.SetColor("yellow");
+                terminal.WriteLine("You awaken at the Temple of Light...");
+                await Task.Delay(2000);
+                await NavigateToLocation(GameLocation.Temple);
+                return;
+            }
 
             duelist.TimesEncountered++;
             duelist.Level = Math.Max(duelist.Level, currentPlayer.Level); // Duelist keeps up
@@ -3650,6 +3710,16 @@ public class DungeonLocation : BaseLocation
 
             var combatEngine = new CombatEngine(terminal);
             var result = await combatEngine.PlayerVsMonster(currentPlayer, angryDuelist, teammates);
+
+            // Check if player should return to temple after resurrection
+            if (result.ShouldReturnToTemple)
+            {
+                terminal.SetColor("yellow");
+                terminal.WriteLine("You awaken at the Temple of Light...");
+                await Task.Delay(2000);
+                await NavigateToLocation(GameLocation.Temple);
+                return;
+            }
 
             duelist.TimesEncountered++;
             if (result.Victory)
@@ -3865,7 +3935,17 @@ public class DungeonLocation : BaseLocation
                 mimic.Level = currentDungeonLevel;
 
                 var combatEngine = new CombatEngine(terminal);
-                await combatEngine.PlayerVsMonster(currentPlayer, mimic, teammates);
+                var combatResult = await combatEngine.PlayerVsMonster(currentPlayer, mimic, teammates);
+
+                // Check if player should return to temple after resurrection
+                if (combatResult.ShouldReturnToTemple)
+                {
+                    terminal.SetColor("yellow");
+                    terminal.WriteLine("You awaken at the Temple of Light...");
+                    await Task.Delay(2000);
+                    await NavigateToLocation(GameLocation.Temple);
+                    return;
+                }
             }
         }
         else
@@ -3951,7 +4031,17 @@ public class DungeonLocation : BaseLocation
             }
 
             var combatEngine = new CombatEngine(terminal);
-            await combatEngine.PlayerVsMonsters(currentPlayer, monsters, teammates, offerMonkEncounter: false);
+            var combatResult = await combatEngine.PlayerVsMonsters(currentPlayer, monsters, teammates, offerMonkEncounter: false);
+
+            // Check if player should return to temple after resurrection
+            if (combatResult.ShouldReturnToTemple)
+            {
+                terminal.SetColor("yellow");
+                terminal.WriteLine("You awaken at the Temple of Light...");
+                await Task.Delay(2000);
+                await NavigateToLocation(GameLocation.Temple);
+                return;
+            }
         }
         else if (choice.ToUpper() == "P")
         {
@@ -3975,7 +4065,17 @@ public class DungeonLocation : BaseLocation
                     false, false, currentDungeonLevel * 3, currentDungeonLevel * 2, currentDungeonLevel * 2
                 );
                 var combatEngine = new CombatEngine(terminal);
-                await combatEngine.PlayerVsMonster(currentPlayer, monster, teammates);
+                var combatResult = await combatEngine.PlayerVsMonster(currentPlayer, monster, teammates);
+
+                // Check if player should return to temple after resurrection
+                if (combatResult.ShouldReturnToTemple)
+                {
+                    terminal.SetColor("yellow");
+                    terminal.WriteLine("You awaken at the Temple of Light...");
+                    await Task.Delay(2000);
+                    await NavigateToLocation(GameLocation.Temple);
+                    return;
+                }
             }
         }
         else
@@ -4037,7 +4137,17 @@ public class DungeonLocation : BaseLocation
             }
 
             var combatEngine = new CombatEngine(terminal);
-            await combatEngine.PlayerVsMonsters(currentPlayer, monsters, teammates, offerMonkEncounter: false);
+            var combatResult = await combatEngine.PlayerVsMonsters(currentPlayer, monsters, teammates, offerMonkEncounter: false);
+
+            // Check if player should return to temple after resurrection
+            if (combatResult.ShouldReturnToTemple)
+            {
+                terminal.SetColor("yellow");
+                terminal.WriteLine("You awaken at the Temple of Light...");
+                await Task.Delay(2000);
+                await NavigateToLocation(GameLocation.Temple);
+                return;
+            }
 
             if (currentPlayer.HP > 0)
             {
@@ -4249,7 +4359,17 @@ public class DungeonLocation : BaseLocation
                 spirit.IsBoss = true;
 
                 var combatEngine = new CombatEngine(terminal);
-                await combatEngine.PlayerVsMonster(currentPlayer, spirit, teammates);
+                var combatResult = await combatEngine.PlayerVsMonster(currentPlayer, spirit, teammates);
+
+                // Check if player should return to temple after resurrection
+                if (combatResult.ShouldReturnToTemple)
+                {
+                    terminal.SetColor("yellow");
+                    terminal.WriteLine("You awaken at the Temple of Light...");
+                    await Task.Delay(2000);
+                    await NavigateToLocation(GameLocation.Temple);
+                    return;
+                }
             }
         }
         else
@@ -4625,6 +4745,16 @@ public class DungeonLocation : BaseLocation
             var merchant = CreateMerchantMonster();
             var combatEngine = new CombatEngine(terminal);
             var result = await combatEngine.PlayerVsMonster(player, merchant, teammates);
+
+            // Check if player should return to temple after resurrection
+            if (result.ShouldReturnToTemple)
+            {
+                terminal.SetColor("yellow");
+                terminal.WriteLine("You awaken at the Temple of Light...");
+                await Task.Delay(2000);
+                await NavigateToLocation(GameLocation.Temple);
+                return;
+            }
 
             if (result.Outcome == CombatOutcome.Victory)
             {
@@ -6275,7 +6405,17 @@ public class DungeonLocation : BaseLocation
                     rival.Level = currentDungeonLevel;
 
                     var combatEngine = new CombatEngine(terminal);
-                    await combatEngine.PlayerVsMonster(player, rival, teammates);
+                    var combatResult = await combatEngine.PlayerVsMonster(player, rival, teammates);
+
+                    // Check if player should return to temple after resurrection
+                    if (combatResult.ShouldReturnToTemple)
+                    {
+                        terminal.SetColor("yellow");
+                        terminal.WriteLine("You awaken at the Temple of Light...");
+                        await Task.Delay(2000);
+                        await NavigateToLocation(GameLocation.Temple);
+                        return;
+                    }
                 }
                 else if (rivalChoice.ToUpper() == "N")
                 {
@@ -7028,7 +7168,17 @@ public class DungeonLocation : BaseLocation
             // Create a riddle guardian monster and fight
             var guardian = CreateRiddleGuardian();
             var combatEngine = new CombatEngine(terminal);
-            await combatEngine.PlayerVsMonster(player, guardian, teammates);
+            var combatResult = await combatEngine.PlayerVsMonster(player, guardian, teammates);
+
+            // Check if player should return to temple after resurrection
+            if (combatResult.ShouldReturnToTemple)
+            {
+                terminal.SetColor("yellow");
+                terminal.WriteLine("You awaken at the Temple of Light...");
+                await Task.Delay(2000);
+                await NavigateToLocation(GameLocation.Temple);
+                return;
+            }
         }
 
         terminal.WriteLine("");
@@ -7100,7 +7250,17 @@ public class DungeonLocation : BaseLocation
 
         // Engage in combat with the secret boss
         var combatEngine = new CombatEngine(terminal);
-        await combatEngine.PlayerVsMonster(player, bossMonster, teammates);
+        var combatResult = await combatEngine.PlayerVsMonster(player, bossMonster, teammates);
+
+        // Check if player should return to temple after resurrection
+        if (combatResult.ShouldReturnToTemple)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("You awaken at the Temple of Light...");
+            await Task.Delay(2000);
+            await NavigateToLocation(GameLocation.Temple);
+            return;
+        }
 
         // Check if player won (player is still alive and boss is dead)
         if (player.HP > 0 && bossMonster.HP <= 0)
