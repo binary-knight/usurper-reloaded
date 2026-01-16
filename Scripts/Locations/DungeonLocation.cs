@@ -5921,11 +5921,15 @@ public class DungeonLocation : BaseLocation
     private async Task UsePotions()
     {
         var player = GetCurrentPlayer();
-        var companionSystem = UsurperRemake.Systems.CompanionSystem.Instance;
-        var companions = companionSystem.GetCompanionsAsCharacters();
+
+        // Get all party members: NPC teammates + Companions
+        var allPartyMembers = GetAllPartyMembers();
 
         while (true)
         {
+            // Refresh party members each loop (in case HP changed)
+            allPartyMembers = GetAllPartyMembers();
+
             terminal.ClearScreen();
             terminal.SetColor("cyan");
             terminal.WriteLine("╔═══════════════════════════════════════════════════════╗");
@@ -5946,20 +5950,20 @@ public class DungeonLocation : BaseLocation
             terminal.WriteLine($"Gold: {player.Gold:N0}");
             terminal.WriteLine("");
 
-            // Show teammate status if we have companions
-            if (companions.Count > 0)
+            // Show teammate status if we have party members
+            if (allPartyMembers.Count > 0)
             {
                 terminal.SetColor("bright_cyan");
                 terminal.WriteLine("═══ TEAM STATUS ═══");
-                foreach (var companion in companions)
+                foreach (var member in allPartyMembers)
                 {
-                    int hpPercent = companion.MaxHP > 0 ? (int)(100 * companion.HP / companion.MaxHP) : 100;
+                    int hpPercent = member.MaxHP > 0 ? (int)(100 * member.HP / member.MaxHP) : 100;
                     string hpColor = hpPercent < 25 ? "red" : hpPercent < 50 ? "yellow" : hpPercent < 100 ? "bright_green" : "green";
                     terminal.SetColor(hpColor);
-                    terminal.Write($"  {companion.DisplayName,-18} ");
-                    DrawBar(companion.HP, companion.MaxHP, 15, hpColor, "darkgray");
+                    terminal.Write($"  {member.DisplayName,-18} ");
+                    DrawBar(member.HP, member.MaxHP, 15, hpColor, "darkgray");
                     string status = hpPercent >= 100 ? " (Full)" : "";
-                    terminal.WriteLine($" {companion.HP}/{companion.MaxHP}{status}");
+                    terminal.WriteLine($" {member.HP}/{member.MaxHP}{status}");
                 }
                 terminal.WriteLine("");
             }
@@ -6014,7 +6018,7 @@ public class DungeonLocation : BaseLocation
             }
 
             // Heal teammate option
-            if (companions.Count > 0 && player.Healing > 0)
+            if (allPartyMembers.Count > 0 && player.Healing > 0)
             {
                 terminal.SetColor("darkgray");
                 terminal.Write("  [");
@@ -6027,8 +6031,8 @@ public class DungeonLocation : BaseLocation
             }
 
             // Heal entire party option
-            bool anyTeammateInjured = companions.Any(c => c.HP < c.MaxHP);
-            if (companions.Count > 0 && player.Healing > 0 && (player.HP < player.MaxHP || anyTeammateInjured))
+            bool anyTeammateInjured = allPartyMembers.Any(c => c.HP < c.MaxHP);
+            if (allPartyMembers.Count > 0 && player.Healing > 0 && (player.HP < player.MaxHP || anyTeammateInjured))
             {
                 terminal.SetColor("darkgray");
                 terminal.Write("  [");
@@ -6084,16 +6088,16 @@ public class DungeonLocation : BaseLocation
                     break;
 
                 case "T":
-                    if (companions.Count > 0 && player.Healing > 0)
+                    if (allPartyMembers.Count > 0 && player.Healing > 0)
                     {
-                        await HealTeammate(player, companions);
+                        await HealTeammate(player, allPartyMembers);
                     }
                     break;
 
                 case "A":
-                    if (companions.Count > 0 && player.Healing > 0)
+                    if (allPartyMembers.Count > 0 && player.Healing > 0)
                     {
-                        await HealEntireParty(player, companions);
+                        await HealEntireParty(player, allPartyMembers);
                     }
                     break;
 
@@ -6107,10 +6111,38 @@ public class DungeonLocation : BaseLocation
                     await Task.Delay(1000);
                     break;
             }
-
-            // Refresh companions list in case HP changed
-            companions = companionSystem.GetCompanionsAsCharacters();
         }
+    }
+
+    /// <summary>
+    /// Get all party members (NPC teammates + Companions) as Characters
+    /// </summary>
+    private List<Character> GetAllPartyMembers()
+    {
+        var result = new List<Character>();
+
+        // Add NPC teammates (includes spouses, team members, etc.)
+        foreach (var teammate in teammates)
+        {
+            if (teammate != null && teammate.IsAlive)
+            {
+                result.Add(teammate);
+            }
+        }
+
+        // Add companions
+        var companionSystem = UsurperRemake.Systems.CompanionSystem.Instance;
+        var companions = companionSystem.GetCompanionsAsCharacters();
+        foreach (var companion in companions)
+        {
+            // Avoid duplicates (if somehow an NPC is also tracked as a companion)
+            if (!result.Any(r => r.DisplayName == companion.DisplayName))
+            {
+                result.Add(companion);
+            }
+        }
+
+        return result;
     }
 
     /// <summary>
