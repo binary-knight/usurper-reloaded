@@ -4304,10 +4304,15 @@ public partial class CombatEngine
         {
             result.Player.HP = resurrectionResult.RestoredHP;
             result.Outcome = CombatOutcome.PlayerEscaped; // Continue as escaped rather than died
+            result.ShouldReturnToTemple = resurrectionResult.ShouldReturnToTemple;
             terminal.SetColor("green");
             terminal.WriteLine("");
             terminal.WriteLine("You gasp as life flows back into your body!");
             terminal.WriteLine($"You have been resurrected with {result.Player.HP} HP!");
+            if (resurrectionResult.ShouldReturnToTemple)
+            {
+                terminal.WriteLine("You awaken at the temple...");
+            }
             terminal.WriteLine("");
             result.CombatLog.Add($"Player resurrected via {resurrectionResult.Method}");
         }
@@ -4341,19 +4346,20 @@ public partial class CombatEngine
             });
         }
 
-        // Option 2: Temple Resurrection (costs gold)
+        // Option 2: Temple Resurrection (costs gold, returns to temple)
         long templeCost = 500 + (player.Level * 100);
         if (player.Gold >= templeCost || player.BankGold >= templeCost)
         {
             choices.Add(new ResurrectionChoice
             {
                 Name = "Temple Resurrection",
-                Description = $"Pay the temple {templeCost:N0} gold for resurrection",
+                Description = $"Pay the temple {templeCost:N0} gold for resurrection (returns to Temple)",
                 Cost = templeCost,
                 HPRestored = (int)(player.MaxHP * 0.75), // 75% HP
                 Method = "Temple Resurrection",
                 UsesResurrection = false,
-                RequiresGold = true
+                RequiresGold = true,
+                ReturnsToTemple = true
             });
         }
 
@@ -4485,7 +4491,8 @@ public partial class CombatEngine
         {
             WasResurrected = true,
             RestoredHP = selectedChoice.HPRestored,
-            Method = selectedChoice.Method
+            Method = selectedChoice.Method,
+            ShouldReturnToTemple = selectedChoice.ReturnsToTemple
         };
     }
 
@@ -4553,6 +4560,7 @@ public partial class CombatEngine
         public bool RequiresGold { get; set; }
         public bool IsDarkBargain { get; set; }
         public bool AcceptsDeath { get; set; }
+        public bool ReturnsToTemple { get; set; }
     }
 
     /// <summary>
@@ -4563,6 +4571,7 @@ public partial class CombatEngine
         public bool WasResurrected { get; set; }
         public int RestoredHP { get; set; }
         public string Method { get; set; } = "";
+        public bool ShouldReturnToTemple { get; set; } = false;
     }
     
     /// <summary>
@@ -5760,6 +5769,19 @@ public partial class CombatEngine
         long teammateXP = playerXP / 2;
         if (teammateXP <= 0) return;
 
+        // Count eligible teammates first
+        int eligibleCount = 0;
+        foreach (var t in teammates)
+        {
+            if (t != null && t.IsAlive && !t.IsCompanion && t.Level < 100)
+                eligibleCount++;
+        }
+        if (eligibleCount == 0) return;
+
+        // Show header for teammate XP
+        terminal.SetColor("gray");
+        terminal.WriteLine($"Team XP (+{teammateXP} each):");
+
         foreach (var teammate in teammates)
         {
             if (teammate == null || !teammate.IsAlive) continue;
@@ -5767,7 +5789,14 @@ public partial class CombatEngine
             if (teammate.Level >= 100) continue; // Max level cap
 
             // Award XP
+            long previousXP = teammate.Experience;
             teammate.Experience += teammateXP;
+            long xpNeeded = GetExperienceForLevel(teammate.Level + 1);
+
+            // Show XP gain for all teammates
+            terminal.SetColor("cyan");
+            terminal.WriteLine($"  {teammate.DisplayName}: {teammate.Experience:N0}/{xpNeeded:N0}");
+            terminal.SetColor("white");
 
             // Check for level up (using same formula as player/NPCs)
             long xpForNextLevel = GetExperienceForLevel(teammate.Level + 1);
@@ -5788,7 +5817,7 @@ public partial class CombatEngine
                 teammate.HP = teammate.MaxHP;
 
                 terminal.SetColor("bright_green");
-                terminal.WriteLine($"  {teammate.DisplayName} has reached level {teammate.Level}!");
+                terminal.WriteLine($"  {teammate.DisplayName} leveled up! (Lv {teammate.Level})");
 
                 // Generate news for spouse/lover level ups
                 NewsSystem.Instance?.Newsy(true, $"{teammate.DisplayName} has achieved Level {teammate.Level}!");
@@ -6329,6 +6358,9 @@ public class CombatResult
     public bool Victory { get; set; }
     public bool MonsterKilled { get; set; }
     public bool PlayerDied { get; set; }
+
+    // Resurrection flags
+    public bool ShouldReturnToTemple { get; set; }
 }
 
 /// <summary>

@@ -47,7 +47,11 @@
       "Bash(Select-String \"warning CS\")",
       "Bash(Measure-Object)",
       "Bash(cd:*)",
-      "Bash(godot4:*)"
+      "Bash(godot4:*)",
+      "Bash(python3:*)",
+      "Bash(powershell -Command \"''╔════════════════════════════════════════════════════════════════════════════╗''.Length\")",
+      "Bash(powershell -Command \"''║                           -= MAIN STREET =-                                ║''.Length\")",
+      "Bash(powershell -Command \"''                           -= MAIN STREET =-                                ''.Length\")"
     ]
   }
 }
