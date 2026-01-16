@@ -175,7 +175,7 @@ public class MainStreetLocation : BaseLocation
         WriteMenuOption("L", "List", "cyan");
         WriteMenuOption("R", "Relations", "cyan");
         WriteMenuOption("P", "Progress", "cyan");
-        WriteMenuOption("=", "Stats", "cyan");
+        WriteMenuOption("=", "Record", "cyan");
         WriteMenuOptionLast("!", "Achieve", "cyan");
 
         // Row 5 - Shady stuff & system (5 options, need extra padding for 6th slot)
