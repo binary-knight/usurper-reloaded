@@ -5921,6 +5921,8 @@ public class DungeonLocation : BaseLocation
     private async Task UsePotions()
     {
         var player = GetCurrentPlayer();
+        var companionSystem = UsurperRemake.Systems.CompanionSystem.Instance;
+        var companions = companionSystem.GetCompanionsAsCharacters();
 
         while (true)
         {
@@ -5931,7 +5933,9 @@ public class DungeonLocation : BaseLocation
             terminal.WriteLine("╚═══════════════════════════════════════════════════════╝");
             terminal.WriteLine("");
 
-            // Show current status
+            // Show player status
+            terminal.SetColor("bright_white");
+            terminal.WriteLine("═══ YOUR STATUS ═══");
             terminal.SetColor("white");
             terminal.Write("HP: ");
             DrawBar(player.HP, player.MaxHP, 25, "red", "darkgray");
@@ -5941,6 +5945,24 @@ public class DungeonLocation : BaseLocation
             terminal.WriteLine($"Healing Potions: {player.Healing}/{player.MaxPotions}");
             terminal.WriteLine($"Gold: {player.Gold:N0}");
             terminal.WriteLine("");
+
+            // Show teammate status if we have companions
+            if (companions.Count > 0)
+            {
+                terminal.SetColor("bright_cyan");
+                terminal.WriteLine("═══ TEAM STATUS ═══");
+                foreach (var companion in companions)
+                {
+                    int hpPercent = companion.MaxHP > 0 ? (int)(100 * companion.HP / companion.MaxHP) : 100;
+                    string hpColor = hpPercent < 25 ? "red" : hpPercent < 50 ? "yellow" : hpPercent < 100 ? "bright_green" : "green";
+                    terminal.SetColor(hpColor);
+                    terminal.Write($"  {companion.DisplayName,-18} ");
+                    DrawBar(companion.HP, companion.MaxHP, 15, hpColor, "darkgray");
+                    string status = hpPercent >= 100 ? " (Full)" : "";
+                    terminal.WriteLine($" {companion.HP}/{companion.MaxHP}{status}");
+                }
+                terminal.WriteLine("");
+            }
 
             // Calculate heal amount (potions heal 25% of max HP)
             long healAmount = player.MaxHP / 4;
@@ -5959,7 +5981,7 @@ public class DungeonLocation : BaseLocation
                 terminal.SetColor("darkgray");
                 terminal.Write("] ");
                 terminal.SetColor("white");
-                terminal.WriteLine($"Use Healing Potion (heals ~{healAmount} HP)");
+                terminal.WriteLine($"Use Healing Potion on yourself (heals ~{healAmount} HP)");
             }
             else
             {
@@ -5988,7 +6010,34 @@ public class DungeonLocation : BaseLocation
                 terminal.SetColor("darkgray");
                 terminal.Write("] ");
                 terminal.SetColor("white");
-                terminal.WriteLine("Heal to Full (use multiple potions)");
+                terminal.WriteLine("Heal yourself to Full (use multiple potions)");
+            }
+
+            // Heal teammate option
+            if (companions.Count > 0 && player.Healing > 0)
+            {
+                terminal.SetColor("darkgray");
+                terminal.Write("  [");
+                terminal.SetColor("bright_cyan");
+                terminal.Write("T");
+                terminal.SetColor("darkgray");
+                terminal.Write("] ");
+                terminal.SetColor("white");
+                terminal.WriteLine("Heal a Teammate");
+            }
+
+            // Heal entire party option
+            bool anyTeammateInjured = companions.Any(c => c.HP < c.MaxHP);
+            if (companions.Count > 0 && player.Healing > 0 && (player.HP < player.MaxHP || anyTeammateInjured))
+            {
+                terminal.SetColor("darkgray");
+                terminal.Write("  [");
+                terminal.SetColor("bright_magenta");
+                terminal.Write("A");
+                terminal.SetColor("darkgray");
+                terminal.Write("] ");
+                terminal.SetColor("white");
+                terminal.WriteLine("Heal ALL Party Members to Full");
             }
 
             terminal.WriteLine("");
@@ -6034,6 +6083,20 @@ public class DungeonLocation : BaseLocation
                     }
                     break;
 
+                case "T":
+                    if (companions.Count > 0 && player.Healing > 0)
+                    {
+                        await HealTeammate(player, companions);
+                    }
+                    break;
+
+                case "A":
+                    if (companions.Count > 0 && player.Healing > 0)
+                    {
+                        await HealEntireParty(player, companions);
+                    }
+                    break;
+
                 case "Q":
                 case "":
                     return;
@@ -6044,7 +6107,256 @@ public class DungeonLocation : BaseLocation
                     await Task.Delay(1000);
                     break;
             }
+
+            // Refresh companions list in case HP changed
+            companions = companionSystem.GetCompanionsAsCharacters();
         }
+    }
+
+    /// <summary>
+    /// Heal a specific teammate using the player's potions
+    /// </summary>
+    private async Task HealTeammate(Character player, List<Character> companions)
+    {
+        terminal.WriteLine("");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("Select teammate to heal:");
+        terminal.WriteLine("");
+
+        for (int i = 0; i < companions.Count; i++)
+        {
+            var companion = companions[i];
+            int hpPercent = companion.MaxHP > 0 ? (int)(100 * companion.HP / companion.MaxHP) : 100;
+            string hpColor = hpPercent < 25 ? "red" : hpPercent < 50 ? "yellow" : hpPercent < 100 ? "bright_green" : "green";
+            terminal.SetColor(hpColor);
+            string status = hpPercent >= 100 ? " (Full)" : "";
+            terminal.WriteLine($"  [{i + 1}] {companion.DisplayName} - HP: {companion.HP}/{companion.MaxHP} ({hpPercent}%){status}");
+        }
+        terminal.SetColor("gray");
+        terminal.WriteLine("  [0] Cancel");
+        terminal.WriteLine("");
+
+        terminal.SetColor("white");
+        terminal.Write("Choose: ");
+        var input = await terminal.GetInput("");
+
+        if (!int.TryParse(input, out int targetChoice) || targetChoice == 0)
+        {
+            return;
+        }
+
+        if (targetChoice < 1 || targetChoice > companions.Count)
+        {
+            terminal.WriteLine("Invalid choice.", "red");
+            await Task.Delay(1000);
+            return;
+        }
+
+        var target = companions[targetChoice - 1];
+
+        if (target.HP >= target.MaxHP)
+        {
+            terminal.WriteLine($"{target.DisplayName} is already at full health!", "yellow");
+            await Task.Delay(1500);
+            return;
+        }
+
+        // Calculate potions needed
+        long missingHP = target.MaxHP - target.HP;
+        int healPerPotion = 30 + player.Level * 5 + 20;
+        int potionsNeeded = (int)Math.Ceiling((double)missingHP / healPerPotion);
+        potionsNeeded = Math.Min(potionsNeeded, (int)player.Healing);
+
+        terminal.WriteLine("");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine($"{target.DisplayName} is missing {missingHP} HP.");
+        terminal.WriteLine($"Each potion heals approximately {healPerPotion} HP.");
+        terminal.WriteLine("");
+        terminal.SetColor("white");
+        terminal.WriteLine($"[1] Use 1 potion");
+        if (potionsNeeded > 1)
+        {
+            terminal.WriteLine($"[F] Fully heal (uses up to {potionsNeeded} potions)");
+        }
+        terminal.SetColor("gray");
+        terminal.WriteLine("[0] Cancel");
+        terminal.WriteLine("");
+
+        terminal.SetColor("white");
+        terminal.Write("Choice: ");
+        var potionChoice = (await terminal.GetInput("")).Trim().ToUpper();
+
+        if (string.IsNullOrEmpty(potionChoice) || potionChoice == "0")
+        {
+            return;
+        }
+
+        int potionsToUse = 1;
+        if (potionChoice == "F" && potionsNeeded > 1)
+        {
+            potionsToUse = potionsNeeded;
+        }
+        else if (potionChoice != "1")
+        {
+            terminal.WriteLine("Invalid choice.", "red");
+            await Task.Delay(1000);
+            return;
+        }
+
+        // Apply healing
+        long oldHP = target.HP;
+        for (int i = 0; i < potionsToUse && target.HP < target.MaxHP; i++)
+        {
+            player.Healing--;
+            int healAmount = 30 + player.Level * 5 + dungeonRandom.Next(10, 31);
+            target.HP = Math.Min(target.MaxHP, target.HP + healAmount);
+        }
+        long totalHeal = target.HP - oldHP;
+
+        terminal.WriteLine("");
+        terminal.SetColor("bright_green");
+        if (potionsToUse == 1)
+        {
+            terminal.WriteLine($"You give a healing potion to {target.DisplayName}!");
+        }
+        else
+        {
+            terminal.WriteLine($"You give {potionsToUse} healing potions to {target.DisplayName}!");
+        }
+        terminal.WriteLine($"{target.DisplayName} recovers {totalHeal} HP!");
+
+        if (target.HP >= target.MaxHP)
+        {
+            terminal.WriteLine($"{target.DisplayName} is fully healed!", "bright_green");
+        }
+
+        // Sync companion HP
+        if (target.IsCompanion && target.CompanionId.HasValue)
+        {
+            UsurperRemake.Systems.CompanionSystem.Instance.SyncCompanionHP(target);
+        }
+
+        await Task.Delay(2000);
+    }
+
+    /// <summary>
+    /// Heal the entire party to full using player's potions
+    /// </summary>
+    private async Task HealEntireParty(Character player, List<Character> companions)
+    {
+        int healPerPotion = 30 + player.Level * 5 + 20;
+        int totalPotionsUsed = 0;
+        long totalHealing = 0;
+
+        // Calculate total potions needed
+        long playerMissing = player.MaxHP - player.HP;
+        int playerPotionsNeeded = playerMissing > 0 ? (int)Math.Ceiling((double)playerMissing / healPerPotion) : 0;
+
+        int teammatesPotionsNeeded = 0;
+        foreach (var companion in companions)
+        {
+            long missing = companion.MaxHP - companion.HP;
+            if (missing > 0)
+            {
+                teammatesPotionsNeeded += (int)Math.Ceiling((double)missing / healPerPotion);
+            }
+        }
+
+        int totalPotionsNeeded = playerPotionsNeeded + teammatesPotionsNeeded;
+
+        if (totalPotionsNeeded == 0)
+        {
+            terminal.WriteLine("Everyone is already at full health!", "yellow");
+            await Task.Delay(1500);
+            return;
+        }
+
+        int potionsAvailable = (int)player.Healing;
+        int potionsToUse = Math.Min(totalPotionsNeeded, potionsAvailable);
+
+        terminal.WriteLine("");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine($"Healing entire party requires approximately {totalPotionsNeeded} potions.");
+        terminal.WriteLine($"You have {potionsAvailable} potions.");
+        terminal.WriteLine("");
+
+        if (potionsAvailable < totalPotionsNeeded)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"Warning: Not enough potions for full heal. Will use all {potionsAvailable}.");
+            terminal.WriteLine("");
+        }
+
+        terminal.SetColor("white");
+        terminal.WriteLine($"[Y] Yes, heal the party (uses {potionsToUse} potions)");
+        terminal.SetColor("gray");
+        terminal.WriteLine("[N] Cancel");
+        terminal.WriteLine("");
+
+        terminal.SetColor("white");
+        terminal.Write("Choice: ");
+        var choice = (await terminal.GetInput("")).Trim().ToUpper();
+
+        if (choice != "Y")
+        {
+            return;
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("bright_green");
+        terminal.WriteLine("Distributing potions to the party...");
+        terminal.WriteLine("");
+
+        // Heal player first
+        if (player.HP < player.MaxHP && player.Healing > 0)
+        {
+            long oldHP = player.HP;
+            while (player.HP < player.MaxHP && player.Healing > 0)
+            {
+                player.Healing--;
+                totalPotionsUsed++;
+                int healAmount = 30 + player.Level * 5 + dungeonRandom.Next(10, 31);
+                player.HP = Math.Min(player.MaxHP, player.HP + healAmount);
+            }
+            long healed = player.HP - oldHP;
+            totalHealing += healed;
+            terminal.SetColor("green");
+            terminal.WriteLine($"  You recover {healed} HP!");
+        }
+
+        // Heal companions
+        foreach (var companion in companions)
+        {
+            if (companion.HP < companion.MaxHP && player.Healing > 0)
+            {
+                long oldHP = companion.HP;
+                while (companion.HP < companion.MaxHP && player.Healing > 0)
+                {
+                    player.Healing--;
+                    totalPotionsUsed++;
+                    int healAmount = 30 + player.Level * 5 + dungeonRandom.Next(10, 31);
+                    companion.HP = Math.Min(companion.MaxHP, companion.HP + healAmount);
+                }
+                long healed = companion.HP - oldHP;
+                totalHealing += healed;
+                terminal.SetColor("green");
+                terminal.WriteLine($"  {companion.DisplayName} recovers {healed} HP!");
+
+                // Sync companion HP
+                if (companion.IsCompanion && companion.CompanionId.HasValue)
+                {
+                    UsurperRemake.Systems.CompanionSystem.Instance.SyncCompanionHP(companion);
+                }
+            }
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("bright_green");
+        terminal.WriteLine($"Used {totalPotionsUsed} potions. Total HP restored: {totalHealing}");
+        terminal.SetColor("gray");
+        terminal.WriteLine($"Potions remaining: {player.Healing}/{player.MaxPotions}");
+
+        await Task.Delay(2500);
     }
 
     private async Task UseHealingPotion(Character player)
