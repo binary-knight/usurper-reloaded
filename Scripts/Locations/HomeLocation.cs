@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using ModelItem = global::Item;
 using UsurperRemake.Systems;
+using UsurperRemake.Utils;
 
 namespace UsurperRemake.Locations;
 
@@ -43,6 +44,7 @@ public class HomeLocation : BaseLocation
             "Visit bedroom (B)",
             "Upgrade home (U)",
             "Status (S)",
+            "Resurrect partner or lover (!)",
             "Return to town (Q)"
         };
     }
@@ -115,11 +117,11 @@ public class HomeLocation : BaseLocation
         {
             var npc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == spouse.NPCId);
             var name = npc?.Name ?? spouse.NPCName;
-            if (npc != null && (npc.CurrentLocation == "Home" || npc.CurrentLocation == "Your Home"))
+            if (npc != null && npc.IsAlive == true && (npc.CurrentLocation == "Home" || npc.CurrentLocation == "Your Home"))
             {
                 partnersAtHome.Add(name);
             }
-            else if (npc != null)
+            else if (npc != null && npc.IsAlive == true)
             {
                 partnersAway.Add((name, npc.CurrentLocation));
             }
@@ -129,11 +131,11 @@ public class HomeLocation : BaseLocation
         {
             var npc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == lover.NPCId);
             var name = npc?.Name ?? lover.NPCName;
-            if (npc != null && (npc.CurrentLocation == "Home" || npc.CurrentLocation == "Your Home"))
+            if (npc != null && npc.IsAlive == true && (npc.CurrentLocation == "Home" || npc.CurrentLocation == "Your Home"))
             {
                 partnersAtHome.Add(name);
             }
-            else if (npc != null)
+            else if (npc != null && npc.IsAlive == true )
             {
                 partnersAway.Add((name, npc.CurrentLocation));
             }
@@ -257,6 +259,15 @@ public class HomeLocation : BaseLocation
         terminal.SetColor("white");
         terminal.Write("edroom         ");
 
+terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_magenta");
+        terminal.Write("!");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("Resurrect    ");
+
         terminal.SetColor("darkgray");
         terminal.Write("[");
         terminal.SetColor("bright_green");
@@ -337,6 +348,9 @@ public class HomeLocation : BaseLocation
                 return false;
             case "B":
                 await VisitBedroom();
+                return false;
+                case "!":
+                await ResurrectAlly();
                 return false;
             case "H":
                 await UseHealingPotion();
@@ -2965,5 +2979,107 @@ public class HomeLocation : BaseLocation
         terminal.WriteLine($"+{hpBonus} max HP permanently!");
     }
 
+    /// <summary>
+    /// Resurrect a dead teammate
+    /// </summary>
+    private async Task ResurrectAlly()
+    {
+        var romance = RomanceTracker.Instance;
+        
+        if (romance.Spouses.Count == 0 && romance.CurrentLovers.Count == 0)
+        {
+            terminal.WriteLine("");
+            terminal.SetColor("red");
+            terminal.WriteLine("You don't have any lovers or partners.");
+            terminal.WriteLine("");
+            await Task.Delay(2000);
+            return;
+        }
+
+        // Find dead allies
+                List<NPC> deadMembers = new List<NPC>();
+
+        var allWorldNPCs = NPCSpawnSystem.Instance?.ActiveNPCs;
+
+        if (allWorldNPCs != null)
+        {
+            foreach (var spouse in romance.Spouses)
+            {
+                var npc = allWorldNPCs.FirstOrDefault(n => n.ID == spouse.NPCId);
+                
+                if (npc != null && !npc.IsAlive)
+                {
+                    deadMembers.Add(npc);
+                }
+            }
+
+            foreach (var lover in romance.CurrentLovers)
+            {
+                var npc = allWorldNPCs.FirstOrDefault(n => n.ID == lover.NPCId);
+                
+                if (npc != null && !npc.IsAlive && !deadMembers.Contains(npc))
+                {
+                    deadMembers.Add(npc);
+                }
+            }
+        }
+
+        if (deadMembers.Count == 0)
+        {
+            terminal.WriteLine("");
+            terminal.SetColor("bright_green");
+            terminal.WriteLine("All your allies members are alive!");
+            terminal.WriteLine("");
+            await Task.Delay(2000);
+            return;
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        terminal.WriteLine("Dead Team Members:");
+        for (int i = 0; i < deadMembers.Count; i++)
+        {
+            var dead = deadMembers[i];
+            long cost = dead.Level * 1000; // Resurrection cost
+            terminal.SetColor("white");
+            terminal.WriteLine($"{i + 1}. {dead.DisplayName} (Level {dead.Level}) - Cost: {cost:N0} gold");
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        terminal.Write("Enter number to resurrect (0 to cancel): ");
+        terminal.SetColor("white");
+        string input = await terminal.ReadLineAsync();
+
+        if (int.TryParse(input, out int choice) && choice >= 1 && choice <= deadMembers.Count)
+        {
+            var toResurrect = deadMembers[choice - 1];
+            long cost = toResurrect.Level * 1000;
+
+            if (currentPlayer.Gold < cost)
+            {
+                terminal.SetColor("red");
+                terminal.WriteLine($"You need {cost:N0} gold to resurrect {toResurrect.DisplayName}!");
+            }
+            else
+            {
+                currentPlayer.Gold -= cost;
+                toResurrect.HP = toResurrect.MaxHP / 2; // Resurrect at half HP
+toResurrect.IsDead = false;
+                terminal.WriteLine("");
+                terminal.SetColor("bright_green");
+                terminal.WriteLine($"{toResurrect.DisplayName} has been resurrected!");
+                terminal.WriteLine($"Cost: {cost:N0} gold");
+
+                NewsSystem.Instance.Newsy(true, $"{toResurrect.DisplayName} was resurrected by their ally '{currentPlayer.Name}'!");
+            }
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("darkgray");
+        terminal.WriteLine("Press any key to continue...");
+        await terminal.ReadKeyAsync();
+    }
+
     #endregion
-} 
+}
