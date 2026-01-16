@@ -3929,11 +3929,11 @@ public partial class CombatEngine
     /// </summary>
     private async Task<CombatAction?> HandleHealAlly(Character player, List<Monster> monsters)
     {
-        // Get injured teammates
-        var injuredTeammates = currentTeammates?.Where(t => t.IsAlive && t.HP < t.MaxHP).ToList() ?? new List<Character>();
-        if (injuredTeammates.Count == 0)
+        // Get all living teammates (show all, even if at full health - player can see status)
+        var livingTeammates = currentTeammates?.Where(t => t.IsAlive).ToList() ?? new List<Character>();
+        if (livingTeammates.Count == 0)
         {
-            terminal.WriteLine("No injured allies to heal.", "yellow");
+            terminal.WriteLine("No allies available to heal.", "yellow");
             await Task.Delay(GetCombatDelay(1000));
             return null;
         }
@@ -3955,7 +3955,7 @@ public partial class CombatEngine
 
         if (hasPotion)
         {
-            terminal.WriteLine($"[{option}] Give healing potion ({player.Healing} remaining)");
+            terminal.WriteLine($"[{option}] Give healing potion(s) ({player.Healing} remaining)");
             options.Add((option, "potion"));
             option++;
         }
@@ -3988,17 +3988,18 @@ public partial class CombatEngine
             return null;
         }
 
-        // Now select which ally to heal
+        // Now select which ally to heal - show ALL teammates
         terminal.WriteLine("");
         terminal.SetColor("bright_cyan");
         terminal.WriteLine("Select ally to heal:");
-        for (int i = 0; i < injuredTeammates.Count; i++)
+        for (int i = 0; i < livingTeammates.Count; i++)
         {
-            var ally = injuredTeammates[i];
-            int hpPercent = (int)(100 * ally.HP / ally.MaxHP);
-            string hpColor = hpPercent < 25 ? "red" : hpPercent < 50 ? "yellow" : "green";
+            var ally = livingTeammates[i];
+            int hpPercent = ally.MaxHP > 0 ? (int)(100 * ally.HP / ally.MaxHP) : 100;
+            string hpColor = hpPercent < 25 ? "red" : hpPercent < 50 ? "yellow" : hpPercent < 100 ? "bright_green" : "green";
             terminal.SetColor(hpColor);
-            terminal.WriteLine($"  [{i + 1}] {ally.DisplayName} - HP: {ally.HP}/{ally.MaxHP} ({hpPercent}%)");
+            string status = hpPercent >= 100 ? " (Full)" : "";
+            terminal.WriteLine($"  [{i + 1}] {ally.DisplayName} - HP: {ally.HP}/{ally.MaxHP} ({hpPercent}%){status}");
         }
         terminal.SetColor("gray");
         terminal.WriteLine("  [0] Cancel");
@@ -4013,31 +4014,99 @@ public partial class CombatEngine
             return null;
         }
 
-        if (targetChoice < 1 || targetChoice > injuredTeammates.Count)
+        if (targetChoice < 1 || targetChoice > livingTeammates.Count)
         {
             terminal.WriteLine("Invalid target.", "red");
             await Task.Delay(GetCombatDelay(500));
             return null;
         }
 
-        var targetAlly = injuredTeammates[targetChoice - 1];
+        var targetAlly = livingTeammates[targetChoice - 1];
+
+        // Check if target is already at full health
+        if (targetAlly.HP >= targetAlly.MaxHP)
+        {
+            terminal.WriteLine($"{targetAlly.DisplayName} is already at full health!", "yellow");
+            await Task.Delay(GetCombatDelay(1000));
+            return null;
+        }
 
         // Execute the healing
         if (selectedOption.type == "potion")
         {
-            // Use a healing potion on the ally
-            player.Healing--;
+            // Calculate how much HP is missing
+            long missingHP = targetAlly.MaxHP - targetAlly.HP;
+            int healPerPotion = 30 + player.Level * 5 + 20; // Average heal per potion
 
-            // Potion heals based on player's level
-            int healAmount = 30 + player.Level * 5 + random.Next(10, 30);
+            // Ask if player wants to fully heal or use 1 potion
+            int potionsNeeded = (int)Math.Ceiling((double)missingHP / healPerPotion);
+            potionsNeeded = Math.Min(potionsNeeded, (int)player.Healing); // Can't use more than we have
+
+            terminal.WriteLine("");
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine($"{targetAlly.DisplayName} is missing {missingHP} HP.");
+            terminal.WriteLine($"Each potion heals approximately {healPerPotion} HP.");
+            terminal.WriteLine("");
+            terminal.SetColor("white");
+            terminal.WriteLine($"[1] Use 1 potion");
+            if (potionsNeeded > 1)
+            {
+                terminal.WriteLine($"[F] Fully heal (uses up to {potionsNeeded} potions)");
+            }
+            terminal.SetColor("gray");
+            terminal.WriteLine("[0] Cancel");
+            terminal.WriteLine("");
+
+            terminal.SetColor("white");
+            terminal.Write("Choice: ");
+            var potionChoice = await terminal.GetInput("");
+
+            if (string.IsNullOrEmpty(potionChoice) || potionChoice.ToUpper() == "0")
+            {
+                return null;
+            }
+
+            int potionsToUse = 1;
+            if (potionChoice.ToUpper() == "F" && potionsNeeded > 1)
+            {
+                potionsToUse = potionsNeeded;
+            }
+            else if (potionChoice != "1")
+            {
+                terminal.WriteLine("Invalid choice.", "red");
+                await Task.Delay(GetCombatDelay(500));
+                return null;
+            }
+
+            // Apply healing potions
+            long totalHeal = 0;
             long oldHP = targetAlly.HP;
-            targetAlly.HP = Math.Min(targetAlly.MaxHP, targetAlly.HP + healAmount);
-            long actualHeal = targetAlly.HP - oldHP;
+
+            for (int i = 0; i < potionsToUse && targetAlly.HP < targetAlly.MaxHP; i++)
+            {
+                player.Healing--;
+                int healAmount = 30 + player.Level * 5 + random.Next(10, 30);
+                targetAlly.HP = Math.Min(targetAlly.MaxHP, targetAlly.HP + healAmount);
+            }
+
+            totalHeal = targetAlly.HP - oldHP;
 
             terminal.WriteLine("");
             terminal.SetColor("bright_green");
-            terminal.WriteLine($"You give a healing potion to {targetAlly.DisplayName}!");
-            terminal.WriteLine($"{targetAlly.DisplayName} recovers {actualHeal} HP!", "green");
+            if (potionsToUse == 1)
+            {
+                terminal.WriteLine($"You give a healing potion to {targetAlly.DisplayName}!");
+            }
+            else
+            {
+                terminal.WriteLine($"You give {potionsToUse} healing potions to {targetAlly.DisplayName}!");
+            }
+            terminal.WriteLine($"{targetAlly.DisplayName} recovers {totalHeal} HP!", "green");
+
+            if (targetAlly.HP >= targetAlly.MaxHP)
+            {
+                terminal.WriteLine($"{targetAlly.DisplayName} is fully healed!", "bright_green");
+            }
 
             // Sync companion HP if this is a companion
             if (targetAlly.IsCompanion && targetAlly.CompanionId.HasValue)
