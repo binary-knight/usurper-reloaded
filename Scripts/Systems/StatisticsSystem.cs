@@ -198,6 +198,35 @@ public class PlayerStatistics
     }
 
     /// <summary>
+    /// Record gold spent on a purchase
+    /// </summary>
+    public void RecordPurchase(long amount)
+    {
+        TotalGoldSpent += amount;
+        TotalItemsBought++;
+        if (amount > MostExpensivePurchase)
+            MostExpensivePurchase = amount;
+    }
+
+    /// <summary>
+    /// Record gold spent (non-purchase, like services, healing, etc.)
+    /// </summary>
+    public void RecordGoldSpent(long amount)
+    {
+        TotalGoldSpent += amount;
+    }
+
+    /// <summary>
+    /// Record item sold
+    /// </summary>
+    public void RecordSale(long amount)
+    {
+        TotalGoldEarned += amount;
+        TotalGoldFromSelling += amount;
+        TotalItemsSold++;
+    }
+
+    /// <summary>
     /// Record level up
     /// </summary>
     public void RecordLevelUp(int newLevel)

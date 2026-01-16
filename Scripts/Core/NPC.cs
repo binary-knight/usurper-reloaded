@@ -63,6 +63,12 @@ public partial class NPC : Character
     public bool IsAvailable { get; set; } = true;
     public bool IsInConversation { get; set; } = false;
     public bool IsHostile { get; set; } = false;
+
+    /// <summary>
+    /// Tracks permanent death - once true, NPC cannot interact, be recruited, or have intimate scenes.
+    /// Different from IsAlive (HP > 0) which is temporary combat state.
+    /// </summary>
+    public bool IsDead { get; set; } = false;
     
     // Pascal compatibility flags
     public bool CanInteract => IsAwake && IsAvailable && !IsInConversation;

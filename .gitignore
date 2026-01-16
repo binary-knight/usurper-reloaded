@@ -35,6 +35,9 @@ saves/
 logs/
 *.log
 
+# Runtime game data (news, history files)
+SCORES/
+
 # Exported game builds
 *.exe
 *.pck
@@ -44,4 +47,7 @@ logs/
 
 # Exclude publish artifacts
 **/publish/
-**/build/ 
+**/build/
+
+# Claude Code context file
+CLAUDE.md

@@ -523,6 +523,7 @@ public class ArmorShopLocation : BaseLocation
 
         // Process purchase
         currentPlayer.Gold -= adjustedPrice;
+        currentPlayer.Statistics.RecordPurchase(adjustedPrice);
 
         // Process city tax share from this sale
         CityControlSystem.Instance.ProcessSaleTax(adjustedPrice);
@@ -665,6 +666,7 @@ public class ArmorShopLocation : BaseLocation
                 // Apply city control discount
                 long itemPrice = CityControlSystem.Instance.ApplyDiscount(bestItem.Value, currentPlayer);
                 currentPlayer.Gold -= itemPrice;
+                currentPlayer.Statistics.RecordPurchase(itemPrice);
                 totalSpent += itemPrice;
 
                 // Process city tax share from this sale

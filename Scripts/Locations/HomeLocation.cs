@@ -1952,9 +1952,9 @@ public class HomeLocation : BaseLocation
         terminal.WriteLine("═══════════════════════════════════════");
         terminal.WriteLine();
 
-        // Find a suitable third party NPC
+        // Find a suitable third party NPC (exclude dead NPCs)
         var potentialDates = NPCSpawnSystem.Instance?.ActiveNPCs?
-            .Where(n => n.IsAlive && n.ID != spouse.ID)
+            .Where(n => n.IsAlive && !n.IsDead && n.ID != spouse.ID)
             .Where(n => spouse.Sex == CharacterSex.Female ? n.Sex == CharacterSex.Male : n.Sex == CharacterSex.Female)
             .OrderByDescending(n => n.Level)
             .Take(5)
@@ -2179,9 +2179,9 @@ public class HomeLocation : BaseLocation
         terminal.WriteLine("═══════════════════════════════════════");
         terminal.WriteLine();
 
-        // Find a suitable third party NPC
+        // Find a suitable third party NPC (exclude dead NPCs)
         var potentialLovers = NPCSpawnSystem.Instance?.ActiveNPCs?
-            .Where(n => n.IsAlive && n.ID != spouse.ID)
+            .Where(n => n.IsAlive && !n.IsDead && n.ID != spouse.ID)
             .Where(n => spouse.Sex == CharacterSex.Female ? n.Sex == CharacterSex.Male : n.Sex == CharacterSex.Female)
             .OrderByDescending(n => n.Level)
             .Take(5)
@@ -2604,12 +2604,13 @@ public class HomeLocation : BaseLocation
         }
 
         // Check if spouse is home (location can be "Home" or "Your Home")
+        // Filter out dead NPCs - they can't participate in intimate scenes
         var availablePartners = new List<NPC>();
 
         foreach (var spouse in romance.Spouses)
         {
             var npc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == spouse.NPCId);
-            if (npc != null && (npc.CurrentLocation == "Home" || npc.CurrentLocation == "Your Home"))
+            if (npc != null && !npc.IsDead && (npc.CurrentLocation == "Home" || npc.CurrentLocation == "Your Home"))
             {
                 availablePartners.Add(npc);
             }
@@ -2618,7 +2619,7 @@ public class HomeLocation : BaseLocation
         foreach (var lover in romance.CurrentLovers)
         {
             var npc = NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == lover.NPCId);
-            if (npc != null && (npc.CurrentLocation == "Home" || npc.CurrentLocation == "Your Home"))
+            if (npc != null && !npc.IsDead && (npc.CurrentLocation == "Home" || npc.CurrentLocation == "Your Home"))
             {
                 availablePartners.Add(npc);
             }
