@@ -963,8 +963,9 @@ public partial class CombatEngine
         {
             terminal.SetColor("bright_red");
             terminal.WriteLine($"BACKSTAB! You strike from the shadows for {backstabPower} damage!");
-            
+
             target.HP = Math.Max(0, target.HP - backstabPower);
+            player.Statistics.RecordDamageDealt(backstabPower, true); // Backstab counts as critical
             result.CombatLog.Add($"Player backstabs {target.Name} for {backstabPower} damage");
         }
         else
@@ -994,8 +995,9 @@ public partial class CombatEngine
         {
             terminal.SetColor("bright_yellow");
             terminal.WriteLine($"Divine energy strikes for {soulPower} damage!");
-            
+
             target.HP = Math.Max(0, target.HP - soulPower);
+            player.Statistics.RecordDamageDealt(soulPower, false);
             result.CombatLog.Add($"Player Soul Strike hits {target.Name} for {soulPower} damage");
         }
         else
@@ -2385,6 +2387,9 @@ public partial class CombatEngine
             long actualDamage = Math.Max(1, damagePerMonster - monster.ArmPow);
             monster.HP -= actualDamage;
 
+            // Track damage dealt statistics
+            result.Player?.Statistics.RecordDamageDealt(actualDamage, false);
+
             terminal.SetColor("yellow");
             terminal.Write($"{monster.Name}: ");
             terminal.SetColor("red");
@@ -2429,6 +2434,12 @@ public partial class CombatEngine
         }
 
         target.HP -= actualDamage;
+
+        // Track damage dealt statistics (only for player attacks)
+        if (attacker == currentPlayer || attacker == result.Player)
+        {
+            result.Player?.Statistics.RecordDamageDealt(actualDamage, false);
+        }
 
         // Use new colored combat messages - different message for player vs allies
         string attackMessage;
@@ -3930,15 +3941,27 @@ public partial class CombatEngine
 
         result.CombatLog.Add($"{monster.Name} attacks {companion.DisplayName} for {actualDamage} damage");
 
-        // Check if companion died
-        if (!companion.IsAlive && companion.IsCompanion && companion.CompanionId.HasValue)
+        // Check if teammate died
+        if (!companion.IsAlive)
         {
-            await HandleCompanionDeath(companion, monster.Name, result);
+            if (companion.IsCompanion && companion.CompanionId.HasValue)
+            {
+                // Story companion death
+                await HandleCompanionDeath(companion, monster.Name, result);
+            }
+            else
+            {
+                // NPC teammate death (spouse, lover, team member)
+                await HandleNpcTeammateDeath(companion, monster.Name, result);
+            }
         }
 
-        // Sync companion HP back to CompanionSystem
-        var companionSystem = UsurperRemake.Systems.CompanionSystem.Instance;
-        companionSystem.SyncCompanionHP(companion);
+        // Sync companion HP back to CompanionSystem (only for story companions)
+        if (companion.IsCompanion)
+        {
+            var companionSystem = UsurperRemake.Systems.CompanionSystem.Instance;
+            companionSystem.SyncCompanionHP(companion);
+        }
 
         await Task.Delay(GetCombatDelay(1000));
     }
@@ -3971,6 +3994,87 @@ public partial class CombatEngine
         // Generate death news for the realm
         string location = result.Player?.CurrentLocation ?? "the dungeons";
         NewsSystem.Instance?.WriteDeathNews(companion.DisplayName, killerName, location);
+    }
+
+    /// <summary>
+    /// Handle an NPC teammate (spouse, lover, team member) dying in combat
+    /// </summary>
+    private async Task HandleNpcTeammateDeath(Character npc, string killerName, CombatResult result)
+    {
+        terminal.WriteLine("");
+        terminal.SetColor("dark_red");
+        terminal.WriteLine("═══════════════════════════════════════════════════════════");
+        terminal.WriteLine($"  {npc.DisplayName} has fallen in battle!");
+        terminal.WriteLine("═══════════════════════════════════════════════════════════");
+        terminal.WriteLine("");
+        await Task.Delay(1500);
+
+        // Mark the NPC as permanently dead
+        // We need to find the actual NPC in the world and mark it dead
+        var npcId = npc.ID ?? "";
+        var worldNpc = UsurperRemake.Systems.NPCSpawnSystem.Instance?.ActiveNPCs?.FirstOrDefault(n => n.ID == npcId);
+        if (worldNpc != null)
+        {
+            worldNpc.IsDead = true;
+            worldNpc.HP = 0; // Ensure HP is also zero
+        }
+
+        // Also mark the combat character reference
+        if (npc is NPC npcRef)
+        {
+            npcRef.IsDead = true;
+        }
+
+        // Remove from teammates
+        result.Teammates?.Remove(npc);
+
+        // Remove from player's dungeon party if applicable
+        GameEngine.Instance?.DungeonPartyNPCIds?.Remove(npcId);
+
+        // Trigger grief system for NPC teammate death
+        UsurperRemake.Systems.GriefSystem.Instance.BeginNpcGrief(
+            npcId,
+            npc.DisplayName,
+            UsurperRemake.Systems.DeathType.Combat);
+
+        // Check relationship type and handle accordingly
+        var romanceTracker = UsurperRemake.Systems.RomanceTracker.Instance;
+        if (romanceTracker != null)
+        {
+            bool wasSpouse = romanceTracker.IsPlayerMarriedTo(npcId);
+            bool wasLover = romanceTracker.IsPlayerInRelationshipWith(npcId);
+
+            if (wasSpouse)
+            {
+                terminal.SetColor("magenta");
+                terminal.WriteLine($"Your beloved spouse {npc.DisplayName} is gone forever...");
+                // Mark the spouse as dead in romance tracker
+                romanceTracker.HandleSpouseDeath(npcId);
+            }
+            else if (wasLover)
+            {
+                terminal.SetColor("magenta");
+                terminal.WriteLine($"Your lover {npc.DisplayName} will never return...");
+            }
+            else
+            {
+                terminal.SetColor("yellow");
+                terminal.WriteLine($"Your loyal teammate {npc.DisplayName} has made the ultimate sacrifice.");
+            }
+        }
+
+        terminal.WriteLine("");
+        await Task.Delay(1000);
+
+        // Generate death news for the realm
+        string location = result.Player?.CurrentLocation ?? "the dungeons";
+        NewsSystem.Instance?.WriteDeathNews(npc.DisplayName, killerName, location);
+
+        // Ocean Philosophy awakening moment
+        if (!OceanPhilosophySystem.Instance.ExperiencedMoments.Contains(AwakeningMoment.FirstCompanionDeath))
+        {
+            OceanPhilosophySystem.Instance.ExperienceMoment(AwakeningMoment.FirstCompanionDeath);
+        }
     }
 
     /// <summary>
@@ -4016,6 +4120,15 @@ public partial class CombatEngine
 
             totalExp += expReward;
             totalGold += goldReward;
+
+            // Track monster kill stats
+            result.Player.MKills++;
+            result.Player.Statistics.RecordMonsterKill(expReward, goldReward, isBoss, monster.IsUnique);
+            ArchetypeTracker.Instance.RecordMonsterKill(monster.Level, monster.IsUnique);
+            if (isBoss)
+            {
+                ArchetypeTracker.Instance.RecordBossDefeat(monster.Name, monster.Level);
+            }
         }
 
         // Apply world event modifiers
@@ -4040,6 +4153,9 @@ public partial class CombatEngine
         result.Player.Gold += adjustedGold;
         result.ExperienceGained = adjustedExp;
         result.GoldGained = adjustedGold;
+
+        // Track peak gold
+        result.Player.Statistics.RecordGoldChange(result.Player.Gold);
 
         // Award experience to active companions (50% of player's XP)
         CompanionSystem.Instance?.AwardCompanionExperience(adjustedExp, terminal);
@@ -4532,7 +4648,8 @@ public partial class CombatEngine
                 long damage = Math.Max(5, berserkerPower - monsterDef);
 
                 // Critical rage hits (25% chance for triple damage)
-                if (random.Next(100) < 25)
+                bool isCriticalFury = random.Next(100) < 25;
+                if (isCriticalFury)
                 {
                     damage *= 3;
                     terminal.SetColor("bright_yellow");
@@ -4546,6 +4663,7 @@ public partial class CombatEngine
 
                 monster.HP -= damage;
                 result.TotalDamageDealt += damage;
+                player.Statistics.RecordDamageDealt(damage, isCriticalFury);
 
                 if (monster.HP <= 0)
                 {
@@ -4576,6 +4694,7 @@ public partial class CombatEngine
             terminal.WriteLine($"  {monster.Name} strikes your undefended body for {monsterDamage} damage!");
             player.HP -= monsterDamage;
             result.TotalDamageTaken += monsterDamage;
+            player.Statistics.RecordDamageTaken(monsterDamage);
 
             // Show HP status
             terminal.SetColor("gray");
@@ -4855,6 +4974,7 @@ public partial class CombatEngine
 
             monster.HP -= actualDamage;
             result.TotalDamageDealt += actualDamage;
+            player.Statistics.RecordDamageDealt(actualDamage, false);
 
             terminal.SetColor("bright_red");
             terminal.WriteLine($"You deal {actualDamage} damage to {monster.Name}!");
@@ -6080,6 +6200,7 @@ public partial class CombatEngine
 
             monster.HP -= actualDamage;
             result.TotalDamageDealt += actualDamage;
+            player.Statistics.RecordDamageDealt(actualDamage, false);
             terminal.SetColor("bright_green");
             terminal.WriteLine($"Dealt {actualDamage} damage to {monster.Name}!");
         }

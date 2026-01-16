@@ -237,6 +237,56 @@ namespace UsurperRemake.Systems
         }
 
         /// <summary>
+        /// Check if player is in any romantic relationship (not marriage) with this NPC
+        /// </summary>
+        public bool IsPlayerInRelationshipWith(string npcId)
+        {
+            return CurrentLovers.Any(l => l.NPCId == npcId) ||
+                   FriendsWithBenefits.Contains(npcId);
+        }
+
+        /// <summary>
+        /// Check if player is married to this NPC
+        /// </summary>
+        public bool IsPlayerMarriedTo(string npcId)
+        {
+            return Spouses.Any(s => s.NPCId == npcId);
+        }
+
+        /// <summary>
+        /// Handle spouse death - records as widow/widower, preserves memory
+        /// </summary>
+        public void HandleSpouseDeath(string npcId)
+        {
+            var spouse = Spouses.FirstOrDefault(s => s.NPCId == npcId);
+            if (spouse != null)
+            {
+                // Create ex-spouse record to preserve marriage history (marked as death)
+                var exSpouse = new ExSpouse
+                {
+                    NPCId = spouse.NPCId,
+                    NPCName = !string.IsNullOrEmpty(spouse.NPCName) ? spouse.NPCName : GetNPCName(spouse.NPCId),
+                    MarriedDate = spouse.MarriedDate,
+                    DivorceDate = DateTime.Now, // Death date
+                    ChildrenTogether = spouse.Children,
+                    DivorceReason = "Died in combat",
+                    PlayerInitiated = false
+                };
+
+                // Add to ex-spouses list
+                if (!ExSpouses.Any(e => e.NPCId == npcId))
+                {
+                    ExSpouses.Add(exSpouse);
+                }
+
+                // Remove from current spouses
+                Spouses.Remove(spouse);
+
+                GD.Print($"[Romance] Spouse {spouse.NPCName ?? npcId} has died. Player is now a widow/widower.");
+            }
+        }
+
+        /// <summary>
         /// Get the relationship type with an NPC
         /// </summary>
         public RomanceRelationType GetRelationType(string npcId)

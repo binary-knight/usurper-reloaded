@@ -375,6 +375,9 @@ namespace UsurperRemake.Systems
         public bool IsTeamLeader { get; set; }
         public bool IsKing { get; set; }
 
+        // Death status - permanent death tracking
+        public bool IsDead { get; set; }
+
         // Alignment
         public long Chivalry { get; set; }
         public long Darkness { get; set; }

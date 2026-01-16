@@ -390,6 +390,7 @@ public class HealerLocation : BaseLocation
 
         // Perform healing
         player.Gold -= cost;
+        player.Statistics.RecordGoldSpent(cost);
         player.HP += (int)hpToHeal;
         if (player.HP > player.MaxHP) player.HP = player.MaxHP;
 
@@ -444,6 +445,7 @@ public class HealerLocation : BaseLocation
 
         // Perform full heal
         player.Gold -= cost;
+        player.Statistics.RecordGoldSpent(cost);
         player.HP = player.MaxHP;
 
         terminal.WriteLine("");
@@ -501,6 +503,7 @@ public class HealerLocation : BaseLocation
 
         // Purchase potions
         player.Gold -= cost;
+        player.Statistics.RecordPurchase(cost);
         player.Healing += quantity;
 
         terminal.WriteLine("");

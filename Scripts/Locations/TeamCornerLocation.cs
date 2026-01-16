@@ -1059,7 +1059,7 @@ public class TeamCornerLocation : BaseLocation
         // Find dead team members
         var allNPCs = NPCSpawnSystem.Instance.ActiveNPCs;
         var deadMembers = allNPCs
-            .Where(n => n.Team == currentPlayer.Team && !n.IsAlive)
+            .Where(n => n.Team == currentPlayer.Team && (n.IsDead || !n.IsAlive))
             .ToList();
 
         if (deadMembers.Count == 0)
@@ -1103,6 +1103,7 @@ public class TeamCornerLocation : BaseLocation
             {
                 currentPlayer.Gold -= cost;
                 toResurrect.HP = toResurrect.MaxHP / 2; // Resurrect at half HP
+                toResurrect.IsDead = false; // Clear permanent death flag - IsAlive is computed from HP > 0
 
                 terminal.WriteLine("");
                 terminal.SetColor("bright_green");

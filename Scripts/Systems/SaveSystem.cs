@@ -771,6 +771,9 @@ namespace UsurperRemake.Systems
                     IsTeamLeader = npc.CTurf,
                     IsKing = currentKing != null && currentKing.Name == npc.Name,
 
+                    // Death status - permanent death tracking
+                    IsDead = npc.IsDead,
+
                     // Alignment
                     Chivalry = npc.Chivalry,
                     Darkness = npc.Darkness,

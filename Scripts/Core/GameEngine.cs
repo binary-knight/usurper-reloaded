@@ -836,6 +836,9 @@ public partial class GameEngine : Node
             // Restore NPCs
             await RestoreNPCs(saveData.NPCs);
 
+            // Restore story systems (companions, children, seals, etc.)
+            SaveSystem.Instance.RestoreStorySystems(saveData.StorySystems);
+
             terminal.WriteLine("Save loaded successfully!", "bright_green");
             await Task.Delay(1000);
 
@@ -899,7 +902,10 @@ public partial class GameEngine : Node
         
         // Restore NPCs
         await RestoreNPCs(saveData.NPCs);
-        
+
+        // Restore story systems (companions, children, seals, etc.)
+        SaveSystem.Instance.RestoreStorySystems(saveData.StorySystems);
+
         terminal.WriteLine($"Game loaded successfully! Day {saveData.CurrentDay}, {saveData.Player.TurnsRemaining} turns remaining", "green");
         await Task.Delay(1500);
         
@@ -1489,6 +1495,9 @@ public partial class GameEngine : Node
                 // Team and political status
                 Team = data.Team,
                 CTurf = data.IsTeamLeader,
+
+                // Death status - permanent death tracking
+                IsDead = data.IsDead,
 
                 // Alignment
                 Chivalry = data.Chivalry,

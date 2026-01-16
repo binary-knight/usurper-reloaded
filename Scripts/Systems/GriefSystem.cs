@@ -24,33 +24,45 @@ namespace UsurperRemake.Systems
         private static GriefSystem? _instance;
         public static GriefSystem Instance => _instance ??= new GriefSystem();
 
-        // Active grief states
+        // Active grief states for story companions
         private Dictionary<CompanionId, GriefState> activeGrief = new();
 
-        // Memories of fallen companions
+        // Active grief states for NPC teammates (spouses, lovers, team members)
+        private Dictionary<string, GriefState> activeNpcGrief = new();
+
+        // Memories of fallen companions and NPCs
         private List<CompanionMemory> memories = new();
 
         public event Action<CompanionId, GriefStage>? OnGriefStageChanged;
         public event Action<CompanionId>? OnGriefComplete;
+        public event Action<string, GriefStage>? OnNpcGriefStageChanged;
+        public event Action<string>? OnNpcGriefComplete;
 
         /// <summary>
-        /// Check if player is currently grieving any companion
+        /// Check if player is currently grieving any companion or NPC
         /// </summary>
-        public bool IsGrieving => activeGrief.Values.Any(g => !g.IsComplete);
+        public bool IsGrieving => activeGrief.Values.Any(g => !g.IsComplete) ||
+                                   activeNpcGrief.Values.Any(g => !g.IsComplete);
 
         /// <summary>
-        /// Get the current grief stage (returns highest priority active grief)
+        /// Get the current grief stage (returns highest priority active grief from companions or NPCs)
         /// </summary>
-        public GriefStage CurrentStage => activeGrief.Values
-            .Where(g => !g.IsComplete)
-            .Select(g => g.CurrentStage)
-            .DefaultIfEmpty(GriefStage.None)
-            .First();
+        public GriefStage CurrentStage
+        {
+            get
+            {
+                var allActiveGrief = activeGrief.Values.Concat(activeNpcGrief.Values)
+                    .Where(g => !g.IsComplete)
+                    .Select(g => g.CurrentStage);
+                return allActiveGrief.DefaultIfEmpty(GriefStage.None).First();
+            }
+        }
 
         /// <summary>
         /// Check if player has completed at least one full grief cycle
         /// </summary>
-        public bool HasCompletedGriefCycle => activeGrief.Values.Any(g => g.IsComplete);
+        public bool HasCompletedGriefCycle => activeGrief.Values.Any(g => g.IsComplete) ||
+                                               activeNpcGrief.Values.Any(g => g.IsComplete);
 
         public GriefSystem()
         {
@@ -88,10 +100,54 @@ namespace UsurperRemake.Systems
         }
 
         /// <summary>
+        /// Begin grieving for a fallen NPC teammate (spouse, lover, team member)
+        /// </summary>
+        public void BeginNpcGrief(string npcId, string npcName, DeathType deathType)
+        {
+            if (string.IsNullOrEmpty(npcId))
+            {
+                GD.PrintErr("[Grief] Cannot begin NPC grief with empty npcId");
+                return;
+            }
+
+            // Don't duplicate grief for the same NPC
+            if (activeNpcGrief.ContainsKey(npcId))
+            {
+                GD.Print($"[Grief] Already grieving for {npcName}");
+                return;
+            }
+
+            var griefState = new GriefState
+            {
+                NpcId = npcId,
+                CompanionName = npcName,
+                DeathType = deathType,
+                CurrentStage = GriefStage.Denial,
+                StageStartDay = GetCurrentDay(),
+                GriefStartDay = GetCurrentDay(),
+                ResurrectionAttempts = 0
+            };
+
+            activeNpcGrief[npcId] = griefState;
+
+            // Create initial memory
+            memories.Add(new CompanionMemory
+            {
+                NpcId = npcId,
+                CompanionName = npcName,
+                MemoryText = GetInitialMemory(npcName, deathType),
+                CreatedDay = GetCurrentDay()
+            });
+
+            GD.Print($"[Grief] Began grieving for NPC {npcName}. Stage: Denial");
+        }
+
+        /// <summary>
         /// Update grief states based on time passed
         /// </summary>
         public void UpdateGrief(int currentDay)
         {
+            // Update companion grief
             foreach (var kvp in activeGrief)
             {
                 var grief = kvp.Value;
@@ -106,6 +162,22 @@ namespace UsurperRemake.Systems
                     AdvanceGriefStage(grief, currentDay);
                 }
             }
+
+            // Update NPC grief
+            foreach (var kvp in activeNpcGrief)
+            {
+                var grief = kvp.Value;
+                if (grief.IsComplete)
+                    continue;
+
+                int daysInStage = currentDay - grief.StageStartDay;
+                int stageDuration = GetStageDuration(grief.CurrentStage);
+
+                if (daysInStage >= stageDuration)
+                {
+                    AdvanceNpcGriefStage(grief, kvp.Key, currentDay);
+                }
+            }
         }
 
         /// <summary>
@@ -115,6 +187,7 @@ namespace UsurperRemake.Systems
         {
             var effects = new GriefEffects();
 
+            // Apply effects from companion grief
             foreach (var grief in activeGrief.Values)
             {
                 if (grief.IsComplete)
@@ -127,13 +200,22 @@ namespace UsurperRemake.Systems
                 effects.AllStatModifier += stageEffects.AllStatModifier;
             }
 
-            // Also add permanent wisdom bonus from completed grief
-            int completedGriefs = 0;
-            foreach (var grief in activeGrief.Values)
+            // Apply effects from NPC grief
+            foreach (var grief in activeNpcGrief.Values)
             {
                 if (grief.IsComplete)
-                    completedGriefs++;
+                    continue;
+
+                var stageEffects = GetStageEffects(grief.CurrentStage);
+                effects.CombatModifier += stageEffects.CombatModifier;
+                effects.DamageModifier += stageEffects.DamageModifier;
+                effects.DefenseModifier += stageEffects.DefenseModifier;
+                effects.AllStatModifier += stageEffects.AllStatModifier;
             }
+
+            // Also add permanent wisdom bonus from completed grief (both companions and NPCs)
+            int completedGriefs = activeGrief.Values.Count(g => g.IsComplete) +
+                                  activeNpcGrief.Values.Count(g => g.IsComplete);
             effects.PermanentWisdomBonus = completedGriefs * 5;
 
             return effects;
@@ -400,6 +482,20 @@ namespace UsurperRemake.Systems
             });
         }
 
+        /// <summary>
+        /// Add a new memory for a fallen NPC teammate
+        /// </summary>
+        public void AddNpcMemory(string npcId, string npcName, string memoryText)
+        {
+            memories.Add(new CompanionMemory
+            {
+                NpcId = npcId,
+                CompanionName = npcName,
+                MemoryText = memoryText,
+                CreatedDay = GetCurrentDay()
+            });
+        }
+
         #region Private Methods
 
         private void AdvanceGriefStage(GriefState grief, int currentDay)
@@ -433,6 +529,40 @@ namespace UsurperRemake.Systems
             }
 
             OnGriefStageChanged?.Invoke(grief.CompanionId, grief.CurrentStage);
+            GD.Print($"[Grief] {grief.CompanionName} grief advanced to: {grief.CurrentStage}");
+        }
+
+        private void AdvanceNpcGriefStage(GriefState grief, string npcId, int currentDay)
+        {
+            var previousStage = grief.CurrentStage;
+
+            grief.CurrentStage = grief.CurrentStage switch
+            {
+                GriefStage.Denial => GriefStage.Anger,
+                GriefStage.Anger => GriefStage.Bargaining,
+                GriefStage.Bargaining => GriefStage.Depression,
+                GriefStage.Depression => GriefStage.Acceptance,
+                GriefStage.Acceptance => GriefStage.Acceptance, // Terminal state
+                _ => GriefStage.Acceptance
+            };
+
+            grief.StageStartDay = currentDay;
+
+            if (grief.CurrentStage == GriefStage.Acceptance && previousStage != GriefStage.Acceptance)
+            {
+                grief.IsComplete = true;
+
+                // Add acceptance memory
+                AddNpcMemory(npcId, grief.CompanionName,
+                    "You have found peace with their passing. They live on in your memory.");
+
+                // Grant wisdom
+                GD.Print($"[Grief] NPC grief complete for {grief.CompanionName}. Player gains +5 Wisdom.");
+
+                OnNpcGriefComplete?.Invoke(npcId);
+            }
+
+            OnNpcGriefStageChanged?.Invoke(npcId, grief.CurrentStage);
             GD.Print($"[Grief] {grief.CompanionName} grief advanced to: {grief.CurrentStage}");
         }
 
@@ -596,6 +726,7 @@ namespace UsurperRemake.Systems
     public class GriefState
     {
         public CompanionId CompanionId { get; set; }
+        public string? NpcId { get; set; } // For NPC teammates (spouses, lovers, team members)
         public string CompanionName { get; set; } = "";
         public DeathType DeathType { get; set; }
         public GriefStage CurrentStage { get; set; }
@@ -603,6 +734,7 @@ namespace UsurperRemake.Systems
         public int GriefStartDay { get; set; }
         public int ResurrectionAttempts { get; set; }
         public bool IsComplete { get; set; }
+        public bool IsNpcGrief => !string.IsNullOrEmpty(NpcId);
     }
 
     public class GriefEffects
@@ -618,6 +750,7 @@ namespace UsurperRemake.Systems
     public class CompanionMemory
     {
         public CompanionId CompanionId { get; set; }
+        public string? NpcId { get; set; } // For NPC teammates
         public string CompanionName { get; set; } = "";
         public string MemoryText { get; set; } = "";
         public int CreatedDay { get; set; }

@@ -656,6 +656,7 @@ public class WeaponShopLocation : BaseLocation
         }
 
         currentPlayer.Gold -= adjustedPrice;
+        currentPlayer.Statistics.RecordPurchase(adjustedPrice);
 
         // Process city tax share from this sale
         CityControlSystem.Instance.ProcessSaleTax(adjustedPrice);
@@ -922,6 +923,7 @@ public class WeaponShopLocation : BaseLocation
         // Apply city control discount
         long adjustedAllWeaponsPrice = CityControlSystem.Instance.ApplyDiscount(allWeapons.Value, currentPlayer);
         currentPlayer.Gold -= adjustedAllWeaponsPrice;
+        currentPlayer.Statistics.RecordPurchase(adjustedAllWeaponsPrice);
 
         // Process city tax share from this sale
         CityControlSystem.Instance.ProcessSaleTax(adjustedAllWeaponsPrice);

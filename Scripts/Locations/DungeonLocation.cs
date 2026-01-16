@@ -5593,6 +5593,7 @@ public class DungeonLocation : BaseLocation
         }
 
         // Add spouse as potential teammate (if married) - spouse can always join
+        // Dead NPCs cannot join the party
         NPC? spouseNpc = null;
         var romance = UsurperRemake.Systems.RomanceTracker.Instance;
         if (romance?.IsMarried == true)
@@ -5601,7 +5602,7 @@ public class DungeonLocation : BaseLocation
             if (spouse != null)
             {
                 spouseNpc = UsurperRemake.Systems.NPCSpawnSystem.Instance?.ActiveNPCs?
-                    .FirstOrDefault(n => n.ID == spouse.NPCId && n.IsAlive && !teammates.Contains(n) && !npcTeammates.Contains(n));
+                    .FirstOrDefault(n => n.ID == spouse.NPCId && n.IsAlive && !n.IsDead && !teammates.Contains(n) && !npcTeammates.Contains(n));
                 if (spouseNpc != null)
                 {
                     npcTeammates.Insert(0, spouseNpc); // Spouse first in list
@@ -5610,12 +5611,13 @@ public class DungeonLocation : BaseLocation
         }
 
         // Add lovers as potential party members too
+        // Dead NPCs cannot join the party
         if (romance != null)
         {
             foreach (var lover in romance.CurrentLovers)
             {
                 var loverNpc = UsurperRemake.Systems.NPCSpawnSystem.Instance?.ActiveNPCs?
-                    .FirstOrDefault(n => n.ID == lover.NPCId && n.IsAlive && !teammates.Contains(n) && !npcTeammates.Contains(n));
+                    .FirstOrDefault(n => n.ID == lover.NPCId && n.IsAlive && !n.IsDead && !teammates.Contains(n) && !npcTeammates.Contains(n));
                 if (loverNpc != null)
                 {
                     npcTeammates.Add(loverNpc);
