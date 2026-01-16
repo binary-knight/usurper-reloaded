@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using ModelItem = global::Item;
 using UsurperRemake.Systems;
+using UsurperRemake.Utils;
 
 namespace UsurperRemake.Locations;
 
@@ -3059,7 +3060,7 @@ terminal.SetColor("darkgray");
             {
                 currentPlayer.Gold -= cost;
                 toResurrect.HP = toResurrect.MaxHP / 2; // Resurrect at half HP
-
+toResurrect.IsDead = false;
                 terminal.WriteLine("");
                 terminal.SetColor("bright_green");
                 terminal.WriteLine($"{toResurrect.DisplayName} has been resurrected!");

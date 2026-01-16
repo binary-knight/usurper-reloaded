@@ -1,0 +1,19 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UsurperReborn", "usurper-reloaded.csproj", "{A7A519E8-9E7B-4F9C-8D1E-5F7E8A8A8A8A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		ExportDebug|Any CPU = ExportDebug|Any CPU
+		ExportRelease|Any CPU = ExportRelease|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A7A519E8-9E7B-4F9C-8D1E-5F7E8A8A8A8A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A7A519E8-9E7B-4F9C-8D1E-5F7E8A8A8A8A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A7A519E8-9E7B-4F9C-8D1E-5F7E8A8A8A8A}.ExportDebug|Any CPU.ActiveCfg = ExportDebug|Any CPU
+		{A7A519E8-9E7B-4F9C-8D1E-5F7E8A8A8A8A}.ExportDebug|Any CPU.Build.0 = ExportDebug|Any CPU
+		{A7A519E8-9E7B-4F9C-8D1E-5F7E8A8A8A8A}.ExportRelease|Any CPU.ActiveCfg = ExportRelease|Any CPU
+		{A7A519E8-9E7B-4F9C-8D1E-5F7E8A8A8A8A}.ExportRelease|Any CPU.Build.0 = ExportRelease|Any CPU
+	EndGlobalSection
+EndGlobal
