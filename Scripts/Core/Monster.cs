@@ -141,6 +141,7 @@ public class Monster
             MonsterType = nr,
             Name = name,
             HP = hps,
+            MaxHP = hps,  // Set MaxHP to initial HP
             Strength = strength,
             Defence = (int)defence,
             Phrase = phrase,
@@ -215,11 +216,15 @@ public class Monster
         // Set dungeon level appearance
         DungeonLevel = Math.Max(1, (monsterType / 3) + GD.RandRange(-1, 2));
         
-        // Check for boss status
-        if (monsterType >= 15 || Name.ToLower().Contains("boss") || Name.ToLower().Contains("lord"))
+        // Check for boss status based on name (for legacy monsters)
+        // Note: MonsterGenerator sets IsBoss directly and applies boss multipliers in CalculateMonsterStats
+        // The monsterType parameter is actually dungeon level when called from MonsterGenerator,
+        // so we should NOT use it to determine boss status
+        if (Name.ToLower().Contains("boss") || Name.ToLower().Contains("lord"))
         {
             IsBoss = true;
             HP = (long)(HP * 1.5f);  // Bosses get more HP
+            MaxHP = HP;  // Update MaxHP to match boosted HP
             Strength = (long)(Strength * 1.2f);
         }
         

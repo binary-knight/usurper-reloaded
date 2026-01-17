@@ -1296,6 +1296,46 @@ public partial class GameEngine : Node
             ? playerData.ItemTypes.Select(i => (ObjType)i).ToList()
             : new List<ObjType>();
 
+        // Restore dynamic equipment FIRST (before EquippedItems, so IDs are registered)
+        // Clear any existing dynamic equipment to avoid conflicts
+        EquipmentDatabase.ClearDynamicEquipment();
+
+        if (playerData.DynamicEquipment != null && playerData.DynamicEquipment.Count > 0)
+        {
+            foreach (var equipData in playerData.DynamicEquipment)
+            {
+                var equipment = new Equipment
+                {
+                    Name = equipData.Name,
+                    Description = equipData.Description ?? "",
+                    Slot = (EquipmentSlot)equipData.Slot,
+                    WeaponPower = equipData.WeaponPower,
+                    ArmorClass = equipData.ArmorClass,
+                    ShieldBonus = equipData.ShieldBonus,
+                    BlockChance = equipData.BlockChance,
+                    StrengthBonus = equipData.StrengthBonus,
+                    DexterityBonus = equipData.DexterityBonus,
+                    ConstitutionBonus = equipData.ConstitutionBonus,
+                    IntelligenceBonus = equipData.IntelligenceBonus,
+                    WisdomBonus = equipData.WisdomBonus,
+                    CharismaBonus = equipData.CharismaBonus,
+                    MaxHPBonus = equipData.MaxHPBonus,
+                    MaxManaBonus = equipData.MaxManaBonus,
+                    DefenceBonus = equipData.DefenceBonus,
+                    MinLevel = equipData.MinLevel,
+                    Value = equipData.Value,
+                    IsCursed = equipData.IsCursed,
+                    Rarity = (EquipmentRarity)equipData.Rarity,
+                    WeaponType = (WeaponType)equipData.WeaponType,
+                    Handedness = (WeaponHandedness)equipData.Handedness,
+                    ArmorType = (ArmorType)equipData.ArmorType
+                };
+                // Register with the original ID so EquippedItems references still work
+                EquipmentDatabase.RegisterDynamicWithId(equipment, equipData.Id);
+            }
+            GD.Print($"[GameEngine] Restored {playerData.DynamicEquipment.Count} dynamic equipment items");
+        }
+
         // NEW: Restore equipment system
         if (playerData.EquippedItems != null && playerData.EquippedItems.Count > 0)
         {

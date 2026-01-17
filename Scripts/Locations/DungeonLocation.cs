@@ -1170,7 +1170,7 @@ public class DungeonLocation : BaseLocation
             terminal.SetColor("darkgray");
             terminal.Write("  [");
             terminal.SetColor("cyan");
-            terminal.Write("E");
+            terminal.Write("V");
             terminal.SetColor("darkgray");
             terminal.Write("] ");
             terminal.SetColor("white");
@@ -1880,7 +1880,7 @@ public class DungeonLocation : BaseLocation
         {
             "N" => Direction.North,
             "S" => Direction.South,
-            "E" when !room.HasEvent || room.EventCompleted => Direction.East, // E is also event
+            "E" => Direction.East,
             "W" => Direction.West,
             _ => (Direction?)null
         };
@@ -1908,7 +1908,7 @@ public class DungeonLocation : BaseLocation
                 }
                 return false;
 
-            case "E":
+            case "V":
                 if (room.HasEvent && !room.EventCompleted)
                 {
                     await HandleRoomEvent(room);

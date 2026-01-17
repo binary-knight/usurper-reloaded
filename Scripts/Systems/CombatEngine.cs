@@ -2951,6 +2951,19 @@ public partial class CombatEngine
                     }
 
                 case "I":
+                    // Check if player can use potions
+                    if (player.Healing <= 0)
+                    {
+                        terminal.WriteLine("You have no healing potions!", "yellow");
+                        await Task.Delay(GetCombatDelay(800));
+                        continue; // Loop back, don't consume turn
+                    }
+                    if (player.HP >= player.MaxHP)
+                    {
+                        terminal.WriteLine("You are already at full health!", "yellow");
+                        await Task.Delay(GetCombatDelay(800));
+                        continue; // Loop back, don't consume turn
+                    }
                     action.Type = CombatActionType.UseItem;
                     return (action, false);
 

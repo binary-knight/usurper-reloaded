@@ -892,16 +892,24 @@ public class LevelMasterLocation : BaseLocation
         terminal.SetColor("bright_green");
         terminal.WriteLine($"You share {xpToGive:N0} experience with {recipient.Name}!");
 
-        // Check if they leveled up
-        if (recipient.Experience >= GetExperienceForLevel(recipient.Level + 1) && recipient.Level < GameConfig.MaxLevel)
+        // Check if they leveled up - use while loop to handle multiple level-ups
+        int startLevel = recipient.Level;
+        int levelsGained = 0;
+        var random = new Random();
+
+        while (recipient.Experience >= GetExperienceForLevel(recipient.Level + 1) && recipient.Level < GameConfig.MaxLevel)
         {
             recipient.Level++;
+            levelsGained++;
 
             // Update base stats on level up (matches WorldSimulator.NPCLevelUp behavior)
-            recipient.BaseMaxHP += 10 + new Random().Next(5, 15);
-            recipient.BaseStrength += new Random().Next(1, 3);
-            recipient.BaseDefence += new Random().Next(1, 2);
+            recipient.BaseMaxHP += 10 + random.Next(5, 15);
+            recipient.BaseStrength += random.Next(1, 3);
+            recipient.BaseDefence += random.Next(1, 2);
+        }
 
+        if (levelsGained > 0)
+        {
             // Recalculate all stats from base values
             recipient.RecalculateStats();
 
@@ -910,7 +918,14 @@ public class LevelMasterLocation : BaseLocation
             recipient.Mana = recipient.MaxMana;
 
             terminal.SetColor("bright_yellow");
-            terminal.WriteLine($"{recipient.Name} has reached level {recipient.Level}!");
+            if (levelsGained == 1)
+            {
+                terminal.WriteLine($"{recipient.Name} has reached level {recipient.Level}!");
+            }
+            else
+            {
+                terminal.WriteLine($"{recipient.Name} has gained {levelsGained} levels! ({startLevel} -> {recipient.Level})");
+            }
             NewsSystem.Instance?.Newsy(true, $"{recipient.Name} advanced to level {recipient.Level} with help from {currentPlayer.Name2}!");
         }
 

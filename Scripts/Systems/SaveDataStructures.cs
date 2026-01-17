@@ -162,6 +162,9 @@ namespace UsurperRemake.Systems
         // Player inventory (dungeon loot, etc.)
         public List<InventoryItemData> Inventory { get; set; } = new();
 
+        // Dynamic equipment (items equipped from inventory/dungeon loot that need to be restored)
+        public List<DynamicEquipmentData> DynamicEquipment { get; set; } = new();
+
         // Base stats (without equipment bonuses)
         public long BaseStrength { get; set; }
         public long BaseDexterity { get; set; }
@@ -439,6 +442,37 @@ namespace UsurperRemake.Systems
         public bool Shop { get; set; }
         public bool Dungeon { get; set; }
         public List<string> Description { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Dynamic equipment data for serialization (equipped items from dungeon loot)
+    /// </summary>
+    public class DynamicEquipmentData
+    {
+        public int Id { get; set; }  // The dynamic ID assigned by EquipmentDatabase
+        public string Name { get; set; } = "";
+        public string Description { get; set; } = "";
+        public int Slot { get; set; }  // EquipmentSlot enum as int
+        public int WeaponPower { get; set; }
+        public int ArmorClass { get; set; }
+        public int ShieldBonus { get; set; }
+        public int BlockChance { get; set; }
+        public int StrengthBonus { get; set; }
+        public int DexterityBonus { get; set; }
+        public int ConstitutionBonus { get; set; }
+        public int IntelligenceBonus { get; set; }
+        public int WisdomBonus { get; set; }
+        public int CharismaBonus { get; set; }
+        public int MaxHPBonus { get; set; }
+        public int MaxManaBonus { get; set; }
+        public int DefenceBonus { get; set; }
+        public int MinLevel { get; set; }
+        public long Value { get; set; }
+        public bool IsCursed { get; set; }
+        public int Rarity { get; set; }  // EquipmentRarity enum as int
+        public int WeaponType { get; set; }  // WeaponType enum as int
+        public int Handedness { get; set; }  // WeaponHandedness enum as int
+        public int ArmorType { get; set; }  // ArmorType enum as int
     }
 
     /// <summary>

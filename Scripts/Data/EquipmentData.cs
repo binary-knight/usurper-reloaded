@@ -82,6 +82,46 @@ public static class EquipmentDatabase
     }
 
     /// <summary>
+    /// Register a dynamic equipment item with a specific ID (for loading saves)
+    /// </summary>
+    public static void RegisterDynamicWithId(Equipment equip, int id)
+    {
+        EnsureInitialized();
+        equip.Id = id;
+        _allEquipment[id] = equip;
+        // Keep _nextDynamicId above any loaded ID to avoid conflicts
+        if (id >= _nextDynamicId)
+        {
+            _nextDynamicId = id + 1;
+        }
+    }
+
+    /// <summary>
+    /// Get all dynamically registered equipment (for saving)
+    /// </summary>
+    public static List<Equipment> GetDynamicEquipment()
+    {
+        EnsureInitialized();
+        return _allEquipment.Values
+            .Where(e => e.Id >= DynamicEquipmentStart)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Clear all dynamic equipment (for loading fresh save)
+    /// </summary>
+    public static void ClearDynamicEquipment()
+    {
+        EnsureInitialized();
+        var dynamicIds = _allEquipment.Keys.Where(id => id >= DynamicEquipmentStart).ToList();
+        foreach (var id in dynamicIds)
+        {
+            _allEquipment.Remove(id);
+        }
+        _nextDynamicId = DynamicEquipmentStart;
+    }
+
+    /// <summary>
     /// Get all equipment for a specific slot
     /// </summary>
     public static List<Equipment> GetBySlot(EquipmentSlot slot)
