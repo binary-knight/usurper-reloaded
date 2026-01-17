@@ -574,10 +574,50 @@ public static class TrainingSystem
             return;
         }
 
-        // Spend 1 training point
-        player.TrainingPoints--;
+        // Calculate points needed to reach next level
+        var currentProgress = GetTrainingProgress(player, skillId);
+        var pointsNeeded = GetPointsForNextLevel(proficiency);
+        var pointsToNextLevel = pointsNeeded - currentProgress;
 
-        bool leveledUp = AddTrainingProgress(player, skillId, 1);
+        // Show options if player has enough points for multiple
+        int pointsToSpend = 1;
+        if (player.TrainingPoints > 1 && pointsToNextLevel > 1)
+        {
+            var nextLevel = (ProficiencyLevel)((int)proficiency + 1);
+            string nextLevelName = GetProficiencyName(nextLevel);
+            string nextLevelColor = GetProficiencyColor(nextLevel);
+
+            terminal.WriteLine("");
+            terminal.WriteLine($"Training {skillName} (Current: {GetProficiencyName(proficiency)})", "cyan");
+            terminal.WriteLine($"Progress: {currentProgress}/{pointsNeeded} toward [{nextLevelColor}]{nextLevelName}[/]", "white");
+            terminal.WriteLine("");
+            terminal.WriteLine("[1] Spend 1 training point", "white");
+
+            int maxCanSpend = Math.Min(player.TrainingPoints, pointsToNextLevel);
+            terminal.WriteLine($"[M] Spend {maxCanSpend} points to reach {nextLevelName}", "bright_green");
+            terminal.WriteLine("[X] Cancel", "yellow");
+            terminal.WriteLine("");
+
+            var choice = await terminal.GetInput("> ");
+            if (string.IsNullOrWhiteSpace(choice) || choice.Trim().ToUpper() == "X")
+            {
+                return;
+            }
+
+            if (choice.Trim().ToUpper() == "M")
+            {
+                pointsToSpend = maxCanSpend;
+            }
+            else if (!int.TryParse(choice, out _) || choice.Trim() != "1")
+            {
+                return;
+            }
+        }
+
+        // Spend training points
+        player.TrainingPoints -= pointsToSpend;
+
+        bool leveledUp = AddTrainingProgress(player, skillId, pointsToSpend);
 
         if (leveledUp)
         {
@@ -596,7 +636,7 @@ public static class TrainingSystem
         {
             var progress = GetTrainingProgress(player, skillId);
             var needed = GetPointsForNextLevel(proficiency);
-            terminal.WriteLine($"Training {skillName}... Progress: {progress}/{needed}", "green");
+            terminal.WriteLine($"Training {skillName}... Progress: {progress}/{needed} (spent {pointsToSpend} point{(pointsToSpend > 1 ? "s" : "")})", "green");
         }
 
         // Auto-save after training

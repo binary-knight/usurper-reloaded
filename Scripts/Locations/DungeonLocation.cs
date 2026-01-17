@@ -2726,7 +2726,19 @@ public class DungeonLocation : BaseLocation
     /// </summary>
     private async Task DescendStairs()
     {
-        // No level cap - players can descend as deep as they dare
+        var player = GetCurrentPlayer();
+        var playerLevel = player?.Level ?? 1;
+        int maxAccessible = Math.Min(maxDungeonLevel, playerLevel + 10);
+
+        // Check level restriction (player level +/- 10)
+        if (currentDungeonLevel >= maxAccessible)
+        {
+            terminal.WriteLine($"You cannot venture deeper than level {maxAccessible} at your current strength.", "yellow");
+            terminal.WriteLine("Level up to access deeper floors.", "gray");
+            await Task.Delay(2000);
+            return;
+        }
+
         if (currentDungeonLevel >= maxDungeonLevel)
         {
             terminal.WriteLine("You have reached the deepest level of the dungeon.", "red");
@@ -2749,7 +2761,6 @@ public class DungeonLocation : BaseLocation
         consecutiveMonsterRooms = 0;
 
         // Update quest progress for reaching this floor
-        var player = GetCurrentPlayer();
         if (player != null)
         {
             QuestSystem.OnDungeonFloorReached(player, currentDungeonLevel);
@@ -2821,10 +2832,14 @@ public class DungeonLocation : BaseLocation
     {
         var playerLevel = GetCurrentPlayer()?.Level ?? 1;
 
+        // Calculate accessible range: player level +/- 10
+        int minAccessible = Math.Max(1, playerLevel - 10);
+        int maxAccessible = Math.Min(maxDungeonLevel, playerLevel + 10);
+
         terminal.WriteLine("");
         terminal.WriteLine($"Current level: {currentDungeonLevel}", "white");
         terminal.WriteLine($"Your level: {playerLevel}", "cyan");
-        terminal.WriteLine($"Accessible range: 1 - {maxDungeonLevel} (no restrictions)", "yellow");
+        terminal.WriteLine($"Accessible range: {minAccessible} - {maxAccessible} (your level +/- 10)", "yellow");
         terminal.WriteLine("");
 
         var input = await terminal.GetInput("Enter target level (or +/- for relative): ");
@@ -2844,8 +2859,8 @@ public class DungeonLocation : BaseLocation
             targetLevel = absolute;
         }
 
-        // Clamp to valid dungeon range (1 to max)
-        targetLevel = Math.Max(1, Math.Min(maxDungeonLevel, targetLevel));
+        // Clamp to accessible range based on player level (+/- 10)
+        targetLevel = Math.Max(minAccessible, Math.Min(maxAccessible, targetLevel));
 
         if (targetLevel != currentDungeonLevel)
         {
@@ -5628,9 +5643,16 @@ public class DungeonLocation : BaseLocation
     private async Task DescendDeeper()
     {
         var player = GetCurrentPlayer();
+        var playerLevel = player?.Level ?? 1;
+        int maxAccessible = Math.Min(maxDungeonLevel, playerLevel + 10);
 
-        // No level cap - players can descend as deep as they dare
-        if (currentDungeonLevel < maxDungeonLevel)
+        // Check if player can descend (limited to player level + 10)
+        if (currentDungeonLevel >= maxAccessible)
+        {
+            terminal.WriteLine($"You cannot venture deeper than level {maxAccessible} at your current strength.", "yellow");
+            terminal.WriteLine("Level up to access deeper floors.", "gray");
+        }
+        else if (currentDungeonLevel < maxDungeonLevel)
         {
             currentDungeonLevel++;
             terminal.WriteLine($"You descend to dungeon level {currentDungeonLevel}.", "yellow");
@@ -7673,16 +7695,27 @@ public class DungeonLocation : BaseLocation
     }
     
     /// <summary>
-    /// Increase dungeon level directly up to +10 levels above the player (original mechanic).
+    /// Increase dungeon level directly (limited to player level +10).
     /// </summary>
     private async Task IncreaseDifficulty()
     {
-        // No level cap - jump 10 floors deeper (capped at max dungeon level)
-        int targetLevel = Math.Min(currentDungeonLevel + 10, maxDungeonLevel);
+        var playerLevel = GetCurrentPlayer()?.Level ?? 1;
+        int maxAccessible = Math.Min(maxDungeonLevel, playerLevel + 10);
+
+        // Jump 10 floors deeper, but capped at player level + 10
+        int targetLevel = Math.Min(currentDungeonLevel + 10, maxAccessible);
 
         if (targetLevel == currentDungeonLevel)
         {
-            terminal.WriteLine("You have reached the deepest level of the dungeon.", "yellow");
+            if (currentDungeonLevel >= maxAccessible)
+            {
+                terminal.WriteLine($"You cannot venture deeper than level {maxAccessible} at your current strength.", "yellow");
+                terminal.WriteLine("Level up to access deeper floors.", "gray");
+            }
+            else
+            {
+                terminal.WriteLine("You have reached the deepest level of the dungeon.", "yellow");
+            }
         }
         else
         {
