@@ -17,6 +17,14 @@ A faithful recreation of the classic 1993 BBS door game "Usurper" by Jakob Danga
 - **Linux**: Run `./usurper-reborn.sh` or `./UsurperRemake`
 - **macOS**: Run `usurper-reborn-mac.command` or the app bundle
 
+**Build from source:**
+```bash
+git clone https://github.com/binary-knight/usurper-reloaded.git
+cd usurper-reloaded
+dotnet publish usurper-reloaded.csproj -c Release -o publish
+./publish/UsurperRemake.exe  # or ./publish/UsurperRemake on Linux/Mac
+```
+
 **Report bugs**: https://discord.gg/BqY66QkPGE (or GitHub Issues)
 
 ## About
@@ -140,43 +148,69 @@ Your journey can end in many ways:
 ### 30+ Playable Locations
 Main Street, Inn, Bank, Weapon Shop, Armor Shop, Magic Shop, Healer, Temple, Church, Dark Alley, Level Master, Marketplace, Anchor Road, Hall of Recruitment, Dormitory, Castle, Prison, Love Corner, Team Corner, News, Quest Hall, God World, Dungeons, Home, Gym, Prison Walk, and more.
 
-## Getting Started
+## Building from Source
+
+This is free and open source software - you can build it yourself!
 
 ### Prerequisites
-- [.NET SDK 8.0+](https://dotnet.microsoft.com/download)
+- [.NET SDK 8.0+](https://dotnet.microsoft.com/download/dotnet/8.0)
 - Git
 
-### Quick Start
+### Quick Build
 ```bash
 # Clone the repository
 git clone https://github.com/binary-knight/usurper-reloaded.git
-cd usurper-remake
+cd usurper-reloaded
 
-# Build the project
-dotnet build usurper-reloaded.csproj --configuration Release
-
-# Publish and run
-dotnet publish usurper-reloaded.csproj --configuration Release --output ./publish
-./publish/UsurperRemake.exe
+# Build and run (framework-dependent, requires .NET runtime)
+dotnet build usurper-reloaded.csproj -c Release
+dotnet run --project usurper-reloaded.csproj -c Release
 ```
 
-### Building Standalone Executables
+### Self-Contained Builds (No .NET Runtime Required)
 
-#### Windows
+Build a standalone executable that includes the .NET runtime:
+
+#### Windows (64-bit)
 ```bash
-dotnet publish usurper-reloaded.csproj -c Release -o publish
+dotnet publish usurper-reloaded.csproj -c Release -r win-x64 -o publish/win-x64 \
+  -p:PublishSingleFile=true -p:SelfContained=true
+# Run: publish/win-x64/UsurperRemake.exe
 ```
 
-#### Linux
+#### Windows (32-bit)
 ```bash
-dotnet publish usurper-reloaded.csproj -c Release -r linux-x64 -o publish/linux \
+dotnet publish usurper-reloaded.csproj -c Release -r win-x86 -o publish/win-x86 \
   -p:PublishSingleFile=true -p:SelfContained=true
 ```
 
-#### macOS
+#### Linux (x64)
 ```bash
-dotnet publish usurper-reloaded.csproj -c Release -r osx-x64 -o publish/mac \
+dotnet publish usurper-reloaded.csproj -c Release -r linux-x64 -o publish/linux-x64 \
   -p:PublishSingleFile=true -p:SelfContained=true
+chmod +x publish/linux-x64/UsurperRemake
+# Run: ./publish/linux-x64/UsurperRemake
+```
+
+#### Linux (ARM64 - Raspberry Pi, etc.)
+```bash
+dotnet publish usurper-reloaded.csproj -c Release -r linux-arm64 -o publish/linux-arm64 \
+  -p:PublishSingleFile=true -p:SelfContained=true
+chmod +x publish/linux-arm64/UsurperRemake
+```
+
+#### macOS (Intel)
+```bash
+dotnet publish usurper-reloaded.csproj -c Release -r osx-x64 -o publish/osx-x64 \
+  -p:PublishSingleFile=true -p:SelfContained=true
+chmod +x publish/osx-x64/UsurperRemake
+```
+
+#### macOS (Apple Silicon)
+```bash
+dotnet publish usurper-reloaded.csproj -c Release -r osx-arm64 -o publish/osx-arm64 \
+  -p:PublishSingleFile=true -p:SelfContained=true
+chmod +x publish/osx-arm64/UsurperRemake
 ```
 
 ## Technical Details
