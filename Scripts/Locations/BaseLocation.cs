@@ -840,6 +840,9 @@ public abstract class BaseLocation
 
             // Skip intimate scenes
             terminal.WriteLine($"  Skip Intimate Scenes: {(currentPlayer.SkipIntimateScenes ? "Enabled (Fade to Black)" : "Disabled (Full Scenes)")}", "yellow");
+
+            // Screen reader mode
+            terminal.WriteLine($"  Screen Reader Mode: {(currentPlayer.ScreenReaderMode ? "Enabled (Simplified Text)" : "Disabled")}", "yellow");
             terminal.WriteLine("");
 
             terminal.SetColor("white");
@@ -847,6 +850,7 @@ public abstract class BaseLocation
             terminal.WriteLine("[1] Toggle Combat Speed (Normal -> Fast -> Instant)");
             terminal.WriteLine("[2] Toggle Auto-heal in Battle");
             terminal.WriteLine("[3] Toggle Skip Intimate Scenes");
+            terminal.WriteLine("[4] Toggle Screen Reader Mode (Accessibility)");
             terminal.WriteLine("[0] Back");
             terminal.WriteLine("");
 
@@ -892,6 +896,22 @@ public abstract class BaseLocation
                     }
                     await GameEngine.Instance.SaveCurrentGame();
                     await Task.Delay(1000);
+                    break;
+
+                case "4":
+                    currentPlayer.ScreenReaderMode = !currentPlayer.ScreenReaderMode;
+                    if (currentPlayer.ScreenReaderMode)
+                    {
+                        terminal.WriteLine("Screen Reader Mode ENABLED", "green");
+                        terminal.WriteLine("Menus will use simplified plain text format.", "white");
+                    }
+                    else
+                    {
+                        terminal.WriteLine("Screen Reader Mode DISABLED", "green");
+                        terminal.WriteLine("Menus will use visual ASCII art format.", "white");
+                    }
+                    await GameEngine.Instance.SaveCurrentGame();
+                    await Task.Delay(1200);
                     break;
 
                 case "0":

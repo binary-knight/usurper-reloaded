@@ -124,100 +124,361 @@ public class MainStreetLocation : BaseLocation
     }
 
     /// <summary>
-    /// Show the Main Street menu - BBS style with improved readability
+    /// Show the Main Street menu - routes to appropriate style based on accessibility settings
     /// </summary>
     private void ShowMainStreetMenu()
     {
+        if (currentPlayer.ScreenReaderMode)
+        {
+            ShowScreenReaderMenu();
+        }
+        else
+        {
+            ShowClassicMenu();
+        }
+    }
+
+    /// <summary>
+    /// Show the classic Main Street menu layout (v0.4 style)
+    /// </summary>
+    private void ShowClassicMenu()
+    {
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╔═════════════════════════════════════════════════════════════════════════════╗");
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("║                          -= MAIN STREET =-                                  ║");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╠═════════════════════════════════════════════════════════════════════════════╣");
+
         // Show current objective hint
         ShowObjectiveHint();
 
         terminal.WriteLine("");
 
-        // Classic BBS box style - 78 chars inside the box
-        terminal.SetColor("bright_cyan");
-        terminal.WriteLine("╔════════════════════════════════════════════════════════════════════════════╗");
+        // Row 1 - Primary locations
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_green");
+        terminal.Write("D");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("ungeons     ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_green");
+        terminal.Write("I");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("nn          ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_green");
+        terminal.Write("T");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("emple       ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_green");
+        terminal.Write("O");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("ld Church");
+
+        // Row 2 - Shops
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
         terminal.SetColor("bright_yellow");
-        terminal.WriteLine("║                           -= MAIN STREET =-                                ║");
+        terminal.Write("W");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("eapon Shop  ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("A");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("rmor Shop   ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("M");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("agic Shop   ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
         terminal.SetColor("bright_cyan");
-        terminal.WriteLine("╠════════════════════════════════════════════════════════════════════════════╣");
-
-        // Each row: ║ + space + 6 options (13 chars each) = ║ + 1 + 78 = 80 total
-        // Row 1 - Adventure locations (green = go places)
-        terminal.Write("║ ");
-        WriteMenuOption("D", "Dungeons", "bright_green");
-        WriteMenuOption("I", "Inn", "bright_green");
-        WriteMenuOption("T", "Temple", "bright_green");
-        WriteMenuOption("O", "Church", "bright_green");
-        WriteMenuOption("K", "Castle", "bright_green");
-        WriteMenuOptionLast("H", "Home", "bright_green");
-
-        // Row 2 - Shops (yellow = commerce)
-        terminal.Write("║ ");
-        WriteMenuOption("W", "Weapons", "bright_yellow");
-        WriteMenuOption("A", "Armor", "bright_yellow");
-        WriteMenuOption("M", "Magic", "bright_yellow");
-        WriteMenuOption("J", "Market", "bright_yellow");
-        WriteMenuOption("B", "Bank", "bright_yellow");
-        WriteMenuOptionLast("1", "Healer", "bright_yellow");
+        terminal.Write("J");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("Marketplace");
 
         // Row 3 - Services
-        terminal.Write("║ ");
-        WriteMenuOption("V", "Master", "bright_magenta");
-        WriteMenuOption("C", "Challenges", "bright_magenta");
-        WriteMenuOption("Z", "Team", "bright_magenta");
-        WriteMenuOption("2", "Quests", "bright_magenta");
-        WriteMenuOption("S", "Status", "cyan");
-        WriteMenuOptionLast("N", "News", "cyan");
-
-        // Row 4 - Information
-        terminal.Write("║ ");
-        WriteMenuOption("F", "Fame", "cyan");
-        WriteMenuOption("L", "List", "cyan");
-        WriteMenuOption("R", "Relations", "cyan");
-        WriteMenuOption("P", "Progress", "cyan");
-        WriteMenuOption("=", "Record", "cyan");
-        WriteMenuOptionLast("!", "Achieve", "cyan");
-
-        // Row 5 - Shady stuff & system (5 options, need extra padding for 6th slot)
-        terminal.Write("║ ");
-        WriteMenuOption("U", "Assault", "red");
-        WriteMenuOption("Y", "DarkAlley", "red");
-        WriteMenuOption("X", "Love St", "magenta");
-        WriteMenuOption("Q", "Quit", "white");
-        WriteMenuOption("?", "Help", "white");
-        terminal.Write("               "); // 15 chars padding to fill remaining space
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
         terminal.SetColor("bright_cyan");
-        terminal.WriteLine("║");
+        terminal.Write("B");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("ank         ");
 
-        terminal.WriteLine("╚════════════════════════════════════════════════════════════════════════════╝");
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_cyan");
+        terminal.Write("1");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("Healer      ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("2");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("Quest Hall  ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_magenta");
+        terminal.Write("V");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("isit Master");
+
+        // Row 4 - Important locations
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_magenta");
+        terminal.Write("K");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("Castle      ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_magenta");
+        terminal.Write("H");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("ome         ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_magenta");
+        terminal.Write("C");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("hallenges   ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("magenta");
+        terminal.Write("Z");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("Team Area");
+
+        terminal.WriteLine("");
+
+        // Row 5 - Information
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("cyan");
+        terminal.Write("S");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("tatus       ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("cyan");
+        terminal.Write("N");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("ews         ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("cyan");
+        terminal.Write("F");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("ame         ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("cyan");
+        terminal.Write("L");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("ist Citizens");
+
+        // Row 6 - Stats & Progress
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_cyan");
+        terminal.Write("=");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("Stats       ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("!");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("Achievements ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_magenta");
+        terminal.Write("P");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("rogress     ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("magenta");
+        terminal.Write("R");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("elations");
+
+        // Row 7 - Combat & Shady Areas
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("red");
+        terminal.Write("U");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("Assault     ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_red");
+        terminal.Write("Y");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("gray");
+        terminal.Write("Dark Alley  ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_magenta");
+        terminal.Write("X");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("magenta");
+        terminal.Write("Love Street ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("red");
+        terminal.Write("Q");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("gray");
+        terminal.WriteLine("uit Game");
+
+        terminal.WriteLine("");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╚═════════════════════════════════════════════════════════════════════════════╝");
         terminal.SetColor("white");
         terminal.WriteLine("");
     }
 
     /// <summary>
-    /// Helper to write a menu option - 12 chars wide (key + dash + label padded)
+    /// Show simplified menu for screen readers - plain text, one option per line
     /// </summary>
-    private void WriteMenuOption(string key, string label, string keyColor)
+    private void ShowScreenReaderMenu()
     {
-        terminal.SetColor(keyColor);
-        terminal.Write(key);
-        terminal.SetColor("white");
-        string text = $"-{label}";
-        terminal.Write(text.PadRight(11)); // 11 chars after the key = 12 total
-    }
+        terminal.WriteLine("");
+        terminal.WriteLine("Main Street Menu");
+        terminal.WriteLine("");
 
-    /// <summary>
-    /// Helper for last option in a row - ends the line with the border
-    /// </summary>
-    private void WriteMenuOptionLast(string key, string label, string keyColor)
-    {
-        terminal.SetColor(keyColor);
-        terminal.Write(key);
-        terminal.SetColor("white");
-        string text = $"-{label}";
-        terminal.Write(text.PadRight(14)); // 14 chars to fill remaining space before border
-        terminal.SetColor("bright_cyan");
-        terminal.WriteLine("║");
+        // Show current objective hint
+        ShowObjectiveHint();
+        terminal.WriteLine("");
+
+        terminal.WriteLine("Locations:");
+        terminal.WriteLine("  D - Dungeons");
+        terminal.WriteLine("  I - Inn");
+        terminal.WriteLine("  T - Temple");
+        terminal.WriteLine("  O - Old Church");
+        terminal.WriteLine("  K - Castle");
+        terminal.WriteLine("  H - Home");
+        terminal.WriteLine("");
+
+        terminal.WriteLine("Shops:");
+        terminal.WriteLine("  W - Weapon Shop");
+        terminal.WriteLine("  A - Armor Shop");
+        terminal.WriteLine("  M - Magic Shop");
+        terminal.WriteLine("  J - Marketplace");
+        terminal.WriteLine("  B - Bank");
+        terminal.WriteLine("  1 - Healer");
+        terminal.WriteLine("");
+
+        terminal.WriteLine("Services:");
+        terminal.WriteLine("  V - Visit Master");
+        terminal.WriteLine("  2 - Quest Hall");
+        terminal.WriteLine("  C - Challenges");
+        terminal.WriteLine("  Z - Team Area");
+        terminal.WriteLine("");
+
+        terminal.WriteLine("Information:");
+        terminal.WriteLine("  S - Status");
+        terminal.WriteLine("  N - News");
+        terminal.WriteLine("  F - Fame");
+        terminal.WriteLine("  L - List Citizens");
+        terminal.WriteLine("  = - Stats Record");
+        terminal.WriteLine("  ! - Achievements");
+        terminal.WriteLine("  P - Progress");
+        terminal.WriteLine("  R - Relations");
+        terminal.WriteLine("");
+
+        terminal.WriteLine("Other:");
+        terminal.WriteLine("  U - Assault");
+        terminal.WriteLine("  Y - Dark Alley");
+        terminal.WriteLine("  X - Love Street");
+        terminal.WriteLine("  Q - Quit Game");
+        terminal.WriteLine("  ? - Help");
+        terminal.WriteLine("");
     }
     
     protected override async Task<bool> ProcessChoice(string choice)

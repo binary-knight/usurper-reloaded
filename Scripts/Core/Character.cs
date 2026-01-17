@@ -94,6 +94,7 @@ public class Character
     public bool AutoHeal { get; set; }              // autoheal in battle?
     public CombatSpeed CombatSpeed { get; set; } = CombatSpeed.Normal;  // combat text speed
     public bool SkipIntimateScenes { get; set; }    // skip detailed intimate scenes (fade to black)
+    public bool ScreenReaderMode { get; set; }      // simplified text output for screen readers (accessibility)
     public CharacterClass Class { get; set; }       // class
     public int Loyalty { get; set; }                // loyalty% (0-100)
     public int Haunt { get; set; }                  // how many demons haunt player

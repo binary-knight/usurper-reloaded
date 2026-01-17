@@ -1253,6 +1253,7 @@ public partial class GameEngine : Node
             AutoHeal = playerData.AutoHeal,
             CombatSpeed = playerData.CombatSpeed,
             SkipIntimateScenes = playerData.SkipIntimateScenes,
+            ScreenReaderMode = playerData.ScreenReaderMode,
             Loyalty = playerData.Loyalty,
             Haunt = playerData.Haunt,
             Master = playerData.Master,

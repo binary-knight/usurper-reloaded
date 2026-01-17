@@ -601,6 +601,7 @@ namespace UsurperRemake.Systems
                 AutoHeal = player.AutoHeal,
                 CombatSpeed = player.CombatSpeed,
                 SkipIntimateScenes = player.SkipIntimateScenes,
+                ScreenReaderMode = player.ScreenReaderMode,
                 Loyalty = player.Loyalty,
                 Haunt = player.Haunt,
                 Master = player.Master,
