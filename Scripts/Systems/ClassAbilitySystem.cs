@@ -52,6 +52,12 @@ public static class ClassAbilitySystem
     {
         // ═══════════════════════════════════════════════════════════════════════════════
         // WARRIOR ABILITIES - Masters of martial combat, disciples of Maelketh
+        // BALANCE: Base damage values kept moderate since stats now contribute significantly.
+        // With 3% per STR above 10 + 1% per DEX above 10, high-stat characters will do
+        // much more damage. 20 STR/15 DEX = 1.35x, 30 STR/20 DEX = 1.70x multiplier from stats alone.
+        // Early abilities (level 1-20): Base 35-55 → scales strongly with stats
+        // Mid abilities (level 30-60): Base 70-100 → scales to strong damage
+        // Late abilities (level 70+): Base 140-280 → scales to devastating damage
         // ═══════════════════════════════════════════════════════════════════════════════
         ["power_strike"] = new ClassAbility
         {
@@ -62,7 +68,7 @@ public static class ClassAbilitySystem
             StaminaCost = 15,
             Cooldown = 0,
             Type = AbilityType.Attack,
-            BaseDamage = 30,
+            BaseDamage = 35,  // Moderate base, scales well with STR
             AvailableToClasses = new[] { CharacterClass.Warrior, CharacterClass.Barbarian, CharacterClass.Paladin }
         },
         ["shield_wall"] = new ClassAbility
@@ -100,7 +106,7 @@ public static class ClassAbilitySystem
             StaminaCost = 40,
             Cooldown = 2,
             Type = AbilityType.Attack,
-            BaseDamage = 100,
+            BaseDamage = 80,  // Moderate base, scales with STR
             SpecialEffect = "execute",
             AvailableToClasses = new[] { CharacterClass.Warrior, CharacterClass.Barbarian, CharacterClass.Assassin }
         },
@@ -113,7 +119,7 @@ public static class ClassAbilitySystem
             StaminaCost = 50,
             Cooldown = 5,
             Type = AbilityType.Attack,
-            BaseDamage = 150,
+            BaseDamage = 120,  // Strong base for emergency use
             SpecialEffect = "last_stand",
             AvailableToClasses = new[] { CharacterClass.Warrior, CharacterClass.Barbarian, CharacterClass.Paladin }
         },
@@ -126,7 +132,7 @@ public static class ClassAbilitySystem
             StaminaCost = 60,
             Cooldown = 3,
             Type = AbilityType.Attack,
-            BaseDamage = 80,
+            BaseDamage = 90,  // AoE base, still scales well
             SpecialEffect = "aoe",
             AvailableToClasses = new[] { CharacterClass.Warrior, CharacterClass.Barbarian }
         },
@@ -139,8 +145,8 @@ public static class ClassAbilitySystem
             StaminaCost = 70,
             Cooldown = 5,
             Type = AbilityType.Attack,
-            BaseDamage = 200,
-            AttackBonus = 50,
+            BaseDamage = 160,  // High tier single target
+            AttackBonus = 40,
             Duration = 3,
             SpecialEffect = "fury",
             AvailableToClasses = new[] { CharacterClass.Warrior }
@@ -154,7 +160,7 @@ public static class ClassAbilitySystem
             StaminaCost = 80,
             Cooldown = 6,
             Type = AbilityType.Defense,
-            DefenseBonus = 100,
+            DefenseBonus = 80,  // Scales with CON now
             Duration = 4,
             AvailableToClasses = new[] { CharacterClass.Warrior }
         },
@@ -167,13 +173,15 @@ public static class ClassAbilitySystem
             StaminaCost = 100,
             Cooldown = 6,
             Type = AbilityType.Attack,
-            BaseDamage = 350,
+            BaseDamage = 280,  // Capstone - scales massively with high STR
             SpecialEffect = "champion",
             AvailableToClasses = new[] { CharacterClass.Warrior }
         },
 
         // ═══════════════════════════════════════════════════════════════════════════════
         // BARBARIAN ABILITIES - Primal fury, berserker rage
+        // BALANCE: Barbarians trade defense for offense. Stats scale well with abilities,
+        // making a high-STR barbarian devastating. Rage provides attack bonus but costs defense.
         // ═══════════════════════════════════════════════════════════════════════════════
         ["rage"] = new ClassAbility
         {
@@ -184,8 +192,8 @@ public static class ClassAbilitySystem
             StaminaCost = 35,
             Cooldown = 5,
             Type = AbilityType.Buff,
-            AttackBonus = 60,
-            DefenseBonus = -20,
+            AttackBonus = 60,  // Scales with CHA for buff type
+            DefenseBonus = -25,  // Risk for reward
             Duration = 5,
             SpecialEffect = "rage",
             AvailableToClasses = new[] { CharacterClass.Barbarian }
@@ -199,7 +207,7 @@ public static class ClassAbilitySystem
             StaminaCost = 25,
             Cooldown = 1,
             Type = AbilityType.Attack,
-            BaseDamage = 80,
+            BaseDamage = 55,  // Low cooldown bread and butter, scales with STR
             SpecialEffect = "reckless",
             AvailableToClasses = new[] { CharacterClass.Barbarian }
         },
@@ -225,8 +233,8 @@ public static class ClassAbilitySystem
             StaminaCost = 40,
             Cooldown = 6,
             Type = AbilityType.Buff,
-            BaseHealing = 30,
-            AttackBonus = 25,
+            BaseHealing = 25,  // Scales with CON/WIS
+            AttackBonus = 20,
             Duration = 999,
             SpecialEffect = "bloodlust",
             AvailableToClasses = new[] { CharacterClass.Barbarian }
@@ -240,7 +248,7 @@ public static class ClassAbilitySystem
             StaminaCost = 55,
             Cooldown = 4,
             Type = AbilityType.Attack,
-            BaseDamage = 60,
+            BaseDamage = 65,  // Multi-hit base damage per hit, scales well
             SpecialEffect = "multi_hit",
             AvailableToClasses = new[] { CharacterClass.Barbarian }
         },
@@ -253,7 +261,7 @@ public static class ClassAbilitySystem
             StaminaCost = 65,
             Cooldown = 5,
             Type = AbilityType.Attack,
-            BaseDamage = 120,
+            BaseDamage = 100,  // AoE base, scales with STR
             SpecialEffect = "aoe",
             AvailableToClasses = new[] { CharacterClass.Barbarian }
         },
@@ -266,7 +274,7 @@ public static class ClassAbilitySystem
             StaminaCost = 70,
             Cooldown = 6,
             Type = AbilityType.Buff,
-            DefenseBonus = 50,
+            DefenseBonus = 40,  // Scales with CHA
             Duration = 4,
             SpecialEffect = "immunity",
             AvailableToClasses = new[] { CharacterClass.Barbarian }
@@ -280,8 +288,8 @@ public static class ClassAbilitySystem
             StaminaCost = 90,
             Cooldown = 7,
             Type = AbilityType.Buff,
-            AttackBonus = 100,
-            BaseDamage = 200,
+            AttackBonus = 80,  // Capstone buff, scales with CHA
+            BaseDamage = 200,  // Instant damage on activation, scales with STR
             Duration = 5,
             SpecialEffect = "avatar",
             AvailableToClasses = new[] { CharacterClass.Barbarian }
@@ -289,6 +297,8 @@ public static class ClassAbilitySystem
 
         // ═══════════════════════════════════════════════════════════════════════════════
         // PALADIN ABILITIES - Holy warriors, servants of light
+        // BALANCE: Paladins are hybrid damage/support. Stats scale abilities, making
+        // high-STR paladins deal good damage while high-WIS/CON paladins heal better.
         // ═══════════════════════════════════════════════════════════════════════════════
         ["lay_on_hands"] = new ClassAbility
         {
@@ -299,7 +309,7 @@ public static class ClassAbilitySystem
             StaminaCost = 25,
             Cooldown = 4,
             Type = AbilityType.Heal,
-            BaseHealing = 40,
+            BaseHealing = 35,  // Scales with CON/WIS
             AvailableToClasses = new[] { CharacterClass.Paladin }
         },
         ["divine_smite"] = new ClassAbility
@@ -311,7 +321,7 @@ public static class ClassAbilitySystem
             StaminaCost = 35,
             Cooldown = 2,
             Type = AbilityType.Attack,
-            BaseDamage = 70,
+            BaseDamage = 55,  // Bread and butter, scales with STR
             SpecialEffect = "holy",
             AvailableToClasses = new[] { CharacterClass.Paladin }
         },
@@ -324,7 +334,7 @@ public static class ClassAbilitySystem
             StaminaCost = 40,
             Cooldown = 5,
             Type = AbilityType.Defense,
-            DefenseBonus = 50,
+            DefenseBonus = 40,  // Scales with CON
             Duration = 4,
             AvailableToClasses = new[] { CharacterClass.Paladin }
         },
@@ -337,7 +347,7 @@ public static class ClassAbilitySystem
             StaminaCost = 55,
             Cooldown = 5,
             Type = AbilityType.Attack,
-            BaseDamage = 120,
+            BaseDamage = 95,  // Mid-tier attack, scales with STR
             SpecialEffect = "holy_avenger",
             AvailableToClasses = new[] { CharacterClass.Paladin }
         },
@@ -350,7 +360,7 @@ public static class ClassAbilitySystem
             StaminaCost = 50,
             Cooldown = 5,
             Type = AbilityType.Heal,
-            BaseHealing = 100,
+            BaseHealing = 80,  // Mid-tier heal, scales with CON/WIS
             SpecialEffect = "cleanse",
             AvailableToClasses = new[] { CharacterClass.Paladin }
         },
@@ -363,7 +373,7 @@ public static class ClassAbilitySystem
             StaminaCost = 60,
             Cooldown = 7,
             Type = AbilityType.Defense,
-            DefenseBonus = 200,
+            DefenseBonus = 150,  // Near-invulnerable, scales with CON
             Duration = 2,
             SpecialEffect = "invulnerable",
             AvailableToClasses = new[] { CharacterClass.Paladin }
@@ -377,8 +387,8 @@ public static class ClassAbilitySystem
             StaminaCost = 70,
             Cooldown = 6,
             Type = AbilityType.Buff,
-            BaseHealing = 150,
-            AttackBonus = 40,
+            BaseHealing = 120,  // Heal component, scales with CON/WIS
+            AttackBonus = 40,  // Scales with CHA for buff
             DefenseBonus = 40,
             Duration = 4,
             AvailableToClasses = new[] { CharacterClass.Paladin }
@@ -392,7 +402,7 @@ public static class ClassAbilitySystem
             StaminaCost = 80,
             Cooldown = 6,
             Type = AbilityType.Attack,
-            BaseDamage = 180,
+            BaseDamage = 140,  // High level AoE, scales with STR
             SpecialEffect = "aoe_holy",
             AvailableToClasses = new[] { CharacterClass.Paladin }
         },
@@ -405,9 +415,9 @@ public static class ClassAbilitySystem
             StaminaCost = 100,
             Cooldown = 7,
             Type = AbilityType.Buff,
-            AttackBonus = 80,
-            DefenseBonus = 80,
-            BaseHealing = 200,
+            AttackBonus = 70,  // Capstone buff, scales with CHA
+            DefenseBonus = 70,
+            BaseHealing = 160,  // Heal component, scales with CON/WIS
             Duration = 5,
             SpecialEffect = "avatar_light",
             AvailableToClasses = new[] { CharacterClass.Paladin }
@@ -415,6 +425,8 @@ public static class ClassAbilitySystem
 
         // ═══════════════════════════════════════════════════════════════════════════════
         // ASSASSIN ABILITIES - Shadow killers, servants of Noctura
+        // BALANCE: Assassins have high single-target burst. DEX adds to attack scaling
+        // via the formula, so Assassins benefit from both STR and DEX for damage.
         // ═══════════════════════════════════════════════════════════════════════════════
         ["backstab"] = new ClassAbility
         {
@@ -425,7 +437,7 @@ public static class ClassAbilitySystem
             StaminaCost = 20,
             Cooldown = 1,
             Type = AbilityType.Attack,
-            BaseDamage = 50,
+            BaseDamage = 40,  // Low cooldown, scales with STR+DEX
             SpecialEffect = "critical",
             AvailableToClasses = new[] { CharacterClass.Assassin }
         },
@@ -438,7 +450,7 @@ public static class ClassAbilitySystem
             StaminaCost = 30,
             Cooldown = 3,
             Type = AbilityType.Attack,
-            BaseDamage = 30,
+            BaseDamage = 30,  // Initial hit + poison DoT
             SpecialEffect = "poison",
             Duration = 5,
             AvailableToClasses = new[] { CharacterClass.Assassin }
@@ -452,7 +464,7 @@ public static class ClassAbilitySystem
             StaminaCost = 35,
             Cooldown = 4,
             Type = AbilityType.Defense,
-            DefenseBonus = 60,
+            DefenseBonus = 50,  // Scales with CON
             Duration = 2,
             SpecialEffect = "evasion",
             AvailableToClasses = new[] { CharacterClass.Assassin }
@@ -466,7 +478,7 @@ public static class ClassAbilitySystem
             StaminaCost = 45,
             Cooldown = 5,
             Type = AbilityType.Debuff,
-            AttackBonus = 50,
+            AttackBonus = 40,  // Scales with INT for debuff
             Duration = 4,
             SpecialEffect = "marked",
             AvailableToClasses = new[] { CharacterClass.Assassin }
@@ -480,7 +492,7 @@ public static class ClassAbilitySystem
             StaminaCost = 70,
             Cooldown = 6,
             Type = AbilityType.Attack,
-            BaseDamage = 200,
+            BaseDamage = 160,  // Signature move, scales with STR+DEX
             SpecialEffect = "instant_kill",
             AvailableToClasses = new[] { CharacterClass.Assassin }
         },
@@ -493,7 +505,7 @@ public static class ClassAbilitySystem
             StaminaCost = 50,
             Cooldown = 5,
             Type = AbilityType.Utility,
-            DefenseBonus = 100,
+            DefenseBonus = 80,
             Duration = 1,
             SpecialEffect = "vanish",
             AvailableToClasses = new[] { CharacterClass.Assassin }
@@ -507,8 +519,8 @@ public static class ClassAbilitySystem
             StaminaCost = 60,
             Cooldown = 6,
             Type = AbilityType.Buff,
-            DefenseBonus = 80,
-            AttackBonus = 60,
+            DefenseBonus = 60,  // Scales with CHA for buff
+            AttackBonus = 50,
             Duration = 4,
             SpecialEffect = "shadow",
             AvailableToClasses = new[] { CharacterClass.Assassin }
@@ -522,7 +534,7 @@ public static class ClassAbilitySystem
             StaminaCost = 75,
             Cooldown = 5,
             Type = AbilityType.Attack,
-            BaseDamage = 150,
+            BaseDamage = 85,  // AoE, scales with STR+DEX
             SpecialEffect = "aoe",
             AvailableToClasses = new[] { CharacterClass.Assassin }
         },
@@ -535,13 +547,15 @@ public static class ClassAbilitySystem
             StaminaCost = 90,
             Cooldown = 7,
             Type = AbilityType.Attack,
-            BaseDamage = 300,
+            BaseDamage = 250,  // Capstone AoE - scales heavily with STR+DEX
             SpecialEffect = "execute_all",
             AvailableToClasses = new[] { CharacterClass.Assassin }
         },
 
         // ═══════════════════════════════════════════════════════════════════════════════
         // RANGER ABILITIES - Masters of bow and nature
+        // BALANCE: Rangers have reliable ranged damage with utility. Their guaranteed
+        // hit abilities trade raw damage for consistency.
         // ═══════════════════════════════════════════════════════════════════════════════
         ["precise_shot"] = new ClassAbility
         {
@@ -552,7 +566,7 @@ public static class ClassAbilitySystem
             StaminaCost = 15,
             Cooldown = 1,
             Type = AbilityType.Attack,
-            BaseDamage = 35,
+            BaseDamage = 30,  // Starter ability - scales with STR+DEX
             SpecialEffect = "guaranteed_hit",
             AvailableToClasses = new[] { CharacterClass.Ranger }
         },
@@ -593,7 +607,7 @@ public static class ClassAbilitySystem
             StaminaCost = 40,
             Cooldown = 5,
             Type = AbilityType.Heal,
-            BaseHealing = 80,
+            BaseHealing = 55,  // Healing - scales with CON+WIS
             AvailableToClasses = new[] { CharacterClass.Ranger }
         },
         ["volley"] = new ClassAbility
@@ -605,7 +619,7 @@ public static class ClassAbilitySystem
             StaminaCost = 50,
             Cooldown = 4,
             Type = AbilityType.Attack,
-            BaseDamage = 50,
+            BaseDamage = 45,  // Mid-tier AoE - scales with STR+DEX
             SpecialEffect = "aoe",
             AvailableToClasses = new[] { CharacterClass.Ranger }
         },
@@ -632,8 +646,8 @@ public static class ClassAbilitySystem
             StaminaCost = 60,
             Cooldown = 6,
             Type = AbilityType.Buff,
-            AttackBonus = 50,
-            BaseHealing = 100,
+            AttackBonus = 40,  // Buff - scales with CHA
+            BaseHealing = 70,  // Healing - scales with CON+WIS
             Duration = 4,
             AvailableToClasses = new[] { CharacterClass.Ranger }
         },
@@ -646,7 +660,7 @@ public static class ClassAbilitySystem
             StaminaCost = 70,
             Cooldown = 5,
             Type = AbilityType.Attack,
-            BaseDamage = 140,
+            BaseDamage = 100,  // High level AoE - scales with STR+DEX
             SpecialEffect = "aoe",
             AvailableToClasses = new[] { CharacterClass.Ranger }
         },
@@ -659,13 +673,14 @@ public static class ClassAbilitySystem
             StaminaCost = 80,
             Cooldown = 6,
             Type = AbilityType.Attack,
-            BaseDamage = 280,
+            BaseDamage = 200,  // Capstone single-target - scales with STR+DEX
             SpecialEffect = "legendary",
             AvailableToClasses = new[] { CharacterClass.Ranger }
         },
 
         // ═══════════════════════════════════════════════════════════════════════════════
         // JESTER/BARD ABILITIES - Tricksters and performers
+        // BALANCE: Support-oriented classes with moderate damage but strong buffs/debuffs.
         // ═══════════════════════════════════════════════════════════════════════════════
         ["mock"] = new ClassAbility
         {
@@ -676,7 +691,7 @@ public static class ClassAbilitySystem
             StaminaCost = 10,
             Cooldown = 1,
             Type = AbilityType.Attack,
-            BaseDamage = 25,
+            BaseDamage = 22,  // Low cost spammable - scales with STR+DEX
             SpecialEffect = "distract",
             AvailableToClasses = new[] { CharacterClass.Jester, CharacterClass.Bard }
         },
@@ -689,8 +704,8 @@ public static class ClassAbilitySystem
             StaminaCost = 30,
             Cooldown = 4,
             Type = AbilityType.Buff,
-            AttackBonus = 20,
-            DefenseBonus = 20,
+            AttackBonus = 20,  // Buff - scales with CHA
+            DefenseBonus = 20,  // Defense - scales with CON
             Duration = 4,
             AvailableToClasses = new[] { CharacterClass.Bard }
         },
@@ -703,7 +718,7 @@ public static class ClassAbilitySystem
             StaminaCost = 35,
             Cooldown = 5,
             Type = AbilityType.Heal,
-            BaseHealing = 60,
+            BaseHealing = 45,  // Healing - scales with CON+WIS
             AvailableToClasses = new[] { CharacterClass.Bard }
         },
         ["charm"] = new ClassAbility
@@ -740,7 +755,7 @@ public static class ClassAbilitySystem
             StaminaCost = 45,
             Cooldown = 3,
             Type = AbilityType.Attack,
-            BaseDamage = 90,
+            BaseDamage = 65,  // Mid-tier damage + confusion - scales with STR+DEX
             SpecialEffect = "confusion",
             AvailableToClasses = new[] { CharacterClass.Jester }
         },
@@ -753,9 +768,9 @@ public static class ClassAbilitySystem
             StaminaCost = 55,
             Cooldown = 6,
             Type = AbilityType.Buff,
-            BaseHealing = 100,
-            AttackBonus = 30,
-            DefenseBonus = 30,
+            BaseHealing = 75,  // Healing - scales with CON+WIS
+            AttackBonus = 30,  // Buff - scales with CHA
+            DefenseBonus = 30,  // Defense - scales with CON
             Duration = 4,
             AvailableToClasses = new[] { CharacterClass.Bard }
         },
@@ -768,7 +783,7 @@ public static class ClassAbilitySystem
             StaminaCost = 70,
             Cooldown = 6,
             Type = AbilityType.Attack,
-            BaseDamage = 160,
+            BaseDamage = 110,  // High level AoE - scales with STR+DEX
             SpecialEffect = "aoe",
             AvailableToClasses = new[] { CharacterClass.Bard, CharacterClass.Jester }
         },
@@ -781,8 +796,8 @@ public static class ClassAbilitySystem
             StaminaCost = 80,
             Cooldown = 7,
             Type = AbilityType.Buff,
-            AttackBonus = 70,
-            DefenseBonus = 70,
+            AttackBonus = 55,  // Capstone buff - scales with CHA
+            DefenseBonus = 55,  // Defense - scales with CON
             Duration = 5,
             SpecialEffect = "legend",
             AvailableToClasses = new[] { CharacterClass.Bard }
@@ -790,6 +805,8 @@ public static class ClassAbilitySystem
 
         // ═══════════════════════════════════════════════════════════════════════════════
         // ALCHEMIST ABILITIES - Masters of potions and explosives
+        // BALANCE: Alchemists have good damage through bombs and strong self-sustain
+        // through potions. Their abilities represent prepared concoctions.
         // ═══════════════════════════════════════════════════════════════════════════════
         ["throw_bomb"] = new ClassAbility
         {
@@ -800,7 +817,7 @@ public static class ClassAbilitySystem
             StaminaCost = 20,
             Cooldown = 2,
             Type = AbilityType.Attack,
-            BaseDamage = 40,
+            BaseDamage = 35,  // Starter attack - scales with STR+DEX
             SpecialEffect = "fire",
             AvailableToClasses = new[] { CharacterClass.Alchemist }
         },
@@ -813,7 +830,7 @@ public static class ClassAbilitySystem
             StaminaCost = 20,
             Cooldown = 3,
             Type = AbilityType.Heal,
-            BaseHealing = 55,
+            BaseHealing = 40,  // Healing - scales with CON+WIS
             AvailableToClasses = new[] { CharacterClass.Alchemist }
         },
         ["smoke_bomb"] = new ClassAbility
@@ -839,7 +856,7 @@ public static class ClassAbilitySystem
             StaminaCost = 35,
             Cooldown = 3,
             Type = AbilityType.Attack,
-            BaseDamage = 60,
+            BaseDamage = 50,  // Armor piercing - scales with STR+DEX
             SpecialEffect = "armor_pierce",
             AvailableToClasses = new[] { CharacterClass.Alchemist }
         },
@@ -852,8 +869,8 @@ public static class ClassAbilitySystem
             StaminaCost = 50,
             Cooldown = 6,
             Type = AbilityType.Buff,
-            AttackBonus = 35,
-            DefenseBonus = 25,
+            AttackBonus = 30,  // Buff - scales with CHA
+            DefenseBonus = 22,  // Defense - scales with CON
             Duration = 5,
             AvailableToClasses = new[] { CharacterClass.Alchemist }
         },
@@ -866,7 +883,7 @@ public static class ClassAbilitySystem
             StaminaCost = 45,
             Cooldown = 4,
             Type = AbilityType.Attack,
-            BaseDamage = 80,
+            BaseDamage = 65,  // Damage + freeze effect - scales with STR+DEX
             SpecialEffect = "freeze",
             Duration = 2,
             AvailableToClasses = new[] { CharacterClass.Alchemist }
@@ -880,7 +897,7 @@ public static class ClassAbilitySystem
             StaminaCost = 45,
             Cooldown = 5,
             Type = AbilityType.Heal,
-            BaseHealing = 150,
+            BaseHealing = 100,  // Strong heal - scales with CON+WIS
             AvailableToClasses = new[] { CharacterClass.Alchemist }
         },
         ["philosophers_bomb"] = new ClassAbility
@@ -892,7 +909,7 @@ public static class ClassAbilitySystem
             StaminaCost = 70,
             Cooldown = 5,
             Type = AbilityType.Attack,
-            BaseDamage = 180,
+            BaseDamage = 120,  // High level AoE - scales with STR+DEX
             SpecialEffect = "aoe",
             AvailableToClasses = new[] { CharacterClass.Alchemist }
         },
@@ -905,9 +922,9 @@ public static class ClassAbilitySystem
             StaminaCost = 85,
             Cooldown = 7,
             Type = AbilityType.Buff,
-            AttackBonus = 80,
-            DefenseBonus = 60,
-            BaseHealing = 100,
+            AttackBonus = 60,  // Buff - scales with CHA
+            DefenseBonus = 50,  // Defense - scales with CON
+            BaseHealing = 90,  // Healing - scales with CON+WIS
             Duration = 5,
             SpecialEffect = "transmute",
             AvailableToClasses = new[] { CharacterClass.Alchemist }
@@ -915,6 +932,7 @@ public static class ClassAbilitySystem
 
         // ═══════════════════════════════════════════════════════════════════════════════
         // UNIVERSAL ABILITIES - Available to all non-spellcaster classes
+        // BALANCE: Basic utility abilities available to all martial classes.
         // ═══════════════════════════════════════════════════════════════════════════════
         ["second_wind"] = new ClassAbility
         {
@@ -925,7 +943,7 @@ public static class ClassAbilitySystem
             StaminaCost = 25,
             Cooldown = 5,
             Type = AbilityType.Heal,
-            BaseHealing = 25,
+            BaseHealing = 25,  // Emergency heal - scales with CON+WIS
             AvailableToClasses = new[] {
                 CharacterClass.Warrior, CharacterClass.Barbarian, CharacterClass.Paladin,
                 CharacterClass.Assassin, CharacterClass.Ranger, CharacterClass.Jester,
@@ -941,7 +959,7 @@ public static class ClassAbilitySystem
             StaminaCost = 15,
             Cooldown = 2,
             Type = AbilityType.Buff,
-            AttackBonus = 25,
+            AttackBonus = 20,  // Buff - scales with CHA
             Duration = 1,
             AvailableToClasses = new[] {
                 CharacterClass.Warrior, CharacterClass.Barbarian, CharacterClass.Paladin,
@@ -958,7 +976,7 @@ public static class ClassAbilitySystem
             StaminaCost = 40,
             Cooldown = 6,
             Type = AbilityType.Heal,
-            BaseHealing = 70,
+            BaseHealing = 55,  // Stronger heal - scales with CON+WIS
             AvailableToClasses = new[] {
                 CharacterClass.Warrior, CharacterClass.Barbarian, CharacterClass.Paladin,
                 CharacterClass.Assassin, CharacterClass.Ranger, CharacterClass.Jester,
@@ -974,7 +992,7 @@ public static class ClassAbilitySystem
             StaminaCost = 55,
             Cooldown = 4,
             Type = AbilityType.Attack,
-            BaseDamage = 130,
+            BaseDamage = 90,  // Powerful strike - scales with STR+DEX
             SpecialEffect = "desperate",
             AvailableToClasses = new[] {
                 CharacterClass.Warrior, CharacterClass.Barbarian, CharacterClass.Paladin,
@@ -991,7 +1009,7 @@ public static class ClassAbilitySystem
             StaminaCost = 60,
             Cooldown = 6,
             Type = AbilityType.Buff,
-            DefenseBonus = 60,
+            DefenseBonus = 50,  // Defense - scales with CON
             Duration = 3,
             SpecialEffect = "resist_all",
             AvailableToClasses = new[] {
@@ -1098,21 +1116,42 @@ public static class ClassAbilitySystem
         result.CooldownApplied = ability.Cooldown;
 
         // Calculate scaled effect values
-        double levelScale = 1.0 + (user.Level * 0.02); // 2% per level
+        // BALANCE: Abilities should always be stronger than basic attacks to reward
+        // using special moves. Scale is 3% per level and stats contribute significantly
+        // to make stat investment feel impactful.
+        double levelScale = 1.0 + (user.Level * 0.03); // 3% per level
 
-        // Stat scaling based on ability type
+        // Stat scaling based on ability type - stats are now major contributors
+        // Similar to spell scaling where INT gives 4% per point above 10
         double statScale = 1.0;
         if (ability.Type == AbilityType.Attack)
         {
-            statScale += user.Strength * 0.003; // Strength for attacks
+            // Strength contributes 3% per point above 10 (20 STR = 1.30x, 30 STR = 1.60x)
+            statScale += Math.Max(0, (user.Strength - 10) * 0.03);
+            // Dexterity adds a smaller bonus for accuracy/precision
+            statScale += Math.Max(0, (user.Dexterity - 10) * 0.01);
         }
         else if (ability.Type == AbilityType.Heal)
         {
-            statScale += user.Constitution * 0.003; // Con for healing
+            // Constitution contributes 2.5% per point above 10 for healing
+            statScale += Math.Max(0, (user.Constitution - 10) * 0.025);
+            // Wisdom adds smaller healing bonus
+            statScale += Math.Max(0, (user.Wisdom - 10) * 0.015);
         }
         else if (ability.Type == AbilityType.Defense)
         {
-            statScale += user.Constitution * 0.002;
+            // Constitution contributes 2% per point above 10 for defense
+            statScale += Math.Max(0, (user.Constitution - 10) * 0.02);
+        }
+        else if (ability.Type == AbilityType.Buff)
+        {
+            // Charisma affects buff potency
+            statScale += Math.Max(0, (user.Charisma - 10) * 0.02);
+        }
+        else if (ability.Type == AbilityType.Debuff)
+        {
+            // Intelligence affects debuff potency
+            statScale += Math.Max(0, (user.Intelligence - 10) * 0.025);
         }
 
         double totalScale = levelScale * statScale;
@@ -1120,7 +1159,11 @@ public static class ClassAbilitySystem
         // Apply effects
         if (ability.BaseDamage > 0)
         {
-            result.Damage = (int)(ability.BaseDamage * totalScale * (0.9 + random.NextDouble() * 0.2));
+            // BALANCE: Add weapon power contribution to ability damage
+            // This ensures abilities scale with gear and always beat basic attacks
+            double weaponBonus = user.WeapPow * 0.25; // 25% of weapon power added
+            double scaledDamage = (ability.BaseDamage + weaponBonus) * totalScale;
+            result.Damage = (int)(scaledDamage * (0.9 + random.NextDouble() * 0.2));
         }
 
         if (ability.BaseHealing > 0)
@@ -1130,12 +1173,16 @@ public static class ClassAbilitySystem
 
         if (ability.AttackBonus > 0)
         {
-            result.AttackBonus = (int)(ability.AttackBonus * levelScale);
+            // Buff potency scales with stats for buff-type abilities
+            double buffScale = ability.Type == AbilityType.Buff ? totalScale : levelScale;
+            result.AttackBonus = (int)(ability.AttackBonus * buffScale);
         }
 
         if (ability.DefenseBonus != 0) // Can be negative for rage
         {
-            result.DefenseBonus = (int)(ability.DefenseBonus * levelScale);
+            // Defense bonuses scale with stats for defense-type abilities
+            double defScale = ability.Type == AbilityType.Defense ? totalScale : levelScale;
+            result.DefenseBonus = (int)(ability.DefenseBonus * defScale);
         }
 
         result.Duration = ability.Duration;

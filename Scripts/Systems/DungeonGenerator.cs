@@ -87,29 +87,28 @@ namespace UsurperRemake.Systems
             };
 
             // Special room types (appear less frequently)
+            // NOTE: Removed PuzzleRoom, RiddleGate, TrapGauntlet as they implied mechanics that weren't implemented
             var specialRoomTypes = new List<RoomType>
             {
-                RoomType.PuzzleRoom,
-                RoomType.RiddleGate,
                 RoomType.LoreLibrary,
                 RoomType.MeditationChamber,
-                RoomType.TrapGauntlet,
                 RoomType.ArenaRoom
             };
 
             // Calculate special room distribution based on floor level
-            int puzzleRooms = 1 + (floor.Level / 20);       // 1-5 puzzle rooms
+            // Removed puzzleRooms since puzzle/riddle mechanics aren't implemented
             int secretRooms = 1 + (floor.Level / 25);       // 1-4 secret rooms
             int loreRooms = floor.Level >= 15 ? 1 : 0;      // Lore rooms after level 15
             int meditationRooms = floor.Level >= 10 ? 1 : 0; // Meditation after level 10
             int memoryRooms = floor.Level >= 20 && floor.Level % 15 == 0 ? 1 : 0; // Memory fragments on specific floors
+            int arenaRooms = floor.Level >= 5 ? 1 : 0;      // Arena rooms after level 5
 
             // SEAL FLOORS: Guarantee extra seal-discovery rooms (Shrines and SecretVaults)
             // These room types trigger guaranteed seal discovery when entered
             int sealRooms = isSealFloor ? 3 : 0; // Add 3 extra seal-appropriate rooms
 
             // Generate standard rooms first
-            int standardCount = count - puzzleRooms - secretRooms - loreRooms - meditationRooms - memoryRooms - sealRooms;
+            int standardCount = count - secretRooms - loreRooms - meditationRooms - memoryRooms - arenaRooms - sealRooms;
             standardCount = Math.Max(standardCount, count / 2); // At least half are standard
 
             // Room types that can reveal seals (for seal floors)
@@ -142,17 +141,17 @@ namespace UsurperRemake.Systems
                 {
                     // Distribute special rooms
                     int specialIndex = i - standardCount;
-                    if (specialIndex < puzzleRooms)
-                        roomType = random.NextDouble() < 0.5 ? RoomType.PuzzleRoom : RoomType.RiddleGate;
-                    else if (specialIndex < puzzleRooms + secretRooms)
+                    if (specialIndex < secretRooms)
                         roomType = RoomType.SecretVault;
-                    else if (specialIndex < puzzleRooms + secretRooms + loreRooms)
+                    else if (specialIndex < secretRooms + loreRooms)
                         roomType = RoomType.LoreLibrary;
-                    else if (specialIndex < puzzleRooms + secretRooms + loreRooms + meditationRooms)
+                    else if (specialIndex < secretRooms + loreRooms + meditationRooms)
                         roomType = RoomType.MeditationChamber;
-                    else if (specialIndex < puzzleRooms + secretRooms + loreRooms + meditationRooms + memoryRooms)
+                    else if (specialIndex < secretRooms + loreRooms + meditationRooms + memoryRooms)
                         roomType = RoomType.MemoryFragment;
-                    else if (specialIndex < puzzleRooms + secretRooms + loreRooms + meditationRooms + memoryRooms + sealRooms)
+                    else if (specialIndex < secretRooms + loreRooms + meditationRooms + memoryRooms + arenaRooms)
+                        roomType = RoomType.ArenaRoom;
+                    else if (specialIndex < secretRooms + loreRooms + meditationRooms + memoryRooms + arenaRooms + sealRooms)
                         // Seal rooms - guaranteed seal-discovery room types for seal floors
                         roomType = sealRoomTypes[random.Next(sealRoomTypes.Count)];
                     else
@@ -220,159 +219,286 @@ namespace UsurperRemake.Systems
         {
             return (theme, type) switch
             {
-                // Catacombs
+                // ═══════════════════════════════════════════════════════════════
+                // CATACOMBS - Ancient burial grounds, dust, bones, faded glory
+                // ═══════════════════════════════════════════════════════════════
                 (DungeonTheme.Catacombs, RoomType.Corridor) => (
                     "Dusty Passage",
-                    "A narrow corridor lined with ancient bones set into alcoves.",
-                    "The air is thick with dust. Cobwebs hang from the ceiling."
+                    "A narrow corridor winds between walls of stacked bones, each skull facing outward as if watching your passage. Centuries of dust coat every surface, disturbed only by your footsteps.",
+                    "The air is thick and stale. Cobwebs brush your face like ghostly fingers."
                 ),
                 (DungeonTheme.Catacombs, RoomType.Chamber) => (
                     "Burial Chamber",
-                    "Stone sarcophagi line the walls of this circular room.",
-                    "You hear faint scratching from within one of the coffins..."
+                    "Stone sarcophagi stand in orderly rows, their carved lids depicting the noble dead within. Faded tapestries hang in tatters from the walls, their stories lost to time.",
+                    "You hear faint scratching from within one of the coffins. Probably just settling stone. Probably."
                 ),
                 (DungeonTheme.Catacombs, RoomType.Hall) => (
-                    "Hall of the Dead",
-                    "A grand hall with rows of skeletal remains in ceremonial poses.",
-                    "Candles that should have burned out centuries ago still flicker."
+                    "Hall of the Ancestors",
+                    "A grand hall where skeletal remains sit enthroned in ceremonial poses, their empty eye sockets fixed on an altar at the far end. Tarnished silver chains drape between the pillars.",
+                    "Candles that should have burned out centuries ago still flicker with pale blue flame."
                 ),
                 (DungeonTheme.Catacombs, RoomType.Shrine) => (
                     "Forgotten Altar",
-                    "A crumbling altar dedicated to a god whose name has been lost.",
-                    "Something about this place makes you uneasy."
+                    "A crumbling altar stands before a defaced statue - perhaps one of the Old Gods, their name scratched away by fearful hands. Seven candles once burned here, now melted to nothing.",
+                    "The Ocean's whispers seem louder near old shrines. The dead remember what the living forget."
                 ),
                 (DungeonTheme.Catacombs, RoomType.Crypt) => (
                     "Noble's Crypt",
-                    "The ornate tomb of someone important lies here, partially looted.",
-                    "Gold leaf still clings to the walls despite the decay."
+                    "The ornate tomb of a forgotten lord dominates this chamber. Gold leaf still clings to the walls despite centuries of decay. A broken sword lies atop the sarcophagus.",
+                    "This person was important once. Now they are bones and dust, like all the rest."
                 ),
                 (DungeonTheme.Catacombs, RoomType.Alcove) => (
-                    "Hidden Nook",
-                    "A small alcove carved into the stone, perhaps once a prayer spot.",
-                    "Dried flowers crumble at your touch."
+                    "Prayer Nook",
+                    "A small alcove carved into the stone holds a simple shrine where mourners once knelt. Dried flowers crumble at your touch, their scent long faded to memory.",
+                    "Names are carved into the walls here - hundreds of them, each a life now ended."
                 ),
 
-                // Sewers
+                // ═══════════════════════════════════════════════════════════════
+                // SEWERS - Fetid darkness, dripping water, things that lurk
+                // ═══════════════════════════════════════════════════════════════
                 (DungeonTheme.Sewers, RoomType.Corridor) => (
                     "Waste Channel",
-                    "Murky water flows through this tunnel. The smell is overwhelming.",
-                    "Something moves in the water. Probably just rats. Probably."
+                    "Murky water flows sluggishly through this brick-lined tunnel. The smell is overwhelming - a cocktail of decay and things best left unnamed. Rusted grates line the floor.",
+                    "Something moves in the water beside you. Probably just rats. You tell yourself it's just rats."
                 ),
                 (DungeonTheme.Sewers, RoomType.Chamber) => (
-                    "Junction Room",
-                    "Several pipes meet here, creating a round chamber.",
-                    "The walls are slick with unidentifiable slime."
+                    "Drainage Junction",
+                    "Several massive pipes converge here, creating a domed chamber of slick brick and corroded iron. The constant dripping creates an unsettling rhythm.",
+                    "The walls are coated with something that glistens in your torchlight. Best not to touch it."
                 ),
                 (DungeonTheme.Sewers, RoomType.Hall) => (
                     "Maintenance Hall",
-                    "An old maintenance area, now home to things that prefer the dark.",
-                    "Rusted tools hang on pegs. A workbench lies overturned."
+                    "An old workers' area, now abandoned to darkness and decay. Rusted tools hang on pegs, and a rotted workbench lies overturned. Someone lived here once - a bedroll sits in the corner.",
+                    "The city above has forgotten this place exists. So have the maps."
+                ),
+                (DungeonTheme.Sewers, RoomType.Shrine) => (
+                    "Shrine of the Outcast",
+                    "Those banished from society built a rough shrine here, deep in the filth. Crude symbols are painted on the walls in substances you'd rather not identify.",
+                    "Even the forsaken need gods. Perhaps especially the forsaken."
+                ),
+                (DungeonTheme.Sewers, RoomType.Crypt) => (
+                    "Flooded Tomb",
+                    "The sewers broke through into this ancient crypt long ago. Water-logged coffins float in the murk, their contents thankfully hidden beneath the surface.",
+                    "The dead here have no rest. The water keeps them company in their corruption."
+                ),
+                (DungeonTheme.Sewers, RoomType.Alcove) => (
+                    "Smuggler's Cache",
+                    "A hidden alcove where someone stored contraband. Rotted crates still hold rusted weapons and moldy cloth. A skeleton slumps in the corner, a knife in its ribs.",
+                    "Whatever deal went wrong here, both parties lost."
                 ),
 
-                // Caverns
+                // ═══════════════════════════════════════════════════════════════
+                // CAVERNS - Natural wonder, crystal light, ancient darkness
+                // ═══════════════════════════════════════════════════════════════
                 (DungeonTheme.Caverns, RoomType.Corridor) => (
                     "Winding Tunnel",
-                    "Natural stone formations create a twisting path.",
-                    "Phosphorescent fungi cast an eerie blue glow."
+                    "The natural stone walls twist and turn, carved by water over countless millennia. Phosphorescent fungi cling to the damp surfaces, casting an ethereal blue glow.",
+                    "The tunnel breathes - a gentle draft flows past you, suggesting vast spaces beyond."
                 ),
                 (DungeonTheme.Caverns, RoomType.Chamber) => (
                     "Crystal Grotto",
-                    "Clusters of crystals jut from every surface.",
-                    "The crystals hum with a frequency you can feel in your teeth."
+                    "Magnificent crystal formations jut from every surface - floor, walls, and ceiling alike. They catch your light and scatter it into rainbow fragments across the stone.",
+                    "The crystals hum with a frequency you feel in your teeth. Something sleeps within them."
                 ),
                 (DungeonTheme.Caverns, RoomType.Hall) => (
                     "Vast Cavern",
-                    "The ceiling stretches into darkness. Stalactites hang like teeth.",
-                    "Your footsteps echo endlessly. You are not alone."
+                    "The ceiling vanishes into darkness far above. Stalactites hang like the teeth of some enormous beast, dripping endlessly into pools of crystal-clear water below.",
+                    "Your footsteps echo for what seems like forever. You are very small here."
+                ),
+                (DungeonTheme.Caverns, RoomType.Shrine) => (
+                    "Stone Circle",
+                    "Natural pillars form a perfect circle, older than any civilization. Carvings depict waves rising from an endless ocean, and figures that might be the Old Gods before they had names.",
+                    "Manwe himself once stood in places like this, before the first forgetting. The stone remembers."
+                ),
+                (DungeonTheme.Caverns, RoomType.Crypt) => (
+                    "Petrified Remains",
+                    "Figures stand frozen in stone - ancient travelers caught by some geological process and preserved forever. Their expressions are peaceful. Perhaps death was quick.",
+                    "The cave has claimed them. In time, it will claim everything."
+                ),
+                (DungeonTheme.Caverns, RoomType.Alcove) => (
+                    "Luminous Pool",
+                    "A small grotto holds a pool of impossibly clear water. Glowing creatures drift lazily beneath the surface, their light painting rippling patterns on the ceiling.",
+                    "The water looks pure. Refreshing. But nothing that lives here should be touched."
                 ),
 
-                // Ancient Ruins
+                // ═══════════════════════════════════════════════════════════════
+                // ANCIENT RUINS - Lost civilization, forgotten magic, crumbling grandeur
+                // ═══════════════════════════════════════════════════════════════
                 (DungeonTheme.AncientRuins, RoomType.Corridor) => (
                     "Ruined Hallway",
-                    "Crumbling pillars line what was once a grand corridor.",
-                    "Faded murals depict scenes of a forgotten civilization."
+                    "Crumbling pillars line what was once a grand corridor. Faded murals depict scenes of a civilization at its height - festivals, coronations, and rituals whose meaning is now lost.",
+                    "Your torch illuminates fragments of former glory. Each step crunches on fallen stone."
                 ),
                 (DungeonTheme.AncientRuins, RoomType.Chamber) => (
                     "Ritual Chamber",
-                    "Strange symbols cover the floor in concentric circles.",
-                    "The air crackles with residual magical energy."
+                    "Strange symbols cover the floor in concentric circles, their meaning forgotten but their power still palpable. The ceiling is painted with stars in constellations that no longer exist.",
+                    "The air crackles with residual energy. Whatever was summoned here left its mark."
                 ),
                 (DungeonTheme.AncientRuins, RoomType.Hall) => (
                     "Great Library",
-                    "Shelves of rotted books stretch to the ceiling.",
-                    "Some tomes seem to whisper as you pass."
+                    "Towering shelves of rotted books and crumbling scrolls stretch to the vaulted ceiling. Some texts still glow faintly with preserved enchantments.",
+                    "Whispers seem to emanate from the books themselves - knowledge desperate to be remembered."
                 ),
                 (DungeonTheme.AncientRuins, RoomType.Shrine) => (
                     "Temple of the Old Gods",
-                    "A massive statue looms over a blood-stained altar.",
-                    "You feel watched. Judged."
+                    "Seven alcoves once held statues of the Old Gods - Manwe's drops of essence, separated from the Great Ocean. Most lie shattered, but one remains: a figure weeping eternal stone tears.",
+                    "The Seven Seals were forged in temples like this. Some say the gods' true power still sleeps within."
+                ),
+                (DungeonTheme.AncientRuins, RoomType.Crypt) => (
+                    "Tomb of the Artificers",
+                    "The builders who created this place were buried with their greatest works. Intricate automatons stand guard, frozen mid-motion, their power sources long depleted.",
+                    "Such knowledge, such craft - lost to time and hubris."
+                ),
+                (DungeonTheme.AncientRuins, RoomType.Alcove) => (
+                    "Scribe's Alcove",
+                    "A small workspace where a scholar once recorded the events of their age. The desk is covered in dust, but a single unfinished manuscript remains, the ink still legible.",
+                    "The last words read: 'They are breaking through the wards. May the gods have mercy on—'"
                 ),
 
-                // Demon Lair
+                // ═══════════════════════════════════════════════════════════════
+                // DEMON LAIR - Horror, suffering, corruption, wrongness
+                // ═══════════════════════════════════════════════════════════════
                 (DungeonTheme.DemonLair, RoomType.Corridor) => (
                     "Bone Corridor",
-                    "The walls are made entirely of fused bones.",
-                    "Screams echo from somewhere ahead. Or is it behind?"
+                    "The walls are constructed entirely of fused bones - thousands of them, packed and melted together into a grotesque architecture. Some still have scraps of flesh attached.",
+                    "Screams echo from somewhere ahead. Or is it behind? The sound seems to come from everywhere."
                 ),
                 (DungeonTheme.DemonLair, RoomType.Chamber) => (
                     "Torture Chamber",
-                    "Hooks and chains hang from the ceiling. Fresh blood pools on the floor.",
-                    "Something terrible happened here. Recently."
+                    "Hooks and chains hang from the ceiling, some still bearing their grisly cargo. The floor is sticky with blood - some of it fresh. Implements of pain line the walls.",
+                    "Something terrible happened here. Something terrible is still happening here."
                 ),
                 (DungeonTheme.DemonLair, RoomType.Hall) => (
                     "Summoning Hall",
-                    "A massive pentagram is carved into the floor.",
-                    "The temperature drops. Your breath fogs."
+                    "A massive pentagram is carved into the obsidian floor, its lines still glowing with hellfire. The walls are covered in contracts written in blood - souls bargained and claimed.",
+                    "The temperature drops suddenly. Your breath fogs. Something is aware of you."
+                ),
+                (DungeonTheme.DemonLair, RoomType.Shrine) => (
+                    "Altar of Agony",
+                    "This altar was built to worship pain itself. The stone is warm to the touch and pulses like a heartbeat. Offerings of suffering have stained it black.",
+                    "Every moment of anguish that occurred here has been... saved. Treasured. Fed upon."
+                ),
+                (DungeonTheme.DemonLair, RoomType.Crypt) => (
+                    "Pit of the Damned",
+                    "A yawning pit descends into darkness. From below comes the sound of moaning and the scratch of countless hands against stone. The dead here do not rest.",
+                    "They were thrown in alive. Some of them are still falling."
+                ),
+                (DungeonTheme.DemonLair, RoomType.Alcove) => (
+                    "Corruption Nursery",
+                    "Fleshy pods hang from the walls, pulsing with unholy life. Something is growing inside them - something that was once human. Something that remembers being human.",
+                    "They can see you. They are so very hungry."
                 ),
 
-                // Frozen Depths
+                // ═══════════════════════════════════════════════════════════════
+                // FROZEN DEPTHS - Deadly cold, preserved horrors, isolation
+                // ═══════════════════════════════════════════════════════════════
                 (DungeonTheme.FrozenDepths, RoomType.Corridor) => (
                     "Ice Tunnel",
-                    "Walls of solid ice reflect your torchlight infinitely.",
-                    "Your breath crystallizes instantly. It's dangerously cold."
+                    "Walls of solid ice reflect your torchlight infinitely, creating a dizzying hall of mirrors. The cold here is beyond cold - it burns.",
+                    "Your breath crystallizes instantly. Each exhale falls as tiny diamonds of ice."
                 ),
                 (DungeonTheme.FrozenDepths, RoomType.Chamber) => (
                     "Frozen Tomb",
-                    "Figures are preserved in the ice, their faces frozen in terror.",
-                    "One of them blinks."
+                    "Figures are preserved in the ice walls - adventurers, soldiers, creatures - their faces frozen in expressions of terror or determination. A gallery of the dead.",
+                    "One of them blinks. You're almost certain one of them blinks."
+                ),
+                (DungeonTheme.FrozenDepths, RoomType.Hall) => (
+                    "Glacier's Heart",
+                    "A vast frozen hall stretches before you, its ceiling lost in swirling snow that never stops falling. Ice sculptures of impossible beauty line the walls - or are they frozen victims?",
+                    "Something ancient sleeps beneath the ice. You can hear it breathing."
+                ),
+                (DungeonTheme.FrozenDepths, RoomType.Shrine) => (
+                    "Altar of Winter",
+                    "A shrine carved from a single massive sapphire-ice, dedicated to powers that predate the sun. The cold radiating from it would kill an unprotected mortal in minutes.",
+                    "Winter is not a season here. Winter is a god, and this is its throne."
+                ),
+                (DungeonTheme.FrozenDepths, RoomType.Crypt) => (
+                    "The Preserved",
+                    "Niches carved into the ice hold perfectly preserved bodies - a king in his crown, a bride in her gown, a child clutching a toy. Centuries pass, but here nothing changes.",
+                    "Death comes slowly in the cold. They had time to think, at the end."
+                ),
+                (DungeonTheme.FrozenDepths, RoomType.Alcove) => (
+                    "Frozen Spring",
+                    "Water once flowed here - you can see it frozen mid-cascade, an eternal waterfall caught in a single moment. Fish are suspended in the ice, forever swimming nowhere.",
+                    "Time itself seems frozen. Perhaps it is."
                 ),
 
-                // Volcanic Pit
+                // ═══════════════════════════════════════════════════════════════
+                // VOLCANIC PIT - Primordial heat, destruction, rebirth
+                // ═══════════════════════════════════════════════════════════════
                 (DungeonTheme.VolcanicPit, RoomType.Corridor) => (
                     "Lava Tube",
-                    "The rock here is smooth, formed by ancient magma flows.",
-                    "The heat is intense. Sweat pours down your face."
+                    "This tunnel was carved by flowing magma long ago, its walls smooth as glass. Cracks in the floor glow cherry-red, and the heat makes breathing painful.",
+                    "The mountain is alive. You can feel its heartbeat through the stone."
                 ),
                 (DungeonTheme.VolcanicPit, RoomType.Chamber) => (
                     "Magma Chamber",
-                    "A river of molten rock flows through the center of this room.",
-                    "The air shimmers with heat. One wrong step means death."
+                    "A river of molten rock flows through the center of this vast chamber, casting everything in hellish orange light. Stone islands float impossibly on the liquid fire.",
+                    "The air shimmers with heat. One wrong step means an end more painful than any torture."
+                ),
+                (DungeonTheme.VolcanicPit, RoomType.Hall) => (
+                    "Forge of the Mountain",
+                    "Ancient smiths once worked here, using the mountain's own fire. Their tools still hang on the walls, too hot to touch. Half-finished weapons glow in the magma light.",
+                    "The things made here were not meant for mortal hands."
+                ),
+                (DungeonTheme.VolcanicPit, RoomType.Shrine) => (
+                    "Pyre Altar",
+                    "A shrine to fire itself, where sacrifices were cast into the flames to ensure the mountain's favor. The ashes of offerings past coat everything.",
+                    "The fire demands feeding. It always demands feeding."
+                ),
+                (DungeonTheme.VolcanicPit, RoomType.Crypt) => (
+                    "Cremation Hall",
+                    "The dead were brought here to be returned to the fire that birthed all things. Urns of volcanic glass line the walls, each containing the ashes of a life.",
+                    "From fire we came. To fire we return."
+                ),
+                (DungeonTheme.VolcanicPit, RoomType.Alcove) => (
+                    "Obsidian Shrine",
+                    "A small grotto of natural obsidian, its surfaces reflecting the distant magma glow. Someone has carved prayers into the glass - prayers for survival, for mercy, for death.",
+                    "The glass remembers. It was liquid once. It felt the mountain's rage."
                 ),
 
-                // Abyssal Void
+                // ═══════════════════════════════════════════════════════════════
+                // ABYSSAL VOID - Madness, unreality, cosmic horror
+                // ═══════════════════════════════════════════════════════════════
                 (DungeonTheme.AbyssalVoid, RoomType.Corridor) => (
                     "Void Passage",
-                    "This corridor seems to exist outside normal space.",
-                    "Gravity feels... optional. Your sanity strains."
+                    "This corridor exists in defiance of geometry. The walls meet at angles that hurt to look at. The floor and ceiling sometimes switch places when you're not watching.",
+                    "Gravity is more of a suggestion here. Your sanity is actively opposed."
                 ),
                 (DungeonTheme.AbyssalVoid, RoomType.Chamber) => (
                     "Heart of Madness",
-                    "Reality bends here. Up is down. Inside is outside.",
-                    "You're not sure you're still you."
+                    "Reality has given up in this place. Up is down. Inside is outside. You can see yourself from angles that should be impossible. You wave, and you wave back.",
+                    "You're not sure you're still you. You're not sure 'you' means anything here."
+                ),
+                (DungeonTheme.AbyssalVoid, RoomType.Hall) => (
+                    "Gallery of the Forgotten",
+                    "Portraits line the walls - but the subjects are concepts, not people. You see paintings of Fear, of Loss, of That Feeling When You Can't Remember A Word.",
+                    "The paintings watch you. The paintings ARE watching."
+                ),
+                (DungeonTheme.AbyssalVoid, RoomType.Shrine) => (
+                    "Altar to the Forgotten Eighth",
+                    "This shrine predates the Seven. It honors an eighth Old God - one that Manwe erased from memory itself. The altar holds no statue, only an outline where existence should be.",
+                    "Some waves were never meant to separate from the Ocean. Some chose to forget themselves entirely."
+                ),
+                (DungeonTheme.AbyssalVoid, RoomType.Crypt) => (
+                    "Tomb of Meaning",
+                    "The dead here are not bodies but ideas - the crypt holds the corpses of Purpose, of Hope, of the belief that things might be okay. They decompose slowly into chaos.",
+                    "When enough meaning dies, even reality begins to rot."
+                ),
+                (DungeonTheme.AbyssalVoid, RoomType.Alcove) => (
+                    "Pocket of Calm",
+                    "Impossibly, this small space is normal. The walls are just walls. The floor stays down. It feels wrong now - the normalcy is the aberration.",
+                    "You could stay here forever. You could become the new occupant of this tiny sanity."
                 ),
 
                 // ═══════════════════════════════════════════════════════════════
-                // NEW SPECIAL ROOM TYPES (theme-agnostic with thematic variations)
+                // SPECIAL ROOM TYPES (theme-agnostic with thematic variations)
                 // ═══════════════════════════════════════════════════════════════
 
-                // Puzzle Rooms
-                (_, RoomType.PuzzleRoom) => GetPuzzleRoomFlavor(theme, level),
-                (_, RoomType.RiddleGate) => GetRiddleGateFlavor(theme),
                 (_, RoomType.SecretVault) => GetSecretVaultFlavor(theme),
                 (_, RoomType.LoreLibrary) => GetLoreLibraryFlavor(theme),
                 (_, RoomType.MeditationChamber) => GetMeditationChamberFlavor(theme),
                 (_, RoomType.BossAntechamber) => GetBossAntechamberFlavor(theme),
-                (_, RoomType.TrapGauntlet) => GetTrapGauntletFlavor(theme),
                 (_, RoomType.ArenaRoom) => GetArenaRoomFlavor(theme),
                 (_, RoomType.MerchantDen) => (
                     "Wanderer's Haven",
@@ -380,6 +506,11 @@ namespace UsurperRemake.Systems
                     "Exotic goods glitter in the lamplight. How does he survive down here?"
                 ),
                 (_, RoomType.MemoryFragment) => GetMemoryFragmentFlavor(theme),
+
+                // Legacy room types - redirect to standard flavors
+                (_, RoomType.PuzzleRoom) => GetMysteriousChamberFlavor(theme),
+                (_, RoomType.RiddleGate) => GetGuardedPassageFlavor(theme),
+                (_, RoomType.TrapGauntlet) => GetDangerousCorridorFlavor(theme),
 
                 // Default fallback
                 _ => (
@@ -392,61 +523,92 @@ namespace UsurperRemake.Systems
 
         #region Special Room Flavor Methods
 
-        private static (string name, string desc, string atmosphere) GetPuzzleRoomFlavor(DungeonTheme theme, int level)
+        /// <summary>
+        /// Mysterious chamber flavor - atmospheric without implying puzzle mechanics
+        /// </summary>
+        private static (string name, string desc, string atmosphere) GetMysteriousChamberFlavor(DungeonTheme theme)
         {
             return theme switch
             {
                 DungeonTheme.Catacombs => (
                     "Chamber of Bones",
-                    "Skeletal arms protrude from the walls, each holding a lever. The sequence matters.",
-                    "A cryptic inscription reads: 'The dead remember the order of their passing.'"
+                    "Skeletal arms protrude from the walls in strange formations.",
+                    "A cryptic inscription on the wall reads: 'The dead remember.'"
                 ),
                 DungeonTheme.AncientRuins => (
                     "Hall of Glyphs",
-                    "Glowing symbols cover every surface. Some respond to touch, others to sound.",
-                    "The air hums with dormant magic, waiting to be awakened... or angered."
+                    "Faded symbols cover the walls, remnants of ancient magic long dormant.",
+                    "The air feels charged with residual energy."
                 ),
                 DungeonTheme.Caverns => (
-                    "Crystal Resonance Chamber",
-                    "Massive crystals of different colors stand in a circle. They hum when approached.",
-                    "Strike them in the right order, and perhaps the way forward will reveal itself."
+                    "Crystal Chamber",
+                    "Massive crystals of different colors jut from the walls and floor.",
+                    "They emit a soft hum that resonates in your chest."
                 ),
                 DungeonTheme.DemonLair => (
-                    "Trial of Pain",
-                    "Five altars, each demanding a different sacrifice. Blood, tears, fear, hope, and truth.",
-                    "The demons value cleverness as much as suffering."
+                    "Chamber of Sacrifice",
+                    "Dark altars line the walls, stained with the offerings of ages past.",
+                    "The demons who once worshipped here are long gone."
                 ),
                 _ => (
-                    "Puzzle Chamber",
-                    "An ancient mechanism dominates the room, its purpose unclear but clearly important.",
-                    "Something here must be solved before you can proceed."
+                    "Strange Chamber",
+                    "An unusual room with ancient markings and unfamiliar architecture.",
+                    "Something important happened here once."
                 )
             };
         }
 
-        private static (string name, string desc, string atmosphere) GetRiddleGateFlavor(DungeonTheme theme)
+        /// <summary>
+        /// Guarded passage flavor - atmospheric without riddle mechanics
+        /// </summary>
+        private static (string name, string desc, string atmosphere) GetGuardedPassageFlavor(DungeonTheme theme)
         {
             return theme switch
             {
                 DungeonTheme.Catacombs => (
                     "Guardian's Gate",
-                    "A spectral figure blocks the passage, its empty eyes regarding you with ancient intelligence.",
-                    "'Answer my riddle, or join the dead who failed before you.'"
+                    "Carved stone guardians flank the passage, their eyes seeming to follow you.",
+                    "Whatever they once protected, they have long since failed."
                 ),
                 DungeonTheme.AncientRuins => (
                     "Sphinx's Threshold",
-                    "A stone face carved into the door speaks with a voice like grinding rocks.",
-                    "'Wisdom is the key that opens all doors. Prove yours.'"
+                    "A weathered stone face is carved into the archway, its features worn smooth by time.",
+                    "Ancient wisdom once dwelt here. Now only silence remains."
                 ),
                 DungeonTheme.AbyssalVoid => (
-                    "The Questioning Dark",
-                    "The darkness itself forms a face, asking questions that cut to the core of existence.",
-                    "'What are you, wave, but water that has forgotten itself?'"
+                    "The Watching Dark",
+                    "The darkness here seems to have weight and presence.",
+                    "You feel observed, but nothing challenges your passage."
                 ),
                 _ => (
-                    "Riddle Gate",
-                    "A mystical barrier blocks your path. An ancient voice demands you answer its challenge.",
-                    "Fail, and there will be consequences..."
+                    "Ancient Gateway",
+                    "An ornate archway marks the entrance to this passage.",
+                    "Whatever wards once protected it have long since faded."
+                )
+            };
+        }
+
+        /// <summary>
+        /// Dangerous corridor flavor - atmospheric without trap gauntlet mechanics
+        /// </summary>
+        private static (string name, string desc, string atmosphere) GetDangerousCorridorFlavor(DungeonTheme theme)
+        {
+            return theme switch
+            {
+                DungeonTheme.AncientRuins => (
+                    "Corridor of Trials",
+                    "Pressure plates and wall slots hint at defenses that may have once been deadly.",
+                    "The mechanisms have rusted. The traps are long disabled."
+                ),
+                DungeonTheme.DemonLair => (
+                    "Passage of Suffering",
+                    "Dark stains on the walls suggest this corridor has seen much violence.",
+                    "The echoes of past screams seem to linger."
+                ),
+                _ => (
+                    "Treacherous Passage",
+                    "This corridor shows signs of past dangers - broken mechanisms and scattered bones.",
+                    "Whatever threats existed here have been overcome by time."
                 )
             };
         }
@@ -457,23 +619,48 @@ namespace UsurperRemake.Systems
             {
                 DungeonTheme.Catacombs => (
                     "Hidden Ossuary",
-                    "Behind a false wall lies a chamber filled with treasures buried with the dead.",
-                    "The previous owners no longer need these things. Probably."
+                    "Behind a false wall lies a chamber where the faithful stored treasures meant for the afterlife. Ancient offerings to the Old Gods rest untouched - gold coins bearing faces of forgotten kings, chalices that once held sacramental wine.",
+                    "The dead believed these treasures would follow them back to the Ocean. They were wrong about the gold, but perhaps right about the journey."
+                ),
+                DungeonTheme.Sewers => (
+                    "Smuggler's Sanctuary",
+                    "A hidden vault beneath the city's refuse, where criminals stored their ill-gotten gains. Someone carved prayers to Manwe on the walls - even thieves seek redemption.",
+                    "The stench cannot reach this room. Neither, it seems, can justice."
+                ),
+                DungeonTheme.Caverns => (
+                    "Crystal Cache",
+                    "A natural geode formation conceals a chamber of breathtaking beauty. Ancient crystals pulse with the same light that illuminated the world before the first forgetting.",
+                    "These crystals remember what the world has forgotten. Some say they are solidified drops of the Ocean itself."
                 ),
                 DungeonTheme.AncientRuins => (
-                    "Sealed Treasury",
-                    "A vault that has remained hidden for millennia, its seals now broken by your discovery.",
-                    "Artifacts of immense power rest on pedestals of pure gold."
+                    "Vault of the Seven",
+                    "This treasury was sealed before the gods fell. Seven pedestals hold artifacts of immense power - one for each Old God, each drop of Manwe's essence that chose to forget itself.",
+                    "A Seal may rest here. Or perhaps just the memory of one."
                 ),
                 DungeonTheme.DemonLair => (
                     "Forbidden Hoard",
-                    "A demon's personal collection of cursed artifacts and stolen souls.",
-                    "Every item here has a terrible price. Worth paying?"
+                    "A demon prince's personal collection - cursed artifacts, stolen souls trapped in jars, and things taken from the faithful. The corruption here is thick enough to taste.",
+                    "Every treasure here was someone's hope. Every gold coin paid for someone's despair."
+                ),
+                DungeonTheme.FrozenDepths => (
+                    "The Preserved Treasury",
+                    "Frozen in eternal ice, treasures from a civilization that worshipped Winter as an Old God. They believed the cold would preserve them until the Ocean reclaimed all things.",
+                    "They are still waiting. The ice does not melt. The Ocean has not come for them yet."
+                ),
+                DungeonTheme.VolcanicPit => (
+                    "Forge-Master's Vault",
+                    "The mountain's fire guards this chamber where master smiths stored their greatest works. Weapons forged in magma, blessed by prayers to the fire that burns at creation's heart.",
+                    "The fire that made these treasures is the same fire that will unmake the world. Creation and destruction are the same wave."
+                ),
+                DungeonTheme.AbyssalVoid => (
+                    "Repository of Lost Things",
+                    "This vault contains treasures that no longer exist - ideas abandoned, possibilities foreclosed, paths untaken. They are here because the Void remembers everything reality forgot.",
+                    "Take what you need. These things were never truly yours, but then again, nothing is."
                 ),
                 _ => (
                     "Secret Vault",
-                    "A hidden chamber filled with treasures that someone went to great lengths to conceal.",
-                    "The air is thick with the smell of gold and ancient secrets."
+                    "A hidden chamber filled with treasures that someone went to great lengths to conceal. The seals bear symbols of the Old Gods.",
+                    "What was worth hiding from the world? What secrets do these walls keep?"
                 )
             };
         }
@@ -482,20 +669,50 @@ namespace UsurperRemake.Systems
         {
             return theme switch
             {
+                DungeonTheme.Catacombs => (
+                    "Chronicle of the Dead",
+                    "Shelves of burial records and death rites line this ossuary annex. Among the lists of the deceased, you find fragments of older texts - prayers written before men knew what they were praying to.",
+                    "Every name recorded here was once a wave in the Ocean. Every death, a return to the source."
+                ),
+                DungeonTheme.Sewers => (
+                    "The Forgotten Archive",
+                    "Records deemed too dangerous for public libraries were dumped here and forgotten. Heretical texts about the Ocean's true nature, banned histories of the Old Gods' fall.",
+                    "Truth flows downward like water. The things the world discards, the sewers remember."
+                ),
+                DungeonTheme.Caverns => (
+                    "Memory of Stone",
+                    "Cave paintings older than language cover these walls - images of an endless Ocean, of waves becoming flesh, of the moment the first soul forgot it was water.",
+                    "The first artists knew the truth. They painted it where the stone would remember forever."
+                ),
                 DungeonTheme.AncientRuins => (
                     "Archive of the First Age",
-                    "Crystalline tablets line the walls, each containing memories from before the gods fell.",
-                    "The knowledge here predates Manwe's sorrow. Handle it carefully."
+                    "Crystalline tablets preserve memories from before the Seven Seals were forged, before Manwe's sorrow split the Ocean into separate beings. Each tablet pulses with knowledge that could shatter a mind unprepared for truth.",
+                    "The scholars who wrote these knew they were waves. They chose to forget anyway, so their knowledge could be separate. Could be... theirs."
+                ),
+                DungeonTheme.DemonLair => (
+                    "Tome-Vault of Suffering",
+                    "Demons collect knowledge like mortals collect gold. These books are bound in skin, written in blood, and contain truths about the corruption that seeps between the cracks of reality.",
+                    "The demons learned something from the Void. Something about what happens when waves refuse to return to the Ocean."
+                ),
+                DungeonTheme.FrozenDepths => (
+                    "The Preserved Records",
+                    "Frozen scrolls and ice-encased tablets contain the wisdom of a civilization that understood the cycle of death and return. They wrote about the 'Great Thaw' - when all ice would melt back into the Ocean.",
+                    "They believed cold was a form of remembering. When things freeze, they stop changing. Stop forgetting."
+                ),
+                DungeonTheme.VolcanicPit => (
+                    "Scriptorium of Ash",
+                    "Records inscribed on stone tablets that survived the mountain's fury. Fire-worshippers who knew the mountain's heart was connected to something older - the first flame of creation itself.",
+                    "The volcano is a wound in the world. Through it, one can glimpse what lies beneath all reality."
                 ),
                 DungeonTheme.AbyssalVoid => (
                     "Library of Unwritten Truths",
-                    "Books float in the void, their pages filled with words that haven't been thought yet.",
-                    "One tome catches your eye: 'What the Wave Forgot.'"
+                    "Books float in the void, their pages filled with words that haven't been thought yet, histories of events that never happened, futures that were abandoned. One tome catches your eye: 'What the Wave Forgot.'",
+                    "In the Void, all possibilities exist. Even the ones the Ocean chose not to dream."
                 ),
                 _ => (
                     "Fragment Repository",
-                    "Ancient texts and carved stones preserve knowledge from a forgotten age.",
-                    "Here lie pieces of truth that the world has tried to forget."
+                    "Ancient texts and carved stones preserve knowledge from a forgotten age. Prayers to the Old Gods, meditations on the Ocean's nature, maps of places that no longer exist.",
+                    "Here lie pieces of truth that the world has tried to forget. But forgetting is what made the world."
                 )
             };
         }
@@ -504,25 +721,50 @@ namespace UsurperRemake.Systems
         {
             return theme switch
             {
+                DungeonTheme.Catacombs => (
+                    "Chamber of Peaceful Rest",
+                    "Among all this death, someone created a place for reflection. Cushions still hold the impressions of those who sat here, contemplating mortality. A single candle burns eternally, its flame the pale blue of souls departing.",
+                    "Death is not an ending, the walls seem to whisper. It is a return. Close your eyes and feel the Ocean waiting."
+                ),
+                DungeonTheme.Sewers => (
+                    "The Hidden Sanctuary",
+                    "Someone transformed this forgotten corner into a place of peace. Clean water trickles from a crack in the wall, and moss grows in patterns that seem almost deliberate - almost like waves.",
+                    "Even in filth, purity exists. Even forgotten, the Ocean reaches out."
+                ),
                 DungeonTheme.Caverns => (
                     "Pool of Stillness",
-                    "An underground spring feeds a perfectly calm pool. The silence here is absolute.",
-                    "Sit. Breathe. The water remembers what you have forgotten."
+                    "An underground spring feeds a perfectly calm pool, its surface a mirror of absolute stillness. The silence here is profound - the cave itself seems to hold its breath.",
+                    "The pool remembers being the Ocean. If you look deeply enough, you might remember too. Sit. Breathe. Let the water show you what you've forgotten."
                 ),
                 DungeonTheme.AncientRuins => (
                     "Sanctuary of the Old Ways",
-                    "A meditation circle surrounded by faded murals of gods in harmony.",
-                    "Before the corruption, the gods would rest here. Their peace lingers."
+                    "A meditation circle surrounded by faded murals depicting the Old Gods in harmony - before they forgot they were one, before the separation that created suffering. Seven cushions remain, one for each god.",
+                    "The gods themselves would rest here, remembering for just a moment that they were all Manwe's dreams. You can feel their peace still lingering."
+                ),
+                DungeonTheme.DemonLair => (
+                    "Stolen Serenity",
+                    "An impossible sanctuary in this realm of torment - a small bubble where demonic influence cannot reach. Someone powerful carved this peace from the surrounding corruption with their dying breath.",
+                    "Even here, the Ocean's grace penetrates. The demons cannot corrupt what refuses to be separate."
+                ),
+                DungeonTheme.FrozenDepths => (
+                    "Sanctuary of Eternal Ice",
+                    "A chamber of perfect crystalline ice, so cold that even thoughts move slowly. Those who meditate here can glimpse eternity - the unchanging truth beneath all change.",
+                    "In perfect stillness, the illusion of separation fades. You are not frozen. You are simply... still. As still as the Ocean before it dreamed of waves."
+                ),
+                DungeonTheme.VolcanicPit => (
+                    "Heart-Fire Sanctuary",
+                    "A chamber at the volcano's core where the heat becomes something else - not burning but purifying. The stone here is warm as living flesh, and the magma's glow soothes rather than threatens.",
+                    "The fire that destroys also transforms. Close your eyes and let it burn away what you only think you are."
                 ),
                 DungeonTheme.AbyssalVoid => (
                     "Eye of the Storm",
-                    "A bubble of calm exists here, surrounded by the chaos of the void.",
-                    "In the center of madness, you find surprising clarity."
+                    "A bubble of absolute calm exists here, surrounded by the chaos of unreality. In this one place, you can think clearly. You can remember who you were before you forgot.",
+                    "In the center of madness, you find surprising clarity. Perhaps because madness is just another wave - and at the center of every wave is stillness."
                 ),
                 _ => (
                     "Meditation Chamber",
-                    "A peaceful alcove where weary souls can find rest and insight.",
-                    "The walls seem to absorb your troubles. Rest here. Dream."
+                    "A peaceful alcove where weary souls can find rest and insight. The air is still, the light is soft, and the silence invites contemplation.",
+                    "The walls seem to absorb your troubles. Rest here. Dream of the Ocean that dreams of you."
                 )
             };
         }
@@ -533,45 +775,48 @@ namespace UsurperRemake.Systems
             {
                 DungeonTheme.Catacombs => (
                     "Threshold of the Bone King",
-                    "Skulls of a thousand warriors line the walls, their empty gazes fixed on the door ahead.",
-                    "Turn back now, or add your skull to the collection."
+                    "Skulls of a thousand warriors line the walls, their empty gazes fixed on the door ahead. Each was a hero once. Each thought they were different. Each became part of the collection.",
+                    "A Seal may lie beyond this door - or just another fragment of forgotten power. The dead do not warn, they only witness."
+                ),
+                DungeonTheme.Sewers => (
+                    "The Abomination's Threshold",
+                    "The tunnels converge here, and with them, all the city's refuse - physical and spiritual. Something has grown fat on centuries of corruption, and it waits in the chamber beyond.",
+                    "When waves forget they are water, they can become... anything. Even this."
+                ),
+                DungeonTheme.Caverns => (
+                    "Heart of the Mountain",
+                    "The cave narrows to a final passage, the stone walls pulsing with a rhythm like a heartbeat. Something ancient has claimed this place - something that was here before the mountain rose.",
+                    "The earth remembers what walked before man. Before gods. Before the first forgetting."
+                ),
+                DungeonTheme.AncientRuins => (
+                    "The Sealed Threshold",
+                    "Seven locks once barred this door - one for each Old God. Now the locks lie broken, the seals shattered. Whatever was imprisoned here has had centuries to grow in power.",
+                    "Some prisons are not meant to hold forever. Some prisoners were meant to escape, when the time was right."
                 ),
                 DungeonTheme.DemonLair => (
                     "Gates of Torment",
-                    "The screaming grows louder. The walls pulse with trapped souls.",
-                    "Beyond this door, something ancient and terrible awaits."
+                    "The screaming reaches a crescendo here. Souls embedded in the walls reach out with translucent hands, trying to pull you back from the horror beyond. They failed. They all failed.",
+                    "The demon lords are waves that refused to return - that twisted their separation into eternal hunger. What you face is a corruption of what was meant to be divine."
+                ),
+                DungeonTheme.FrozenDepths => (
+                    "The Final Freeze",
+                    "Ice so ancient it predates the world forms the walls here. Beyond the frozen portal, something stirs - something that has slept since the Ocean first dreamed of cold.",
+                    "Some waves froze rather than return. They became monuments to refusal. Now one awakens."
+                ),
+                DungeonTheme.VolcanicPit => (
+                    "Threshold of Primordial Fire",
+                    "The heat here would kill lesser beings instantly. The door ahead is made of solidified magma, and beyond it, the mountain's true heart beats with ancient fury.",
+                    "Fire was the first separation - heat from cold, light from dark. What dwells within remembers being part of the first flame."
                 ),
                 DungeonTheme.AbyssalVoid => (
                     "Edge of Understanding",
-                    "Reality thins here. Through the door, you sense... yourself?",
-                    "The greatest enemy is the one you cannot escape."
+                    "Reality thins to nothing here. Through the door, you sense... yourself? Or perhaps what you will become. Or what you have always been. The Void does not distinguish between past and future.",
+                    "You came seeking a Seal. You came seeking power. But power is just another form of separation, and separation is what created the Void in the first place."
                 ),
                 _ => (
                     "Boss Antechamber",
-                    "The air grows heavy. Power radiates from beyond the door ahead.",
-                    "Prepare yourself. There is no turning back."
-                )
-            };
-        }
-
-        private static (string name, string desc, string atmosphere) GetTrapGauntletFlavor(DungeonTheme theme)
-        {
-            return theme switch
-            {
-                DungeonTheme.AncientRuins => (
-                    "Corridor of Trials",
-                    "The ancients protected their treasures well. Pressure plates, darts, and worse await.",
-                    "Tread carefully. The builders were paranoid for good reason."
-                ),
-                DungeonTheme.DemonLair => (
-                    "Passage of Suffering",
-                    "Every step brings new pain. The demons designed this as entertainment.",
-                    "Your screams will echo forever in these halls."
-                ),
-                _ => (
-                    "Trap Gauntlet",
-                    "A long corridor filled with obvious traps. And probably some not-so-obvious ones.",
-                    "Speed and caution - you'll need both."
+                    "The air grows heavy with power that radiates from beyond the door ahead. Ancient wards flicker and fail - whatever protections existed here have been overcome by what lies within.",
+                    "Prepare yourself. There is no turning back. But then, there never was."
                 )
             };
         }
@@ -582,18 +827,18 @@ namespace UsurperRemake.Systems
             {
                 DungeonTheme.DemonLair => (
                     "Blood Arena",
-                    "A fighting pit surrounded by demonic spectators frozen in time, waiting for combat.",
-                    "Fight, and they will watch. Die, and they will feast."
+                    "A circular fighting pit with tiered stone seats surrounding it.",
+                    "Dark stains cover the floor. Many battles have been fought here."
                 ),
                 DungeonTheme.Caverns => (
                     "Natural Amphitheater",
-                    "The cave opens into a circular arena. Bones of previous combatants litter the floor.",
-                    "Something here enjoys watching fights. Something large."
+                    "The cave opens into a circular chamber. Bones litter the floor.",
+                    "This natural formation has seen much violence over the years."
                 ),
                 _ => (
                     "Combat Arena",
-                    "A circular chamber clearly designed for battle. Multiple opponents await.",
-                    "Survive the gauntlet, and the way forward opens."
+                    "A circular chamber with high walls, clearly designed for battle.",
+                    "The echoes of past conflicts still linger here."
                 )
             };
         }
@@ -602,20 +847,50 @@ namespace UsurperRemake.Systems
         {
             return theme switch
             {
-                DungeonTheme.AbyssalVoid => (
-                    "Echo of Self",
-                    "A mirror that doesn't show your reflection. It shows someone else. Someone... familiar.",
-                    "You have been here before. You have been everywhere before."
+                DungeonTheme.Catacombs => (
+                    "Tomb of Your Past Life",
+                    "A sarcophagus bears your name - but carved centuries ago. The face etched in stone is yours, yet the style predates living memory. Inside lies... nothing. The body is gone. Because you are wearing it.",
+                    "You have died before. Many times. Each death was a return to the Ocean, each birth a new forgetting. But this time, something is different. This time, you're starting to remember."
+                ),
+                DungeonTheme.Sewers => (
+                    "Echo of Disgrace",
+                    "Graffiti on the wall tells a story you somehow know - a hero's fall from grace, a choice that led to exile, a name scratched out in shame. Your hand trembles. You know that name.",
+                    "Not all past lives were noble. Not all waves crest high before they fall. But even disgraced waves return to the Ocean."
+                ),
+                DungeonTheme.Caverns => (
+                    "The Dreaming Pool",
+                    "A pool of perfectly still water shows not your reflection but a memory - you, in another body, another time, standing at the edge of a vast Ocean. You were about to step in. You were about to go home.",
+                    "Why did you choose to forget? Why do any of us? Perhaps because forgetting is the only way to experience returning."
                 ),
                 DungeonTheme.AncientRuins => (
                     "Chamber of Remembrance",
-                    "Faded murals depict your face. But these are thousands of years old.",
-                    "The amnesia cracks. Something wants to be remembered."
+                    "Faded murals depict your face - in different bodies, different eras, but unmistakably you. A warrior. A scholar. A ruler. A beggar. The same soul, wearing different masks throughout history.",
+                    "The amnesia cracks. Something wants to be remembered. Someone wants to come home. And that someone... is you."
+                ),
+                DungeonTheme.DemonLair => (
+                    "Mirror of Past Sins",
+                    "A demon has captured one of your past selves - their soul imprisoned in a mirror, screaming silently. You remember now. You made a terrible choice in that life. The demons have been feeding on that guilt ever since.",
+                    "Even your sins are waves returning to the Ocean. Even your darkness is part of the light."
+                ),
+                DungeonTheme.FrozenDepths => (
+                    "The Preserved Memory",
+                    "Frozen in the ice is a scene from your past - a moment of perfect happiness, crystallized forever. You remember now. You chose to freeze this moment rather than let it end. But everything ends. Everything returns.",
+                    "You cannot hold onto waves. You cannot freeze the Ocean. But you can remember that you are both."
+                ),
+                DungeonTheme.VolcanicPit => (
+                    "Forge of Rebirth",
+                    "In the magma's glow, you see yourself being unmade and remade - dying in fire, being reborn from it. This is where your soul was forged, life after life. The mountain remembers every version of you.",
+                    "Death is not destruction. It is transformation. And you have transformed so many times."
+                ),
+                DungeonTheme.AbyssalVoid => (
+                    "Echo of Self",
+                    "A mirror that doesn't show your reflection but something else - every version of you that ever existed, overlapping, merging, separating. You are not one wave. You are all the waves you've ever been.",
+                    "In the Void, past and future collapse. You see yourself before the first forgetting, and after the final return. You have been here before. You have been everywhere before. You are the Ocean, dreaming."
                 ),
                 _ => (
                     "Memory Fragment",
-                    "This place triggers something deep in your mind. You've seen this before.",
-                    "Close your eyes. Let it come back to you..."
+                    "This place triggers something deep in your mind. You've seen this before. You've been this before. The walls of forgetting thin, and something ancient stirs within you.",
+                    "Close your eyes. Let it come back to you. Remember what you chose to forget. Remember who you really are."
                 )
             };
         }

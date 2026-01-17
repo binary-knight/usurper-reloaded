@@ -190,18 +190,31 @@ public static class SpellSystem
     /// <summary>
     /// Calculate mana cost for a given spell and caster.
     /// Uses StatEffectsSystem for Wisdom-based mana cost reduction.
-    /// Formula: BaseCost * (1 - reduction%), minimum 1.
+    ///
+    /// BALANCE: Spells have a higher base cost (10 + level*5) to ensure they always
+    /// cost meaningful mana even with high Wisdom. This prevents "free" spell spam.
+    /// The minimum cost also scales with spell level to keep low-level spells
+    /// from becoming trivially cheap at high character levels.
     /// </summary>
     public static int CalculateManaCost(SpellInfo spell, Character caster)
     {
         if (spell == null || caster == null) return 0;
-        int baseCost = spell.Level * 5;
 
-        // Apply Wisdom-based mana cost reduction from StatEffectsSystem
+        // Base cost: 10 + (spell level * 5)
+        // Level 1 spell = 15 base cost
+        // Level 10 spell = 60 base cost
+        // Level 25 spell = 135 base cost
+        int baseCost = 10 + (spell.Level * 5);
+
+        // Apply Wisdom-based mana cost reduction from StatEffectsSystem (max 50%)
         int reductionPercent = StatEffectsSystem.GetManaCostReduction(caster.Wisdom);
         int cost = baseCost - (baseCost * reductionPercent / 100);
 
-        return Math.Max(1, cost);
+        // Minimum cost scales with spell level to prevent low-level spell spam
+        // Level 1 = min 5 mana, Level 10 = min 10 mana, Level 25 = min 15 mana
+        int minimumCost = 5 + (spell.Level / 5);
+
+        return Math.Max(minimumCost, cost);
     }
     
     /// <summary>
@@ -520,15 +533,16 @@ public static class SpellSystem
     }
 
     /// <summary>
-    /// Calculate level-scaled healing (slightly lower scaling than damage)
-    /// Level 1: 1.0x, Level 50: 2.0x, Level 100: 3.0x
+    /// Calculate level-scaled healing (balanced with damage scaling)
+    /// Level 1: 1.0x, Level 50: 2.25x, Level 100: 3.5x
     /// Now also applies proficiency multiplier from training system!
     /// Uses StatEffectsSystem for Wisdom-based healing bonus.
     /// </summary>
     private static int ScaleHealingEffect(int baseHealing, Character caster, Random random, float proficiencyMult = 1.0f)
     {
-        // Healing scales a bit slower than damage
-        double levelMultiplier = 1.0 + (caster.Level * 0.02);
+        // Healing scales slightly slower than damage but still meaningful
+        // 2.5% per level (damage is 3%) gives good progression
+        double levelMultiplier = 1.0 + (caster.Level * 0.025);
 
         // Use StatEffectsSystem for Wisdom-based healing multiplier
         double wisdomBonus = StatEffectsSystem.GetHealingMultiplier(caster.Wisdom);
@@ -550,14 +564,14 @@ public static class SpellSystem
         switch (spellLevel)
         {
             // --- EARLY TIER (Levels 1-25) ---
-            case 1: // Cure Light - Base: 4-7 hp
-                int baseHeal1 = 4 + random.Next(4);
+            case 1: // Cure Light - Base: 12-22 hp
+                int baseHeal1 = 12 + random.Next(11);
                 result.Healing = ScaleHealingEffect(baseHeal1, caster, random, profMult);
                 result.Message += $" {caster.Name2} regains {result.Healing} hitpoints!";
                 break;
 
-            case 2: // Divine Shield - Protection +5
-                int baseProtection2 = (int)((5 + (caster.Level / 15)) * profMult);
+            case 2: // Divine Shield - Protection +8
+                int baseProtection2 = (int)((8 + (caster.Level / 12)) * profMult);
                 result.ProtectionBonus = baseProtection2;
                 result.Duration = 999;
                 result.Message += $" {caster.Name2} feels protected! (+{result.ProtectionBonus} defense)";
@@ -568,51 +582,51 @@ public static class SpellSystem
                 result.Message += $" {caster.Name2} is cleansed of afflictions!";
                 break;
 
-            case 4: // Bless Weapon - Attack +10
-                int baseAttack4 = (int)((10 + (caster.Level / 10)) * profMult);
+            case 4: // Bless Weapon - Attack +12
+                int baseAttack4 = (int)((12 + (caster.Level / 10)) * profMult);
                 result.AttackBonus = baseAttack4;
                 result.Duration = 999;
                 result.Message += $" {caster.Name2}'s weapon glows with holy light! (+{result.AttackBonus} attack)";
                 break;
 
-            case 5: // Cure Wounds - Base: 15-25 hp
-                int baseHeal5 = 15 + random.Next(11);
+            case 5: // Cure Wounds - Base: 25-40 hp
+                int baseHeal5 = 25 + random.Next(16);
                 result.Healing = ScaleHealingEffect(baseHeal5, caster, random, profMult);
                 result.Message += $" {caster.Name2} regains {result.Healing} hitpoints!";
                 break;
 
             case 6: // Turn Undead - Damage vs undead
-                int baseDamage6 = 30 + random.Next(11);
+                int baseDamage6 = 35 + random.Next(16);
                 result.Damage = ScaleSpellEffect(baseDamage6, caster, random, profMult);
                 result.SpecialEffect = "holy";
                 result.Message += $" Holy light sears undead foes for {result.Damage} damage!";
                 break;
 
-            case 7: // Sanctuary - Protection +15
-                int baseProtection7 = (int)((15 + (caster.Level / 8)) * profMult);
+            case 7: // Sanctuary - Protection +18
+                int baseProtection7 = (int)((18 + (caster.Level / 7)) * profMult);
                 result.ProtectionBonus = baseProtection7;
                 result.Duration = 3;
                 result.Message += $" A holy sanctuary protects {caster.Name2}! (+{result.ProtectionBonus} defense)";
                 break;
 
             // --- MID TIER (Levels 26-50) ---
-            case 8: // Cure Critical - Base: 40-55 hp
-                int baseHeal8 = 40 + random.Next(16);
+            case 8: // Cure Critical - Base: 50-75 hp
+                int baseHeal8 = 50 + random.Next(26);
                 result.Healing = ScaleHealingEffect(baseHeal8, caster, random, profMult);
                 if (caster.Darkness > 0) caster.Darkness = Math.Max(0, caster.Darkness - 10);
                 else caster.Chivalry += 10;
                 result.Message += $" {caster.Name2} feels blessed and regains {result.Healing} hitpoints!";
                 break;
 
-            case 9: // Holy Smite - Base: 35-50 damage
-                int baseDamage9 = 35 + random.Next(16);
+            case 9: // Holy Smite - Base: 45-65 damage
+                int baseDamage9 = 45 + random.Next(21);
                 result.Damage = ScaleSpellEffect(baseDamage9, caster, random, profMult);
                 result.SpecialEffect = "holy";
                 result.Message += $" Righteous fury strikes {target?.Name2 ?? "the enemy"} for {result.Damage} damage!";
                 break;
 
-            case 10: // Armor of Faith - Protection +25
-                int baseProtection10 = (int)((25 + (caster.Level / 6)) * profMult);
+            case 10: // Armor of Faith - Protection +28
+                int baseProtection10 = (int)((28 + (caster.Level / 5)) * profMult);
                 result.ProtectionBonus = baseProtection10;
                 result.Duration = 999;
                 result.Message += $" Divine armor surrounds {caster.Name2}! (+{result.ProtectionBonus} defense)";
@@ -623,65 +637,65 @@ public static class SpellSystem
                 result.Message += $" Dark enchantments are banished!";
                 break;
 
-            case 12: // Mass Cure - Base: 30-45 hp to all
-                int baseHeal12 = 30 + random.Next(16);
+            case 12: // Mass Cure - Base: 35-55 hp to all
+                int baseHeal12 = 35 + random.Next(21);
                 result.Healing = ScaleHealingEffect(baseHeal12, caster, random, profMult);
                 result.IsMultiTarget = true;
                 result.Message += $" Healing light restores {result.Healing} hitpoints to all allies!";
                 break;
 
-            case 13: // Holy Explosion - Base: 50-70 damage to all
-                int baseDamage13 = 50 + random.Next(21);
+            case 13: // Holy Explosion - Base: 55-80 damage to all
+                int baseDamage13 = 55 + random.Next(26);
                 result.Damage = ScaleSpellEffect(baseDamage13, caster, random, profMult);
                 result.IsMultiTarget = true;
                 result.Message += $" A holy explosion deals {result.Damage} damage to all enemies!";
                 break;
 
-            case 14: // Prayer of Fortitude - +20 all defenses
-                int baseProtection14 = (int)((20 + (caster.Level / 5)) * profMult);
+            case 14: // Prayer of Fortitude - +25 all defenses
+                int baseProtection14 = (int)((25 + (caster.Level / 5)) * profMult);
                 result.ProtectionBonus = baseProtection14;
                 result.Duration = 999;
                 result.Message += $" Body and spirit are strengthened! (+{result.ProtectionBonus} defense)";
                 break;
 
             // --- HIGH TIER (Levels 51-75) ---
-            case 15: // Invisibility - Protection +40
-                int baseProtection15 = (int)((40 + (caster.Level / 4)) * profMult);
+            case 15: // Invisibility - Protection +45
+                int baseProtection15 = (int)((45 + (caster.Level / 4)) * profMult);
                 result.ProtectionBonus = baseProtection15;
                 result.Duration = 999;
                 result.SpecialEffect = "invisible";
                 result.Message += $" {caster.Name2} becomes invisible! (+{result.ProtectionBonus} defense)";
                 break;
 
-            case 16: // Summon Angel - Attack +50
-                int baseAttack16 = (int)((50 + (caster.Level)) * profMult);
+            case 16: // Summon Angel - Attack +55
+                int baseAttack16 = (int)((55 + (caster.Level)) * profMult);
                 result.AttackBonus = baseAttack16;
                 result.Duration = 999;
                 result.SpecialEffect = "angel";
                 result.Message += $" An Angel descends with golden wings! (+{result.AttackBonus} attack)";
                 break;
 
-            case 17: // Divine Lightning - Base: 80-100 damage
-                int baseDamage17 = 80 + random.Next(21);
+            case 17: // Divine Lightning - Base: 90-120 damage
+                int baseDamage17 = 90 + random.Next(31);
                 result.Damage = ScaleSpellEffect(baseDamage17, caster, random, profMult);
                 result.Message += $" Divine lightning strikes {target?.Name2 ?? "the enemy"} for {result.Damage} damage!";
                 break;
 
-            case 18: // Restoration - Base: 150-200 hp
-                int baseHeal18 = 150 + random.Next(51);
+            case 18: // Restoration - Base: 160-220 hp
+                int baseHeal18 = 160 + random.Next(61);
                 result.Healing = ScaleHealingEffect(baseHeal18, caster, random, profMult);
                 result.Message += $" {caster.Name2} is fully restored with {result.Healing} hitpoints!";
                 break;
 
-            case 19: // Holy Word - Base: 100-130 damage
-                int baseDamage19 = 100 + random.Next(31);
+            case 19: // Holy Word - Base: 110-145 damage
+                int baseDamage19 = 110 + random.Next(36);
                 result.Damage = ScaleSpellEffect(baseDamage19, caster, random, profMult);
                 result.SpecialEffect = "holy";
                 result.Message += $" The Holy Word wounds the unholy for {result.Damage} damage!";
                 break;
 
-            case 20: // Divine Intervention - Protection +80
-                int baseProtection20 = (int)((80 + (caster.Level / 2)) * profMult);
+            case 20: // Divine Intervention - Protection +85
+                int baseProtection20 = (int)((85 + (caster.Level / 2)) * profMult);
                 result.ProtectionBonus = baseProtection20;
                 result.Duration = 5;
                 result.SpecialEffect = "divination";
@@ -689,22 +703,22 @@ public static class SpellSystem
                 break;
 
             // --- LEGENDARY TIER (Levels 76-100) ---
-            case 21: // Aurelion's Radiance - Base: 150-180 damage to all
-                int baseDamage21 = 150 + random.Next(31);
+            case 21: // Aurelion's Radiance - Base: 160-220 damage to all
+                int baseDamage21 = 160 + random.Next(61);
                 result.Damage = ScaleSpellEffect(baseDamage21, caster, random, profMult);
                 result.IsMultiTarget = true;
                 result.SpecialEffect = "holy";
                 result.Message += $" Aurelion's blinding radiance deals {result.Damage} damage to all!";
                 break;
 
-            case 22: // Resurrection Prayer - Base: 300-400 hp
-                int baseHeal22 = 300 + random.Next(101);
+            case 22: // Resurrection Prayer - Base: 320-450 hp
+                int baseHeal22 = 320 + random.Next(131);
                 result.Healing = ScaleHealingEffect(baseHeal22, caster, random, profMult);
                 result.Message += $" Life itself is restored! {caster.Name2} regains {result.Healing} hitpoints!";
                 break;
 
-            case 23: // Divine Avatar - All stats +50%
-                int baseBonus23 = (int)((50 + (caster.Level / 2)) * profMult);
+            case 23: // Divine Avatar - All stats +55
+                int baseBonus23 = (int)((55 + (caster.Level)) * profMult);
                 result.AttackBonus = baseBonus23;
                 result.ProtectionBonus = baseBonus23;
                 result.Duration = 999;
@@ -712,8 +726,8 @@ public static class SpellSystem
                 result.Message += $" {caster.Name2} becomes a divine avatar! (+{baseBonus23} to all)";
                 break;
 
-            case 24: // Judgment - Base: 200-280 damage
-                int baseDamage24 = 200 + random.Next(81);
+            case 24: // Judgment - Base: 220-320 damage
+                int baseDamage24 = 220 + random.Next(101);
                 result.Damage = ScaleSpellEffect(baseDamage24, caster, random, profMult);
                 result.SpecialEffect = "holy";
                 if (caster.Darkness > 0) caster.Darkness = Math.Max(0, caster.Darkness - 30);
@@ -721,8 +735,8 @@ public static class SpellSystem
                 result.Message += $" Divine judgment strikes for {result.Damage} damage!";
                 break;
 
-            case 25: // God's Finger - Base: 300-400 damage to all
-                int baseDamage25 = 300 + random.Next(101);
+            case 25: // God's Finger - Base: 320-450 damage to all
+                int baseDamage25 = 320 + random.Next(131);
                 result.Damage = ScaleSpellEffect(baseDamage25, caster, random, profMult);
                 result.IsMultiTarget = true;
                 result.SpecialEffect = "holy";
@@ -740,21 +754,21 @@ public static class SpellSystem
         switch (spellLevel)
         {
             // --- EARLY TIER (Levels 1-25) ---
-            case 1: // Magic Missile - Base: 4-7 damage
-                int baseDamage1 = 4 + random.Next(4);
+            case 1: // Magic Missile - Base: 10-18 damage
+                int baseDamage1 = 10 + random.Next(9);
                 result.Damage = ScaleSpellEffect(baseDamage1, caster, random, profMult);
                 result.Message += $" Magic missiles strike {target?.Name2 ?? "the target"} for {result.Damage} damage!";
                 break;
 
-            case 2: // Arcane Shield - Protection +8
-                int baseProtection2 = (int)((8 + (caster.Level / 12)) * profMult);
+            case 2: // Arcane Shield - Protection +10
+                int baseProtection2 = (int)((10 + (caster.Level / 10)) * profMult);
                 result.ProtectionBonus = baseProtection2;
                 result.Duration = 999;
                 result.Message += $" A shimmering shield surrounds {caster.Name2}! (+{result.ProtectionBonus} defense)";
                 break;
 
-            case 3: // Spark - Base: 8-12 damage
-                int baseDamage3 = 8 + random.Next(5);
+            case 3: // Spark - Base: 18-28 damage
+                int baseDamage3 = 18 + random.Next(11);
                 result.Damage = ScaleSpellEffect(baseDamage3, caster, random, profMult);
                 result.SpecialEffect = "lightning";
                 result.Message += $" Sparks jolt {target?.Name2 ?? "the target"} for {result.Damage} damage!";
@@ -769,8 +783,8 @@ public static class SpellSystem
                 }
                 break;
 
-            case 5: // Frost Touch - Base: 15-22 damage
-                int baseDamage5 = 15 + random.Next(8);
+            case 5: // Frost Touch - Base: 28-42 damage
+                int baseDamage5 = 28 + random.Next(15);
                 result.Damage = ScaleSpellEffect(baseDamage5, caster, random, profMult);
                 result.SpecialEffect = "frost";
                 result.Message += $" Frost chills {target?.Name2 ?? "the target"} for {result.Damage} damage!";
@@ -786,7 +800,7 @@ public static class SpellSystem
                 break;
 
             case 7: // Haste - Attack bonus
-                int baseAttack7 = (int)((15 + (caster.Level / 5)) * profMult);
+                int baseAttack7 = (int)((18 + (caster.Level / 5)) * profMult);
                 result.AttackBonus = baseAttack7;
                 result.Duration = 999;
                 result.SpecialEffect = "haste";
@@ -794,17 +808,17 @@ public static class SpellSystem
                 break;
 
             // --- MID TIER (Levels 26-50) ---
-            case 8: // Power Hat - Base: 40-60 hp + protection
-                int baseHeal8 = 40 + random.Next(21);
+            case 8: // Power Hat - Base: 50-75 hp + protection
+                int baseHeal8 = 50 + random.Next(26);
                 result.Healing = ScaleHealingEffect(baseHeal8, caster, random, profMult);
-                int baseProtection8 = (int)((10 + (caster.Level / 10)) * profMult);
+                int baseProtection8 = (int)((12 + (caster.Level / 8)) * profMult);
                 result.ProtectionBonus = baseProtection8;
                 result.Duration = 999;
                 result.Message += $" {caster.Name2} regains {result.Healing} hp! (+{result.ProtectionBonus} defense)";
                 break;
 
-            case 9: // Fireball - Base: 50-65 damage
-                int baseDamage9 = 50 + random.Next(16);
+            case 9: // Fireball - Base: 55-75 damage
+                int baseDamage9 = 55 + random.Next(21);
                 result.Damage = ScaleSpellEffect(baseDamage9, caster, random, profMult);
                 result.SpecialEffect = "fire";
                 result.Message += $" A Fireball engulfs {target?.Name2 ?? "the target"} for {result.Damage} damage!";
@@ -819,61 +833,61 @@ public static class SpellSystem
                 }
                 break;
 
-            case 11: // Lightning Bolt - Base: 55-70 damage
-                int baseDamage11 = 55 + random.Next(16);
+            case 11: // Lightning Bolt - Base: 60-80 damage
+                int baseDamage11 = 60 + random.Next(21);
                 result.Damage = ScaleSpellEffect(baseDamage11, caster, random, profMult);
                 result.SpecialEffect = "lightning";
                 result.Message += $" Lightning strikes {target?.Name2 ?? "the target"} for {result.Damage} damage!";
                 break;
 
-            case 12: // Mirror Image - Protection +30
-                int baseProtection12 = (int)((30 + (caster.Level / 5)) * profMult);
+            case 12: // Mirror Image - Protection +35
+                int baseProtection12 = (int)((35 + (caster.Level / 4)) * profMult);
                 result.ProtectionBonus = baseProtection12;
                 result.Duration = 999;
                 result.SpecialEffect = "mirror";
                 result.Message += $" Illusory duplicates confuse enemies! (+{result.ProtectionBonus} defense)";
                 break;
 
-            case 13: // Ice Storm - Base: 45-60 damage to all
-                int baseDamage13 = 45 + random.Next(16);
+            case 13: // Ice Storm - Base: 50-70 damage to all
+                int baseDamage13 = 50 + random.Next(21);
                 result.Damage = ScaleSpellEffect(baseDamage13, caster, random, profMult);
                 result.IsMultiTarget = true;
                 result.SpecialEffect = "frost";
                 result.Message += $" An Ice Storm assaults all foes for {result.Damage} damage!";
                 break;
 
-            case 14: // Prismatic Shield - Protection +40
-                int baseProtection14 = (int)((40 + (caster.Level / 4)) * profMult);
+            case 14: // Prismatic Shield - Protection +45
+                int baseProtection14 = (int)((45 + (caster.Level / 4)) * profMult);
                 result.ProtectionBonus = baseProtection14;
                 result.Duration = 999;
                 result.Message += $" A prismatic cage protects {caster.Name2}! (+{result.ProtectionBonus} defense)";
                 break;
 
             // --- HIGH TIER (Levels 51-75) ---
-            case 15: // Chain Lightning - Base: 70-90 damage to all
-                int baseDamage15 = 70 + random.Next(21);
+            case 15: // Chain Lightning - Base: 80-105 damage to all
+                int baseDamage15 = 80 + random.Next(26);
                 result.Damage = ScaleSpellEffect(baseDamage15, caster, random, profMult);
                 result.IsMultiTarget = true;
                 result.SpecialEffect = "lightning";
                 result.Message += $" Chain lightning arcs through all enemies for {result.Damage} damage!";
                 break;
 
-            case 16: // Disintegrate - Base: 100-130 damage
-                int baseDamage16 = 100 + random.Next(31);
+            case 16: // Disintegrate - Base: 110-150 damage
+                int baseDamage16 = 110 + random.Next(41);
                 result.Damage = ScaleSpellEffect(baseDamage16, caster, random, profMult);
                 result.SpecialEffect = "disintegrate";
                 result.Message += $" {target?.Name2 ?? "The target"} is disintegrated for {result.Damage} damage!";
                 break;
 
-            case 17: // Pillar of Fire - Base: 110-140 damage
-                int baseDamage17 = 110 + random.Next(31);
+            case 17: // Pillar of Fire - Base: 120-160 damage
+                int baseDamage17 = 120 + random.Next(41);
                 result.Damage = ScaleSpellEffect(baseDamage17, caster, random, profMult);
                 result.SpecialEffect = "fire";
                 result.Message += $" A Pillar of Fire consumes {target?.Name2 ?? "the target"} for {result.Damage} damage!";
                 break;
 
             case 18: // Time Stop - Extra turn
-                int baseBonus18 = (int)((30 + (caster.Level / 3)) * profMult);
+                int baseBonus18 = (int)((35 + (caster.Level / 3)) * profMult);
                 result.AttackBonus = baseBonus18;
                 result.ProtectionBonus = baseBonus18;
                 result.Duration = 1;
@@ -881,16 +895,16 @@ public static class SpellSystem
                 result.Message += $" Time itself halts! (+{baseBonus18} to attack and defense)";
                 break;
 
-            case 19: // Meteor Swarm - Base: 120-150 damage to all
-                int baseDamage19 = 120 + random.Next(31);
+            case 19: // Meteor Swarm - Base: 130-180 damage to all
+                int baseDamage19 = 130 + random.Next(51);
                 result.Damage = ScaleSpellEffect(baseDamage19, caster, random, profMult);
                 result.IsMultiTarget = true;
                 result.SpecialEffect = "fire";
                 result.Message += $" Meteors rain down for {result.Damage} damage to all!";
                 break;
 
-            case 20: // Arcane Immunity - Protection +60
-                int baseProtection20 = (int)((60 + (caster.Level / 3)) * profMult);
+            case 20: // Arcane Immunity - Protection +65
+                int baseProtection20 = (int)((65 + (caster.Level / 2)) * profMult);
                 result.ProtectionBonus = baseProtection20;
                 result.Duration = 999;
                 result.SpecialEffect = "immunity";
@@ -904,8 +918,8 @@ public static class SpellSystem
                 result.Message += $" A word of power paralyzes {target?.Name2 ?? "the enemy"}!";
                 break;
 
-            case 22: // Manwe's Creation - Base: 180-220 damage
-                int baseDamage22 = 180 + random.Next(41);
+            case 22: // Manwe's Creation - Base: 200-280 damage
+                int baseDamage22 = 200 + random.Next(81);
                 result.Damage = ScaleSpellEffect(baseDamage22, caster, random, profMult);
                 result.SpecialEffect = "creation";
                 result.Message += $" Manwe's creative force destroys for {result.Damage} damage!";
@@ -919,8 +933,8 @@ public static class SpellSystem
                 result.Message += $" A demon is summoned from the abyss! (+{result.AttackBonus} attack)";
                 break;
 
-            case 24: // Power Word: Kill - Base: 250-320 damage
-                int baseDamage24 = 250 + random.Next(71);
+            case 24: // Power Word: Kill - Base: 280-380 damage
+                int baseDamage24 = 280 + random.Next(101);
                 result.Damage = ScaleSpellEffect(baseDamage24, caster, random, profMult);
                 result.SpecialEffect = "death";
                 result.Message += $" The POWER WORD KILL strikes for {result.Damage} damage!";
@@ -946,8 +960,8 @@ public static class SpellSystem
         switch (spellLevel)
         {
             // --- EARLY TIER (Levels 1-25) - First Awakening ---
-            case 1: // Fog of War - Protection +5
-                int baseProtection1 = (int)((5 + (caster.Level / 15)) * profMult);
+            case 1: // Fog of War - Protection +7
+                int baseProtection1 = (int)((7 + (caster.Level / 12)) * profMult);
                 result.ProtectionBonus = baseProtection1;
                 result.Duration = 999;
                 result.SpecialEffect = "fog";
@@ -963,8 +977,8 @@ public static class SpellSystem
                 }
                 break;
 
-            case 3: // Mind Spike - Base: 8-14 damage
-                int baseDamage3 = 8 + random.Next(7);
+            case 3: // Mind Spike - Base: 12-22 damage
+                int baseDamage3 = 12 + random.Next(11);
                 result.Damage = ScaleSpellEffect(baseDamage3, caster, random, profMult);
                 result.SpecialEffect = "psychic";
                 result.Message += $" A psychic spike strikes {target?.Name2 ?? "the target"} for {result.Damage} damage!";
@@ -979,16 +993,16 @@ public static class SpellSystem
                 }
                 break;
 
-            case 5: // Duplicate - Protection +12
-                int baseProtection5 = (int)((12 + (caster.Level / 8)) * profMult);
+            case 5: // Duplicate - Protection +14
+                int baseProtection5 = (int)((14 + (caster.Level / 8)) * profMult);
                 result.ProtectionBonus = baseProtection5;
                 result.Duration = 999;
                 result.SpecialEffect = "duplicate";
                 result.Message += $" An illusory duplicate confuses enemies! (+{result.ProtectionBonus} defense)";
                 break;
 
-            case 6: // Roast - Base: 20-30 damage
-                int baseDamage6 = 20 + random.Next(11);
+            case 6: // Roast - Base: 25-38 damage
+                int baseDamage6 = 25 + random.Next(14);
                 result.Damage = ScaleSpellEffect(baseDamage6, caster, random, profMult);
                 result.SpecialEffect = "fire";
                 result.Message += $" Hellfire scorches {target?.Name2 ?? "the target"} for {result.Damage} damage!";
@@ -1004,8 +1018,8 @@ public static class SpellSystem
                 break;
 
             // --- MID TIER (Levels 26-50) - Second Awakening ---
-            case 8: // Hit Self - Base: 40-55 damage
-                int baseDamage8 = 40 + random.Next(16);
+            case 8: // Hit Self - Base: 45-65 damage
+                int baseDamage8 = 45 + random.Next(21);
                 result.Damage = ScaleSpellEffect(baseDamage8, caster, random, profMult);
                 result.SpecialEffect = "psychic";
                 result.Message += $" {target?.Name2 ?? "The target"} strikes themselves for {result.Damage} damage!";
@@ -1016,32 +1030,32 @@ public static class SpellSystem
                 result.Message += $" {caster.Name2} vanishes from battle!";
                 break;
 
-            case 10: // Giant Form - Attack +30
-                int baseAttack10 = (int)((30 + (caster.Level / 4)) * profMult);
+            case 10: // Giant Form - Attack +32
+                int baseAttack10 = (int)((32 + (caster.Level / 4)) * profMult);
                 result.AttackBonus = baseAttack10;
                 result.Duration = 999;
                 result.SpecialEffect = "giant";
                 result.Message += $" {caster.Name2} transforms into a GIANT! (+{result.AttackBonus} attack)";
                 break;
 
-            case 11: // Steal Life - Base: 35-50 damage, heals half
-                int baseDamage11 = 35 + random.Next(16);
+            case 11: // Steal Life - Base: 40-60 damage, heals half
+                int baseDamage11 = 40 + random.Next(21);
                 result.Damage = ScaleSpellEffect(baseDamage11, caster, random, profMult);
                 result.Healing = result.Damage / 2;
                 result.SpecialEffect = "drain";
                 result.Message += $" Life is stolen for {result.Damage} damage! {caster.Name2} heals {result.Healing}!";
                 break;
 
-            case 12: // Psychic Scream - Base: 40-55 damage to all
-                int baseDamage12 = 40 + random.Next(16);
+            case 12: // Psychic Scream - Base: 45-65 damage to all
+                int baseDamage12 = 45 + random.Next(21);
                 result.Damage = ScaleSpellEffect(baseDamage12, caster, random, profMult);
                 result.IsMultiTarget = true;
                 result.SpecialEffect = "psychic";
                 result.Message += $" A psychic scream assaults all enemies for {result.Damage} damage!";
                 break;
 
-            case 13: // Shadow Cloak - Protection +35
-                int baseProtection13 = (int)((35 + (caster.Level / 5)) * profMult);
+            case 13: // Shadow Cloak - Protection +38
+                int baseProtection13 = (int)((38 + (caster.Level / 5)) * profMult);
                 result.ProtectionBonus = baseProtection13;
                 result.Duration = 999;
                 result.SpecialEffect = "shadow";
@@ -1058,30 +1072,30 @@ public static class SpellSystem
                 break;
 
             // --- HIGH TIER (Levels 51-75) - Third Awakening ---
-            case 15: // Energy Drain - Base: 90-120 damage
-                int baseDamage15 = 90 + random.Next(31);
+            case 15: // Energy Drain - Base: 95-130 damage
+                int baseDamage15 = 95 + random.Next(36);
                 result.Damage = ScaleSpellEffect(baseDamage15, caster, random, profMult);
                 result.SpecialEffect = "drain";
                 result.Message += $" Energy is drained from {target?.Name2 ?? "the target"} for {result.Damage} damage!";
                 break;
 
-            case 16: // Mind Blank - Protection +50, immune to mind
-                int baseProtection16 = (int)((50 + (caster.Level / 3)) * profMult);
+            case 16: // Mind Blank - Protection +55, immune to mind
+                int baseProtection16 = (int)((55 + (caster.Level / 3)) * profMult);
                 result.ProtectionBonus = baseProtection16;
                 result.Duration = 999;
                 result.SpecialEffect = "mindblank";
                 result.Message += $" {caster.Name2}'s mind becomes impervious! (+{result.ProtectionBonus} defense)";
                 break;
 
-            case 17: // Shadow Step - Base: 80-100 damage, ignores defense
-                int baseDamage17 = 80 + random.Next(21);
+            case 17: // Shadow Step - Base: 85-115 damage, ignores defense
+                int baseDamage17 = 85 + random.Next(31);
                 result.Damage = ScaleSpellEffect(baseDamage17, caster, random, profMult);
                 result.SpecialEffect = "shadowstep";
                 result.Message += $" {caster.Name2} strikes through shadows for {result.Damage} damage!";
                 break;
 
-            case 18: // Summon Demon - Attack +70
-                int baseAttack18 = (int)((70 + (caster.Level)) * profMult);
+            case 18: // Summon Demon - Attack +75
+                int baseAttack18 = (int)((75 + (caster.Level)) * profMult);
                 result.AttackBonus = baseAttack18;
                 result.Duration = 999;
                 result.SpecialEffect = "demon";
@@ -1095,8 +1109,8 @@ public static class SpellSystem
                 result.Message += $" All enemies are driven mad with visions!";
                 break;
 
-            case 20: // Noctura's Veil - Protection +70
-                int baseProtection20 = (int)((70 + (caster.Level / 2)) * profMult);
+            case 20: // Noctura's Veil - Protection +75
+                int baseProtection20 = (int)((75 + (caster.Level / 2)) * profMult);
                 result.ProtectionBonus = baseProtection20;
                 result.Duration = 999;
                 result.SpecialEffect = "shadow";
@@ -1104,8 +1118,8 @@ public static class SpellSystem
                 break;
 
             // --- LEGENDARY TIER (Levels 76-100) - Deep Awakening ---
-            case 21: // Soul Rend - Base: 150-200 damage
-                int baseDamage21 = 150 + random.Next(51);
+            case 21: // Soul Rend - Base: 170-240 damage
+                int baseDamage21 = 170 + random.Next(71);
                 result.Damage = ScaleSpellEffect(baseDamage21, caster, random, profMult);
                 result.SpecialEffect = "soul";
                 result.Message += $" The soul is torn from {target?.Name2 ?? "the target"} for {result.Damage} damage!";
@@ -1117,24 +1131,24 @@ public static class SpellSystem
                 result.Message += $" {caster.Name2} taps into infinite wisdom! Spells cost half mana!";
                 break;
 
-            case 23: // Temporal Paradox - Base: 180-220 damage
-                int baseDamage23 = 180 + random.Next(41);
+            case 23: // Temporal Paradox - Base: 200-280 damage
+                int baseDamage23 = 200 + random.Next(81);
                 result.Damage = ScaleSpellEffect(baseDamage23, caster, random, profMult);
                 result.SpecialEffect = "temporal";
                 result.Message += $" {target?.Name2 ?? "The target"} is trapped in a time loop for {result.Damage} damage!";
                 break;
 
-            case 24: // Veloura's Embrace - Heal 250 + Protection +80
-                int baseHeal24 = 200 + random.Next(101);
+            case 24: // Veloura's Embrace - Heal 280 + Protection +85
+                int baseHeal24 = 240 + random.Next(81);
                 result.Healing = ScaleHealingEffect(baseHeal24, caster, random, profMult);
-                int baseProtection24 = (int)((80 + (caster.Level / 2)) * profMult);
+                int baseProtection24 = (int)((85 + (caster.Level / 2)) * profMult);
                 result.ProtectionBonus = baseProtection24;
                 result.Duration = 999;
                 result.Message += $" Veloura's love heals {result.Healing}! (+{result.ProtectionBonus} defense)";
                 break;
 
-            case 25: // Death Kiss - Base: 280-380 damage
-                int baseDamage25 = 280 + random.Next(101);
+            case 25: // Death Kiss - Base: 300-420 damage
+                int baseDamage25 = 300 + random.Next(121);
                 result.Damage = ScaleSpellEffect(baseDamage25, caster, random, profMult);
                 result.SpecialEffect = "death";
                 result.Message += $" The DEATH KISS drains all life for {result.Damage} damage!";

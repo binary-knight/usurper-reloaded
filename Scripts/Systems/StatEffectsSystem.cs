@@ -130,11 +130,13 @@ public static class StatEffectsSystem
 
     /// <summary>
     /// Spell damage multiplier from Intelligence
-    /// Formula: 1.0 + (Intelligence - 10) * 0.02 (so 20 INT = 1.2x spell damage)
+    /// Formula: 1.0 + (Intelligence - 10) * 0.04 (so 20 INT = 1.4x, 30 INT = 1.8x spell damage)
+    /// This is doubled from the original to make Intelligence investment more impactful
+    /// for spellcasters, similar to how Strength benefits physical damage dealers.
     /// </summary>
     public static float GetSpellDamageMultiplier(long intelligence)
     {
-        return 1.0f + Math.Max(0, (intelligence - 10) * 0.02f);
+        return 1.0f + Math.Max(0, (intelligence - 10) * 0.04f);
     }
 
     /// <summary>
@@ -188,20 +190,26 @@ public static class StatEffectsSystem
 
     /// <summary>
     /// Healing effectiveness multiplier
-    /// Formula: 1.0 + Wisdom * 0.01 (so 20 WIS = 1.2x healing)
+    /// Formula: 1.0 + (Wisdom - 10) * 0.015 (so 20 WIS = 1.15x, 30 WIS = 1.30x healing)
+    /// Balanced to give meaningful healing bonuses from Wisdom investment.
     /// </summary>
     public static float GetHealingMultiplier(long wisdom)
     {
-        return 1.0f + wisdom * 0.01f;
+        return 1.0f + Math.Max(0, (wisdom - 10) * 0.015f);
     }
 
     /// <summary>
     /// Mana regeneration per round
-    /// Formula: 1 + Wisdom / 15
+    /// Formula: 1 + Wisdom / 20, capped at 4 mana per round
+    ///
+    /// BALANCE: Capped at 4 to prevent spellcasters from regenerating
+    /// more mana than their spells cost. Even with optimal stats,
+    /// casting should cost more than regen to require resource management.
     /// </summary>
     public static int GetManaRegenPerRound(long wisdom)
     {
-        return 1 + (int)(wisdom / 15);
+        int regen = 1 + (int)(wisdom / 20);
+        return Math.Min(4, regen); // Cap at 4 mana per round
     }
 
     // =====================================================
