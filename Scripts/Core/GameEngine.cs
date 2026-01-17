@@ -27,6 +27,14 @@ public partial class GameEngine : Node
     public static bool IsIntentionalExit { get; private set; } = false;
 
     /// <summary>
+    /// Mark the current session as an intentional exit (prevents warning on shutdown)
+    /// </summary>
+    public static void MarkIntentionalExit()
+    {
+        IsIntentionalExit = true;
+    }
+
+    /// <summary>
     /// Thread-safe singleton accessor using Lazy initialization
     /// </summary>
     public static GameEngine Instance
@@ -116,9 +124,18 @@ public partial class GameEngine : Node
     public static async Task RunConsoleAsync()
     {
         var engine = Instance;
-        await engine.RunMainGameLoop();
+
+        // Check if we're in BBS door mode
+        if (UsurperRemake.BBS.DoorMode.IsInDoorMode)
+        {
+            await engine.RunBBSDoorMode();
+        }
+        else
+        {
+            await engine.RunMainGameLoop();
+        }
     }
-    
+
     /// <summary>
     /// Main game loop for console mode
     /// </summary>
@@ -131,6 +148,105 @@ public partial class GameEngine : Node
 
         // Go directly to main menu (skip the redundant title screen)
         await MainMenu();
+    }
+
+    /// <summary>
+    /// BBS Door mode - automatically loads or creates character based on drop file
+    /// </summary>
+    private async Task RunBBSDoorMode()
+    {
+        InitializeGame();
+
+        var playerName = UsurperRemake.BBS.DoorMode.GetPlayerName();
+        UsurperRemake.BBS.DoorMode.Log($"BBS Door mode: Looking for save for '{playerName}'");
+
+        // Show a brief welcome
+        terminal.ClearScreen();
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("║                USURPER REBORN - Halls of Avarice                            ║");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+        terminal.SetColor("white");
+        terminal.WriteLine($"Welcome, {playerName}!");
+        terminal.WriteLine("");
+
+        // Check if this BBS user has an existing save
+        var existingSave = SaveSystem.Instance.GetMostRecentSave(playerName);
+
+        if (existingSave != null)
+        {
+            // Existing character found - offer to load or create new
+            terminal.SetColor("green");
+            terminal.WriteLine($"Found existing character: Level {existingSave.Level}, Day {existingSave.CurrentDay}");
+            terminal.WriteLine($"Last played: {existingSave.SaveTime:yyyy-MM-dd HH:mm}");
+            terminal.WriteLine("");
+
+            terminal.SetColor("bright_white");
+            terminal.WriteLine("[L] Load existing character");
+            terminal.WriteLine("[N] Create new character (WARNING: Overwrites existing!)");
+            terminal.WriteLine("[Q] Quit");
+            terminal.WriteLine("");
+
+            var choice = await terminal.GetInput("Your choice: ");
+
+            switch (choice.ToUpper())
+            {
+                case "L":
+                    // LoadSaveByFileName enters the game world automatically
+                    await LoadSaveByFileName(existingSave.FileName);
+                    break;
+
+                case "N":
+                    terminal.SetColor("bright_red");
+                    terminal.WriteLine("");
+                    terminal.WriteLine("WARNING: This will DELETE your existing character!");
+                    var confirm = await terminal.GetInput("Type 'DELETE' to confirm: ");
+                    if (confirm == "DELETE")
+                    {
+                        // Delete existing saves for this player
+                        var saves = SaveSystem.Instance.GetPlayerSaves(playerName);
+                        foreach (var save in saves)
+                        {
+                            SaveSystem.Instance.DeleteSave(Path.GetFileNameWithoutExtension(save.FileName));
+                        }
+                        // CreateNewGame handles character creation and enters the game world
+                        await CreateNewGame(playerName);
+                    }
+                    else
+                    {
+                        terminal.WriteLine("Character deletion cancelled.", "yellow");
+                        await Task.Delay(2000);
+                        // Recurse to show menu again
+                        await RunBBSDoorMode();
+                    }
+                    break;
+
+                case "Q":
+                    IsIntentionalExit = true;
+                    terminal.WriteLine("Goodbye!", "cyan");
+                    await Task.Delay(1000);
+                    break;
+
+                default:
+                    // Default to loading existing character
+                    await LoadSaveByFileName(existingSave.FileName);
+                    break;
+            }
+        }
+        else
+        {
+            // No existing character - create new one
+            terminal.SetColor("yellow");
+            terminal.WriteLine("No existing character found. Let's create one!");
+            terminal.WriteLine("");
+            await Task.Delay(1500);
+
+            // CreateNewGame handles character creation and enters the game world
+            await CreateNewGame(playerName);
+        }
     }
 
     public override void _Ready()
@@ -643,7 +759,11 @@ public partial class GameEngine : Node
                     var newName = await terminal.GetInput("Enter new character name: ");
                     if (!string.IsNullOrWhiteSpace(newName))
                     {
-                        if (playerNames.Contains(newName))
+                        // Case-insensitive check to prevent file system conflicts
+                        var nameExists = playerNames.Any(n =>
+                            string.Equals(n, newName, StringComparison.OrdinalIgnoreCase));
+
+                        if (nameExists)
                         {
                             terminal.WriteLine("That name already exists! Choose a different name.", "red");
                             await Task.Delay(2000);

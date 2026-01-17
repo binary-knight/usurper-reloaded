@@ -1,5 +1,6 @@
 using UsurperRemake.Utils;
 using UsurperRemake.Systems;
+using UsurperRemake.BBS;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -41,10 +42,23 @@ public class CharacterCreationSystem
         try
         {
             // Step 1: Choose character name (used for both Name1 and Name2)
-            var characterName = await SelectCharacterName();
-            if (string.IsNullOrEmpty(characterName))
+            // In BBS door mode, the character name is locked to the BBS username
+            string characterName;
+            if (DoorMode.IsInDoorMode)
             {
-                return null; // User aborted
+                characterName = DoorMode.GetPlayerName();
+                terminal.WriteLine($"Your character will be named: {characterName}", "cyan");
+                terminal.WriteLine("(Name is set by your BBS login)", "gray");
+                terminal.WriteLine("");
+                await Task.Delay(1500);
+            }
+            else
+            {
+                characterName = await SelectCharacterName();
+                if (string.IsNullOrEmpty(characterName))
+                {
+                    return null; // User aborted
+                }
             }
             character.Name1 = characterName;
             character.Name2 = characterName;

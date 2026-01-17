@@ -109,7 +109,8 @@ jobs:
         run: |
           mkdir -p build/windows-x64
           mkdir -p build/windows-x86
-          mkdir -p build/linux
+          mkdir -p build/linux-x64
+          mkdir -p build/linux-arm64
           mkdir -p build/mac
 
       # --- Publish platform executables directly from main project ---
@@ -143,21 +144,35 @@ jobs:
             exit 1
           fi
 
-      - name: Publish Linux executable
+      - name: Publish Linux x64 executable
         run: |
-          echo "Publishing Linux executable..."
-          dotnet publish usurper-reloaded.csproj -c Release -r linux-x64 -o build/linux \
+          echo "Publishing Linux x64 executable..."
+          dotnet publish usurper-reloaded.csproj -c Release -r linux-x64 -o build/linux-x64 \
             -p:PublishSingleFile=true -p:SelfContained=true -p:InvariantGlobalization=true
-          if [ -f "build/linux/UsurperRemake" ]; then
-            # Keep original name for launcher compatibility
-            chmod +x "build/linux/UsurperRemake"
-            # Copy Linux launcher
-            cp launchers/usurper-reborn.sh build/linux/
-            chmod +x build/linux/usurper-reborn.sh
-            echo "✅ Linux publish successful"
+          if [ -f "build/linux-x64/UsurperRemake" ]; then
+            chmod +x "build/linux-x64/UsurperRemake"
+            cp launchers/usurper-reborn.sh build/linux-x64/
+            chmod +x build/linux-x64/usurper-reborn.sh
+            echo "✅ Linux x64 publish successful"
           else
-            echo "Linux publish failed"
-            ls -la build/linux/
+            echo "Linux x64 publish failed"
+            ls -la build/linux-x64/
+            exit 1
+          fi
+
+      - name: Publish Linux ARM64 executable
+        run: |
+          echo "Publishing Linux ARM64 executable..."
+          dotnet publish usurper-reloaded.csproj -c Release -r linux-arm64 -o build/linux-arm64 \
+            -p:PublishSingleFile=true -p:SelfContained=true -p:InvariantGlobalization=true
+          if [ -f "build/linux-arm64/UsurperRemake" ]; then
+            chmod +x "build/linux-arm64/UsurperRemake"
+            cp launchers/usurper-reborn.sh build/linux-arm64/
+            chmod +x build/linux-arm64/usurper-reborn.sh
+            echo "✅ Linux ARM64 publish successful"
+          else
+            echo "Linux ARM64 publish failed"
+            ls -la build/linux-arm64/
             exit 1
           fi
 
@@ -218,7 +233,7 @@ jobs:
       - name: Add GPL compliance files to builds
         run: |
           # Copy GPL compliance files to all build directories
-          for dir in build/windows-x64 build/windows-x86 build/linux build/mac; do
+          for dir in build/windows-x64 build/windows-x86 build/linux-x64 build/linux-arm64 build/mac; do
             cp LICENSE "$dir/"
             cp GPL_NOTICE.txt "$dir/"
             cp usurper-reloaded-source.zip "$dir/"
@@ -252,7 +267,8 @@ jobs:
 
           # Copy README to other platforms
           cp build/windows-x64/README.txt build/windows-x86/README.txt
-          cp build/windows-x64/README.txt build/linux/README.txt
+          cp build/windows-x64/README.txt build/linux-x64/README.txt
+          cp build/windows-x64/README.txt build/linux-arm64/README.txt
           cp build/windows-x64/README.txt build/mac/README.txt
 
           echo "GPL compliance files added to all builds"
@@ -269,11 +285,17 @@ jobs:
           name: windows-x86-build
           path: build/windows-x86/
 
-      - name: Upload Linux Build
+      - name: Upload Linux x64 Build
         uses: actions/upload-artifact@v4
         with:
-          name: linux-build
-          path: build/linux/
+          name: linux-x64-build
+          path: build/linux-x64/
+
+      - name: Upload Linux ARM64 Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-arm64-build
+          path: build/linux-arm64/
 
       - name: Upload macOS Build
         uses: actions/upload-artifact@v4
@@ -299,7 +321,8 @@ jobs:
           # Create zip archives for each platform
           cd windows-x64-build && zip -r ../UsurperReborn-${{ github.ref_name }}-Windows-x64.zip . && cd ..
           cd windows-x86-build && zip -r ../UsurperReborn-${{ github.ref_name }}-Windows-x86.zip . && cd ..
-          cd linux-build && zip -r ../UsurperReborn-${{ github.ref_name }}-Linux-x64.zip . && cd ..
+          cd linux-x64-build && zip -r ../UsurperReborn-${{ github.ref_name }}-Linux-x64.zip . && cd ..
+          cd linux-arm64-build && zip -r ../UsurperReborn-${{ github.ref_name }}-Linux-ARM64.zip . && cd ..
           cd mac-build && zip -r ../UsurperReborn-${{ github.ref_name }}-macOS-x64.zip . && cd ..
 
           ls -la *.zip
@@ -311,6 +334,7 @@ jobs:
             UsurperReborn-${{ github.ref_name }}-Windows-x64.zip
             UsurperReborn-${{ github.ref_name }}-Windows-x86.zip
             UsurperReborn-${{ github.ref_name }}-Linux-x64.zip
+            UsurperReborn-${{ github.ref_name }}-Linux-ARM64.zip
             UsurperReborn-${{ github.ref_name }}-macOS-x64.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -334,7 +358,7 @@ jobs:
           echo "=== Directory structure after download ==="
           ls -la
           ls -la windows-x64-build/ || echo "No windows-x64-build dir"
-          ls -la linux-build/ || echo "No linux-build dir"
+          ls -la linux-x64-build/ || echo "No linux-x64-build dir"
 
           mkdir -p steam-build/depot-windows
           mkdir -p steam-build/depot-linux
@@ -349,11 +373,11 @@ jobs:
             exit 1
           fi
 
-          if [ -d "linux-build" ]; then
-            cp -r linux-build/* steam-build/depot-linux/
+          if [ -d "linux-x64-build" ]; then
+            cp -r linux-x64-build/* steam-build/depot-linux/
             echo "Linux files copied: $(ls steam-build/depot-linux/ | wc -l) files"
           else
-            echo "ERROR: linux-build directory not found!"
+            echo "ERROR: linux-x64-build directory not found!"
             exit 1
           fi
 

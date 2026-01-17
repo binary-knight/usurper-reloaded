@@ -1,6 +1,6 @@
 # Usurper Reborn
 
-## ALPHA v0 - Now Seeking Testers!
+## ALPHA v0.6 - Now with BBS Door Support!
 
 **FREE AND OPEN SOURCE SOFTWARE - GPL v2 Licensed**
 
@@ -204,12 +204,18 @@ usurper-reborn/
 │   │   ├── PuzzleSystem.cs
 │   │   ├── EndingsSystem.cs
 │   │   └── ... (many more)
+│   ├── BBS/            # BBS door mode support
+│   │   ├── DoorMode.cs
+│   │   ├── DropFileParser.cs
+│   │   ├── SocketTerminal.cs
+│   │   └── BBSTerminalAdapter.cs
 │   ├── Locations/      # 30+ game locations
 │   ├── AI/             # NPC AI systems (Brain, Memory, Goals, Emotions)
 │   ├── Data/           # Game data (NPCs, Equipment, Monsters, Old Gods)
 │   └── UI/             # Terminal emulator interface
 ├── Console/            # Console bootstrap and terminal
 ├── Data/               # JSON game data
+├── DOCS/               # Documentation and examples
 └── .github/            # CI/CD workflows
 ```
 
@@ -277,17 +283,56 @@ How long to complete Usurper Reborn:
 
 *Note: Playtime varies based on difficulty mode and exploration style.*
 
+### BBS Door Mode (NEW in v0.6)
+Run Usurper Reborn as a door game on modern BBS software:
+- **DOOR32.SYS Support** - Modern format with socket handle for telnet connections
+- **DOOR.SYS Support** - Legacy 52-line format with console I/O fallback
+- **Synchronet BBS** - Full compatibility with socket-based I/O
+- **Mystic BBS** - Works with standard door configuration
+- **Multi-Node Support** - Each node gets isolated session handling
+- **BBS-Isolated Saves** - Saves stored per-BBS to prevent user conflicts
+- **Character Name Locking** - Character names locked to BBS username for consistency
+- **Cross-Platform** - Works on Windows x64/x86, Linux x64/ARM64, and macOS
+
+**Quick Setup for Sysops:**
+```bash
+# Command line options
+UsurperRemake --door <dropfile>    # Auto-detect DOOR32.SYS or DOOR.SYS
+UsurperRemake --door32 <path>      # Explicit DOOR32.SYS
+UsurperRemake --doorsys <path>     # Explicit DOOR.SYS
+UsurperRemake --local              # Local testing mode
+```
+
+For detailed BBS setup instructions, see [DOCS/BBS_DOOR_SETUP.md](DOCS/BBS_DOOR_SETUP.md).
+
 ## What's Still In Development
 
 ### Missing from Original Usurper
 - Castle politics (some throne challenges implemented, royal functions pending)
-- Multiplayer/BBS-style node support (single-player only)
 
 ### Future Enhancements
 - Audio and enhanced ANSI art
 - Additional companion personal quest storylines
 
-### Recently Completed
+### Recently Completed (v0.6)
+- **BBS Door Mode** - Full support for running as a BBS door game (DOOR32.SYS, DOOR.SYS)
+- **Linux ARM64 Build** - Added support for Raspberry Pi and ARM servers
+- **Save Isolation** - BBS saves stored per-BBS to prevent user conflicts across different BBSes
+- **Character Name Locking** - In door mode, character names match BBS usernames
+- **Socket I/O** - Direct socket communication via inherited handles from BBS software
+- **Console Fallback** - Automatic fallback to console I/O when socket unavailable
+
+### Completed in v0.5
+- **Resurrection System** - Return to Temple of Light after death; resurrect spouses/lovers from Home
+- **Dungeon Level Restrictions** - Floors limited to player level +/- 10 for balanced progression
+- **Enhanced Training** - Spend multiple training points at once to reach next proficiency level
+- **Team Healing** - Heal individual teammates or entire party with potions during exploration
+- **Statistics Tracking** - Now tracks Potions Used, Health Restored, Resurrections, Diseases Cured
+- **Shop Improvements** - Better selling interface showing all sellable items
+- **Exit Handling** - Clean quit via menu no longer shows emergency save warning
+- **Puzzle Fixes** - Lever puzzles now use intuitive 1-indexed numbers
+
+### Previously Completed
 - **Team System** - Full team management with Team Corner location
 - **Tournament System** - Tug-of-war, single elimination, round robin competitions
 - **Betrayal System** - Hidden betrayal tracking with organic NPC betrayals
@@ -341,10 +386,11 @@ Join our Discord server for discussions, feedback, and updates:
 - Romance/marriage/family systems
 - Story progression and endings
 
-### Known Issues (Alpha)
+### Known Issues (Alpha v0.6)
 - Some edge cases in combat may cause unexpected behavior
 - NPC AI occasionally makes suboptimal decisions
-- Save files from pre-alpha may not be compatible
+- Save files from earlier alpha versions may not be fully compatible
+- BBS socket mode may not work on all Linux distributions (falls back to console I/O)
 
 ### How to Report Bugs
 1. Join Discord: https://discord.gg/BqY66QkPGE
@@ -354,4 +400,4 @@ Join our Discord server for discussions, feedback, and updates:
 
 ---
 
-**Status**: ALPHA v0.1 - Actively seeking testers!
+**Status**: ALPHA v0.6 - Now with BBS Door Support!

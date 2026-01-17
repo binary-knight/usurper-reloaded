@@ -253,7 +253,8 @@ public class LocationManager
             }
             else
             {
-                // NoWhere means quit game
+                // NoWhere means quit game - mark as intentional exit
+                GameEngine.MarkIntentionalExit();
                 terminal.WriteLine("Returning to main menu...", "yellow");
                 await Task.Delay(1000);
             }

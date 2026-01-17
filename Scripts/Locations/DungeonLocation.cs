@@ -6626,84 +6626,169 @@ public class DungeonLocation : BaseLocation
         terminal.WriteLine($"╚═══════════════════════════════════════════════════════╝");
         terminal.WriteLine("");
 
-        var currentRoom = currentFloor.GetCurrentRoom();
+        // Build spatial map from room connections
+        var roomPositions = BuildRoomPositionMap();
 
-        // Display rooms in a simple list format with connections
-        foreach (var room in currentFloor.Rooms)
+        if (roomPositions.Count == 0)
         {
-            bool isCurrentRoom = room.Id == currentFloor.CurrentRoomId;
+            terminal.WriteLine("Map data unavailable.", "gray");
+            await terminal.PressAnyKey();
+            return;
+        }
 
-            // Room indicator
-            if (isCurrentRoom)
-            {
-                terminal.SetColor("bright_yellow");
-                terminal.Write(">> ");
-            }
-            else if (room.IsExplored)
-            {
-                terminal.SetColor("white");
-                terminal.Write("   ");
-            }
-            else
-            {
-                terminal.SetColor("darkgray");
-                terminal.Write("   ");
-            }
+        // Find bounds
+        int minX = roomPositions.Values.Min(p => p.x);
+        int maxX = roomPositions.Values.Max(p => p.x);
+        int minY = roomPositions.Values.Min(p => p.y);
+        int maxY = roomPositions.Values.Max(p => p.y);
 
-            // Room status icons
-            if (room.IsBossRoom)
-            {
-                terminal.SetColor("bright_red");
-                terminal.Write("[B]");
-            }
-            else if (room.HasStairsDown)
-            {
-                terminal.SetColor("blue");
-                terminal.Write("[v]");
-            }
-            else if (room.IsCleared)
-            {
-                terminal.SetColor("green");
-                terminal.Write("[+]");
-            }
-            else if (room.HasMonsters && room.IsExplored)
-            {
-                terminal.SetColor("red");
-                terminal.Write("[!]");
-            }
-            else if (room.IsExplored)
-            {
-                terminal.SetColor("cyan");
-                terminal.Write("[.]");
-            }
-            else
-            {
-                terminal.SetColor("darkgray");
-                terminal.Write("[?]");
-            }
+        // Create position lookup
+        var posToRoom = new Dictionary<(int x, int y), DungeonRoom>();
+        foreach (var kvp in roomPositions)
+        {
+            var room = currentFloor.Rooms.FirstOrDefault(r => r.Id == kvp.Key);
+            if (room != null)
+                posToRoom[kvp.Value] = room;
+        }
 
-            // Room name
-            terminal.SetColor(room.IsExplored ? "white" : "darkgray");
-            terminal.Write($" {room.Name}");
-
-            // Exits
-            if (room.IsExplored)
+        // Render map (each room is 5 chars wide, 3 chars tall)
+        // Row format: corridor row, then room row, then corridor row
+        for (int y = minY; y <= maxY; y++)
+        {
+            // Top corridor row (vertical connections from above)
+            var topLine = new System.Text.StringBuilder();
+            for (int x = minX; x <= maxX; x++)
             {
-                terminal.SetColor("darkgray");
-                terminal.Write(" - ");
-                foreach (var exit in room.Exits)
+                if (posToRoom.TryGetValue((x, y), out var room))
                 {
-                    terminal.Write($"{GetDirectionKey(exit.Key)} ");
+                    // Check if room has north exit and it's explored
+                    bool hasNorth = room.Exits.ContainsKey(Direction.North);
+                    bool northExplored = hasNorth && room.IsExplored;
+
+                    if (northExplored)
+                    {
+                        topLine.Append("  |  ");
+                    }
+                    else
+                    {
+                        topLine.Append("     ");
+                    }
+                }
+                else
+                {
+                    topLine.Append("     ");
+                }
+            }
+            terminal.SetColor("darkgray");
+            terminal.WriteLine(topLine.ToString());
+
+            // Room row
+            var roomLine = new System.Text.StringBuilder();
+            for (int x = minX; x <= maxX; x++)
+            {
+                // West corridor
+                if (posToRoom.TryGetValue((x, y), out var room))
+                {
+                    bool hasWest = room.Exits.ContainsKey(Direction.West);
+                    bool westExplored = hasWest && room.IsExplored;
+
+                    if (westExplored)
+                    {
+                        terminal.SetColor("darkgray");
+                        roomLine.Append("-");
+                    }
+                    else
+                    {
+                        roomLine.Append(" ");
+                    }
+
+                    // Room symbol
+                    string roomSymbol = GetRoomMapSymbol(room);
+                    roomLine.Append(roomSymbol);
+
+                    // East corridor
+                    bool hasEast = room.Exits.ContainsKey(Direction.East);
+                    bool eastExplored = hasEast && room.IsExplored;
+
+                    if (eastExplored)
+                    {
+                        roomLine.Append("-");
+                    }
+                    else
+                    {
+                        roomLine.Append(" ");
+                    }
+                }
+                else
+                {
+                    roomLine.Append("     ");
                 }
             }
 
-            terminal.WriteLine("");
+            // Render room line with colors
+            RenderColoredMapLine(roomLine.ToString(), posToRoom, minX, maxX, y);
+
+            // Bottom corridor row (vertical connections below)
+            var bottomLine = new System.Text.StringBuilder();
+            for (int x = minX; x <= maxX; x++)
+            {
+                if (posToRoom.TryGetValue((x, y), out var room))
+                {
+                    bool hasSouth = room.Exits.ContainsKey(Direction.South);
+                    bool southExplored = hasSouth && room.IsExplored;
+
+                    if (southExplored)
+                    {
+                        bottomLine.Append("  |  ");
+                    }
+                    else
+                    {
+                        bottomLine.Append("     ");
+                    }
+                }
+                else
+                {
+                    bottomLine.Append("     ");
+                }
+            }
+            terminal.SetColor("darkgray");
+            terminal.WriteLine(bottomLine.ToString());
         }
 
         terminal.WriteLine("");
         terminal.SetColor("gray");
-        terminal.WriteLine("Legend: [B]=Boss [v]=Stairs [+]=Cleared [!]=Danger [.]=Safe [?]=Unknown");
-        terminal.WriteLine("        >> = Your location");
+        terminal.Write("Legend: ");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("[@]");
+        terminal.SetColor("gray");
+        terminal.Write("=You ");
+        terminal.SetColor("bright_red");
+        terminal.Write("[B]");
+        terminal.SetColor("gray");
+        terminal.Write("=Boss ");
+        terminal.SetColor("blue");
+        terminal.Write("[>]");
+        terminal.SetColor("gray");
+        terminal.Write("=Stairs ");
+        terminal.SetColor("green");
+        terminal.Write("[#]");
+        terminal.SetColor("gray");
+        terminal.Write("=Cleared ");
+        terminal.SetColor("red");
+        terminal.Write("[!]");
+        terminal.SetColor("gray");
+        terminal.WriteLine("=Danger");
+        terminal.Write("        ");
+        terminal.SetColor("cyan");
+        terminal.Write("[.]");
+        terminal.SetColor("gray");
+        terminal.Write("=Safe ");
+        terminal.SetColor("darkgray");
+        terminal.Write("[?]");
+        terminal.SetColor("gray");
+        terminal.Write("=Unknown  ");
+        terminal.SetColor("darkgray");
+        terminal.WriteLine("- | = Passages");
         terminal.WriteLine("");
 
         // Floor stats
@@ -6711,6 +6796,15 @@ public class DungeonLocation : BaseLocation
         int cleared = currentFloor.Rooms.Count(r => r.IsCleared);
         terminal.SetColor("white");
         terminal.WriteLine($"Explored: {explored}/{currentFloor.Rooms.Count}  Cleared: {cleared}/{currentFloor.Rooms.Count}");
+
+        // Current room info
+        var currentRoom = currentFloor.GetCurrentRoom();
+        if (currentRoom != null)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"Location: {currentRoom.Name}");
+        }
+
         if (currentFloor.BossDefeated)
         {
             terminal.SetColor("green");
@@ -6718,7 +6812,176 @@ public class DungeonLocation : BaseLocation
         }
 
         terminal.WriteLine("");
-        await terminal.PressAnyKey();
+        terminal.SetColor("gray");
+        terminal.WriteLine("Press Enter to continue...");
+        await terminal.GetInput("");
+    }
+
+    /// <summary>
+    /// Build a spatial position map by traversing room connections via BFS
+    /// </summary>
+    private Dictionary<string, (int x, int y)> BuildRoomPositionMap()
+    {
+        var positions = new Dictionary<string, (int x, int y)>();
+
+        if (currentFloor == null || currentFloor.Rooms.Count == 0)
+            return positions;
+
+        var visited = new HashSet<string>();
+        var queue = new Queue<(string roomId, int x, int y)>();
+
+        // Start from entrance room at origin
+        var entranceId = currentFloor.EntranceRoomId;
+        if (string.IsNullOrEmpty(entranceId) && currentFloor.Rooms.Count > 0)
+            entranceId = currentFloor.Rooms[0].Id;
+
+        queue.Enqueue((entranceId, 0, 0));
+        visited.Add(entranceId);
+        positions[entranceId] = (0, 0);
+
+        // BFS to assign positions based on exit directions
+        while (queue.Count > 0)
+        {
+            var (roomId, x, y) = queue.Dequeue();
+            var room = currentFloor.Rooms.FirstOrDefault(r => r.Id == roomId);
+
+            if (room == null) continue;
+
+            foreach (var exit in room.Exits)
+            {
+                var targetId = exit.Value.TargetRoomId;
+                if (visited.Contains(targetId)) continue;
+
+                // Calculate new position based on direction
+                int newX = x, newY = y;
+                switch (exit.Key)
+                {
+                    case Direction.North: newY--; break;
+                    case Direction.South: newY++; break;
+                    case Direction.East: newX++; break;
+                    case Direction.West: newX--; break;
+                }
+
+                // Check for collision - if position taken, try to find nearby spot
+                var targetPos = (newX, newY);
+                if (positions.ContainsValue(targetPos))
+                {
+                    // Find nearest free position
+                    targetPos = FindNearestFreePosition(positions, newX, newY);
+                }
+
+                visited.Add(targetId);
+                positions[targetId] = targetPos;
+                queue.Enqueue((targetId, targetPos.Item1, targetPos.Item2));
+            }
+        }
+
+        return positions;
+    }
+
+    /// <summary>
+    /// Find nearest free position when there's a collision
+    /// </summary>
+    private (int x, int y) FindNearestFreePosition(Dictionary<string, (int x, int y)> positions, int targetX, int targetY)
+    {
+        // Spiral outward to find free spot
+        for (int radius = 1; radius < 10; radius++)
+        {
+            for (int dx = -radius; dx <= radius; dx++)
+            {
+                for (int dy = -radius; dy <= radius; dy++)
+                {
+                    if (Math.Abs(dx) == radius || Math.Abs(dy) == radius)
+                    {
+                        var pos = (targetX + dx, targetY + dy);
+                        if (!positions.ContainsValue(pos))
+                            return pos;
+                    }
+                }
+            }
+        }
+        return (targetX, targetY); // Fallback
+    }
+
+    /// <summary>
+    /// Get the map symbol for a room (3 chars)
+    /// </summary>
+    private string GetRoomMapSymbol(DungeonRoom room)
+    {
+        bool isCurrentRoom = room.Id == currentFloor?.CurrentRoomId;
+
+        if (isCurrentRoom)
+            return "[@]";
+        if (!room.IsExplored)
+            return "[?]";
+        if (room.IsBossRoom)
+            return "[B]";
+        if (room.HasStairsDown)
+            return "[>]";
+        if (room.IsCleared)
+            return "[#]";
+        if (room.HasMonsters)
+            return "[!]";
+        return "[.]";
+    }
+
+    /// <summary>
+    /// Render a map line with proper colors for each room symbol
+    /// </summary>
+    private void RenderColoredMapLine(string line, Dictionary<(int x, int y), DungeonRoom> posToRoom, int minX, int maxX, int y)
+    {
+        int charIndex = 0;
+        for (int x = minX; x <= maxX; x++)
+        {
+            if (posToRoom.TryGetValue((x, y), out var room))
+            {
+                // West corridor (1 char)
+                terminal.SetColor("darkgray");
+                terminal.Write(line.Substring(charIndex, 1));
+                charIndex++;
+
+                // Room symbol (3 chars) with color
+                string color = GetRoomMapColor(room);
+                terminal.SetColor(color);
+                terminal.Write(line.Substring(charIndex, 3));
+                charIndex += 3;
+
+                // East corridor (1 char)
+                terminal.SetColor("darkgray");
+                terminal.Write(line.Substring(charIndex, 1));
+                charIndex++;
+            }
+            else
+            {
+                // Empty space (5 chars)
+                terminal.SetColor("darkgray");
+                terminal.Write("     ");
+                charIndex += 5;
+            }
+        }
+        terminal.WriteLine("");
+    }
+
+    /// <summary>
+    /// Get the color for a room's map symbol
+    /// </summary>
+    private string GetRoomMapColor(DungeonRoom room)
+    {
+        bool isCurrentRoom = room.Id == currentFloor?.CurrentRoomId;
+
+        if (isCurrentRoom)
+            return "bright_yellow";
+        if (!room.IsExplored)
+            return "darkgray";
+        if (room.IsBossRoom)
+            return "bright_red";
+        if (room.HasStairsDown)
+            return "blue";
+        if (room.IsCleared)
+            return "green";
+        if (room.HasMonsters)
+            return "red";
+        return "cyan";
     }
 
     /// <summary>

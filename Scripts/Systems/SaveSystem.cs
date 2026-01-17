@@ -4,29 +4,49 @@ using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Godot;
+using UsurperRemake.BBS;
 
 namespace UsurperRemake.Systems
 {
     /// <summary>
     /// Comprehensive save/load system for Usurper Reloaded
     /// Supports multiple daily cycle modes and complete world state persistence
+    /// Supports BBS door mode with per-BBS save isolation
     /// </summary>
     public class SaveSystem
     {
         private static SaveSystem? instance;
         public static SaveSystem Instance => instance ??= new SaveSystem();
-        
-        private readonly string saveDirectory;
+
+        private readonly string baseSaveDirectory;
         private readonly JsonSerializerOptions jsonOptions;
-        
+
+        /// <summary>
+        /// Get the active save directory (includes BBS namespace if in door mode)
+        /// </summary>
+        public string saveDirectory
+        {
+            get
+            {
+                var bbsNamespace = DoorMode.GetSaveNamespace();
+                if (!string.IsNullOrEmpty(bbsNamespace))
+                {
+                    var bbsDir = Path.Combine(baseSaveDirectory, bbsNamespace);
+                    Directory.CreateDirectory(bbsDir);
+                    return bbsDir;
+                }
+                return baseSaveDirectory;
+            }
+        }
+
         public SaveSystem()
         {
             // Use Godot's user data directory for cross-platform compatibility
-            saveDirectory = Path.Combine(GetUserDataPath(), "saves");
-            
-            // Ensure save directory exists
-            Directory.CreateDirectory(saveDirectory);
-            
+            baseSaveDirectory = Path.Combine(GetUserDataPath(), "saves");
+
+            // Ensure base save directory exists
+            Directory.CreateDirectory(baseSaveDirectory);
+
             // Configure JSON serialization
             jsonOptions = new JsonSerializerOptions
             {

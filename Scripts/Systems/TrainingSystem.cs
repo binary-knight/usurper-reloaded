@@ -130,23 +130,54 @@ public static class TrainingSystem
     }
 
     /// <summary>
-    /// Training points required to reach next level
+    /// Training points required to reach next level (progress needed)
     /// </summary>
     public static int GetPointsForNextLevel(ProficiencyLevel currentLevel)
     {
         return currentLevel switch
         {
-            ProficiencyLevel.Untrained => 1,   // 1 point to reach Poor
-            ProficiencyLevel.Poor => 2,        // 2 points to reach Average
-            ProficiencyLevel.Average => 3,     // 3 points to reach Good
-            ProficiencyLevel.Good => 4,        // 4 points to reach Skilled
-            ProficiencyLevel.Skilled => 5,     // 5 points to reach Expert
-            ProficiencyLevel.Expert => 7,      // 7 points to reach Superb
-            ProficiencyLevel.Superb => 10,     // 10 points to reach Master
-            ProficiencyLevel.Master => 15,     // 15 points to reach Legendary
+            ProficiencyLevel.Untrained => 1,   // 1 progress to reach Poor
+            ProficiencyLevel.Poor => 2,        // 2 progress to reach Average
+            ProficiencyLevel.Average => 3,     // 3 progress to reach Good
+            ProficiencyLevel.Good => 4,        // 4 progress to reach Skilled
+            ProficiencyLevel.Skilled => 5,     // 5 progress to reach Expert
+            ProficiencyLevel.Expert => 7,      // 7 progress to reach Superb
+            ProficiencyLevel.Superb => 10,     // 10 progress to reach Master
+            ProficiencyLevel.Master => 15,     // 15 progress to reach Legendary
             ProficiencyLevel.Legendary => 999, // Cannot improve further
             _ => 999
         };
+    }
+
+    /// <summary>
+    /// Cost in training points per 1 progress point (scales with level)
+    /// Higher proficiency = more expensive to train
+    /// </summary>
+    public static int GetTrainingCostPerPoint(ProficiencyLevel currentLevel)
+    {
+        return currentLevel switch
+        {
+            ProficiencyLevel.Untrained => 1,   // 1 training point per progress
+            ProficiencyLevel.Poor => 1,        // 1 training point per progress
+            ProficiencyLevel.Average => 2,     // 2 training points per progress
+            ProficiencyLevel.Good => 2,        // 2 training points per progress
+            ProficiencyLevel.Skilled => 3,     // 3 training points per progress
+            ProficiencyLevel.Expert => 3,      // 3 training points per progress
+            ProficiencyLevel.Superb => 4,      // 4 training points per progress
+            ProficiencyLevel.Master => 5,      // 5 training points per progress
+            ProficiencyLevel.Legendary => 999, // Cannot improve further
+            _ => 999
+        };
+    }
+
+    /// <summary>
+    /// Calculate total training points needed to reach next level from current progress
+    /// </summary>
+    public static int GetTotalCostToNextLevel(ProficiencyLevel currentLevel, int currentProgress)
+    {
+        int progressNeeded = GetPointsForNextLevel(currentLevel) - currentProgress;
+        int costPerPoint = GetTrainingCostPerPoint(currentLevel);
+        return progressNeeded * costPerPoint;
     }
 
     /// <summary>
@@ -515,7 +546,7 @@ public static class TrainingSystem
             // Get all trainable skills for this class
             var trainableSkills = GetTrainableSkills(player);
 
-            terminal.WriteLine("Num  Skill                    Level        Progress  Cost", "cyan");
+            terminal.WriteLine("Num  Skill                    Level        Progress  Cost/Pt", "cyan");
             terminal.WriteLine("─────────────────────────────────────────────────────────────", "cyan");
 
             int index = 1;
@@ -524,12 +555,13 @@ public static class TrainingSystem
                 var proficiency = GetSkillProficiency(player, skillId);
                 var progress = GetTrainingProgress(player, skillId);
                 var needed = GetPointsForNextLevel(proficiency);
+                var costPerPoint = GetTrainingCostPerPoint(proficiency);
                 string progressStr = proficiency >= ProficiencyLevel.Legendary
                     ? "MAX"
                     : $"{progress}/{needed}";
                 string costStr = proficiency >= ProficiencyLevel.Legendary
                     ? "-"
-                    : "1";
+                    : costPerPoint.ToString();
 
                 string profName = GetProficiencyName(proficiency);
                 string profColor = GetProficiencyColor(proficiency);
@@ -567,57 +599,91 @@ public static class TrainingSystem
             return;
         }
 
-        if (player.TrainingPoints <= 0)
+        // Calculate costs
+        var costPerPoint = GetTrainingCostPerPoint(proficiency);
+
+        if (player.TrainingPoints < costPerPoint)
         {
-            terminal.WriteLine("You don't have any training points!", "red");
+            terminal.WriteLine($"You need at least {costPerPoint} training points to train this skill!", "red");
+            terminal.WriteLine($"You only have {player.TrainingPoints} training points.", "yellow");
             await Task.Delay(1500);
             return;
         }
 
-        // Calculate points needed to reach next level
+        // Calculate progress needed to reach next level
         var currentProgress = GetTrainingProgress(player, skillId);
-        var pointsNeeded = GetPointsForNextLevel(proficiency);
-        var pointsToNextLevel = pointsNeeded - currentProgress;
+        var progressNeeded = GetPointsForNextLevel(proficiency);
+        var progressToNextLevel = progressNeeded - currentProgress;
+        var totalCostToNextLevel = progressToNextLevel * costPerPoint;
 
-        // Show options if player has enough points for multiple
-        int pointsToSpend = 1;
-        if (player.TrainingPoints > 1 && pointsToNextLevel > 1)
+        // Determine how many progress points the player can afford
+        int maxProgressAffordable = player.TrainingPoints / costPerPoint;
+
+        // Show options
+        int progressToAdd = 1;
+        int trainingPointsToSpend = costPerPoint;
+
+        var nextLevel = (ProficiencyLevel)((int)proficiency + 1);
+        string nextLevelName = GetProficiencyName(nextLevel);
+        string nextLevelColor = GetProficiencyColor(nextLevel);
+
+        terminal.WriteLine("");
+        terminal.WriteLine($"Training {skillName} (Current: {GetProficiencyName(proficiency)})", "cyan");
+        terminal.WriteLine($"Progress: {currentProgress}/{progressNeeded} toward [{nextLevelColor}]{nextLevelName}[/]", "white");
+        terminal.WriteLine($"Cost per progress point: {costPerPoint} training points", "gray");
+        terminal.WriteLine("");
+
+        // Always show option to train 1 point
+        terminal.WriteLine($"[1] Spend {costPerPoint} training point{(costPerPoint > 1 ? "s" : "")} (+1 progress)", "white");
+
+        bool canAffordNextLevel = player.TrainingPoints >= totalCostToNextLevel;
+
+        if (progressToNextLevel > 1)
         {
-            var nextLevel = (ProficiencyLevel)((int)proficiency + 1);
-            string nextLevelName = GetProficiencyName(nextLevel);
-            string nextLevelColor = GetProficiencyColor(nextLevel);
-
-            terminal.WriteLine("");
-            terminal.WriteLine($"Training {skillName} (Current: {GetProficiencyName(proficiency)})", "cyan");
-            terminal.WriteLine($"Progress: {currentProgress}/{pointsNeeded} toward [{nextLevelColor}]{nextLevelName}[/]", "white");
-            terminal.WriteLine("");
-            terminal.WriteLine("[1] Spend 1 training point", "white");
-
-            int maxCanSpend = Math.Min(player.TrainingPoints, pointsToNextLevel);
-            terminal.WriteLine($"[M] Spend {maxCanSpend} points to reach {nextLevelName}", "bright_green");
-            terminal.WriteLine("[X] Cancel", "yellow");
-            terminal.WriteLine("");
-
-            var choice = await terminal.GetInput("> ");
-            if (string.IsNullOrWhiteSpace(choice) || choice.Trim().ToUpper() == "X")
+            if (canAffordNextLevel)
             {
-                return;
+                // Player can afford to reach next level
+                terminal.WriteLine($"[M] Spend {totalCostToNextLevel} points to reach {nextLevelName} (+{progressToNextLevel} progress)", "bright_green");
             }
-
-            if (choice.Trim().ToUpper() == "M")
+            else if (maxProgressAffordable > 1)
             {
-                pointsToSpend = maxCanSpend;
-            }
-            else if (!int.TryParse(choice, out _) || choice.Trim() != "1")
-            {
-                return;
+                // Player can afford multiple progress but not full level
+                int maxCost = maxProgressAffordable * costPerPoint;
+                terminal.WriteLine($"[M] Spend {maxCost} points for +{maxProgressAffordable} progress (need {totalCostToNextLevel} total for {nextLevelName})", "yellow");
             }
         }
 
-        // Spend training points
-        player.TrainingPoints -= pointsToSpend;
+        terminal.WriteLine("[X] Cancel", "yellow");
+        terminal.WriteLine("");
 
-        bool leveledUp = AddTrainingProgress(player, skillId, pointsToSpend);
+        var choice = await terminal.GetInput("> ");
+        if (string.IsNullOrWhiteSpace(choice) || choice.Trim().ToUpper() == "X")
+        {
+            return;
+        }
+
+        if (choice.Trim().ToUpper() == "M" && (canAffordNextLevel || maxProgressAffordable > 1))
+        {
+            if (canAffordNextLevel)
+            {
+                progressToAdd = progressToNextLevel;
+                trainingPointsToSpend = totalCostToNextLevel;
+            }
+            else
+            {
+                progressToAdd = maxProgressAffordable;
+                trainingPointsToSpend = maxProgressAffordable * costPerPoint;
+            }
+        }
+        else if (choice.Trim() != "1")
+        {
+            return;
+        }
+
+        // Spend training points
+        player.TrainingPoints -= trainingPointsToSpend;
+
+        bool leveledUp = AddTrainingProgress(player, skillId, progressToAdd);
 
         if (leveledUp)
         {
@@ -631,12 +697,13 @@ public static class TrainingSystem
             terminal.WriteLine($"  Roll Modifier: {GetRollModifier(newLevel):+#;-#;+0}", "cyan");
             terminal.WriteLine($"  Effect Power: {GetEffectMultiplier(newLevel) * 100:F0}%", "cyan");
             terminal.WriteLine($"  Failure Chance: {GetFailureChance(newLevel)}%", "cyan");
+            terminal.WriteLine($"  (Spent {trainingPointsToSpend} training points)", "gray");
         }
         else
         {
             var progress = GetTrainingProgress(player, skillId);
             var needed = GetPointsForNextLevel(proficiency);
-            terminal.WriteLine($"Training {skillName}... Progress: {progress}/{needed} (spent {pointsToSpend} point{(pointsToSpend > 1 ? "s" : "")})", "green");
+            terminal.WriteLine($"Training {skillName}... Progress: {progress}/{needed} (spent {trainingPointsToSpend} point{(trainingPointsToSpend > 1 ? "s" : "")})", "green");
         }
 
         // Auto-save after training

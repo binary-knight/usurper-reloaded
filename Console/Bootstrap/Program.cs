@@ -3,11 +3,15 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using UsurperRemake;
 using UsurperRemake.Systems;
-using Godot;
+using UsurperRemake.BBS;
 
-// NOTE: This bootstrapper lets you run the full Usurper remake from a plain
-// command-line executable (without opening Godot). It relies on the
-// console-safe fallbacks recently added to TerminalEmulator.
+// Console bootstrapper for Usurper Reborn
+//
+// BBS DOOR MODE: Use command-line arguments to run as a BBS door:
+//   --door <path>     Load drop file (auto-detect DOOR32.SYS or DOOR.SYS)
+//   --door32 <path>   Load DOOR32.SYS explicitly
+//   --node <dir>      Search node directory for drop files
+//   --local           Run in local mode (no BBS connection)
 
 namespace UsurperConsole
 {
@@ -31,17 +35,65 @@ namespace UsurperConsole
 
         static async Task Main(string[] args)
         {
+            // Check for BBS door mode arguments
+            if (args.Length > 0 && DoorMode.ParseCommandLineArgs(args))
+            {
+                // BBS Door Mode - initialize door terminal
+                await RunDoorModeAsync();
+                return;
+            }
+
+            // Standard console mode
             // Set up console close handlers
             SetupConsoleCloseHandlers();
 
-            // Ensure the Godot runtime is initialised enough for core types that
-            // expect it (Node constructor, etc.). The simplest way is to call
-            // GD.Load which forces the core to boot. If Godot is not available
-            // this still compiles but returns default.
-            GD.Print("Launching Usurper Reborn – Console Mode");
+            Console.WriteLine("Launching Usurper Reborn – Console Mode");
 
             // Spin up the full engine in console mode.
             await GameEngine.RunConsoleAsync();
+        }
+
+        /// <summary>
+        /// Run the game in BBS door mode
+        /// </summary>
+        private static async Task RunDoorModeAsync()
+        {
+            try
+            {
+                DoorMode.Log("Initializing BBS door mode...");
+
+                // Initialize the terminal adapter
+                var terminal = DoorMode.InitializeTerminal();
+                if (terminal == null)
+                {
+                    DoorMode.Log("Failed to initialize terminal - aborting");
+                    return;
+                }
+
+                var sessionInfo = DoorMode.SessionInfo;
+                if (sessionInfo != null)
+                {
+                    DoorMode.Log($"Session: {sessionInfo.UserName} from {sessionInfo.BBSName}");
+                    DoorMode.Log($"Connection: {sessionInfo.CommType}, Node: {sessionInfo.NodeNumber}");
+                }
+
+                // Set up console close handlers (for local mode fallback)
+                SetupConsoleCloseHandlers();
+
+                // Run the game engine in door mode
+                // The terminal adapter will handle all I/O
+                await GameEngine.RunConsoleAsync();
+            }
+            catch (Exception ex)
+            {
+                DoorMode.Log($"Door mode error: {ex.Message}");
+                Console.Error.WriteLine(ex.ToString());
+            }
+            finally
+            {
+                DoorMode.Log("Shutting down door mode...");
+                DoorMode.Shutdown();
+            }
         }
 
         private static void SetupConsoleCloseHandlers()
