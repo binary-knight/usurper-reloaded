@@ -1158,8 +1158,9 @@ public class StreetEncounterSystem
         bool isBrawl = false, bool isHonorDuel = false)
     {
         // Convert NPC to Monster for combat engine
+        // Pass NPC's level as the 'nr' parameter so the monster displays the correct level
         var monster = Monster.CreateMonster(
-            nr: 1,
+            nr: npc.Level,
             name: npc.Name,
             hps: (int)npc.HP,
             strength: (int)npc.Strength,

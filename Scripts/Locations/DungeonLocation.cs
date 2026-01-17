@@ -3289,7 +3289,8 @@ public class DungeonLocation : BaseLocation
             int roll = dungeonRandom.Next(100);
             if (roll < 40)
             {
-                long goldFound = currentDungeonLevel * 200 + dungeonRandom.Next(500);
+                // Gold scaled to level - roughly 1-2 monster kills worth
+                long goldFound = currentDungeonLevel * 30 + dungeonRandom.Next(currentDungeonLevel * 20);
                 currentPlayer.Gold += goldFound;
                 terminal.SetColor("green");
                 terminal.WriteLine($"You find {goldFound} gold coins.");
@@ -3303,7 +3304,8 @@ public class DungeonLocation : BaseLocation
             }
             else if (roll < 90)
             {
-                long xp = currentDungeonLevel * 150;
+                // XP scaled to roughly 1 monster kill
+                long xp = (long)(Math.Pow(currentDungeonLevel, 1.5) * 15);
                 currentPlayer.Experience += xp;
                 terminal.SetColor("cyan");
                 terminal.WriteLine($"Reading their notes teaches you something! (+{xp} XP)");
@@ -3452,10 +3454,10 @@ public class DungeonLocation : BaseLocation
             }
             else if (roll < 90)
             {
-                // Treasure dimension
+                // Treasure dimension - rare event, give more generous gold (5-8 monster kills worth)
                 terminal.SetColor("green");
                 terminal.WriteLine("You find yourself in a treasure dimension!");
-                long goldFound = currentDungeonLevel * 2000 + dungeonRandom.Next(5000);
+                long goldFound = (long)(Math.Pow(currentDungeonLevel, 1.5) * 60) + dungeonRandom.Next(currentDungeonLevel * 30);
                 currentPlayer.Gold += goldFound;
                 terminal.WriteLine($"You grab {goldFound} gold before being pulled back!");
             }
@@ -3490,10 +3492,13 @@ public class DungeonLocation : BaseLocation
 
                 if (result.Victory)
                 {
+                    // Boss-level rewards - roughly 3x normal monster
                     terminal.SetColor("green");
                     terminal.WriteLine("The guardian drops a rare crystal!");
-                    currentPlayer.Gold += currentDungeonLevel * 500;
-                    currentPlayer.Experience += currentDungeonLevel * 300;
+                    long bonusGold = (long)(Math.Pow(currentDungeonLevel, 1.5) * 36);
+                    long bonusXp = (long)(Math.Pow(currentDungeonLevel, 1.5) * 45);
+                    currentPlayer.Gold += bonusGold;
+                    currentPlayer.Experience += bonusXp;
                 }
             }
         }
@@ -3501,7 +3506,8 @@ public class DungeonLocation : BaseLocation
         {
             terminal.SetColor("cyan");
             terminal.WriteLine("You study the portal's magical patterns...");
-            long xpGain = currentDungeonLevel * 100;
+            // Small XP for studying - about half a monster kill
+            long xpGain = (long)(Math.Pow(currentDungeonLevel, 1.5) * 8);
             currentPlayer.Experience += xpGain;
             terminal.WriteLine($"You learn something about dimensional magic. (+{xpGain} XP)");
         }
@@ -3641,9 +3647,10 @@ public class DungeonLocation : BaseLocation
                     terminal.WriteLine("\"Well fought! Until we meet again...\"");
                 }
 
-                // Rewards scale with rivalry intensity
-                long goldReward = currentDungeonLevel * 300 * (1 + duelist.TimesEncountered / 3);
-                long xpReward = currentDungeonLevel * 250 * (1 + duelist.TimesEncountered / 3);
+                // Rewards scale with rivalry intensity - roughly 2-4 monster kills based on rivalry
+                int rivalryBonus = 1 + duelist.TimesEncountered / 3;
+                long goldReward = (long)(Math.Pow(currentDungeonLevel, 1.5) * 24 * rivalryBonus);
+                long xpReward = (long)(Math.Pow(currentDungeonLevel, 1.5) * 15 * (1 + rivalryBonus * 0.5));
                 currentPlayer.Gold += goldReward;
                 currentPlayer.Experience += xpReward;
                 currentPlayer.Chivalry += 5;
@@ -3894,8 +3901,10 @@ public class DungeonLocation : BaseLocation
             if (chestRoll < 7)
             {
                 // Good treasure!
-                long goldFound = currentDungeonLevel * 1500 + dungeonRandom.Next(5000);
-                long expGained = currentDungeonLevel * 200 + dungeonRandom.Next(3000);
+                // XP scaled to be roughly equivalent to 1-2 monster kills at this level
+                // Monster XP at level L = L^1.5 * 15, so chest gives about 1.5x that
+                long goldFound = currentDungeonLevel * 150 + dungeonRandom.Next(currentDungeonLevel * 100);
+                long expGained = (long)(Math.Pow(currentDungeonLevel, 1.5) * 20) + dungeonRandom.Next(currentDungeonLevel * 5);
 
                 terminal.SetColor("green");
                 terminal.WriteLine("The chest opens to reveal glittering treasure!");
@@ -7160,8 +7169,9 @@ public class DungeonLocation : BaseLocation
             terminal.WriteLine("The ancient mechanism unlocks!");
 
             // Rewards scale with difficulty and level
-            long goldReward = currentDungeonLevel * 200 * difficulty;
-            long expReward = currentDungeonLevel * 75 * difficulty;
+            // XP equivalent to 2-4 monster kills based on difficulty
+            long goldReward = currentDungeonLevel * 50 + difficulty * currentDungeonLevel * 20;
+            long expReward = (long)(Math.Pow(currentDungeonLevel, 1.5) * 15 * (1 + difficulty * 0.5));
             player.Gold += goldReward;
             player.Experience += expReward;
             terminal.WriteLine($"You receive {goldReward} gold and {expReward} experience!");
@@ -7279,8 +7289,9 @@ public class DungeonLocation : BaseLocation
             terminal.WriteLine("");
             terminal.WriteLine("*** PUZZLE SOLVED! ***");
 
-            long goldReward = currentDungeonLevel * 150 * difficulty;
-            long expReward = puzzle.SuccessXP * currentDungeonLevel / 10;
+            // Rewards scaled to dungeon level - roughly 2-3 monster kills worth
+            long goldReward = currentDungeonLevel * 30 + difficulty * currentDungeonLevel * 15;
+            long expReward = (long)(Math.Pow(currentDungeonLevel, 1.5) * 15 * (1 + difficulty * 0.3));
             player.Gold += goldReward;
             player.Experience += expReward;
             terminal.WriteLine($"You gain {goldReward} gold and {expReward} experience!");
@@ -7499,8 +7510,10 @@ public class DungeonLocation : BaseLocation
                 await Task.Delay(1000);
                 terminal.SetColor("green");
                 terminal.WriteLine("When it clears, you feel younger, stronger!");
-                player.Experience += currentDungeonLevel * 200;
-                terminal.WriteLine($"+{currentDungeonLevel * 200} experience!");
+                // XP equivalent to about 1.5 monster kills
+                long timeWarpXp = (long)(Math.Pow(currentDungeonLevel, 1.5) * 22);
+                player.Experience += timeWarpXp;
+                terminal.WriteLine($"+{timeWarpXp} experience!");
                 break;
 
             case 2: // Ghostly message
@@ -7789,7 +7802,8 @@ public class DungeonLocation : BaseLocation
             terminal.WriteLine("");
 
             // Reward based on riddle difficulty
-            int xpReward = riddle.Difficulty * 100 * currentDungeonLevel;
+            // XP equivalent to 2-4 monster kills based on difficulty
+            long xpReward = (long)(Math.Pow(currentDungeonLevel, 1.5) * 15 * (1 + riddle.Difficulty * 0.5));
             player.Experience += xpReward;
             terminal.WriteLine($"You gain {xpReward} experience!", "cyan");
 

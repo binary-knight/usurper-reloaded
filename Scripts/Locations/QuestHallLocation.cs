@@ -220,7 +220,24 @@ public class QuestHallLocation : BaseLocation
             var confirm = await terminal.GetInput("Accept this quest? (Y/N): ");
             if (confirm.ToUpper().StartsWith("Y"))
             {
-                var result = QuestSystem.ClaimQuest(currentPlayer as Player ?? new Player { Name2 = currentPlayer.Name2 }, quest);
+                // Cast to Player for ClaimQuest - if not a Player, create one with proper stats
+                Player playerForQuest;
+                if (currentPlayer is Player p)
+                {
+                    playerForQuest = p;
+                }
+                else
+                {
+                    // Create a Player wrapper with the character's actual stats
+                    playerForQuest = new Player
+                    {
+                        Name2 = currentPlayer.Name2,
+                        Level = currentPlayer.Level,
+                        King = currentPlayer.King,
+                        RoyQuestsToday = currentPlayer.RoyQuestsToday
+                    };
+                }
+                var result = QuestSystem.ClaimQuest(playerForQuest, quest);
                 if (result == QuestClaimResult.CanClaim)
                 {
                     terminal.WriteLine("");

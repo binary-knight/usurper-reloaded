@@ -458,19 +458,54 @@ terminal.SetColor("darkgray");
     private void ShowTrophies()
     {
         terminal.WriteLine("\nTrophies & Achievements", "bright_cyan");
-        if (currentPlayer is Player p && p.Achievements.Any())
+        terminal.WriteLine();
+
+        // Use the proper PlayerAchievements from Character base class
+        // Note: Player.Achievements hides Character.Achievements, so we cast to Character
+        var achievements = ((Character)currentPlayer).Achievements;
+
+        if (achievements.UnlockedCount > 0)
         {
-            foreach (var kv in p.Achievements)
+            // Show summary
+            terminal.SetColor("white");
+            terminal.WriteLine($"  Total Unlocked: {achievements.UnlockedCount} / {AchievementSystem.TotalAchievements}");
+            terminal.WriteLine($"  Achievement Points: {achievements.TotalPoints}");
+            terminal.WriteLine($"  Completion: {achievements.CompletionPercentage:F1}%");
+            terminal.WriteLine();
+
+            // Show unlocked achievements by category
+            foreach (AchievementCategory category in Enum.GetValues(typeof(AchievementCategory)))
             {
-                terminal.SetColor(kv.Value ? "bright_green" : "dark_gray");
-                var status = kv.Value ? "[X]" : "[ ]";
-                terminal.WriteLine($" {status} {kv.Key}");
+                var categoryAchievements = AchievementSystem.GetByCategory(category)
+                    .Where(a => achievements.IsUnlocked(a.Id))
+                    .ToList();
+
+                if (categoryAchievements.Any())
+                {
+                    terminal.SetColor("cyan");
+                    terminal.WriteLine($"  === {category} ===");
+
+                    foreach (var achievement in categoryAchievements)
+                    {
+                        terminal.SetColor(achievement.GetTierColor());
+                        terminal.Write($"    {achievement.GetTierSymbol()} ");
+                        terminal.SetColor("bright_green");
+                        terminal.Write($"[X] {achievement.Name}");
+                        terminal.SetColor("gray");
+                        terminal.WriteLine($" - {achievement.Description}");
+                    }
+                    terminal.WriteLine();
+                }
             }
+
             terminal.SetColor("white");
         }
         else
         {
-            terminal.WriteLine("  No achievements yet.");
+            terminal.WriteLine("  No achievements unlocked yet.", "gray");
+            terminal.WriteLine();
+            terminal.WriteLine("  Explore the dungeon, defeat monsters, and complete", "gray");
+            terminal.WriteLine("  challenges to earn achievements and rewards!", "gray");
         }
     }
 

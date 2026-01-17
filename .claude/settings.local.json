@@ -54,7 +54,8 @@
       "Bash(powershell -Command \"''                           -= MAIN STREET =-                                ''.Length\")",
       "Bash(git show-ref:*)",
       "Bash(git tag:*)",
-      "Bash(git fetch:*)"
+      "Bash(git fetch:*)",
+      "Bash(powershell:*)"
     ]
   }
 }

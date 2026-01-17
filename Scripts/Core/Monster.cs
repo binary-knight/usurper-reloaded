@@ -139,6 +139,7 @@ public class Monster
         var monster = new Monster
         {
             MonsterType = nr,
+            Level = Math.Max(1, nr),  // Set Level from nr parameter (used for display)
             Name = name,
             HP = hps,
             MaxHP = hps,  // Set MaxHP to initial HP
@@ -543,7 +544,7 @@ public class Monster
         if (Poisoned) status += " [POISONED]";
         if (Disease) status += " [DISEASED]";
         
-        return $"{Name} (Level {MonsterType}) - HP: {HP}{status}";
+        return $"{Name} (Level {Level}) - HP: {HP}{status}";
     }
     
     /// <summary>
