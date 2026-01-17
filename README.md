@@ -1,6 +1,6 @@
 # Usurper Reborn
 
-## ALPHA v0.6 - Now with BBS Door Support!
+## ALPHA v0.7 - Balance & Accessibility Update
 
 **FREE AND OPEN SOURCE SOFTWARE - GPL v2 Licensed**
 
@@ -348,7 +348,17 @@ For detailed BBS setup instructions, see [DOCS/BBS_DOOR_SETUP.md](DOCS/BBS_DOOR_
 - Audio and enhanced ANSI art
 - Additional companion personal quest storylines
 
-### Recently Completed (v0.6)
+### Recently Completed (v0.7)
+- **Screen Reader Accessibility** - Full screen reader support for visually impaired players
+- **Dungeon Reward Balancing** - XP/gold from events now scales with dungeon level using `level^1.5` formula
+- **Quest Level Fix** - Dungeon expedition quests now correctly validate player level requirements
+- **NPC Combat Level Fix** - Town NPC encounters now display correct level in combat
+- **Equipment Persistence** - Dynamic equipment (dungeon loot) now properly saves and loads
+- **Multi-Level XP Sharing** - Sharing XP now correctly grants multiple levels at once
+- **Potion Use Fix** - Using potions at full health no longer wastes your turn
+- **Monster HP Display** - Monster MaxHP now displays correctly in combat
+
+### Completed in v0.6
 - **BBS Door Mode** - Full support for running as a BBS door game (DOOR32.SYS, DOOR.SYS)
 - **Linux ARM64 Build** - Added support for Raspberry Pi and ARM servers
 - **Save Isolation** - BBS saves stored per-BBS to prevent user conflicts across different BBSes
@@ -420,7 +430,7 @@ Join our Discord server for discussions, feedback, and updates:
 - Romance/marriage/family systems
 - Story progression and endings
 
-### Known Issues (Alpha v0.6)
+### Known Issues (Alpha v0.7)
 - Some edge cases in combat may cause unexpected behavior
 - NPC AI occasionally makes suboptimal decisions
 - Save files from earlier alpha versions may not be fully compatible
@@ -434,4 +444,4 @@ Join our Discord server for discussions, feedback, and updates:
 
 ---
 
-**Status**: ALPHA v0.6 - Now with BBS Door Support!
+**Status**: ALPHA v0.7 - Balance & Accessibility Update

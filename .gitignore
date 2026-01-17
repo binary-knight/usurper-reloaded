@@ -51,3 +51,6 @@ SCORES/
 
 # Claude Code context file
 CLAUDE.md
+
+# Claude Code local data
+.claude/
