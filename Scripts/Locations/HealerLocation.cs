@@ -391,6 +391,7 @@ public class HealerLocation : BaseLocation
         // Perform healing
         player.Gold -= cost;
         player.Statistics.RecordGoldSpent(cost);
+        player.Statistics.RecordHealthRestored(hpToHeal);
         player.HP += (int)hpToHeal;
         if (player.HP > player.MaxHP) player.HP = player.MaxHP;
 
@@ -446,6 +447,7 @@ public class HealerLocation : BaseLocation
         // Perform full heal
         player.Gold -= cost;
         player.Statistics.RecordGoldSpent(cost);
+        player.Statistics.RecordHealthRestored(hpNeeded);
         player.HP = player.MaxHP;
 
         terminal.WriteLine("");
@@ -662,6 +664,7 @@ public class HealerLocation : BaseLocation
             foreach (var disease in diseases.Values)
             {
                 disease.Cure();
+                player.Statistics.RecordDiseaseCured();
             }
 
             await ShowHealingSequence();
@@ -690,6 +693,7 @@ public class HealerLocation : BaseLocation
 
             player.Gold -= disease.Cost;
             disease.Cure();
+            player.Statistics.RecordDiseaseCured();
 
             await ShowHealingSequence();
         }

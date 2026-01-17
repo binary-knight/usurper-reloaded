@@ -6245,6 +6245,9 @@ public class DungeonLocation : BaseLocation
         }
         long totalHeal = target.HP - oldHP;
 
+        // Track statistics
+        player.Statistics.RecordPotionUsed(totalHeal);
+
         terminal.WriteLine("");
         terminal.SetColor("bright_green");
         if (potionsToUse == 1)
@@ -6388,6 +6391,16 @@ public class DungeonLocation : BaseLocation
         terminal.SetColor("gray");
         terminal.WriteLine($"Potions remaining: {player.Healing}/{player.MaxPotions}");
 
+        // Track statistics for total healing done
+        if (totalPotionsUsed > 0)
+        {
+            // Record each potion used with average healing per potion
+            for (int i = 0; i < totalPotionsUsed; i++)
+            {
+                player.Statistics.RecordPotionUsed(totalHealing / totalPotionsUsed);
+            }
+        }
+
         await Task.Delay(2500);
     }
 
@@ -6415,6 +6428,9 @@ public class DungeonLocation : BaseLocation
         long oldHP = player.HP;
         player.HP = Math.Min(player.MaxHP, player.HP + healAmount);
         long actualHeal = player.HP - oldHP;
+
+        // Track statistics
+        player.Statistics.RecordPotionUsed(actualHeal);
 
         terminal.SetColor("bright_green");
         terminal.WriteLine("");
@@ -6464,18 +6480,23 @@ public class DungeonLocation : BaseLocation
         }
 
         long oldHP = player.HP;
+        int actualPotionsUsed = 0;
         for (int i = 0; i < potionsToUse; i++)
         {
             player.Healing--;
+            actualPotionsUsed++;
             player.HP = Math.Min(player.MaxHP, player.HP + healAmount);
             if (player.HP >= player.MaxHP) break;
         }
         long actualHeal = player.HP - oldHP;
 
+        // Track statistics
+        player.Statistics.RecordPotionUsed(actualHeal);
+
         terminal.SetColor("bright_green");
         terminal.WriteLine("");
         terminal.WriteLine("*glug glug glug* *glug glug*");
-        terminal.WriteLine($"You drink {potionsToUse} healing potion(s) and recover {actualHeal} HP!");
+        terminal.WriteLine($"You drink {actualPotionsUsed} healing potion(s) and recover {actualHeal} HP!");
         terminal.Write("HP: ");
         DrawBar(player.HP, player.MaxHP, 25, "red", "darkgray");
         terminal.WriteLine($" {player.HP}/{player.MaxHP}");

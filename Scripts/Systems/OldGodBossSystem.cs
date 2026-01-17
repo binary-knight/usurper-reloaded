@@ -488,10 +488,15 @@ namespace UsurperRemake.Systems
 
             player.Healing--;
             long healAmount = player.MaxHP / 3;
+            long oldHP = player.HP;
             player.HP = Math.Min(player.HP + healAmount, player.MaxHP);
+            long actualHeal = player.HP - oldHP;
+
+            // Track statistics
+            player.Statistics.RecordPotionUsed(actualHeal);
 
             terminal.WriteLine($"  You drink a healing potion!", "green");
-            terminal.WriteLine($"  Restored {healAmount} HP!", "bright_green");
+            terminal.WriteLine($"  Restored {actualHeal} HP!", "bright_green");
 
             await Task.Delay(800);
         }

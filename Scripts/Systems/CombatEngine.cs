@@ -1747,6 +1747,12 @@ public partial class CombatEngine
     /// </summary>
     public async Task OfferMonkPotionPurchase(Character player)
     {
+        // Don't bother the player if they're already at max potions
+        if (player.Healing >= player.MaxPotions)
+        {
+            return;
+        }
+
         terminal.WriteLine("");
         terminal.WriteLine("A wandering monk approaches you...", "cyan");
         terminal.WriteLine($"\"Would you like to buy healing potions? ({player.Healing}/{player.MaxPotions})\"", "white");
@@ -4091,6 +4097,9 @@ public partial class CombatEngine
 
             totalHeal = targetAlly.HP - oldHP;
 
+            // Track statistics
+            player.Statistics.RecordPotionUsed(totalHeal);
+
             terminal.WriteLine("");
             terminal.SetColor("bright_green");
             if (potionsToUse == 1)
@@ -4440,6 +4449,12 @@ public partial class CombatEngine
         long oldHP = target.HP;
         target.HP = Math.Min(target.MaxHP, target.HP + healAmount);
         long actualHeal = target.HP - oldHP;
+
+        // Track statistics if this is the player using a potion or being healed
+        if (currentPlayer != null)
+        {
+            currentPlayer.Statistics.RecordPotionUsed(actualHeal);
+        }
 
         terminal.WriteLine("");
         terminal.SetColor("bright_cyan");
@@ -5247,6 +5262,7 @@ public partial class CombatEngine
             player.Resurrections--;
             player.ResurrectionsUsed++;
             player.LastResurrection = DateTime.Now;
+            player.Statistics.RecordResurrection();
             terminal.SetColor("white");
             terminal.WriteLine("A brilliant light pierces the darkness!");
             terminal.WriteLine("The gods have heard your prayers!");

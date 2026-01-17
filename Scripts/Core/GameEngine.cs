@@ -1819,6 +1819,7 @@ public partial class GameEngine : Node
             if (resurrect.ToUpper().StartsWith("Y"))
             {
                 currentPlayer.Resurrections--;
+                currentPlayer.Statistics.RecordResurrection();
                 currentPlayer.HP = currentPlayer.MaxHP;
                 terminal.SetColor("bright_green");
                 terminal.WriteLine("");

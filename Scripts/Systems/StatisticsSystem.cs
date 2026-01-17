@@ -282,6 +282,72 @@ public class PlayerStatistics
     }
 
     /// <summary>
+    /// Record healing potion usage
+    /// </summary>
+    public void RecordPotionUsed(long healthRestored)
+    {
+        TotalHealingPotionsUsed++;
+        TotalHealthRestored += healthRestored;
+    }
+
+    /// <summary>
+    /// Record mana potion usage
+    /// </summary>
+    public void RecordManaPotionUsed(long manaRestored)
+    {
+        TotalManaPotionsUsed++;
+        TotalManaRestored += manaRestored;
+    }
+
+    /// <summary>
+    /// Record health restored (from any source - healer, spell, etc.)
+    /// </summary>
+    public void RecordHealthRestored(long amount)
+    {
+        TotalHealthRestored += amount;
+    }
+
+    /// <summary>
+    /// Record resurrection used
+    /// </summary>
+    public void RecordResurrection()
+    {
+        TotalTimesResurrected++;
+    }
+
+    /// <summary>
+    /// Record disease contracted
+    /// </summary>
+    public void RecordDiseaseContracted()
+    {
+        TotalDiseasesContracted++;
+    }
+
+    /// <summary>
+    /// Record disease cured
+    /// </summary>
+    public void RecordDiseaseCured()
+    {
+        TotalDiseasesCured++;
+    }
+
+    /// <summary>
+    /// Record curse broken
+    /// </summary>
+    public void RecordCurseBroken()
+    {
+        TotalCursesBroken++;
+    }
+
+    /// <summary>
+    /// Record poisoning
+    /// </summary>
+    public void RecordPoisoning()
+    {
+        TotalPoisonings++;
+    }
+
+    /// <summary>
     /// Calculate combat win rate
     /// </summary>
     public double GetCombatWinRate()

@@ -498,6 +498,9 @@ terminal.SetColor("darkgray");
         currentPlayer.HP = Math.Min(currentPlayer.HP + healAmount, currentPlayer.MaxHP);
         long actualHeal = currentPlayer.HP - oldHP;
 
+        // Track statistics
+        currentPlayer.Statistics.RecordPotionUsed(actualHeal);
+
         terminal.SetColor("bright_green");
         terminal.WriteLine($"You drink a healing potion...");
         terminal.WriteLine($"Restored {actualHeal} HP! ({currentPlayer.HP}/{currentPlayer.MaxHP})");

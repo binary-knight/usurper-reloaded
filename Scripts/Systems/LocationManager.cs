@@ -305,6 +305,7 @@ public class LocationManager
             if (resurrect.ToUpper().StartsWith("Y"))
             {
                 player.Resurrections--;
+                player.Statistics.RecordResurrection();
                 player.HP = player.MaxHP;
                 terminal.SetColor("bright_green");
                 terminal.WriteLine("");
