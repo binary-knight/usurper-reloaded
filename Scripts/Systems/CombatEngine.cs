@@ -4670,6 +4670,7 @@ public partial class CombatEngine
                     monster.HP = 0;
                     terminal.SetColor("yellow");
                     terminal.WriteLine($"  {monster.Name} is destroyed!");
+                    result.DefeatedMonsters.Add(monster);
                 }
             }
             result.CombatLog.Add($"{teammate.DisplayName} casts {spell.Name} for {damage} total damage!");
@@ -4691,6 +4692,7 @@ public partial class CombatEngine
                     target.HP = 0;
                     terminal.SetColor("yellow");
                     terminal.WriteLine($"{target.Name} is destroyed!");
+                    result.DefeatedMonsters.Add(target);
                 }
                 result.CombatLog.Add($"{teammate.DisplayName} casts {spell.Name} on {target.Name} for {actualDamage} damage!");
             }
@@ -4779,6 +4781,7 @@ public partial class CombatEngine
             target.HP = 0;
             terminal.SetColor("yellow");
             terminal.WriteLine($"{target.Name} is defeated!");
+            result.DefeatedMonsters.Add(target);
         }
 
         result.CombatLog.Add($"{teammate.DisplayName} Power Attack hits {target.Name} for {actualDamage}!");
@@ -4811,6 +4814,7 @@ public partial class CombatEngine
                 target.HP = 0;
                 terminal.SetColor("yellow");
                 terminal.WriteLine($"  {target.Name} is defeated!");
+                result.DefeatedMonsters.Add(target);
             }
         }
 
@@ -4848,6 +4852,7 @@ public partial class CombatEngine
             target.HP = 0;
             terminal.SetColor("yellow");
             terminal.WriteLine($"{target.Name} is defeated!");
+            result.DefeatedMonsters.Add(target);
         }
 
         result.CombatLog.Add($"{teammate.DisplayName} Backstab {(crit ? "CRIT " : "")}hits {target.Name} for {actualDamage}!");
@@ -4880,6 +4885,7 @@ public partial class CombatEngine
             target.HP = 0;
             terminal.SetColor("yellow");
             terminal.WriteLine($"{target.Name} is destroyed!");
+            result.DefeatedMonsters.Add(target);
         }
 
         result.CombatLog.Add($"{teammate.DisplayName} Smite hits {target.Name} for {actualDamage}!");

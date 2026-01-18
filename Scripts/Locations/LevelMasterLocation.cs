@@ -804,18 +804,36 @@ public class LevelMasterLocation : BaseLocation
             return;
         }
 
-        // Find teammates
-        var teammates = NPCSpawnSystem.Instance?.ActiveNPCs?
+        // Find NPC teammates
+        var npcTeammates = NPCSpawnSystem.Instance?.ActiveNPCs?
             .Where(n => n.Team == currentPlayer.Team && n.IsAlive && n.Name != currentPlayer.Name2)
-            .ToList();
+            .ToList() ?? new System.Collections.Generic.List<NPC>();
 
-        if (teammates == null || teammates.Count == 0)
+        // Find active companions
+        var companions = CompanionSystem.Instance?.GetActiveCompanions()
+            .Where(c => !c.IsDead && c.Level < GameConfig.MaxLevel)
+            .ToList() ?? new System.Collections.Generic.List<Companion>();
+
+        // Build combined list of shareable allies
+        var shareableAllies = new System.Collections.Generic.List<(string Name, int Level, long Experience, bool IsCompanion, object Data)>();
+
+        foreach (var npc in npcTeammates)
+        {
+            shareableAllies.Add((npc.Name, npc.Level, npc.Experience, false, npc));
+        }
+
+        foreach (var companion in companions)
+        {
+            shareableAllies.Add((companion.Name, companion.Level, companion.Experience, true, companion));
+        }
+
+        if (shareableAllies.Count == 0)
         {
             terminal.SetColor("yellow");
             terminal.WriteLine($"\"{currentMaster.Name}\" looks into the distance...");
             terminal.WriteLine("");
             terminal.SetColor("white");
-            terminal.WriteLine("\"Your team has no other living members to assist.\"");
+            terminal.WriteLine("\"You have no allies to assist. Recruit companions or join a team first.\"");
             await terminal.PressAnyKey();
             return;
         }
@@ -828,23 +846,24 @@ public class LevelMasterLocation : BaseLocation
         terminal.WriteLine("");
 
         terminal.SetColor("white");
-        terminal.WriteLine("Select a teammate to help:");
+        terminal.WriteLine("Select an ally to help:");
         terminal.WriteLine("");
 
-        for (int i = 0; i < teammates.Count; i++)
+        for (int i = 0; i < shareableAllies.Count; i++)
         {
-            var tm = teammates[i];
-            long xpToNext = GetExperienceForLevel(tm.Level + 1) - tm.Experience;
-            terminal.WriteLine($"{i + 1}. {tm.Name} - Level {tm.Level} ({xpToNext:N0} XP to next level)");
+            var ally = shareableAllies[i];
+            long xpToNext = GetExperienceForLevel(ally.Level + 1) - ally.Experience;
+            string allyType = ally.IsCompanion ? " [Companion]" : "";
+            terminal.WriteLine($"{i + 1}. {ally.Name}{allyType} - Level {ally.Level} ({xpToNext:N0} XP to next level)");
         }
 
         terminal.WriteLine("");
         terminal.SetColor("cyan");
-        terminal.Write("Select teammate (0 to cancel): ");
+        terminal.Write("Select ally (0 to cancel): ");
         terminal.SetColor("white");
 
         string input = await terminal.ReadLineAsync();
-        if (!int.TryParse(input, out int choice) || choice < 1 || choice > teammates.Count)
+        if (!int.TryParse(input, out int choice) || choice < 1 || choice > shareableAllies.Count)
         {
             terminal.SetColor("gray");
             terminal.WriteLine("You decide to keep your wisdom for yourself...");
@@ -852,12 +871,12 @@ public class LevelMasterLocation : BaseLocation
             return;
         }
 
-        var recipient = teammates[choice - 1];
-        long xpNeeded = GetExperienceForLevel(recipient.Level + 1) - recipient.Experience;
+        var selectedAlly = shareableAllies[choice - 1];
+        long xpNeeded = GetExperienceForLevel(selectedAlly.Level + 1) - selectedAlly.Experience;
 
         terminal.WriteLine("");
         terminal.SetColor("yellow");
-        terminal.WriteLine($"{recipient.Name} needs {xpNeeded:N0} experience to reach level {recipient.Level + 1}.");
+        terminal.WriteLine($"{selectedAlly.Name} needs {xpNeeded:N0} experience to reach level {selectedAlly.Level + 1}.");
         terminal.WriteLine($"You have {currentPlayer.Experience:N0} experience.");
         terminal.WriteLine("");
 
@@ -886,47 +905,72 @@ public class LevelMasterLocation : BaseLocation
 
         // Transfer experience
         currentPlayer.Experience -= xpToGive;
-        recipient.Experience += xpToGive;
 
         terminal.WriteLine("");
         terminal.SetColor("bright_green");
-        terminal.WriteLine($"You share {xpToGive:N0} experience with {recipient.Name}!");
+        terminal.WriteLine($"You share {xpToGive:N0} experience with {selectedAlly.Name}!");
 
-        // Check if they leveled up - use while loop to handle multiple level-ups
-        int startLevel = recipient.Level;
+        // Handle leveling up based on ally type
         int levelsGained = 0;
         var random = new Random();
 
-        while (recipient.Experience >= GetExperienceForLevel(recipient.Level + 1) && recipient.Level < GameConfig.MaxLevel)
+        if (selectedAlly.IsCompanion)
         {
-            recipient.Level++;
-            levelsGained++;
+            // Handle companion XP sharing
+            var companion = (Companion)selectedAlly.Data;
+            companion.Experience += xpToGive;
 
-            // Update base stats on level up (matches WorldSimulator.NPCLevelUp behavior)
-            recipient.BaseMaxHP += 10 + random.Next(5, 15);
-            recipient.BaseStrength += random.Next(1, 3);
-            recipient.BaseDefence += random.Next(1, 2);
+            while (companion.Experience >= GetExperienceForLevel(companion.Level + 1) && companion.Level < GameConfig.MaxLevel)
+            {
+                companion.Level++;
+                levelsGained++;
+            }
+
+            if (levelsGained > 0)
+            {
+                terminal.SetColor("bright_yellow");
+                terminal.WriteLine($"{companion.Name} has grown to level {companion.Level}!");
+                terminal.WriteLine("Their combat effectiveness has increased!");
+            }
         }
-
-        if (levelsGained > 0)
+        else
         {
-            // Recalculate all stats from base values
-            recipient.RecalculateStats();
+            // Handle NPC teammate XP sharing
+            var recipient = (NPC)selectedAlly.Data;
+            recipient.Experience += xpToGive;
+            int startLevel = recipient.Level;
 
-            // Restore HP/Mana to full on level up
-            recipient.HP = recipient.MaxHP;
-            recipient.Mana = recipient.MaxMana;
+            while (recipient.Experience >= GetExperienceForLevel(recipient.Level + 1) && recipient.Level < GameConfig.MaxLevel)
+            {
+                recipient.Level++;
+                levelsGained++;
 
-            terminal.SetColor("bright_yellow");
-            if (levelsGained == 1)
-            {
-                terminal.WriteLine($"{recipient.Name} has reached level {recipient.Level}!");
+                // Update base stats on level up (matches WorldSimulator.NPCLevelUp behavior)
+                recipient.BaseMaxHP += 10 + random.Next(5, 15);
+                recipient.BaseStrength += random.Next(1, 3);
+                recipient.BaseDefence += random.Next(1, 2);
             }
-            else
+
+            if (levelsGained > 0)
             {
-                terminal.WriteLine($"{recipient.Name} has gained {levelsGained} levels! ({startLevel} -> {recipient.Level})");
+                // Recalculate all stats from base values
+                recipient.RecalculateStats();
+
+                // Restore HP/Mana to full on level up
+                recipient.HP = recipient.MaxHP;
+                recipient.Mana = recipient.MaxMana;
+
+                terminal.SetColor("bright_yellow");
+                if (levelsGained == 1)
+                {
+                    terminal.WriteLine($"{recipient.Name} has reached level {recipient.Level}!");
+                }
+                else
+                {
+                    terminal.WriteLine($"{recipient.Name} has gained {levelsGained} levels! ({startLevel} -> {recipient.Level})");
+                }
+                NewsSystem.Instance?.Newsy(true, $"{recipient.Name} advanced to level {recipient.Level} with help from {currentPlayer.Name2}!");
             }
-            NewsSystem.Instance?.Newsy(true, $"{recipient.Name} advanced to level {recipient.Level} with help from {currentPlayer.Name2}!");
         }
 
         terminal.WriteLine("");

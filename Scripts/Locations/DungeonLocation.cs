@@ -2700,181 +2700,32 @@ public class DungeonLocation : BaseLocation
     }
 
     /// <summary>
-    /// Interact with a specific feature
+    /// Interact with a specific feature using the enhanced FeatureInteractionSystem
     /// </summary>
     private async Task InteractWithFeature(RoomFeature feature)
     {
         feature.IsInteracted = true;
         var player = GetCurrentPlayer();
 
-        terminal.ClearScreen();
-        terminal.SetColor("cyan");
-        terminal.WriteLine($"You {feature.Interaction.ToString().ToLower()} the {feature.Name}...");
-        terminal.WriteLine("");
-        terminal.SetColor("white");
-        terminal.WriteLine(feature.Description);
-        terminal.WriteLine("");
-
-        await Task.Delay(1000);
-
-        // Random outcome based on interaction type
-        var outcome = dungeonRandom.NextDouble();
-
-        switch (feature.Interaction)
+        // Map terrain to theme for the feature system
+        var theme = currentTerrain switch
         {
-            case FeatureInteraction.Examine:
-                if (outcome < 0.3)
-                {
-                    long expGain = currentDungeonLevel * 20;
-                    player.Experience += expGain;
-                    terminal.SetColor("yellow");
-                    terminal.WriteLine($"You learn something useful! +{expGain} experience.");
-                }
-                else if (outcome < 0.5)
-                {
-                    terminal.SetColor("gray");
-                    terminal.WriteLine("You find nothing of interest.");
-                }
-                else
-                {
-                    terminal.SetColor("cyan");
-                    terminal.WriteLine("This might be important to remember...");
-                }
-                break;
+            DungeonTerrain.Underground => DungeonTheme.Catacombs,
+            DungeonTerrain.Mountains => DungeonTheme.FrozenDepths,
+            DungeonTerrain.Desert => DungeonTheme.AncientRuins,
+            DungeonTerrain.Forest => DungeonTheme.Caverns,
+            DungeonTerrain.Caves => DungeonTheme.Sewers,
+            _ => DungeonTheme.Catacombs
+        };
 
-            case FeatureInteraction.Open:
-                if (outcome < 0.4)
-                {
-                    long goldFound = currentDungeonLevel * 50 + dungeonRandom.Next(100);
-                    player.Gold += goldFound;
-                    terminal.SetColor("yellow");
-                    terminal.WriteLine($"Inside you find {goldFound} gold!");
-                }
-                else if (outcome < 0.6)
-                {
-                    int potions = dungeonRandom.Next(1, 3);
-                    player.Healing = Math.Min(player.MaxPotions, player.Healing + potions);
-                    terminal.SetColor("green");
-                    terminal.WriteLine($"You find {potions} healing potion{(potions > 1 ? "s" : "")}!");
-                }
-                else if (outcome < 0.75)
-                {
-                    terminal.SetColor("gray");
-                    terminal.WriteLine("It's empty.");
-                }
-                else
-                {
-                    var damage = currentDungeonLevel * 2;
-                    player.HP -= damage;
-                    terminal.SetColor("red");
-                    terminal.WriteLine($"A trap! You take {damage} damage!");
-                }
-                break;
-
-            case FeatureInteraction.Search:
-                if (outcome < 0.5)
-                {
-                    long goldFound = currentDungeonLevel * 30 + dungeonRandom.Next(50);
-                    player.Gold += goldFound;
-                    terminal.SetColor("yellow");
-                    terminal.WriteLine($"Hidden among the debris: {goldFound} gold!");
-                }
-                else
-                {
-                    terminal.SetColor("gray");
-                    terminal.WriteLine("You find nothing useful.");
-                }
-                break;
-
-            case FeatureInteraction.Read:
-                long expBonus = currentDungeonLevel * 30;
-                player.Experience += expBonus;
-                terminal.SetColor("cyan");
-                terminal.WriteLine($"Ancient knowledge! +{expBonus} experience.");
-                break;
-
-            case FeatureInteraction.Take:
-                if (outcome < 0.6)
-                {
-                    long value = currentDungeonLevel * 40 + dungeonRandom.Next(80);
-                    player.Gold += value;
-                    terminal.SetColor("yellow");
-                    terminal.WriteLine($"You pocket something worth {value} gold.");
-                }
-                else
-                {
-                    terminal.SetColor("gray");
-                    terminal.WriteLine("It crumbles as you touch it. Worthless.");
-                }
-                break;
-
-            case FeatureInteraction.Use:
-                if (outcome < 0.3)
-                {
-                    player.HP = Math.Min(player.MaxHP, player.HP + player.MaxHP / 4);
-                    terminal.SetColor("green");
-                    terminal.WriteLine("A healing aura washes over you!");
-                }
-                else if (outcome < 0.6)
-                {
-                    long goldBonus = currentDungeonLevel * 100;
-                    player.Gold += goldBonus;
-                    terminal.SetColor("yellow");
-                    terminal.WriteLine($"A hidden cache opens! {goldBonus} gold!");
-                }
-                else
-                {
-                    terminal.SetColor("gray");
-                    terminal.WriteLine("Nothing happens.");
-                }
-                break;
-
-            case FeatureInteraction.Break:
-                if (outcome < 0.4)
-                {
-                    long goldFound = currentDungeonLevel * 60 + dungeonRandom.Next(100);
-                    player.Gold += goldFound;
-                    terminal.SetColor("yellow");
-                    terminal.WriteLine($"Valuables spill out! {goldFound} gold!");
-                }
-                else if (outcome < 0.7)
-                {
-                    terminal.SetColor("gray");
-                    terminal.WriteLine("Just rubble now.");
-                }
-                else
-                {
-                    var damage = currentDungeonLevel * 3;
-                    player.HP -= damage;
-                    terminal.SetColor("red");
-                    terminal.WriteLine($"Something explodes! {damage} damage!");
-                }
-                break;
-
-            case FeatureInteraction.Enter:
-                // Secret passage - random bonus room
-                terminal.SetColor("cyan");
-                terminal.WriteLine("You squeeze through into a hidden space...");
-                await Task.Delay(1000);
-                if (outcome < 0.5)
-                {
-                    long treasureGold = currentDungeonLevel * 150 + dungeonRandom.Next(200);
-                    long treasureExp = currentDungeonLevel * 75;
-                    player.Gold += treasureGold;
-                    player.Experience += treasureExp;
-                    terminal.SetColor("yellow");
-                    terminal.WriteLine($"A secret cache! {treasureGold} gold, {treasureExp} exp!");
-                }
-                else
-                {
-                    terminal.SetColor("gray");
-                    terminal.WriteLine("Just a dead end with some old bones.");
-                }
-                break;
-        }
-
-        await Task.Delay(2000);
-        await terminal.PressAnyKey();
+        // Use the new comprehensive feature interaction system
+        await FeatureInteractionSystem.Instance.InteractWithFeature(
+            feature,
+            player,
+            currentDungeonLevel,
+            theme,
+            terminal
+        );
     }
 
     /// <summary>
@@ -7261,19 +7112,44 @@ public class DungeonLocation : BaseLocation
                 terminal.WriteLine("[L] Leave");
 
                 var tradeChoice = await terminal.GetInput("Choice: ");
-                if (tradeChoice.ToUpper() == "B" && player.Gold >= 500)
+                if (tradeChoice.ToUpper() == "B")
                 {
-                    player.Gold -= 500;
-                    player.Healing = Math.Min(player.MaxPotions, player.Healing + 1);
-                    terminal.WriteLine("You purchase a healing potion.", "green");
+                    if (player.Gold >= 500)
+                    {
+                        player.Gold -= 500;
+                        player.Healing = Math.Min(player.MaxPotions, player.Healing + 1);
+                        terminal.WriteLine("You purchase a healing potion.", "green");
+                    }
+                    else
+                    {
+                        terminal.WriteLine("\"You don't have enough gold, friend.\"", "yellow");
+                    }
                 }
-                else if (tradeChoice.ToUpper() == "I" && player.Gold >= 100)
+                else if (tradeChoice.ToUpper() == "I")
                 {
-                    player.Gold -= 100;
-                    terminal.SetColor("cyan");
-                    terminal.WriteLine("\"The boss room is to the far end of the dungeon.\"");
-                    terminal.WriteLine("\"Watch for traps near treasure rooms.\"");
-                    terminal.WriteLine("\"Resting recovers health, but only once per floor.\"");
+                    if (player.Gold >= 100)
+                    {
+                        player.Gold -= 100;
+                        terminal.SetColor("cyan");
+                        terminal.WriteLine("");
+                        terminal.WriteLine("The adventurer leans in close...");
+                        terminal.WriteLine("");
+                        terminal.WriteLine("\"The boss room is always at the far end of the dungeon.\"");
+                        terminal.WriteLine("\"Watch for traps near treasure rooms - thieves love 'em.\"");
+                        terminal.WriteLine("\"Resting recovers health, but you can only rest once per floor.\"");
+                        terminal.WriteLine("\"And between you and me... the deeper you go, the richer the rewards.\"");
+                        terminal.WriteLine("");
+                        terminal.SetColor("gray");
+                        terminal.WriteLine($"(-100 gold)");
+                    }
+                    else
+                    {
+                        terminal.WriteLine("\"Information costs gold, friend. Come back when you have some.\"", "yellow");
+                    }
+                }
+                else if (tradeChoice.ToUpper() != "L")
+                {
+                    terminal.WriteLine("The adventurer shrugs as you walk away.", "gray");
                 }
                 break;
 
