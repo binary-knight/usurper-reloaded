@@ -557,7 +557,7 @@ public partial class GameEngine : Node
         terminal.WriteLine("1993 - Original by Jakob Dangarden");
         terminal.WriteLine("2025 - Reborn by Jason Knight");
         terminal.WriteLine("");
-        terminal.WriteLine("Press any key to continue...");
+        terminal.WriteLine("Press Enter to continue...");
         await terminal.WaitForKey();
     }
     
@@ -759,8 +759,11 @@ public partial class GameEngine : Node
                     var newName = await terminal.GetInput("Enter new character name: ");
                     if (!string.IsNullOrWhiteSpace(newName))
                     {
+                        // Refresh player names list in case characters were deleted
+                        var currentPlayerNames = SaveSystem.Instance.GetAllPlayerNames();
+
                         // Case-insensitive check to prevent file system conflicts
-                        var nameExists = playerNames.Any(n =>
+                        var nameExists = currentPlayerNames.Any(n =>
                             string.Equals(n, newName, StringComparison.OrdinalIgnoreCase));
 
                         if (nameExists)
@@ -1775,6 +1778,67 @@ public partial class GameEngine : Node
                 npc.BaseMaxMana = npc.MaxMana;
             }
 
+            // Restore dynamic equipment FIRST (before EquippedItems, so IDs are registered)
+            if (data.DynamicEquipment != null && data.DynamicEquipment.Count > 0)
+            {
+                foreach (var equipData in data.DynamicEquipment)
+                {
+                    var equipment = new Equipment
+                    {
+                        Name = equipData.Name,
+                        Description = equipData.Description ?? "",
+                        Slot = (EquipmentSlot)equipData.Slot,
+                        WeaponPower = equipData.WeaponPower,
+                        ArmorClass = equipData.ArmorClass,
+                        ShieldBonus = equipData.ShieldBonus,
+                        BlockChance = equipData.BlockChance,
+                        StrengthBonus = equipData.StrengthBonus,
+                        DexterityBonus = equipData.DexterityBonus,
+                        ConstitutionBonus = equipData.ConstitutionBonus,
+                        IntelligenceBonus = equipData.IntelligenceBonus,
+                        WisdomBonus = equipData.WisdomBonus,
+                        CharismaBonus = equipData.CharismaBonus,
+                        MaxHPBonus = equipData.MaxHPBonus,
+                        MaxManaBonus = equipData.MaxManaBonus,
+                        DefenceBonus = equipData.DefenceBonus,
+                        MinLevel = equipData.MinLevel,
+                        Value = equipData.Value,
+                        IsCursed = equipData.IsCursed,
+                        Rarity = (EquipmentRarity)equipData.Rarity,
+                        WeaponType = (WeaponType)equipData.WeaponType,
+                        Handedness = (WeaponHandedness)equipData.Handedness,
+                        ArmorType = (ArmorType)equipData.ArmorType
+                    };
+
+                    // Register and get the new ID (may differ from saved ID)
+                    int newId = EquipmentDatabase.RegisterDynamic(equipment);
+
+                    // Update the EquippedItems dictionary to use the new ID
+                    if (data.EquippedItems != null)
+                    {
+                        foreach (var slot in data.EquippedItems.Keys.ToList())
+                        {
+                            if (data.EquippedItems[slot] == equipData.Id)
+                            {
+                                data.EquippedItems[slot] = newId;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Restore equipped items
+            if (data.EquippedItems != null && data.EquippedItems.Count > 0)
+            {
+                foreach (var kvp in data.EquippedItems)
+                {
+                    var slot = (EquipmentSlot)kvp.Key;
+                    var equipmentId = kvp.Value;
+                    npc.EquippedItems[slot] = equipmentId;
+                }
+                npc.RecalculateStats();
+            }
+
             // Add to spawn system
             NPCSpawnSystem.Instance.AddRestoredNPC(npc);
 
@@ -2260,7 +2324,7 @@ public partial class GameEngine : Node
 
         terminal.SetColor("yellow");
         terminal.WriteLine("");
-        terminal.WriteLine("                         [Press any key to return]");
+        terminal.WriteLine("                         [Press Enter to return]");
         await terminal.WaitForKey();
     }
 
@@ -2293,7 +2357,7 @@ public partial class GameEngine : Node
         terminal.WriteLine("");
 
         terminal.SetColor("yellow");
-        terminal.WriteLine("                              [Press any key]");
+        terminal.WriteLine("                              [Press Enter]");
         await terminal.WaitForKey();
 
         // Page 2: The Sundering
@@ -2323,7 +2387,7 @@ public partial class GameEngine : Node
         terminal.WriteLine("");
 
         terminal.SetColor("yellow");
-        terminal.WriteLine("                              [Press any key]");
+        terminal.WriteLine("                              [Press Enter]");
         await terminal.WaitForKey();
 
         // Page 3: The Age of Avarice
@@ -2356,7 +2420,7 @@ public partial class GameEngine : Node
         terminal.WriteLine("");
 
         terminal.SetColor("yellow");
-        terminal.WriteLine("                              [Press any key]");
+        terminal.WriteLine("                              [Press Enter]");
         await terminal.WaitForKey();
 
         // Page 4: Your Story Begins
@@ -2391,7 +2455,7 @@ public partial class GameEngine : Node
         terminal.WriteLine("");
 
         terminal.SetColor("yellow");
-        terminal.WriteLine("                         [Press any key to return]");
+        terminal.WriteLine("                         [Press Enter to return]");
         await terminal.WaitForKey();
     }
     
@@ -2406,7 +2470,7 @@ public partial class GameEngine : Node
         terminal.SetColor("white");
         terminal.WriteLine(content);
         terminal.WriteLine("");
-        terminal.WriteLine("Press any key to continue...");
+        terminal.WriteLine("Press Enter to continue...");
         await terminal.WaitForKey();
     }
 

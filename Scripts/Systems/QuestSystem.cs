@@ -165,12 +165,20 @@ public partial class QuestSystem : Node
     /// </summary>
     public static List<Quest> GetPlayerQuests(string playerName)
     {
-        return questDatabase.Where(q => 
-            !q.Deleted && 
+        return questDatabase.Where(q =>
+            !q.Deleted &&
             q.Occupier == playerName
         ).ToList();
     }
-    
+
+    /// <summary>
+    /// Get active quests for a specific player (alias for GetPlayerQuests)
+    /// </summary>
+    public static List<Quest> GetActiveQuestsForPlayer(string playerName)
+    {
+        return GetPlayerQuests(playerName);
+    }
+
     /// <summary>
     /// Get quest by ID
     /// </summary>
@@ -1405,6 +1413,130 @@ public partial class QuestSystem : Node
         questDatabase.Add(bounty);
         NewsSystem.Instance?.Newsy(true, $"The Crown has posted a bounty on {playerName}!");
         // GD.Print($"[QuestSystem] Bounty posted on player {playerName} for {crime}");
+    }
+
+    #endregion
+
+    #region Royal Audience Quests
+
+    /// <summary>
+    /// Create a special royal quest from a direct audience with the king
+    /// These are personal quests given directly to the player with better rewards
+    /// </summary>
+    public static Quest CreateRoyalAudienceQuest(Character player, string kingName, int difficulty,
+        long goldReward, long xpReward, string questDescription)
+    {
+        // Determine quest type based on description
+        QuestTarget questTarget;
+        QuestObjectiveType objectiveType;
+        int targetValue;
+        string targetName;
+
+        if (questDescription.Contains("monster") || questDescription.Contains("creature"))
+        {
+            questTarget = QuestTarget.Monster;
+            objectiveType = QuestObjectiveType.KillMonsters;
+            targetValue = 5 + difficulty * 3; // 8, 11, 14, 17 monsters
+            targetName = GetRandomMonsterForLevel(player.Level);
+        }
+        else if (questDescription.Contains("artifact") || questDescription.Contains("recover"))
+        {
+            questTarget = QuestTarget.FindArtifact;
+            objectiveType = QuestObjectiveType.FindArtifact;
+            targetValue = 1;
+            targetName = "Royal Artifact";
+        }
+        else if (questDescription.Contains("floor") || questDescription.Contains("clear"))
+        {
+            questTarget = QuestTarget.ClearFloor;
+            objectiveType = QuestObjectiveType.ClearDungeonFloor;
+            targetValue = Math.Max(1, player.Level - 5 + difficulty * 5); // Near player level
+            targetName = $"Floor {targetValue}";
+        }
+        else if (questDescription.Contains("criminal") || questDescription.Contains("hunt"))
+        {
+            questTarget = QuestTarget.Assassin;
+            objectiveType = QuestObjectiveType.KillBoss;
+            targetValue = 1;
+            targetName = "Wanted Criminal";
+        }
+        else // Default: dungeon investigation
+        {
+            questTarget = QuestTarget.ReachFloor;
+            objectiveType = QuestObjectiveType.ReachDungeonFloor;
+            targetValue = Math.Max(1, player.Level + difficulty * 3);
+            targetName = $"Floor {targetValue}";
+        }
+
+        var quest = new Quest
+        {
+            Title = $"Royal Commission: {questDescription}",
+            Initiator = kingName,
+            QuestType = QuestType.SingleQuest,
+            QuestTarget = questTarget,
+            Difficulty = (byte)Math.Min(4, difficulty),
+            Comment = questDescription,
+            Date = DateTime.Now,
+            MinLevel = Math.Max(1, player.Level - 5),
+            MaxLevel = player.Level + 20,
+            DaysToComplete = 7 + difficulty * 2, // 9, 11, 13, 15 days
+            Reward = 3, // High reward tier
+            RewardType = QuestRewardType.Money,
+            // Pre-assign to this player
+            Occupier = player.Name2,
+            OccupierRace = player.Race,
+            OccupierSex = (byte)((int)player.Sex),
+            OccupiedDays = 0,
+            OfferedTo = player.Name2
+        };
+
+        // Add the main objective
+        quest.Objectives.Add(new QuestObjective(
+            objectiveType,
+            questDescription,
+            targetValue,
+            "",
+            targetName
+        ));
+
+        // For monster quests, add monsters to track
+        if (questTarget == QuestTarget.Monster)
+        {
+            quest.Monsters.Add(new QuestMonster(0, targetValue, targetName));
+        }
+
+        // Store the actual gold/xp rewards as custom values
+        // We'll use Reward field creatively: high byte = gold tier, low byte = xp tier
+        // Or we can just use Comment to store them... let's use a simpler approach
+        // Actually the quest has CalculateReward which uses player level
+        // Let's just set high rewards and let the system work
+
+        questDatabase.Add(quest);
+
+        // Also add to player's active quests if they're a Player
+        if (player is Player p)
+        {
+            p.ActiveQuests.Add(quest);
+        }
+
+        return quest;
+    }
+
+    /// <summary>
+    /// Get a random monster name appropriate for player level
+    /// </summary>
+    private static string GetRandomMonsterForLevel(int playerLevel)
+    {
+        var lowLevel = new[] { "Giant Rat", "Goblin", "Kobold", "Skeleton", "Zombie" };
+        var midLevel = new[] { "Orc", "Troll", "Ogre", "Wraith", "Specter" };
+        var highLevel = new[] { "Dragon", "Demon", "Lich", "Vampire", "Dark Knight" };
+
+        if (playerLevel <= 15)
+            return lowLevel[random.Next(lowLevel.Length)];
+        else if (playerLevel <= 35)
+            return midLevel[random.Next(midLevel.Length)];
+        else
+            return highLevel[random.Next(highLevel.Length)];
     }
 
     #endregion

@@ -42,7 +42,7 @@ namespace UsurperRemake.Locations
                 term.WriteLine("Guards block the entrance to the Dark Alley.");
                 term.WriteLine("You must return when martial law is lifted.");
                 term.WriteLine("");
-                await term.PressAnyKey("Press any key to return...");
+                await term.PressAnyKey("Press Enter to return...");
                 throw new LocationExitException(GameLocation.MainStreet);
             }
 

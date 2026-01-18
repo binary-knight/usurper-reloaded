@@ -1245,7 +1245,7 @@ public static class ClassAbilitySystem
             terminal.WriteLine("All abilities are automatically available when you reach the required level.", "yellow");
             terminal.WriteLine("Use them in combat with the (A)bility command.", "yellow");
             terminal.WriteLine("");
-            terminal.WriteLine("Press any key to return...", "gray");
+            terminal.WriteLine("Press Enter to return...", "gray");
 
             await terminal.WaitForKey();
             break;

@@ -852,7 +852,46 @@ namespace UsurperRemake.Systems
                         Strength = item.Strength,
                         Defence = item.Defence,
                         IsCursed = item.IsCursed
-                    }).ToList() ?? new List<MarketItemData>()
+                    }).ToList() ?? new List<MarketItemData>(),
+
+                    // Modern RPG Equipment System - save equipped items
+                    EquippedItems = npc.EquippedItems?.ToDictionary(
+                        kvp => (int)kvp.Key,
+                        kvp => kvp.Value
+                    ) ?? new Dictionary<int, int>(),
+
+                    // Save dynamic equipment that this NPC has equipped
+                    DynamicEquipment = npc.EquippedItems?
+                        .Where(kvp => kvp.Value >= 10000) // Dynamic equipment IDs start at 10000
+                        .Select(kvp => EquipmentDatabase.GetById(kvp.Value))
+                        .Where(equip => equip != null)
+                        .Select(equip => new DynamicEquipmentData
+                        {
+                            Id = equip!.Id,
+                            Name = equip.Name,
+                            Description = equip.Description ?? "",
+                            Slot = (int)equip.Slot,
+                            WeaponPower = equip.WeaponPower,
+                            ArmorClass = equip.ArmorClass,
+                            ShieldBonus = equip.ShieldBonus,
+                            BlockChance = equip.BlockChance,
+                            StrengthBonus = equip.StrengthBonus,
+                            DexterityBonus = equip.DexterityBonus,
+                            ConstitutionBonus = equip.ConstitutionBonus,
+                            IntelligenceBonus = equip.IntelligenceBonus,
+                            WisdomBonus = equip.WisdomBonus,
+                            CharismaBonus = equip.CharismaBonus,
+                            MaxHPBonus = equip.MaxHPBonus,
+                            MaxManaBonus = equip.MaxManaBonus,
+                            DefenceBonus = equip.DefenceBonus,
+                            MinLevel = equip.MinLevel,
+                            Value = equip.Value,
+                            IsCursed = equip.IsCursed,
+                            Rarity = (int)equip.Rarity,
+                            WeaponType = (int)equip.WeaponType,
+                            Handedness = (int)equip.Handedness,
+                            ArmorType = (int)equip.ArmorType
+                        }).ToList() ?? new List<DynamicEquipmentData>()
                 });
             }
 

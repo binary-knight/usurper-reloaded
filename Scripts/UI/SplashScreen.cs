@@ -82,7 +82,7 @@ namespace UsurperRemake.UI
             terminal.WriteLine("");
             terminal.WriteLine("");
             terminal.SetColor("bright_white");
-            terminal.Write("                           Press any key to begin...");
+            terminal.Write("                           Press Enter to begin...");
             terminal.SetColor("white");
 
             await terminal.WaitForKey("");

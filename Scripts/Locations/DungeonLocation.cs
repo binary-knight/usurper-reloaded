@@ -76,7 +76,7 @@ public class DungeonLocation : BaseLocation
             term.WriteLine($"  {GetThemeDescription(currentFloor.Theme)}");
             term.WriteLine("");
             term.SetColor("darkgray");
-            term.Write("  Press any key to continue...");
+            term.Write("  Press Enter to continue...");
             await term.ReadKeyAsync();
         }
 
@@ -281,7 +281,7 @@ public class DungeonLocation : BaseLocation
                     var response = await term.GetInput("> ");
                     if (response.Trim().ToUpper().StartsWith("Y"))
                     {
-                        var result = await OldGodBossSystem.Instance.StartBossEncounter(player, OldGodType.Maelketh, term);
+                        var result = await OldGodBossSystem.Instance.StartBossEncounter(player, OldGodType.Maelketh, term, teammates);
                         await HandleGodEncounterResult(result, player, term);
                     }
                     else
@@ -356,7 +356,7 @@ public class DungeonLocation : BaseLocation
                     var response = await term.GetInput("> ");
                     if (response.Trim().ToUpper().StartsWith("Y"))
                     {
-                        var result = await OldGodBossSystem.Instance.StartBossEncounter(player, OldGodType.Terravok, term);
+                        var result = await OldGodBossSystem.Instance.StartBossEncounter(player, OldGodType.Terravok, term, teammates);
                         await HandleGodEncounterResult(result, player, term);
                     }
                     else
@@ -434,7 +434,7 @@ public class DungeonLocation : BaseLocation
                     var response = await term.GetInput("> ");
                     if (response.Trim().ToUpper().StartsWith("Y"))
                     {
-                        var result = await OldGodBossSystem.Instance.StartBossEncounter(player, OldGodType.Manwe, term);
+                        var result = await OldGodBossSystem.Instance.StartBossEncounter(player, OldGodType.Manwe, term, teammates);
                         await HandleGodEncounterResult(result, player, term);
 
                         // After Manwe, trigger ending determination
@@ -1575,8 +1575,18 @@ public class DungeonLocation : BaseLocation
         }
         else if (floor == 25)
         {
-            hint = "EVENT: The Possessed Child paradox may appear here. Choose wisely.";
-            color = "bright_magenta";
+            // Only show paradox hint if it's actually available
+            var player = GetCurrentPlayer();
+            if (player != null && MoralParadoxSystem.Instance.IsParadoxAvailable("possessed_child", player))
+            {
+                hint = "EVENT: The Possessed Child paradox may appear here. Choose wisely.";
+                color = "bright_magenta";
+            }
+            else if (!story.HasStoryFlag("maelketh_encountered"))
+            {
+                hint = "BOSS: Maelketh, God of War, awaits in the depths of this floor!";
+                color = "bright_red";
+            }
         }
         else if (floor == 30 && !story.CollectedSeals.Contains(SealType.Corruption))
         {
@@ -1603,8 +1613,13 @@ public class DungeonLocation : BaseLocation
         }
         else if (floor == 65)
         {
-            hint = "EVENT: Veloura's Cure paradox may appear if you have the Soulweaver's Loom.";
-            color = "bright_magenta";
+            // Only show paradox hint if it's actually available
+            var player65 = GetCurrentPlayer();
+            if (player65 != null && MoralParadoxSystem.Instance.IsParadoxAvailable("velouras_cure", player65))
+            {
+                hint = "EVENT: Veloura's Cure paradox awaits. You have what you need.";
+                color = "bright_magenta";
+            }
         }
         else if (floor == 75)
         {
@@ -2140,6 +2155,31 @@ public class DungeonLocation : BaseLocation
     }
 
     /// <summary>
+    /// Check if player evades a trap based on agility
+    /// Returns true if trap is evaded, false if it hits
+    /// </summary>
+    private bool TryEvadeTrap(Character player, int trapDifficulty = 50)
+    {
+        // Base evasion chance: Agility / 3, capped at 75%
+        // Higher agility = better chance to dodge
+        // trapDifficulty modifies the roll (higher = harder to evade)
+        int evasionChance = (int)Math.Min(75, player.Agility / 3);
+
+        // Dungeon level makes traps harder to evade
+        evasionChance -= currentDungeonLevel / 5;
+
+        // Assassins get bonus trap evasion
+        if (player.Class == CharacterClass.Assassin)
+            evasionChance += 15;
+
+        // Minimum 5% chance to evade
+        evasionChance = Math.Max(5, evasionChance);
+
+        int roll = dungeonRandom.Next(100);
+        return roll < evasionChance;
+    }
+
+    /// <summary>
     /// Trigger a trap when entering a room
     /// </summary>
     private async Task TriggerTrap(DungeonRoom room)
@@ -2150,6 +2190,19 @@ public class DungeonLocation : BaseLocation
         terminal.SetColor("red");
         terminal.WriteLine("*** TRAP! ***");
         await Task.Delay(500);
+
+        // Check for evasion based on agility
+        if (TryEvadeTrap(player))
+        {
+            terminal.SetColor("green");
+            terminal.WriteLine("Your quick reflexes save you!");
+            terminal.WriteLine($"You nimbly avoid the trap! (Agility: {player.Agility})");
+            await Task.Delay(1500);
+            return;
+        }
+
+        terminal.WriteLine("You couldn't react in time!", "yellow");
+        await Task.Delay(300);
 
         var trapType = dungeonRandom.Next(6);
         switch (trapType)
@@ -2220,6 +2273,31 @@ public class DungeonLocation : BaseLocation
             if (hadOldGodEncounter)
             {
                 return; // Old God encounter handled the room
+            }
+
+            // If this is an Old God floor but the boss can't be encountered
+            // (already defeated/saved/allied), mark room as cleared without combat
+            OldGodType? godType = currentDungeonLevel switch
+            {
+                25 => OldGodType.Maelketh,
+                40 => OldGodType.Veloura,
+                55 => OldGodType.Thorgrim,
+                70 => OldGodType.Noctura,
+                85 => OldGodType.Aurelion,
+                95 => OldGodType.Terravok,
+                100 => OldGodType.Manwe,
+                _ => null
+            };
+
+            if (godType != null)
+            {
+                // Old God was already dealt with - room is empty
+                room.IsCleared = true;
+                currentFloor.BossDefeated = true;
+                terminal.SetColor("gray");
+                terminal.WriteLine("The chamber is empty. The ancient presence has already been dealt with.");
+                await Task.Delay(1500);
+                return;
             }
         }
         else
@@ -2459,7 +2537,7 @@ public class DungeonLocation : BaseLocation
 
         if (response.Trim().ToUpper().StartsWith("Y"))
         {
-            var result = await OldGodBossSystem.Instance.StartBossEncounter(player, godType.Value, terminal);
+            var result = await OldGodBossSystem.Instance.StartBossEncounter(player, godType.Value, terminal, teammates);
             await HandleGodEncounterResult(result, player, terminal);
 
             // Mark room as cleared if defeated or alternate outcome achieved
@@ -3998,26 +4076,37 @@ public class DungeonLocation : BaseLocation
                 terminal.SetColor("red");
                 terminal.WriteLine("CLICK! It's a trap!");
 
-                var trapType = dungeonRandom.Next(3);
-                switch (trapType)
+                // Check for evasion based on agility
+                if (TryEvadeTrap(currentPlayer))
                 {
-                    case 0:
-                        var poisonDmg = currentDungeonLevel * 5;
-                        currentPlayer.HP -= poisonDmg;
-                        terminal.WriteLine($"Poison gas! You take {poisonDmg} damage!");
-                        currentPlayer.Poison = Math.Max(currentPlayer.Poison, 1);
-                        terminal.WriteLine("You have been poisoned!", "magenta");
-                        break;
-                    case 1:
-                        var spikeDmg = currentDungeonLevel * 8;
-                        currentPlayer.HP -= spikeDmg;
-                        terminal.WriteLine($"Spikes shoot out! You take {spikeDmg} damage!");
-                        break;
-                    case 2:
-                        var goldLost = currentPlayer.Gold / 10;
-                        currentPlayer.Gold -= goldLost;
-                        terminal.WriteLine($"Acid sprays your coin pouch! You lose {goldLost} gold!");
-                        break;
+                    terminal.SetColor("green");
+                    terminal.WriteLine("You leap back just in time!");
+                    terminal.WriteLine($"Your reflexes saved you! (Agility: {currentPlayer.Agility})");
+                }
+                else
+                {
+                    terminal.WriteLine("You couldn't react in time!", "yellow");
+                    var trapType = dungeonRandom.Next(3);
+                    switch (trapType)
+                    {
+                        case 0:
+                            var poisonDmg = currentDungeonLevel * 5;
+                            currentPlayer.HP -= poisonDmg;
+                            terminal.WriteLine($"Poison gas! You take {poisonDmg} damage!");
+                            currentPlayer.Poison = Math.Max(currentPlayer.Poison, 1);
+                            terminal.WriteLine("You have been poisoned!", "magenta");
+                            break;
+                        case 1:
+                            var spikeDmg = currentDungeonLevel * 8;
+                            currentPlayer.HP -= spikeDmg;
+                            terminal.WriteLine($"Spikes shoot out! You take {spikeDmg} damage!");
+                            break;
+                        case 2:
+                            var goldLost = currentPlayer.Gold / 10;
+                            currentPlayer.Gold -= goldLost;
+                            terminal.WriteLine($"Acid sprays your coin pouch! You lose {goldLost} gold!");
+                            break;
+                    }
                 }
             }
             else
@@ -4630,6 +4719,20 @@ public class DungeonLocation : BaseLocation
         terminal.WriteLine("");
 
         var currentPlayer = GetCurrentPlayer();
+
+        // Check for evasion based on agility
+        if (TryEvadeTrap(currentPlayer))
+        {
+            terminal.SetColor("green");
+            terminal.WriteLine("Your quick reflexes save you!");
+            terminal.WriteLine($"You dodge the trap entirely! (Agility: {currentPlayer.Agility})");
+            await Task.Delay(1500);
+            return;
+        }
+
+        terminal.WriteLine("You couldn't react in time!", "yellow");
+        await Task.Delay(300);
+
         var trapType = dungeonRandom.Next(5);
 
         switch (trapType)

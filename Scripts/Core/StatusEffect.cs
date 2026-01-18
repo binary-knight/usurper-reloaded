@@ -50,7 +50,8 @@ public enum StatusEffect
     Reflecting,    // Reflect 25% of damage back to attacker
     Lifesteal,     // Heal for 25% of damage dealt
     Berserk,       // Auto-attack nearest target, +50% damage
-    Invulnerable   // Cannot take damage (very short duration)
+    Invulnerable,  // Cannot take damage (very short duration)
+    RoyalBlessing  // King's blessing: +10% to all combat stats for a day
 }
 
 /// <summary>
@@ -177,6 +178,7 @@ public static class StatusEffectExtensions
         StatusEffect.Lifesteal => "LFS",
         StatusEffect.Berserk => "BSK",
         StatusEffect.Invulnerable => "INV",
+        StatusEffect.RoyalBlessing => "RYL",
         _ => "???"
     };
 
@@ -219,6 +221,7 @@ public static class StatusEffectExtensions
         StatusEffect.Lifesteal => "Leeching life from attacks",
         StatusEffect.Berserk => "Berserk! Attacking wildly",
         StatusEffect.Invulnerable => "Invulnerable to all damage",
+        StatusEffect.RoyalBlessing => "Royal blessing: +10% to combat stats",
         _ => "Unknown effect"
     };
 } 

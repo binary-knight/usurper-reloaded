@@ -1,5 +1,6 @@
 using UsurperRemake.Utils;
 using UsurperRemake.Systems;
+using UsurperRemake.Locations;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -273,6 +274,19 @@ public class WorldSimulator
             activities.Add(("marketplace", marketWeight));
         }
 
+        // Castle visit - chance to apply for royal guard or seek audience
+        // More likely for higher level, honorable NPCs
+        if (npc.Level >= 5 && npc.Chivalry > npc.Darkness)
+        {
+            float castleWeight = 0.05f; // Base 5% weight
+            // Higher chivalry = more likely to serve the crown
+            castleWeight += Math.Min(0.10f, npc.Chivalry / 1000f);
+            // Higher level = more qualified for guard duty
+            if (npc.Level >= 10)
+                castleWeight += 0.05f;
+            activities.Add(("castle", castleWeight));
+        }
+
         // Team activities
         if (string.IsNullOrEmpty(npc.Team))
         {
@@ -347,6 +361,9 @@ public class WorldSimulator
                 break;
             case "marketplace":
                 NPCVisitMarketplace(npc);
+                break;
+            case "castle":
+                NPCVisitCastle(npc);
                 break;
             case "go_home":
                 NPCGoHome(npc);
@@ -721,40 +738,94 @@ public class WorldSimulator
     }
 
     /// <summary>
-    /// NPC goes shopping for equipment
+    /// NPC goes shopping for equipment using the modern equipment system
     /// </summary>
     private void NPCGoShopping(NPC npc)
     {
-        // Decide what to buy based on current gear
+        EquipmentDatabase.Initialize();
+
+        // Initialize EquippedItems if needed
+        if (npc.EquippedItems == null)
+            npc.EquippedItems = new Dictionary<EquipmentSlot, int>();
+
         bool boughtSomething = false;
         string itemBought = "";
+
+        // Determine how much gold the NPC is willing to spend (30-70% of their gold)
+        long spendingBudget = (long)(npc.Gold * (0.3 + random.NextDouble() * 0.4));
 
         // Try to upgrade weapon (50% of the time)
         if (random.NextDouble() < 0.5)
         {
             npc.UpdateLocation("Weapon Shop");
-            int weaponCost = (int)(npc.Level * 50 + random.Next(50, 200));
-            if (npc.Gold >= weaponCost)
+
+            // Get current weapon power
+            int currentWeaponPower = 0;
+            if (npc.EquippedItems.TryGetValue(EquipmentSlot.MainHand, out int weaponId))
             {
-                npc.SpendGold(weaponCost);
-                int powerGain = random.Next(2, 6);
-                npc.WeapPow += powerGain;
+                var currentWeapon = EquipmentDatabase.GetById(weaponId);
+                if (currentWeapon != null)
+                    currentWeaponPower = currentWeapon.WeaponPower;
+            }
+
+            // Find a better weapon within budget
+            var betterWeapon = EquipmentDatabase.GetWeaponsByHandedness(WeaponHandedness.OneHanded)
+                .Concat(EquipmentDatabase.GetWeaponsByHandedness(WeaponHandedness.TwoHanded))
+                .Where(w => w.Value <= spendingBudget && w.WeaponPower > currentWeaponPower)
+                .OrderByDescending(w => w.WeaponPower)
+                .FirstOrDefault();
+
+            if (betterWeapon != null)
+            {
+                npc.SpendGold((int)betterWeapon.Value);
+                npc.EquippedItems[EquipmentSlot.MainHand] = betterWeapon.Id;
+
+                // If new weapon is two-handed, remove off-hand item
+                if (betterWeapon.Handedness == WeaponHandedness.TwoHanded)
+                {
+                    npc.EquippedItems.Remove(EquipmentSlot.OffHand);
+                }
+
                 boughtSomething = true;
-                itemBought = $"a new weapon (+{powerGain} power)";
+                itemBought = betterWeapon.Name;
+                npc.RecalculateStats();
             }
         }
         else
         {
             // Try to upgrade armor
             npc.UpdateLocation("Armor Shop");
-            int armorCost = (int)(npc.Level * 40 + random.Next(40, 180));
-            if (npc.Gold >= armorCost)
+
+            // Pick a random armor slot to try to upgrade
+            var armorSlots = new[]
             {
-                npc.SpendGold(armorCost);
-                int defenseGain = random.Next(2, 5);
-                npc.ArmPow += defenseGain;
+                EquipmentSlot.Body, EquipmentSlot.Head, EquipmentSlot.Hands,
+                EquipmentSlot.Feet, EquipmentSlot.Legs, EquipmentSlot.Arms
+            };
+            var targetSlot = armorSlots[random.Next(armorSlots.Length)];
+
+            // Get current armor in that slot
+            int currentArmorAC = 0;
+            if (npc.EquippedItems.TryGetValue(targetSlot, out int armorId))
+            {
+                var currentArmor = EquipmentDatabase.GetById(armorId);
+                if (currentArmor != null)
+                    currentArmorAC = currentArmor.ArmorClass;
+            }
+
+            // Find better armor for that slot within budget
+            var betterArmor = EquipmentDatabase.GetBySlot(targetSlot)
+                .Where(a => a.Value <= spendingBudget && a.ArmorClass > currentArmorAC)
+                .OrderByDescending(a => a.ArmorClass)
+                .FirstOrDefault();
+
+            if (betterArmor != null)
+            {
+                npc.SpendGold((int)betterArmor.Value);
+                npc.EquippedItems[targetSlot] = betterArmor.Id;
                 boughtSomething = true;
-                itemBought = $"new armor (+{defenseGain} defense)";
+                itemBought = betterArmor.Name;
+                npc.RecalculateStats();
             }
         }
 
@@ -1256,6 +1327,107 @@ public class WorldSimulator
             var other = otherNPCs[random.Next(otherNPCs.Count)];
             RelationshipSystem.UpdateRelationship(npc, other, 1, 0, false);
             // GD.Print($"[WorldSim] {npc.Name} and {other.Name} haggled together at the Marketplace");
+        }
+    }
+
+    /// <summary>
+    /// NPC visits the Castle to apply for royal guard or seek audience with the king
+    /// </summary>
+    private void NPCVisitCastle(NPC npc)
+    {
+        npc.UpdateLocation("Castle");
+
+        // Get current king
+        var king = CastleLocation.GetCurrentKing();
+        if (king == null || !king.IsActive)
+        {
+            // No king - just wander the castle grounds
+            return;
+        }
+
+        // Check if NPC is already a royal guard
+        if (king.Guards.Any(g => g.Name == npc.Name))
+        {
+            // Already a guard - just doing their duty
+            return;
+        }
+
+        // Check if NPC is already a bank guard (can't serve both)
+        if (npc.BankGuard)
+        {
+            return;
+        }
+
+        // Check eligibility: Level 5+, more chivalry than darkness, not on a team
+        if (npc.Level >= 5 &&
+            npc.Chivalry > npc.Darkness &&
+            string.IsNullOrEmpty(npc.Team) &&
+            king.Guards.Count < GameConfig.MaxRoyalGuards)
+        {
+            // Chance to apply for royal guard based on personality and stats
+            float applyChance = 0.15f; // Base 15% chance
+
+            // Higher chivalry = more likely to want to serve
+            applyChance += Math.Min(0.20f, npc.Chivalry / 500f);
+
+            // Higher level = more confident to apply
+            if (npc.Level >= 10) applyChance += 0.10f;
+            if (npc.Level >= 20) applyChance += 0.10f;
+
+            // Personality factors
+            if (npc.Brain?.Personality != null)
+            {
+                applyChance += npc.Brain.Personality.Aggression * 0.05f; // Warriors like guard duty
+                applyChance -= npc.Brain.Personality.Greed * 0.10f; // Greedy prefer bank guard (better pay)
+            }
+
+            if (random.NextDouble() < applyChance)
+            {
+                // NPC applies and is accepted!
+                long salary = GameConfig.BaseGuardSalary + (npc.Level * 20);
+
+                var guard = new RoyalGuard
+                {
+                    Name = npc.Name,
+                    AI = CharacterAI.Computer,
+                    Sex = npc.Sex,
+                    DailySalary = salary,
+                    RecruitmentDate = DateTime.Now,
+                    Loyalty = 80 + random.Next(21), // 80-100 loyalty
+                    IsActive = true
+                };
+
+                king.Guards.Add(guard);
+
+                // News announcement
+                NewsSystem.Instance?.Newsy(true, $"{npc.Name} has joined the Royal Guard!");
+
+                // Chivalry boost for service
+                npc.Chivalry += 5;
+            }
+        }
+        else if (npc.Level >= 3 && random.NextDouble() < 0.10)
+        {
+            // Lower level NPCs might just seek audience or donate
+            // Small chance to donate to royal purse
+            if (npc.Gold > 500 && npc.Chivalry > 50)
+            {
+                long donation = Math.Min(npc.Gold / 10, 200 + npc.Level * 10);
+                npc.SpendGold(donation);
+                king.Treasury += donation;
+                npc.Chivalry += (int)Math.Min(5, donation / 50);
+            }
+        }
+
+        // Meet other NPCs at the castle
+        var otherNPCs = npcs
+            .Where(n => n.IsAlive && n.ID != npc.ID && n.CurrentLocation == "Castle")
+            .ToList();
+
+        if (otherNPCs.Any() && random.NextDouble() < 0.15)
+        {
+            var other = otherNPCs[random.Next(otherNPCs.Count)];
+            RelationshipSystem.UpdateRelationship(npc, other, 1, 0, false);
         }
     }
 

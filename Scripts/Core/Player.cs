@@ -249,8 +249,9 @@ public class Player : Character
     public string GetTitle()
     {
         if (IsRuler) return "Supreme Ruler";
-        
-        return Level switch
+
+        // If player has a noble title from the king, use that with their level title
+        string levelTitle = Level switch
         {
             >= 90 => "Legendary Hero",
             >= 80 => "Epic Champion",
@@ -264,6 +265,14 @@ public class Player : Character
             >= 5 => "Novice Adventurer",
             _ => "Peasant"
         };
+
+        // Prepend noble title if present (e.g., "Sir Legendary Hero")
+        if (!string.IsNullOrEmpty(NobleTitle))
+        {
+            return $"{NobleTitle} {levelTitle}";
+        }
+
+        return levelTitle;
     }
     
     public string GetDisplayInfo()

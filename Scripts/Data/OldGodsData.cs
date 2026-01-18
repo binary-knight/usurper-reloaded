@@ -54,13 +54,13 @@ namespace UsurperRemake.Data
                 Type = OldGodType.Maelketh,
                 Name = "Maelketh, The Broken Blade",
                 Title = "God of War and Conquest",
-                Level = 70,
-                HP = 5000,
-                MaxHP = 5000,
-                Strength = 200,
-                Defence = 150,
-                Agility = 80,
-                AttacksPerRound = 3,
+                Level = 28,           // Slightly above floor 25 - requires preparation
+                HP = 2500,            // Requires full team to take down
+                MaxHP = 2500,
+                Strength = 120,       // Hits hard - need good armor
+                Defence = 80,
+                Agility = 60,
+                AttacksPerRound = 2,
 
                 EncounterLocation = "Dungeon Floor 25",
                 DungeonFloor = 25,
@@ -141,13 +141,13 @@ namespace UsurperRemake.Data
                 Type = OldGodType.Veloura,
                 Name = "Veloura, The Withered Heart",
                 Title = "Goddess of Love and Passion",
-                Level = 65,
-                HP = 3000,
-                MaxHP = 3000,
-                Strength = 80,
-                Defence = 100,
-                Agility = 120,
-                Charisma = 300,
+                Level = 44,           // Above floor 40 - requires preparation
+                HP = 3500,            // Lower HP but dangerous charm abilities
+                MaxHP = 3500,
+                Strength = 90,
+                Defence = 85,
+                Agility = 110,
+                Charisma = 200,       // High charisma for charm effects
                 AttacksPerRound = 2,
 
                 EncounterLocation = "Dungeon Floor 40",
@@ -247,12 +247,12 @@ namespace UsurperRemake.Data
                 Type = OldGodType.Thorgrim,
                 Name = "Thorgrim, The Hollow Judge",
                 Title = "God of Law and Order",
-                Level = 75,
-                HP = 6000,
-                MaxHP = 6000,
-                Strength = 180,
-                Defence = 200,
-                Agility = 60,
+                Level = 60,           // Above floor 55 - requires preparation
+                HP = 5000,            // Very tanky - need sustained damage
+                MaxHP = 5000,
+                Strength = 140,
+                Defence = 160,        // High defense - need armor penetration
+                Agility = 50,
                 AttacksPerRound = 2,
 
                 EncounterLocation = "Dungeon Floor 55",
@@ -337,14 +337,14 @@ namespace UsurperRemake.Data
                 Type = OldGodType.Noctura,
                 Name = "Noctura, The Shadow Weaver",
                 Title = "Goddess of Shadow and Secrets",
-                Level = 80,
-                HP = 4000,
-                MaxHP = 4000,
-                Strength = 100,
-                Defence = 120,
-                Agility = 200,
+                Level = 75,           // Above floor 70 - requires preparation
+                HP = 5500,            // Elusive but deadly
+                MaxHP = 5500,
+                Strength = 130,
+                Defence = 100,
+                Agility = 180,        // Very fast - hard to hit
                 Charisma = 150,
-                AttacksPerRound = 4,
+                AttacksPerRound = 3,  // Multiple fast strikes
 
                 EncounterLocation = "Dungeon Floor 70",
                 DungeonFloor = 70,
@@ -448,13 +448,13 @@ namespace UsurperRemake.Data
                 Type = OldGodType.Aurelion,
                 Name = "Aurelion, The Fading Light",
                 Title = "God of Light and Truth",
-                Level = 70,
-                HP = 3500,
-                MaxHP = 3500,
-                Strength = 150,
-                Defence = 100,
+                Level = 90,           // Above floor 85 - requires preparation
+                HP = 6500,            // Radiant but fading power
+                MaxHP = 6500,
+                Strength = 160,
+                Defence = 120,
                 Agility = 100,
-                Wisdom = 250,
+                Wisdom = 220,         // High magic damage
                 AttacksPerRound = 2,
 
                 EncounterLocation = "Dungeon Floor 85",
@@ -555,13 +555,13 @@ namespace UsurperRemake.Data
                 Type = OldGodType.Terravok,
                 Name = "Terravok, The Sleeping Mountain",
                 Title = "God of Earth and Endurance",
-                Level = 85,
-                HP = 8000,
-                MaxHP = 8000,
-                Strength = 250,
-                Defence = 300,
-                Agility = 20,
-                AttacksPerRound = 1,
+                Level = 98,           // Near floor 95 - penultimate challenge
+                HP = 9000,            // Massive HP pool - endurance fight
+                MaxHP = 9000,
+                Strength = 200,       // Devastating slow hits
+                Defence = 250,        // Incredibly tanky
+                Agility = 25,
+                AttacksPerRound = 1,  // Slow but each hit is brutal
 
                 EncounterLocation = "Dungeon Floor 95",
                 DungeonFloor = 95,
@@ -664,15 +664,15 @@ namespace UsurperRemake.Data
                 Type = OldGodType.Manwe,
                 Name = "Manwe, The Weary Creator",
                 Title = "Supreme God of Creation and Balance",
-                Level = 100,
-                HP = 10000,
-                MaxHP = 10000,
-                Strength = 500,
-                Defence = 500,
-                Agility = 500,
-                Wisdom = 500,
-                Charisma = 500,
-                AttacksPerRound = 5,
+                Level = 100,          // Final boss - the ultimate challenge
+                HP = 12000,           // The Creator - multi-phase epic fight
+                MaxHP = 12000,
+                Strength = 220,
+                Defence = 200,
+                Agility = 180,
+                Wisdom = 280,         // Master of all magic
+                Charisma = 250,
+                AttacksPerRound = 4,  // The Creator attacks with overwhelming force
 
                 EncounterLocation = "Dungeon Floor 100 / Heaven",
                 DungeonFloor = 100,
@@ -810,14 +810,16 @@ namespace UsurperRemake.Data
         private List<BossAbility> GetAllAbilities()
         {
             var abilities = new List<BossAbility>();
+            // Boss abilities should deal significant damage - use full Strength as base
+            // Phase 1: 100% Strength, Phase 2: 150% Strength, Phase 3: 200% Strength
             foreach (var name in Phase1Abilities)
-                abilities.Add(new BossAbility { Name = name, Phase = 1, BaseDamage = (int)(Strength / 2) });
+                abilities.Add(new BossAbility { Name = name, Phase = 1, BaseDamage = (int)Strength });
             foreach (var name in Phase2Abilities)
-                abilities.Add(new BossAbility { Name = name, Phase = 2, BaseDamage = (int)(Strength * 0.75) });
+                abilities.Add(new BossAbility { Name = name, Phase = 2, BaseDamage = (int)(Strength * 1.5) });
             foreach (var name in Phase3Abilities)
-                abilities.Add(new BossAbility { Name = name, Phase = 3, BaseDamage = (int)Strength });
+                abilities.Add(new BossAbility { Name = name, Phase = 3, BaseDamage = (int)(Strength * 2) });
             if (abilities.Count == 0)
-                abilities.Add(new BossAbility { Name = "Divine Strike", Phase = 1, BaseDamage = (int)(Strength / 2) });
+                abilities.Add(new BossAbility { Name = "Divine Strike", Phase = 1, BaseDamage = (int)Strength });
             return abilities;
         }
 

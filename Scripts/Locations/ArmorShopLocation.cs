@@ -58,7 +58,7 @@ public class ArmorShopLocation : BaseLocation
             terminal.WriteLine("You realize that you went a little bit too far in");
             terminal.WriteLine("your attempts to get a good deal.");
             terminal.WriteLine("");
-            terminal.WriteLine("Press any key to return to street...", "yellow");
+            terminal.WriteLine("Press Enter to return to street...", "yellow");
             return;
         }
 

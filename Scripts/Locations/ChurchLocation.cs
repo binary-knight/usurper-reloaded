@@ -57,7 +57,7 @@ namespace UsurperRemake.Locations
                 term.WriteLine("Perhaps confession at a neutral shrine could help cleanse your soul...");
                 term.WriteLine("");
                 term.SetColor("yellow");
-                term.Write("Press any key to return to the street...");
+                term.Write("Press Enter to return to the street...");
                 await term.GetKeyInput();
                 throw new LocationExitException(GameLocation.MainStreet);
             }

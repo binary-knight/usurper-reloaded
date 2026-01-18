@@ -123,7 +123,7 @@ public class DormitoryLocation : BaseLocation
                 idx++;
             }
         }
-        terminal.WriteLine("\nPress any key...");
+        terminal.WriteLine("\nPress Enter...");
         await terminal.WaitForKeyPress();
     }
 
@@ -157,7 +157,7 @@ public class DormitoryLocation : BaseLocation
         terminal.WriteLine(new string('═', npc.Name2.Length));
         terminal.SetColor("white");
         terminal.WriteLine(npc.GetDisplayInfo());
-        terminal.WriteLine("\nPress any key...");
+        terminal.WriteLine("\nPress Enter...");
         await terminal.WaitForKeyPress();
     }
 

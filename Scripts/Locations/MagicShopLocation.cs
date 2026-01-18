@@ -567,7 +567,7 @@ public partial class MagicShopLocation : BaseLocation
             }
             
             DisplayMessage("");
-            DisplayMessage("Press any key to continue...", "yellow");
+            DisplayMessage("Press Enter to continue...", "yellow");
             Console.ReadKey();
             DisplayMagicShopMenu(player);
             return;

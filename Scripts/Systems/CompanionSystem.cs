@@ -1321,13 +1321,28 @@ namespace UsurperRemake.Systems
             long companionXP = baseXP / 2;
             if (companionXP <= 0) return;
 
-            foreach (var companion in GetActiveCompanions())
-            {
-                if (companion == null || companion.IsDead) continue;
-                if (companion.Level >= 100) continue; // Max level cap
+            var activeCompanions = GetActiveCompanions().Where(c => c != null && !c.IsDead && c.Level < 100).ToList();
+            if (activeCompanions.Count == 0) return;
 
+            // Show companion XP header if we have a terminal
+            if (terminal != null && activeCompanions.Count > 0)
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine($"Companion XP (+{companionXP} each):");
+            }
+
+            foreach (var companion in activeCompanions)
+            {
                 long previousXP = companion.Experience;
                 companion.Experience += companionXP;
+
+                // Show XP gain
+                if (terminal != null)
+                {
+                    long xpNeeded = GetExperienceForLevel(companion.Level + 1);
+                    terminal.SetColor("bright_magenta");
+                    terminal.WriteLine($"  {companion.Name}: {companion.Experience:N0}/{xpNeeded:N0}");
+                }
 
                 // Check for level up
                 CheckCompanionLevelUp(companion, terminal);

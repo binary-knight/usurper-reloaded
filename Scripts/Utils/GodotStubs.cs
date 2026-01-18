@@ -263,7 +263,7 @@ namespace UsurperRemake.Utils
         public string ReadLine() => Console.ReadLine() ?? "";
         public void Clear() => Console.Clear();
         public void ClearScreen() => Console.Clear();
-        public async Task PressAnyKey(string message = "Press any key to continue...")
+        public async Task PressAnyKey(string message = "Press Enter to continue...")
         {
             Console.Write(message);
             Console.ReadKey();

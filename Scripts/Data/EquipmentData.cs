@@ -70,6 +70,17 @@ public static class EquipmentDatabase
     }
 
     /// <summary>
+    /// Get equipment by name (case-insensitive search)
+    /// </summary>
+    public static Equipment GetByName(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return null;
+        EnsureInitialized();
+        return _allEquipment.Values.FirstOrDefault(e =>
+            e.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
     /// Register a dynamic equipment item (from inventory/crafting)
     /// Returns the assigned ID
     /// </summary>

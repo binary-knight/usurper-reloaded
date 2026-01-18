@@ -138,7 +138,7 @@ public class HallOfRecruitmentLocation : BaseLocation
             idx++;
         }
         terminal.WriteLine("");
-        terminal.WriteLine("Press any key to continue...");
+        terminal.WriteLine("Press Enter to continue...");
         await terminal.WaitForKeyPress();
     }
 
@@ -174,7 +174,7 @@ public class HallOfRecruitmentLocation : BaseLocation
         terminal.SetColor("white");
         terminal.WriteLine(npc.GetDisplayInfo());
         terminal.WriteLine("");
-        terminal.WriteLine("Press any key...");
+        terminal.WriteLine("Press Enter...");
         await terminal.WaitForKeyPress();
     }
 

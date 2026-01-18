@@ -217,13 +217,13 @@ namespace UsurperConsole
             return Console.ReadKey().KeyChar.ToString();
         }
         
-        public async Task WaitForKeyPress(string message = "Press any key to continue...")
+        public async Task WaitForKeyPress(string message = "Press Enter to continue...")
         {
             Console.WriteLine(message);
             Console.ReadKey();
         }
         
-        public async Task PressAnyKey(string message = "Press any key to continue...")
+        public async Task PressAnyKey(string message = "Press Enter to continue...")
         {
             await WaitForKeyPress(message);
         }

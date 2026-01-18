@@ -337,7 +337,7 @@ public partial class PrisonLocation : BaseLocation
             await terminal.WriteLineAsync();
             await terminal.WriteColorLineAsync(result, TerminalEmulator.ColorGreen);
             await terminal.WriteLineAsync();
-            await terminal.WriteAsync("Press any key to continue...");
+            await terminal.WriteAsync("Press Enter to continue...");
             await terminal.GetCharAsync();
         }
 
@@ -373,7 +373,7 @@ public partial class PrisonLocation : BaseLocation
             await terminal.WriteLineAsync($"You have {player.DaysInPrison} days left to serve.");
             
         await terminal.WriteLineAsync();
-        await terminal.WriteAsync("Press any key to continue...");
+        await terminal.WriteAsync("Press Enter to continue...");
         await terminal.GetCharAsync();
     }
     
@@ -542,7 +542,7 @@ public partial class PrisonLocation : BaseLocation
         await terminal.WriteLineAsync($"You have {player.DaysInPrison} {dayStr} left in prison.");
         
         await terminal.WriteLineAsync();
-        await terminal.WriteAsync("Press any key to continue...");
+        await terminal.WriteAsync("Press Enter to continue...");
         await terminal.GetCharAsync();
     }
     
@@ -813,7 +813,7 @@ public partial class PrisonLocation : BaseLocation
         // Mark encounter as complete
         StoryProgressionSystem.Instance.SetStoryFlag("vex_prison_encounter_complete", true);
 
-        await terminal.WriteAsync("Press any key to continue...");
+        await terminal.WriteAsync("Press Enter to continue...");
         await terminal.GetCharAsync();
 
         // Navigate to Main Street

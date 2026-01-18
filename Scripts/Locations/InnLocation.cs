@@ -1410,7 +1410,7 @@ public class InnLocation : BaseLocation
                 }
 
                 terminal.SetColor("gray");
-                terminal.WriteLine("Press any key to continue...");
+                terminal.WriteLine("Press Enter to continue...");
                 await terminal.ReadKeyAsync();
                 terminal.ClearScreen();
             }

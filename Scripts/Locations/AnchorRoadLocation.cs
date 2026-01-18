@@ -338,7 +338,7 @@ public class AnchorRoadLocation : BaseLocation
 
         terminal.SetColor("darkgray");
         terminal.WriteLine("");
-        terminal.WriteLine("Press any key to continue...");
+        terminal.WriteLine("Press Enter to continue...");
         await terminal.ReadKeyAsync();
     }
 
@@ -361,7 +361,7 @@ public class AnchorRoadLocation : BaseLocation
             terminal.WriteLine("Come back tomorrow when you're rested.");
             terminal.WriteLine("");
             terminal.SetColor("darkgray");
-            terminal.WriteLine("Press any key to continue...");
+            terminal.WriteLine("Press Enter to continue...");
             await terminal.ReadKeyAsync();
             return;
         }
@@ -393,7 +393,7 @@ public class AnchorRoadLocation : BaseLocation
                 terminal.WriteLine("No bounties available at this time.");
                 terminal.WriteLine("");
                 terminal.SetColor("darkgray");
-                terminal.WriteLine("Press any key to continue...");
+                terminal.WriteLine("Press Enter to continue...");
                 await terminal.ReadKeyAsync();
                 return;
             }
@@ -475,7 +475,7 @@ public class AnchorRoadLocation : BaseLocation
 
         terminal.WriteLine("");
         terminal.SetColor("darkgray");
-        terminal.WriteLine("Press any key to continue...");
+        terminal.WriteLine("Press Enter to continue...");
         await terminal.ReadKeyAsync();
     }
 
@@ -588,7 +588,7 @@ public class AnchorRoadLocation : BaseLocation
 
         terminal.WriteLine("");
         terminal.SetColor("darkgray");
-        terminal.WriteLine("Press any key to continue...");
+        terminal.WriteLine("Press Enter to continue...");
         await terminal.ReadKeyAsync();
     }
 
@@ -611,7 +611,7 @@ public class AnchorRoadLocation : BaseLocation
             terminal.WriteLine("Visit Team Corner at the Inn to create or join a team.");
             terminal.WriteLine("");
             terminal.SetColor("darkgray");
-            terminal.WriteLine("Press any key to continue...");
+            terminal.WriteLine("Press Enter to continue...");
             await terminal.ReadKeyAsync();
             return;
         }
@@ -622,7 +622,7 @@ public class AnchorRoadLocation : BaseLocation
             terminal.WriteLine("You have no team fights left today!");
             terminal.WriteLine("");
             terminal.SetColor("darkgray");
-            terminal.WriteLine("Press any key to continue...");
+            terminal.WriteLine("Press Enter to continue...");
             await terminal.ReadKeyAsync();
             return;
         }
@@ -648,7 +648,7 @@ public class AnchorRoadLocation : BaseLocation
             terminal.WriteLine("No rival teams found to challenge!");
             terminal.WriteLine("");
             terminal.SetColor("darkgray");
-            terminal.WriteLine("Press any key to continue...");
+            terminal.WriteLine("Press Enter to continue...");
             await terminal.ReadKeyAsync();
             return;
         }
@@ -783,7 +783,7 @@ public class AnchorRoadLocation : BaseLocation
 
         terminal.WriteLine("");
         terminal.SetColor("darkgray");
-        terminal.WriteLine("Press any key to continue...");
+        terminal.WriteLine("Press Enter to continue...");
         await terminal.ReadKeyAsync();
     }
 
@@ -805,7 +805,7 @@ public class AnchorRoadLocation : BaseLocation
             terminal.WriteLine("You have no player fights left today!");
             terminal.WriteLine("");
             terminal.SetColor("darkgray");
-            terminal.WriteLine("Press any key to continue...");
+            terminal.WriteLine("Press Enter to continue...");
             await terminal.ReadKeyAsync();
             return;
         }
@@ -831,7 +831,7 @@ public class AnchorRoadLocation : BaseLocation
             terminal.WriteLine("No worthy opponents found at this time.");
             terminal.WriteLine("");
             terminal.SetColor("darkgray");
-            terminal.WriteLine("Press any key to continue...");
+            terminal.WriteLine("Press Enter to continue...");
             await terminal.ReadKeyAsync();
             return;
         }
@@ -877,7 +877,7 @@ public class AnchorRoadLocation : BaseLocation
 
         terminal.WriteLine("");
         terminal.SetColor("darkgray");
-        terminal.WriteLine("Press any key to continue...");
+        terminal.WriteLine("Press Enter to continue...");
         await terminal.ReadKeyAsync();
     }
 
@@ -999,7 +999,7 @@ public class AnchorRoadLocation : BaseLocation
             terminal.WriteLine("You must be in a team to claim towns!");
             terminal.WriteLine("");
             terminal.SetColor("darkgray");
-            terminal.WriteLine("Press any key to continue...");
+            terminal.WriteLine("Press Enter to continue...");
             await terminal.ReadKeyAsync();
             return;
         }
@@ -1010,7 +1010,7 @@ public class AnchorRoadLocation : BaseLocation
             terminal.WriteLine("Your team already controls this town!");
             terminal.WriteLine("");
             terminal.SetColor("darkgray");
-            terminal.WriteLine("Press any key to continue...");
+            terminal.WriteLine("Press Enter to continue...");
             await terminal.ReadKeyAsync();
             return;
         }
@@ -1061,7 +1061,7 @@ public class AnchorRoadLocation : BaseLocation
 
         terminal.WriteLine("");
         terminal.SetColor("darkgray");
-        terminal.WriteLine("Press any key to continue...");
+        terminal.WriteLine("Press Enter to continue...");
         await terminal.ReadKeyAsync();
     }
 
@@ -1114,7 +1114,7 @@ public class AnchorRoadLocation : BaseLocation
 
         terminal.WriteLine("");
         terminal.SetColor("darkgray");
-        terminal.WriteLine("Press any key to continue...");
+        terminal.WriteLine("Press Enter to continue...");
         await terminal.ReadKeyAsync();
     }
 
@@ -1212,7 +1212,7 @@ public class AnchorRoadLocation : BaseLocation
 
         terminal.WriteLine("");
         terminal.SetColor("darkgray");
-        terminal.WriteLine("Press any key to continue...");
+        terminal.WriteLine("Press Enter to continue...");
         await terminal.ReadKeyAsync();
     }
 
@@ -1251,7 +1251,7 @@ public class AnchorRoadLocation : BaseLocation
 
         terminal.WriteLine("");
         terminal.SetColor("darkgray");
-        terminal.WriteLine("Press any key to continue...");
+        terminal.WriteLine("Press Enter to continue...");
         await terminal.ReadKeyAsync();
     }
 

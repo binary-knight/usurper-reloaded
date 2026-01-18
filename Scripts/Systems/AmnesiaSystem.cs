@@ -308,7 +308,7 @@ namespace UsurperRemake.Systems
             terminal.WriteLine("  ...You wake with tears on your face.");
             terminal.WriteLine("");
 
-            await terminal.PressAnyKey("  Press any key to continue...");
+            await terminal.PressAnyKey("  Press Enter to continue...");
 
             // Dreams may trigger memory recovery
             CheckMemoryTrigger(TriggerType.Dream, player);
@@ -399,7 +399,7 @@ namespace UsurperRemake.Systems
             terminal.WriteLine("");
             terminal.SetColor("gray");
 
-            await terminal.PressAnyKey("  Press any key to return to reality...");
+            await terminal.PressAnyKey("  Press Enter to return to reality...");
         }
 
         /// <summary>

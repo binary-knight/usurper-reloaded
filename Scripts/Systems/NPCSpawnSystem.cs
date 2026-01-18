@@ -340,13 +340,26 @@ namespace UsurperRemake.Systems
         }
 
         /// <summary>
-        /// Give starting equipment to NPC
+        /// Give starting equipment to NPC using the modern equipment system
+        /// Creates actual Equipment objects that will show when equipping teammates
         /// </summary>
         private void GiveStartingEquipment(NPC npc)
         {
-            // Give appropriate weapon and armor based on level and class
-            npc.WeapPow = npc.Level * 3 + random.Next(5, 15);
-            npc.ArmPow = npc.Level * 2 + random.Next(3, 10);
+            // Ensure EquipmentDatabase is initialized first
+            EquipmentDatabase.Initialize();
+
+            // Initialize the EquippedItems dictionary
+            if (npc.EquippedItems == null)
+                npc.EquippedItems = new Dictionary<EquipmentSlot, int>();
+
+            // Calculate gold budget based on level (NPCs have saved up gold for gear)
+            long goldBudget = npc.Level * 500 + random.Next(npc.Level * 100, npc.Level * 300);
+
+            // Equip a weapon appropriate for class and level
+            EquipNPCWeapon(npc, goldBudget);
+
+            // Equip armor appropriate for class and level
+            EquipNPCArmor(npc, goldBudget);
 
             // Give some healing potions
             npc.Healing = random.Next(npc.Level, npc.Level * 3);
@@ -356,6 +369,131 @@ namespace UsurperRemake.Systems
                 npc.Item = new List<int>();
             if (npc.ItemType == null)
                 npc.ItemType = new List<global::ObjType>();
+
+            // Recalculate stats to apply equipment bonuses
+            npc.RecalculateStats();
+        }
+
+        /// <summary>
+        /// Equip an appropriate weapon for the NPC based on class and level
+        /// </summary>
+        private void EquipNPCWeapon(NPC npc, long goldBudget)
+        {
+            EquipmentDatabase.Initialize();
+
+            // Determine preferred weapon type based on class
+            WeaponHandedness preferredHandedness = npc.Class switch
+            {
+                CharacterClass.Warrior or CharacterClass.Barbarian => random.Next(2) == 0
+                    ? WeaponHandedness.TwoHanded : WeaponHandedness.OneHanded,
+                CharacterClass.Magician => WeaponHandedness.TwoHanded, // Staves
+                CharacterClass.Cleric => WeaponHandedness.OneHanded, // Maces + shield
+                CharacterClass.Paladin => WeaponHandedness.OneHanded, // Sword + shield
+                CharacterClass.Assassin => WeaponHandedness.OneHanded, // Daggers
+                CharacterClass.Sage => WeaponHandedness.TwoHanded, // Staves
+                _ => random.Next(2) == 0 ? WeaponHandedness.TwoHanded : WeaponHandedness.OneHanded
+            };
+
+            // Get best weapon within budget
+            var weapons = EquipmentDatabase.GetWeaponsByHandedness(preferredHandedness)
+                .Where(w => w.Value <= goldBudget * 0.4) // Spend up to 40% of budget on weapon
+                .OrderByDescending(w => w.WeaponPower)
+                .ToList();
+
+            if (weapons.Count > 0)
+            {
+                // Pick from top 3 weapons (some randomness)
+                var weapon = weapons[Math.Min(random.Next(3), weapons.Count - 1)];
+                npc.EquippedItems[EquipmentSlot.MainHand] = weapon.Id;
+            }
+
+            // If using one-handed weapon, maybe add a shield
+            if (preferredHandedness == WeaponHandedness.OneHanded)
+            {
+                // Classes that prefer shields
+                bool wantsShield = npc.Class switch
+                {
+                    CharacterClass.Warrior or CharacterClass.Paladin or CharacterClass.Cleric => true,
+                    _ => random.Next(3) == 0 // 33% chance for other classes
+                };
+
+                if (wantsShield)
+                {
+                    var shields = EquipmentDatabase.GetShields()
+                        .Where(s => s.Value <= goldBudget * 0.2) // Spend up to 20% on shield
+                        .OrderByDescending(s => s.ShieldBonus)
+                        .ToList();
+
+                    if (shields.Count > 0)
+                    {
+                        var shield = shields[Math.Min(random.Next(3), shields.Count - 1)];
+                        npc.EquippedItems[EquipmentSlot.OffHand] = shield.Id;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Equip appropriate armor for the NPC based on class and level
+        /// </summary>
+        private void EquipNPCArmor(NPC npc, long goldBudget)
+        {
+            EquipmentDatabase.Initialize();
+
+            // Armor slots to equip (in order of priority)
+            var armorSlots = new[]
+            {
+                EquipmentSlot.Body,   // Most important
+                EquipmentSlot.Head,
+                EquipmentSlot.Hands,
+                EquipmentSlot.Feet,
+                EquipmentSlot.Legs,
+                EquipmentSlot.Arms,
+                EquipmentSlot.Waist,
+                EquipmentSlot.Cloak
+            };
+
+            // Budget allocation per slot (higher priority slots get more budget)
+            float[] slotBudgetPercent = { 0.20f, 0.12f, 0.08f, 0.08f, 0.10f, 0.08f, 0.06f, 0.08f };
+
+            for (int i = 0; i < armorSlots.Length; i++)
+            {
+                var slot = armorSlots[i];
+                long slotBudget = (long)(goldBudget * slotBudgetPercent[i]);
+
+                var armor = EquipmentDatabase.GetBestAffordable(slot, slotBudget);
+                if (armor != null)
+                {
+                    npc.EquippedItems[slot] = armor.Id;
+                }
+            }
+
+            // Maybe add a ring or amulet for higher-level NPCs
+            if (npc.Level >= 5)
+            {
+                var rings = EquipmentDatabase.GetBySlot(EquipmentSlot.LFinger)
+                    .Where(r => r.Value <= goldBudget * 0.05)
+                    .OrderByDescending(r => r.Value)
+                    .ToList();
+
+                if (rings.Count > 0)
+                {
+                    npc.EquippedItems[EquipmentSlot.LFinger] = rings[Math.Min(random.Next(3), rings.Count - 1)].Id;
+                }
+            }
+
+            if (npc.Level >= 10)
+            {
+                var amulets = EquipmentDatabase.GetBySlot(EquipmentSlot.Neck)
+                    .Where(a => a.Value <= goldBudget * 0.05)
+                    .OrderByDescending(a => a.Value)
+                    .ToList();
+
+                if (amulets.Count > 0)
+                {
+                    npc.EquippedItems[EquipmentSlot.Neck] = amulets[Math.Min(random.Next(3), amulets.Count - 1)].Id;
+                }
+            }
         }
 
         /// <summary>

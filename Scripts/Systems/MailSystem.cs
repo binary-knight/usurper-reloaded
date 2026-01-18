@@ -311,7 +311,7 @@ public static partial class MailSystem
         // Handle special mail types
         await ProcessSpecialMail(mail, terminal);
         
-        await terminal.PressAnyKey("Press any key to continue...");
+        await terminal.PressAnyKey("Press Enter to continue...");
     }
     
     /// <summary>

@@ -338,7 +338,17 @@ public class CastleLocation : BaseLocation
         terminal.SetColor("darkgray");
         terminal.Write("]");
         terminal.SetColor("white");
-        terminal.WriteLine("eek Audience");
+        terminal.Write("eek Audience       ");
+
+        // Apply for Royal Guard option
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_green");
+        terminal.Write("A");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("pply for Royal Guard");
 
         // Throne options - always show one of these
         if (currentKing != null && currentKing.IsActive)
@@ -517,6 +527,10 @@ public class CastleLocation : BaseLocation
                 await SeekAudience();
                 return false;
 
+            case "A":
+                await ApplyForRoyalGuard();
+                return false;
+
             case "I":
                 if (CanChallengeThrone())
                 {
@@ -613,7 +627,7 @@ public class CastleLocation : BaseLocation
 
         terminal.WriteLine("");
         terminal.SetColor("darkgray");
-        terminal.WriteLine("Press any key to continue...");
+        terminal.WriteLine("Press Enter to continue...");
         await terminal.ReadKeyAsync();
     }
 
@@ -657,7 +671,7 @@ public class CastleLocation : BaseLocation
 
         terminal.WriteLine("");
         terminal.SetColor("darkgray");
-        terminal.WriteLine("Press any key to continue...");
+        terminal.WriteLine("Press Enter to continue...");
         await terminal.ReadKeyAsync();
     }
 
@@ -958,7 +972,7 @@ public class CastleLocation : BaseLocation
             terminal.WriteLine("");
 
             terminal.SetColor("darkgray");
-            terminal.WriteLine("Press any key to continue...");
+            terminal.WriteLine("Press Enter to continue...");
             await terminal.ReadKeyAsync();
         }
     }
@@ -1035,7 +1049,7 @@ public class CastleLocation : BaseLocation
 
         terminal.WriteLine("");
         terminal.SetColor("darkgray");
-        terminal.WriteLine("Press any key to continue...");
+        terminal.WriteLine("Press Enter to continue...");
         await terminal.ReadKeyAsync();
     }
 
@@ -1450,7 +1464,7 @@ public class CastleLocation : BaseLocation
 
         terminal.WriteLine("");
         terminal.SetColor("darkgray");
-        terminal.WriteLine("Press any key to continue...");
+        terminal.WriteLine("Press Enter to continue...");
         await terminal.ReadKeyAsync();
     }
 
@@ -1793,7 +1807,7 @@ public class CastleLocation : BaseLocation
 
         terminal.WriteLine("");
         terminal.SetColor("darkgray");
-        terminal.WriteLine("Press any key to continue...");
+        terminal.WriteLine("Press Enter to continue...");
         await terminal.ReadKeyAsync();
     }
 
@@ -2218,7 +2232,7 @@ public class CastleLocation : BaseLocation
         terminal.WriteLine("Visit the Quest Hall on Main Street to claim bounties.");
         terminal.WriteLine("");
         terminal.SetColor("darkgray");
-        terminal.WriteLine("Press any key to continue...");
+        terminal.WriteLine("Press Enter to continue...");
         await terminal.ReadKeyAsync();
     }
 
@@ -2675,84 +2689,983 @@ public class CastleLocation : BaseLocation
 
     private async Task SeekAudience()
     {
-        terminal.ClearScreen();
-        terminal.SetColor("bright_cyan");
-        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
-        terminal.WriteLine("║                           SEEK AN AUDIENCE                                  ║");
-        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
-        terminal.WriteLine("");
-
         if (currentKing == null || !currentKing.IsActive)
         {
+            terminal.ClearScreen();
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+            terminal.WriteLine("║                           SEEK AN AUDIENCE                                  ║");
+            terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+            terminal.WriteLine("");
             terminal.SetColor("gray");
             terminal.WriteLine("With no monarch on the throne, there is no one to grant you an audience.");
             terminal.WriteLine("The throne room stands empty and echoing...");
             terminal.WriteLine("");
             terminal.SetColor("darkgray");
-            terminal.WriteLine("Press any key to continue...");
+            terminal.WriteLine("Press Enter to continue...");
             await terminal.ReadKeyAsync();
             return;
         }
 
-        // Display monarch info
-        terminal.SetColor("bright_yellow");
-        terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} sits upon the throne.");
-        terminal.WriteLine("");
-        terminal.SetColor("white");
-        terminal.WriteLine($"Reign: {currentKing.TotalReign} days");
-        terminal.WriteLine($"Royal Treasury: {currentKing.Treasury:N0} gold");
-        terminal.WriteLine($"Royal Guards: {currentKing.Guards.Count}");
+        // Check reputation for access
+        long reputation = (currentPlayer.Chivalry + currentPlayer.Fame) / 2;
+
+        if (reputation < 25)
+        {
+            terminal.ClearScreen();
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+            terminal.WriteLine("║                           SEEK AN AUDIENCE                                  ║");
+            terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+            terminal.WriteLine("");
+            terminal.SetColor("red");
+            terminal.WriteLine("The guards block your path!");
+            terminal.WriteLine("");
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"\"Begone, {currentPlayer.DisplayName}! The {currentKing.GetTitle()} has no time");
+            terminal.WriteLine("for the likes of you. Prove your worth to the realm first!\"");
+            terminal.WriteLine("");
+            terminal.SetColor("gray");
+            terminal.WriteLine("(Increase your Chivalry and Fame to gain an audience)");
+            terminal.WriteLine("");
+            terminal.SetColor("darkgray");
+            terminal.WriteLine("Press Enter to continue...");
+            await terminal.ReadKeyAsync();
+            return;
+        }
+
+        // Audience granted - show menu
+        while (true)
+        {
+            terminal.ClearScreen();
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+            terminal.WriteLine("║                        AUDIENCE WITH THE CROWN                              ║");
+            terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+            terminal.WriteLine("");
+
+            // Display monarch and player status
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} sits upon the throne.");
+            terminal.SetColor("gray");
+            terminal.WriteLine($"Reign: {currentKing.TotalReign} days | Treasury: {currentKing.Treasury:N0} gold");
+            terminal.WriteLine("");
+
+            terminal.SetColor("white");
+            terminal.WriteLine($"Your Standing: {GetReputationTitle(reputation)} (Rep: {reputation})");
+            terminal.WriteLine($"Your Gold: {currentPlayer.Gold:N0} | Chivalry: {currentPlayer.Chivalry} | Darkness: {currentPlayer.Darkness}");
+            terminal.WriteLine("");
+
+            // Show greeting based on reputation
+            if (reputation >= 150)
+            {
+                terminal.SetColor("bright_green");
+                terminal.WriteLine($"\"Welcome, noble {currentPlayer.DisplayName}! The realm is honored by your presence.\"");
+            }
+            else if (reputation >= 100)
+            {
+                terminal.SetColor("cyan");
+                terminal.WriteLine($"\"Ah, {currentPlayer.DisplayName}. Your service to the crown is noted.\"");
+            }
+            else
+            {
+                terminal.SetColor("white");
+                terminal.WriteLine($"\"State your business, {currentPlayer.DisplayName}.\"");
+            }
+            terminal.WriteLine("");
+
+            // Menu options
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine("What do you wish to petition the Crown for?");
+            terminal.WriteLine("");
+
+            terminal.SetColor("darkgray");
+            terminal.Write(" [");
+            terminal.SetColor("bright_cyan");
+            terminal.Write("Q");
+            terminal.SetColor("darkgray");
+            terminal.Write("]");
+            terminal.SetColor("white");
+            terminal.WriteLine(" Request a Royal Quest");
+
+            terminal.SetColor("darkgray");
+            terminal.Write(" [");
+            terminal.SetColor("bright_yellow");
+            terminal.Write("K");
+            terminal.SetColor("darkgray");
+            terminal.Write("]");
+            terminal.SetColor("white");
+            terminal.Write(" Request Knighthood");
+            terminal.SetColor("gray");
+            terminal.WriteLine($" (Requires Chivalry 200+, Fame 100+)");
+
+            terminal.SetColor("darkgray");
+            terminal.Write(" [");
+            terminal.SetColor("bright_green");
+            terminal.Write("P");
+            terminal.SetColor("darkgray");
+            terminal.Write("]");
+            terminal.SetColor("white");
+            terminal.Write(" Request a Pardon");
+            terminal.SetColor("gray");
+            terminal.WriteLine($" (Clear Darkness for gold)");
+
+            terminal.SetColor("darkgray");
+            terminal.Write(" [");
+            terminal.SetColor("bright_magenta");
+            terminal.Write("L");
+            terminal.SetColor("darkgray");
+            terminal.Write("]");
+            terminal.SetColor("white");
+            terminal.Write(" Request a Loan");
+            terminal.SetColor("gray");
+            terminal.WriteLine($" (Borrow from Treasury)");
+
+            terminal.SetColor("darkgray");
+            terminal.Write(" [");
+            terminal.SetColor("bright_red");
+            terminal.Write("C");
+            terminal.SetColor("darkgray");
+            terminal.Write("]");
+            terminal.SetColor("white");
+            terminal.WriteLine(" Report a Crime (Place Bounty)");
+
+            terminal.SetColor("darkgray");
+            terminal.Write(" [");
+            terminal.SetColor("cyan");
+            terminal.Write("B");
+            terminal.SetColor("darkgray");
+            terminal.Write("]");
+            terminal.SetColor("white");
+            terminal.Write(" Request a Blessing");
+            terminal.SetColor("gray");
+            terminal.WriteLine($" (Temporary stat boost)");
+
+            terminal.SetColor("darkgray");
+            terminal.Write(" [");
+            terminal.SetColor("yellow");
+            terminal.Write("T");
+            terminal.SetColor("darkgray");
+            terminal.Write("]");
+            terminal.SetColor("white");
+            terminal.Write(" Petition for Tax Relief");
+            terminal.SetColor("gray");
+            terminal.WriteLine($" (Reduce kingdom taxes)");
+
+            terminal.WriteLine("");
+            terminal.SetColor("darkgray");
+            terminal.Write(" [");
+            terminal.SetColor("red");
+            terminal.Write("R");
+            terminal.SetColor("darkgray");
+            terminal.Write("]");
+            terminal.SetColor("white");
+            terminal.WriteLine(" Return to Castle");
+            terminal.WriteLine("");
+
+            string choice = (await terminal.GetKeyInput()).ToUpperInvariant();
+
+            switch (choice)
+            {
+                case "Q":
+                    await AudienceRequestQuest();
+                    break;
+                case "K":
+                    await AudienceRequestKnighthood();
+                    break;
+                case "P":
+                    await AudienceRequestPardon();
+                    break;
+                case "L":
+                    await AudienceRequestLoan();
+                    break;
+                case "C":
+                    await AudienceReportCrime();
+                    break;
+                case "B":
+                    await AudienceRequestBlessing();
+                    break;
+                case "T":
+                    await AudiencePetitionTaxRelief();
+                    break;
+                case "R":
+                case "ESCAPE":
+                    return;
+            }
+        }
+    }
+
+    private string GetReputationTitle(long reputation)
+    {
+        if (reputation >= 500) return "Legendary Hero";
+        if (reputation >= 300) return "Champion of the Realm";
+        if (reputation >= 200) return "Honored Noble";
+        if (reputation >= 150) return "Trusted Ally";
+        if (reputation >= 100) return "Respected Citizen";
+        if (reputation >= 50) return "Known Adventurer";
+        if (reputation >= 25) return "Common Petitioner";
+        return "Unknown";
+    }
+
+    /// <summary>
+    /// Request a special royal quest from the king
+    /// </summary>
+    private async Task AudienceRequestQuest()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("═══ REQUEST A ROYAL QUEST ═══");
         terminal.WriteLine("");
 
-        // Check if player has good standing
-        long chivalry = currentPlayer.Chivalry;
-        long fame = currentPlayer.Fame;
-        long reputation = (chivalry + fame) / 2;
+        long reputation = (currentPlayer.Chivalry + currentPlayer.Fame) / 2;
 
         if (reputation < 50)
         {
             terminal.SetColor("yellow");
-            terminal.WriteLine("The guards look at you skeptically.");
-            terminal.WriteLine($"\"Your reputation precedes you, {currentPlayer.DisplayName}. The {currentKing.GetTitle()}");
-            terminal.WriteLine("is not receiving visitors of... your standing today.\"");
+            terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} waves dismissively.");
+            terminal.WriteLine("\"You have not yet proven yourself worthy of a royal commission.\"");
             terminal.WriteLine("");
             terminal.SetColor("gray");
-            terminal.WriteLine("(Increase your Chivalry and Fame to gain an audience)");
-        }
-        else if (reputation < 100)
-        {
-            terminal.SetColor("cyan");
-            terminal.WriteLine("The royal herald announces your presence.");
-            terminal.WriteLine($"\"The {currentKing.GetTitle()} acknowledges your service to the realm.\"");
-            terminal.WriteLine("");
-            terminal.SetColor("white");
-            terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} nods in your direction.");
-            terminal.WriteLine("\"Continue your good works, and perhaps we shall speak in time.\"");
+            terminal.WriteLine("(Requires reputation of 50+)");
         }
         else
         {
-            terminal.SetColor("bright_green");
-            terminal.WriteLine("The guards bow respectfully as you approach the throne.");
-            terminal.WriteLine($"\"Welcome, honored {currentPlayer.DisplayName}!\"");
-            terminal.WriteLine("");
-            terminal.SetColor("bright_yellow");
-            terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} rises to greet you warmly.");
-            terminal.WriteLine("\"A hero of the realm! Your deeds have not gone unnoticed.\"");
-            terminal.WriteLine("");
+            // Check if player already has an active royal quest
+            var existingRoyalQuest = QuestSystem.GetActiveQuestsForPlayer(currentPlayer.Name2)
+                .FirstOrDefault(q => q.Initiator == currentKing.Name && q.Title.StartsWith("Royal Commission"));
 
-            // High reputation bonus
-            if (new Random().NextDouble() < 0.3)
+            if (existingRoyalQuest != null)
             {
-                int goldGift = new Random().Next(100, 500) * currentPlayer.Level;
-                currentPlayer.Gold += goldGift;
-                terminal.SetColor("bright_cyan");
-                terminal.WriteLine($"The {currentKing.GetTitle()} bestows a gift of {goldGift:N0} gold upon you!");
+                terminal.SetColor("yellow");
+                terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} raises an eyebrow.");
+                terminal.WriteLine("\"You already have a royal commission to complete.\"");
+                terminal.WriteLine("");
+                terminal.SetColor("white");
+                terminal.WriteLine($"Active Quest: {existingRoyalQuest.Title}");
+                terminal.WriteLine($"Days Remaining: {existingRoyalQuest.DaysRemaining}");
+                terminal.WriteLine("");
+                terminal.SetColor("gray");
+                terminal.WriteLine("Complete or abandon your current quest first.");
+            }
+            else
+            {
+                terminal.SetColor("bright_green");
+                terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} considers your request...");
+                terminal.WriteLine("");
+
+                // Generate a special royal quest with better rewards
+                var random = new Random();
+                int difficulty = Math.Min(4, 1 + currentPlayer.Level / 15);
+                long goldReward = (500 + random.Next(500)) * currentPlayer.Level * (difficulty + 1);
+                long xpReward = (100 + random.Next(100)) * currentPlayer.Level * (difficulty + 1);
+
+                string[] questTypes = {
+                    "Eliminate dangerous monsters threatening our roads",
+                    "Recover a stolen royal artifact from the dungeon depths",
+                    "Clear a dungeon floor of all hostile creatures",
+                    "Investigate strange occurrences in the lower dungeons",
+                    "Hunt down a notorious criminal hiding in the shadows"
+                };
+
+                string questDesc = questTypes[random.Next(questTypes.Length)];
+
+                terminal.SetColor("bright_yellow");
+                terminal.WriteLine("\"I have a task worthy of your skills...\"");
+                terminal.WriteLine("");
+                terminal.SetColor("white");
+                terminal.WriteLine($"Quest: {questDesc}");
+                terminal.WriteLine($"Difficulty: {new string('*', difficulty + 1)}");
+                terminal.WriteLine($"Reward: {goldReward:N0} gold + {xpReward:N0} XP (upon completion)");
+                terminal.WriteLine($"Time Limit: {7 + difficulty * 2} days");
+                terminal.WriteLine("");
+
+                terminal.SetColor("cyan");
+                terminal.Write("Accept this royal quest? (Y/N): ");
+                string response = await terminal.ReadLineAsync();
+
+                if (response?.ToUpper() == "Y")
+                {
+                    // Create the actual quest in the QuestSystem
+                    var quest = QuestSystem.CreateRoyalAudienceQuest(
+                        currentPlayer,
+                        currentKing.Name,
+                        difficulty,
+                        goldReward,
+                        xpReward,
+                        questDesc);
+
+                    // Give advance payment (25% of reward)
+                    long advanceGold = goldReward / 4;
+                    long advanceXP = xpReward / 4;
+                    currentPlayer.Gold += advanceGold;
+                    currentPlayer.Experience += advanceXP;
+
+                    terminal.WriteLine("");
+                    terminal.SetColor("bright_green");
+                    terminal.WriteLine("\"Excellent! The Crown places its faith in you.\"");
+                    terminal.WriteLine($"You receive {advanceGold:N0} gold as an advance.");
+                    terminal.WriteLine($"You gain {advanceXP:N0} experience for this honor.");
+                    terminal.WriteLine("");
+                    terminal.SetColor("yellow");
+                    terminal.WriteLine("Quest added to your active quests!");
+                    terminal.WriteLine("Check the Quest Hall to view progress and turn in when complete.");
+
+                    // Show objective
+                    if (quest.Objectives.Count > 0)
+                    {
+                        terminal.WriteLine("");
+                        terminal.SetColor("cyan");
+                        terminal.WriteLine($"Objective: {quest.Objectives[0].Description}");
+                        if (quest.Objectives[0].RequiredProgress > 1)
+                        {
+                            terminal.WriteLine($"Target: {quest.Objectives[0].TargetName} x{quest.Objectives[0].RequiredProgress}");
+                        }
+                    }
+
+                    NewsSystem.Instance?.Newsy(true, $"{currentPlayer.DisplayName} accepted a royal quest from {currentKing.GetTitle()} {currentKing.Name}!");
+                }
+                else
+                {
+                    terminal.WriteLine("");
+                    terminal.SetColor("gray");
+                    terminal.WriteLine("\"Perhaps another time, then.\"");
+                }
             }
         }
 
         terminal.WriteLine("");
         terminal.SetColor("darkgray");
-        terminal.WriteLine("Press any key to continue...");
+        terminal.WriteLine("Press Enter to continue...");
+        await terminal.ReadKeyAsync();
+    }
+
+    /// <summary>
+    /// Request knighthood/title from the king
+    /// </summary>
+    private async Task AudienceRequestKnighthood()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("═══ REQUEST KNIGHTHOOD ═══");
+        terminal.WriteLine("");
+
+        // Check requirements
+        bool hasChivalry = currentPlayer.Chivalry >= 200;
+        bool hasFame = currentPlayer.Fame >= 100;
+        bool hasLevel = currentPlayer.Level >= 10;
+        bool notEvil = currentPlayer.Darkness < currentPlayer.Chivalry;
+
+        // Check if already knighted (using a title marker)
+        bool alreadyKnighted = currentPlayer.NobleTitle?.Contains("Sir") == true ||
+                               currentPlayer.NobleTitle?.Contains("Dame") == true ||
+                               currentPlayer.NobleTitle?.Contains("Lord") == true ||
+                               currentPlayer.NobleTitle?.Contains("Lady") == true;
+
+        if (alreadyKnighted)
+        {
+            terminal.SetColor("cyan");
+            terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} smiles.");
+            terminal.WriteLine($"\"You already bear a noble title, {currentPlayer.NobleTitle} {currentPlayer.DisplayName}.\"");
+            terminal.WriteLine("\"Continue to serve the realm with honor.\"");
+        }
+        else if (!hasChivalry || !hasFame || !hasLevel || !notEvil)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} shakes their head.");
+            terminal.WriteLine("\"You are not yet ready for such an honor.\"");
+            terminal.WriteLine("");
+            terminal.SetColor("gray");
+            terminal.WriteLine("Requirements for Knighthood:");
+            terminal.WriteLine($"  Chivalry 200+: {(hasChivalry ? "Yes" : $"No ({currentPlayer.Chivalry}/200)")}");
+            terminal.WriteLine($"  Fame 100+: {(hasFame ? "Yes" : $"No ({currentPlayer.Fame}/100)")}");
+            terminal.WriteLine($"  Level 10+: {(hasLevel ? "Yes" : $"No ({currentPlayer.Level}/10)")}");
+            terminal.WriteLine($"  Honorable (Chivalry > Darkness): {(notEvil ? "Yes" : "No")}");
+        }
+        else
+        {
+            terminal.SetColor("bright_green");
+            terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} rises from the throne!");
+            terminal.WriteLine("");
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine("\"Kneel before me, brave warrior.\"");
+            terminal.WriteLine("");
+
+            await Task.Delay(1500);
+
+            string title = currentPlayer.Sex == CharacterSex.Male ? "Sir" : "Dame";
+            currentPlayer.NobleTitle = title;
+
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine($"*The {currentKing.GetTitle()} draws the Royal Sword*");
+            terminal.WriteLine("");
+            terminal.WriteLine("\"By the power vested in me by the realm and the gods,\"");
+            terminal.WriteLine($"\"I dub thee {title} {currentPlayer.DisplayName}!\"");
+            terminal.WriteLine("");
+            terminal.WriteLine("\"Rise, and serve the kingdom with honor!\"");
+            terminal.WriteLine("");
+
+            // Bonuses for knighthood
+            currentPlayer.Chivalry += 50;
+            currentPlayer.Fame += 25;
+
+            terminal.SetColor("bright_green");
+            terminal.WriteLine($"You are now {title} {currentPlayer.DisplayName}!");
+            terminal.WriteLine("+50 Chivalry, +25 Fame");
+
+            NewsSystem.Instance?.Newsy(true, $"{currentPlayer.DisplayName} was knighted by {currentKing.GetTitle()} {currentKing.Name}!");
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("darkgray");
+        terminal.WriteLine("Press Enter to continue...");
+        await terminal.ReadKeyAsync();
+    }
+
+    /// <summary>
+    /// Request a pardon to reduce darkness
+    /// </summary>
+    private async Task AudienceRequestPardon()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_green");
+        terminal.WriteLine("═══ REQUEST A PARDON ═══");
+        terminal.WriteLine("");
+
+        if (currentPlayer.Darkness <= 0)
+        {
+            terminal.SetColor("cyan");
+            terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} looks puzzled.");
+            terminal.WriteLine("\"You have no sins to pardon, noble soul. Your record is clean.\"");
+        }
+        else
+        {
+            // Cost scales with darkness level
+            long pardonCost = currentPlayer.Darkness * 50 * (1 + currentPlayer.Level / 10);
+            long reputation = (currentPlayer.Chivalry + currentPlayer.Fame) / 2;
+
+            // Discount for high reputation
+            if (reputation >= 200)
+                pardonCost = (long)(pardonCost * 0.5);
+            else if (reputation >= 100)
+                pardonCost = (long)(pardonCost * 0.75);
+
+            terminal.SetColor("white");
+            terminal.WriteLine($"Your Current Darkness: {currentPlayer.Darkness}");
+            terminal.WriteLine("");
+
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} considers your request...");
+            terminal.WriteLine("");
+            terminal.SetColor("white");
+            terminal.WriteLine("\"The Crown can offer absolution, but such mercy has a price.\"");
+            terminal.WriteLine("");
+            terminal.WriteLine($"Cost for Full Pardon: {pardonCost:N0} gold");
+            terminal.WriteLine($"Your Gold: {currentPlayer.Gold:N0}");
+            terminal.WriteLine("");
+
+            if (currentPlayer.Gold < pardonCost)
+            {
+                terminal.SetColor("red");
+                terminal.WriteLine("You cannot afford a full pardon.");
+                terminal.WriteLine("");
+
+                // Offer partial pardon
+                long partialCost = pardonCost / 4;
+                long partialReduction = currentPlayer.Darkness / 4;
+
+                if (currentPlayer.Gold >= partialCost && partialReduction > 0)
+                {
+                    terminal.SetColor("cyan");
+                    terminal.Write($"Accept partial pardon? (-{partialReduction} Darkness for {partialCost:N0} gold) (Y/N): ");
+                    string partial = await terminal.ReadLineAsync();
+
+                    if (partial?.ToUpper() == "Y")
+                    {
+                        currentPlayer.Gold -= partialCost;
+                        currentPlayer.Darkness -= partialReduction;
+                        currentKing.Treasury += partialCost;
+
+                        terminal.WriteLine("");
+                        terminal.SetColor("bright_green");
+                        terminal.WriteLine("\"Some of your sins are forgiven. Go and sin no more.\"");
+                        terminal.WriteLine($"Darkness reduced by {partialReduction}. New Darkness: {currentPlayer.Darkness}");
+                    }
+                }
+            }
+            else
+            {
+                terminal.SetColor("cyan");
+                terminal.Write($"Pay {pardonCost:N0} gold for a full pardon? (Y/N): ");
+                string response = await terminal.ReadLineAsync();
+
+                if (response?.ToUpper() == "Y")
+                {
+                    currentPlayer.Gold -= pardonCost;
+                    long oldDarkness = currentPlayer.Darkness;
+                    currentPlayer.Darkness = 0;
+                    currentKing.Treasury += pardonCost;
+
+                    terminal.WriteLine("");
+                    terminal.SetColor("bright_green");
+                    terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} raises a hand in blessing.");
+                    terminal.WriteLine("\"Your past sins are forgiven. Your slate is wiped clean.\"");
+                    terminal.WriteLine("");
+                    terminal.WriteLine($"Darkness reduced from {oldDarkness} to 0!");
+
+                    NewsSystem.Instance?.Newsy(false, $"{currentPlayer.DisplayName} received a royal pardon from {currentKing.GetTitle()} {currentKing.Name}.");
+                }
+            }
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("darkgray");
+        terminal.WriteLine("Press Enter to continue...");
+        await terminal.ReadKeyAsync();
+    }
+
+    /// <summary>
+    /// Request a loan from the royal treasury
+    /// </summary>
+    private async Task AudienceRequestLoan()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("═══ REQUEST A LOAN ═══");
+        terminal.WriteLine("");
+
+        long reputation = (currentPlayer.Chivalry + currentPlayer.Fame) / 2;
+
+        // Check if player has an outstanding loan
+        if (currentPlayer.RoyalLoanAmount > 0)
+        {
+            // Show loan status and offer repayment
+            long totalOwed = (long)(currentPlayer.RoyalLoanAmount * 1.10); // 10% interest
+            int daysRemaining = currentPlayer.RoyalLoanDueDay - DailySystemManager.Instance.CurrentDay;
+
+            terminal.SetColor("yellow");
+            terminal.WriteLine("You have an outstanding loan from the Crown.");
+            terminal.WriteLine("");
+            terminal.SetColor("white");
+            terminal.WriteLine($"Principal: {currentPlayer.RoyalLoanAmount:N0} gold");
+            terminal.WriteLine($"With Interest (10%): {totalOwed:N0} gold");
+            terminal.WriteLine($"Days Remaining: {Math.Max(0, daysRemaining)}");
+            terminal.WriteLine($"Your Gold: {currentPlayer.Gold:N0}");
+            terminal.WriteLine("");
+
+            if (daysRemaining < 0)
+            {
+                terminal.SetColor("red");
+                terminal.WriteLine("YOUR LOAN IS OVERDUE!");
+                terminal.WriteLine("The Crown demands immediate repayment!");
+            }
+
+            if (currentPlayer.Gold >= totalOwed)
+            {
+                terminal.SetColor("cyan");
+                terminal.Write($"Repay the loan of {totalOwed:N0} gold? (Y/N): ");
+                string response = await terminal.ReadLineAsync();
+
+                if (response?.ToUpper() == "Y")
+                {
+                    currentPlayer.Gold -= totalOwed;
+                    currentKing.Treasury += totalOwed;
+                    currentPlayer.RoyalLoanAmount = 0;
+                    currentPlayer.RoyalLoanDueDay = 0;
+
+                    terminal.WriteLine("");
+                    terminal.SetColor("bright_green");
+                    terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} nods approvingly.");
+                    terminal.WriteLine("\"Your debt is paid. The Crown is pleased.\"");
+                    terminal.WriteLine("");
+                    terminal.WriteLine("+10 Chivalry for honoring your obligations.");
+                    currentPlayer.Chivalry += 10;
+
+                    NewsSystem.Instance?.Newsy(false, $"{currentPlayer.DisplayName} repaid their royal loan.");
+                }
+            }
+            else
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine("You don't have enough gold to repay the full amount.");
+                terminal.WriteLine("Gather more funds and return when you can pay.");
+            }
+        }
+        else if (reputation < 75)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} looks skeptical.");
+            terminal.WriteLine("\"The Crown does not lend to those of... uncertain reputation.\"");
+            terminal.WriteLine("");
+            terminal.SetColor("gray");
+            terminal.WriteLine("(Requires reputation of 75+)");
+        }
+        else if (currentKing.Treasury < 1000)
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} sighs heavily.");
+            terminal.WriteLine("\"The royal coffers are nearly empty. We have nothing to lend.\"");
+        }
+        else
+        {
+            // Max loan based on reputation and level
+            long maxLoan = Math.Min(currentKing.Treasury / 2, reputation * 10 * currentPlayer.Level);
+            maxLoan = Math.Max(500, maxLoan); // Minimum loan
+
+            terminal.SetColor("white");
+            terminal.WriteLine($"Royal Treasury: {currentKing.Treasury:N0} gold");
+            terminal.WriteLine($"Maximum Loan Available: {maxLoan:N0} gold");
+            terminal.WriteLine("");
+            terminal.SetColor("yellow");
+            terminal.WriteLine("Loan Terms: 10% interest, due in 30 days");
+            terminal.WriteLine("(Failure to repay will damage your reputation severely)");
+            terminal.WriteLine("");
+
+            terminal.SetColor("cyan");
+            terminal.Write($"How much would you like to borrow? (0-{maxLoan:N0}): ");
+            string input = await terminal.ReadLineAsync();
+
+            if (long.TryParse(input, out long amount) && amount > 0 && amount <= maxLoan)
+            {
+                currentPlayer.Gold += amount;
+                currentKing.Treasury -= amount;
+
+                // Track the loan for repayment
+                currentPlayer.RoyalLoanAmount = amount;
+                currentPlayer.RoyalLoanDueDay = DailySystemManager.Instance.CurrentDay + 30;
+
+                terminal.WriteLine("");
+                terminal.SetColor("bright_green");
+                terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} nods.");
+                terminal.WriteLine($"\"The Crown grants you a loan of {amount:N0} gold.\"");
+                terminal.WriteLine($"\"You have 30 days to repay {(long)(amount * 1.10):N0} gold (with interest).\"");
+                terminal.WriteLine("");
+                terminal.WriteLine($"You received {amount:N0} gold.");
+
+                NewsSystem.Instance?.Newsy(false, $"{currentPlayer.DisplayName} received a loan of {amount:N0} gold from the Crown.");
+            }
+            else if (amount == 0 || string.IsNullOrEmpty(input))
+            {
+                terminal.WriteLine("");
+                terminal.SetColor("gray");
+                terminal.WriteLine("\"Very well. The offer stands should you need it.\"");
+            }
+            else
+            {
+                terminal.WriteLine("");
+                terminal.SetColor("red");
+                terminal.WriteLine("\"That is not a valid amount.\"");
+            }
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("darkgray");
+        terminal.WriteLine("Press Enter to continue...");
+        await terminal.ReadKeyAsync();
+    }
+
+    /// <summary>
+    /// Report a crime and place a bounty on an NPC
+    /// </summary>
+    private async Task AudienceReportCrime()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_red");
+        terminal.WriteLine("═══ REPORT A CRIME ═══");
+        terminal.WriteLine("");
+
+        terminal.SetColor("white");
+        terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} listens intently.");
+        terminal.WriteLine("\"Who has wronged you or the realm?\"");
+        terminal.WriteLine("");
+
+        // Get list of NPCs that don't already have bounties
+        var npcs = NPCSpawnSystem.Instance.ActiveNPCs?
+            .Where(n => n.IsAlive && n.Darkness > 50)
+            .OrderByDescending(n => n.Darkness)
+            .Take(10)
+            .ToList() ?? new List<NPC>();
+
+        if (npcs.Count == 0)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("\"There are no known criminals at large at this time.\"");
+        }
+        else
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("Known suspicious characters:");
+            terminal.WriteLine("");
+
+            for (int i = 0; i < npcs.Count; i++)
+            {
+                var npc = npcs[i];
+                terminal.SetColor("white");
+                terminal.Write($"  {i + 1}. {npc.Name,-20}");
+                terminal.SetColor("gray");
+                terminal.Write($" Lv{npc.Level}");
+                terminal.SetColor("red");
+                terminal.WriteLine($" (Darkness: {npc.Darkness})");
+            }
+
+            terminal.WriteLine("");
+            terminal.SetColor("cyan");
+            terminal.Write("Enter number to report (or 0 to cancel): ");
+            string input = await terminal.ReadLineAsync();
+
+            if (int.TryParse(input, out int choice) && choice > 0 && choice <= npcs.Count)
+            {
+                var target = npcs[choice - 1];
+                long bountyCost = 100 + target.Level * 50;
+
+                terminal.WriteLine("");
+                terminal.SetColor("yellow");
+                terminal.WriteLine($"To place a bounty on {target.Name}, you must contribute {bountyCost:N0} gold.");
+                terminal.WriteLine($"Your Gold: {currentPlayer.Gold:N0}");
+                terminal.WriteLine("");
+
+                if (currentPlayer.Gold >= bountyCost)
+                {
+                    terminal.SetColor("cyan");
+                    terminal.Write($"Pay {bountyCost:N0} gold to place a bounty? (Y/N): ");
+                    string confirm = await terminal.ReadLineAsync();
+
+                    if (confirm?.ToUpper() == "Y")
+                    {
+                        currentPlayer.Gold -= bountyCost;
+                        currentKing.Treasury += bountyCost / 2; // Half goes to treasury
+
+                        terminal.WriteLine("");
+                        terminal.SetColor("bright_green");
+                        terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} nods grimly.");
+                        terminal.WriteLine($"\"A bounty has been placed on {target.Name}.\"");
+                        terminal.WriteLine("\"Justice will be served.\"");
+
+                        // Increase the target's darkness (they're now wanted)
+                        target.Darkness += 25;
+
+                        NewsSystem.Instance?.Newsy(true, $"A bounty has been placed on {target.Name} by royal decree!");
+
+                        // Small chivalry boost for reporting
+                        currentPlayer.Chivalry += 5;
+                    }
+                }
+                else
+                {
+                    terminal.SetColor("red");
+                    terminal.WriteLine("You cannot afford to post this bounty.");
+                }
+            }
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("darkgray");
+        terminal.WriteLine("Press Enter to continue...");
+        await terminal.ReadKeyAsync();
+    }
+
+    /// <summary>
+    /// Request a temporary blessing/buff from the king
+    /// </summary>
+    private async Task AudienceRequestBlessing()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("cyan");
+        terminal.WriteLine("═══ REQUEST A BLESSING ═══");
+        terminal.WriteLine("");
+
+        long reputation = (currentPlayer.Chivalry + currentPlayer.Fame) / 2;
+
+        if (reputation < 100)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} considers your request.");
+            terminal.WriteLine("\"You have not yet earned such a boon from the Crown.\"");
+            terminal.WriteLine("");
+            terminal.SetColor("gray");
+            terminal.WriteLine("(Requires reputation of 100+)");
+        }
+        else
+        {
+            // Cost for blessing
+            long blessingCost = 500 * currentPlayer.Level;
+
+            // Discount for very high reputation
+            if (reputation >= 300)
+            {
+                blessingCost = 0;
+                terminal.SetColor("bright_green");
+                terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} smiles warmly.");
+                terminal.WriteLine("\"For a champion of your standing, this blessing is freely given.\"");
+            }
+            else if (reputation >= 200)
+            {
+                blessingCost /= 2;
+                terminal.SetColor("white");
+                terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} nods approvingly.");
+                terminal.WriteLine($"\"For {blessingCost:N0} gold, the Crown will bestow its blessing upon you.\"");
+            }
+            else
+            {
+                terminal.SetColor("white");
+                terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} considers.");
+                terminal.WriteLine($"\"Such a blessing requires a donation of {blessingCost:N0} gold to the realm.\"");
+            }
+
+            terminal.WriteLine("");
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine("The Royal Blessing grants:");
+            terminal.WriteLine("  +10% to all combat stats for this session");
+            terminal.WriteLine("  +25 to maximum HP and Mana");
+            terminal.WriteLine("  Improved luck in dungeon encounters");
+            terminal.WriteLine("");
+
+            bool canAfford = currentPlayer.Gold >= blessingCost || blessingCost == 0;
+
+            if (!canAfford)
+            {
+                terminal.SetColor("red");
+                terminal.WriteLine($"You need {blessingCost:N0} gold. You have {currentPlayer.Gold:N0}.");
+            }
+            else
+            {
+                terminal.SetColor("cyan");
+                string prompt = blessingCost > 0
+                    ? $"Pay {blessingCost:N0} gold for the Royal Blessing? (Y/N): "
+                    : "Accept the Royal Blessing? (Y/N): ";
+                terminal.Write(prompt);
+                string response = await terminal.ReadLineAsync();
+
+                if (response?.ToUpper() == "Y")
+                {
+                    if (blessingCost > 0)
+                    {
+                        currentPlayer.Gold -= blessingCost;
+                        currentKing.Treasury += blessingCost;
+                    }
+
+                    // Apply the Royal Blessing status effect (lasts many combat rounds)
+                    // Duration of 999 represents "for the rest of the day/session"
+                    currentPlayer.ApplyStatus(StatusEffect.RoyalBlessing, 999);
+
+                    // Also give a small immediate HP/Mana restoration
+                    long hpRestore = Math.Min(25, currentPlayer.MaxHP - currentPlayer.HP);
+                    long manaRestore = Math.Min(25, currentPlayer.MaxMana - currentPlayer.Mana);
+                    currentPlayer.HP += hpRestore;
+                    currentPlayer.Mana += manaRestore;
+
+                    terminal.WriteLine("");
+                    terminal.SetColor("bright_cyan");
+                    terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} raises a hand in blessing.");
+                    terminal.WriteLine("");
+                    terminal.SetColor("bright_yellow");
+                    terminal.WriteLine("*A warm golden light surrounds you*");
+                    terminal.WriteLine("");
+                    terminal.SetColor("bright_green");
+                    terminal.WriteLine("You feel strengthened by the Crown's favor!");
+                    terminal.WriteLine("  +10% to combat stats (attack/defense)");
+                    if (hpRestore > 0 || manaRestore > 0)
+                    {
+                        terminal.WriteLine($"  Restored {hpRestore} HP and {manaRestore} Mana");
+                    }
+                    terminal.WriteLine("  (Blessing lasts until end of day)");
+
+                    NewsSystem.Instance?.Newsy(false, $"{currentPlayer.DisplayName} received the Royal Blessing from {currentKing.GetTitle()} {currentKing.Name}.");
+                }
+            }
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("darkgray");
+        terminal.WriteLine("Press Enter to continue...");
+        await terminal.ReadKeyAsync();
+    }
+
+    /// <summary>
+    /// Petition for reduced taxes in the kingdom
+    /// </summary>
+    private async Task AudiencePetitionTaxRelief()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("yellow");
+        terminal.WriteLine("═══ PETITION FOR TAX RELIEF ═══");
+        terminal.WriteLine("");
+
+        long reputation = (currentPlayer.Chivalry + currentPlayer.Fame) / 2;
+
+        terminal.SetColor("white");
+        terminal.WriteLine($"Current Kingdom Tax Rate: {currentKing.TaxRate}%");
+        terminal.WriteLine("");
+
+        if (reputation < 150)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} looks amused.");
+            terminal.WriteLine("\"And who are you to petition on matters of state?\"");
+            terminal.WriteLine("");
+            terminal.SetColor("gray");
+            terminal.WriteLine("(Requires reputation of 150+ to influence tax policy)");
+        }
+        else if (currentKing.TaxRate <= 5)
+        {
+            terminal.SetColor("cyan");
+            terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} spreads their hands.");
+            terminal.WriteLine("\"The taxes are already as low as they can reasonably be.\"");
+            terminal.WriteLine("\"The realm still needs gold to function.\"");
+        }
+        else
+        {
+            // Cost to petition scales with current tax rate and reputation
+            long petitionCost = currentKing.TaxRate * 100 * currentPlayer.Level;
+            if (reputation >= 300)
+                petitionCost /= 2;
+
+            terminal.SetColor("white");
+            terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} considers your words.");
+            terminal.WriteLine("");
+            terminal.WriteLine($"\"A tax reduction could be arranged... with proper compensation.\"");
+            terminal.WriteLine("");
+            terminal.WriteLine($"Cost to reduce tax by 5%: {petitionCost:N0} gold");
+            terminal.WriteLine($"Your Gold: {currentPlayer.Gold:N0}");
+            terminal.WriteLine("");
+
+            if (currentPlayer.Gold >= petitionCost)
+            {
+                terminal.SetColor("cyan");
+                terminal.Write($"Pay {petitionCost:N0} gold to reduce taxes? (Y/N): ");
+                string response = await terminal.ReadLineAsync();
+
+                if (response?.ToUpper() == "Y")
+                {
+                    currentPlayer.Gold -= petitionCost;
+                    currentKing.Treasury += petitionCost;
+                    long oldRate = currentKing.TaxRate;
+                    currentKing.TaxRate = Math.Max(5, currentKing.TaxRate - 5);
+
+                    terminal.WriteLine("");
+                    terminal.SetColor("bright_green");
+                    terminal.WriteLine($"{currentKing.GetTitle()} {currentKing.Name} nods solemnly.");
+                    terminal.WriteLine("\"Very well. Let it be known that taxes are hereby reduced.\"");
+                    terminal.WriteLine("");
+                    terminal.WriteLine($"Kingdom tax rate reduced from {oldRate}% to {currentKing.TaxRate}%!");
+
+                    // Fame boost for helping the people
+                    currentPlayer.Fame += 20;
+                    currentPlayer.Chivalry += 10;
+                    terminal.WriteLine("+20 Fame, +10 Chivalry for aiding the common folk.");
+
+                    NewsSystem.Instance?.Newsy(true, $"{currentPlayer.DisplayName} petitioned {currentKing.GetTitle()} {currentKing.Name} for tax relief! Kingdom taxes reduced to {currentKing.TaxRate}%.");
+                }
+            }
+            else
+            {
+                terminal.SetColor("red");
+                terminal.WriteLine("You cannot afford to make this petition.");
+            }
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("darkgray");
+        terminal.WriteLine("Press Enter to continue...");
         await terminal.ReadKeyAsync();
     }
 
@@ -2807,6 +3720,157 @@ public class CastleLocation : BaseLocation
         }
 
         await Task.Delay(2500);
+    }
+
+    /// <summary>
+    /// Player applies for a position in the Royal Guard
+    /// </summary>
+    private async Task ApplyForRoyalGuard()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║                      ROYAL GUARD RECRUITMENT                                 ║");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+
+        // Check if there's a king
+        if (currentKing == null || !currentKing.IsActive)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("With no monarch on the throne, the Royal Guard has disbanded.");
+            terminal.WriteLine("There is no one to accept your application.");
+            terminal.WriteLine("");
+            terminal.SetColor("darkgray");
+            terminal.WriteLine("Press Enter to continue...");
+            await terminal.ReadKeyAsync();
+            return;
+        }
+
+        // Check if guard slots are full
+        if (currentKing.Guards.Count >= GameConfig.MaxRoyalGuards)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("The Royal Guard is at full capacity.");
+            terminal.WriteLine("There are no positions available at this time.");
+            terminal.WriteLine("");
+            terminal.SetColor("darkgray");
+            terminal.WriteLine("Press Enter to continue...");
+            await terminal.ReadKeyAsync();
+            return;
+        }
+
+        // Check if player is already a guard
+        if (currentKing.Guards.Any(g => g.Name == currentPlayer.DisplayName || g.Name == currentPlayer.Name2))
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("You are already serving in the Royal Guard!");
+            terminal.WriteLine("");
+            terminal.SetColor("darkgray");
+            terminal.WriteLine("Press Enter to continue...");
+            await terminal.ReadKeyAsync();
+            return;
+        }
+
+        // Minimum level requirement
+        int minLevel = 5;
+        if (currentPlayer.Level < minLevel)
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine($"The captain of the guard looks you over...");
+            terminal.WriteLine("");
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"\"Come back when you've proven yourself, adventurer.\"");
+            terminal.WriteLine($"\"We require guards of at least level {minLevel}.\"");
+            terminal.WriteLine("");
+            terminal.SetColor("darkgray");
+            terminal.WriteLine("Press Enter to continue...");
+            await terminal.ReadKeyAsync();
+            return;
+        }
+
+        // Check reputation (chivalry vs darkness)
+        if (currentPlayer.Darkness > currentPlayer.Chivalry + 50)
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine("The captain of the guard narrows his eyes...");
+            terminal.WriteLine("");
+            terminal.SetColor("yellow");
+            terminal.WriteLine("\"Your reputation precedes you, and not in a good way.\"");
+            terminal.WriteLine("\"The Royal Guard serves the realm with honor. Seek redemption first.\"");
+            terminal.WriteLine("");
+            terminal.SetColor("darkgray");
+            terminal.WriteLine("Press Enter to continue...");
+            await terminal.ReadKeyAsync();
+            return;
+        }
+
+        // Display offer
+        long salary = GameConfig.BaseGuardSalary + (currentPlayer.Level * 20);
+        terminal.SetColor("white");
+        terminal.WriteLine($"The captain of the guard reviews your credentials...");
+        terminal.WriteLine("");
+        terminal.SetColor("bright_green");
+        terminal.WriteLine($"\"Impressive, {currentPlayer.DisplayName}! Level {currentPlayer.Level}, with notable deeds.\"");
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"Position: Royal Guard");
+        terminal.WriteLine($"Daily Salary: {salary:N0} gold");
+        terminal.WriteLine($"Current Guards: {currentKing.Guards.Count}/{GameConfig.MaxRoyalGuards}");
+        terminal.WriteLine("");
+        terminal.SetColor("yellow");
+        terminal.WriteLine("As a Royal Guard, you will:");
+        terminal.WriteLine("  - Defend the throne against usurpers");
+        terminal.WriteLine("  - Receive a daily salary from the treasury");
+        terminal.WriteLine("  - Gain prestige and the king's favor");
+        terminal.WriteLine("");
+
+        terminal.SetColor("bright_cyan");
+        terminal.Write("Do you wish to join the Royal Guard? (Y/N): ");
+        terminal.SetColor("white");
+        string response = await terminal.ReadLineAsync();
+
+        if (response?.ToUpper() == "Y")
+        {
+            // Add player as a guard
+            var guard = new RoyalGuard
+            {
+                Name = currentPlayer.DisplayName,
+                AI = CharacterAI.Human,
+                Sex = currentPlayer.Sex,
+                DailySalary = salary,
+                RecruitmentDate = DateTime.Now,
+                Loyalty = 100,
+                IsActive = true
+            };
+            currentKing.Guards.Add(guard);
+
+            terminal.WriteLine("");
+            terminal.SetColor("bright_green");
+            terminal.WriteLine("The captain smiles and extends his hand.");
+            terminal.WriteLine($"\"Welcome to the Royal Guard, {currentPlayer.DisplayName}!\"");
+            terminal.WriteLine("");
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine($"You are now a member of {currentKing.GetTitle()} {currentKing.Name}'s Royal Guard!");
+
+            // News announcement
+            NewsSystem.Instance?.Newsy(true, $"{currentPlayer.DisplayName} has joined the Royal Guard!");
+
+            // Small chivalry boost
+            currentPlayer.Chivalry += 10;
+        }
+        else
+        {
+            terminal.WriteLine("");
+            terminal.SetColor("gray");
+            terminal.WriteLine("The captain nods understandingly.");
+            terminal.WriteLine("\"The offer stands, should you change your mind.\"");
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("darkgray");
+        terminal.WriteLine("Press Enter to continue...");
+        await terminal.ReadKeyAsync();
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

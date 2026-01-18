@@ -24,6 +24,28 @@ namespace UsurperRemake.Systems
         private bool bossDefeated;
         private bool bossSaved;
 
+        // Team combat support - includes both companions and NPC teammates from dungeon
+        private List<BossFightTeammate> activeTeammates = new();
+        private List<Character>? dungeonTeammates; // Passed from DungeonLocation
+
+        /// <summary>
+        /// Represents any teammate fighting in the boss battle (companion or NPC)
+        /// </summary>
+        private class BossFightTeammate
+        {
+            public string Name { get; set; } = "";
+            public long CurrentHP { get; set; }
+            public long MaxHP { get; set; }
+            public long Attack { get; set; }
+            public long Defense { get; set; }
+            public string Role { get; set; } = "Fighter"; // Tank, DPS, Healer, Hybrid, Fighter
+            public string[] Abilities { get; set; } = Array.Empty<string>();
+            public bool IsCompanion { get; set; } // True if from CompanionSystem, false if NPC
+            public Companion? CompanionRef { get; set; } // Reference if this is a companion
+            public Character? CharacterRef { get; set; } // Reference if this is an NPC
+            public bool IsAlive => CurrentHP > 0;
+        }
+
         /// <summary>
         /// Check if the current boss was defeated
         /// </summary>
@@ -61,15 +83,23 @@ namespace UsurperRemake.Systems
 
             var story = StoryProgressionSystem.Instance;
 
-            // Check if already defeated
+            // Check if already dealt with (defeated, saved, allied, etc.)
             if (story.OldGodStates.TryGetValue(type, out var state))
             {
-                if (state.Status != GodStatus.Imprisoned)
+                // Gods that have been resolved cannot be encountered again
+                if (state.Status == GodStatus.Defeated ||
+                    state.Status == GodStatus.Saved ||
+                    state.Status == GodStatus.Allied ||
+                    state.Status == GodStatus.Awakened ||
+                    state.Status == GodStatus.Consumed)
                     return false;
             }
 
-            // Check level requirement
-            if (player.Level < boss.Level - 10) // Allow some leeway
+            // Check level requirement based on dungeon floor where god appears, not boss combat level
+            // Gods appear on specific floors (25, 40, 55, 70, 85, 95, 100)
+            // Player should be within 10 levels of the floor to encounter the boss
+            int floorLevel = boss.DungeonFloor;
+            if (player.Level < floorLevel - 10) // Allow 10 levels of leeway
                 return false;
 
             // Check prerequisites
@@ -123,8 +153,12 @@ namespace UsurperRemake.Systems
         /// <summary>
         /// Start a boss encounter
         /// </summary>
+        /// <param name="player">The player character</param>
+        /// <param name="type">Which Old God to fight</param>
+        /// <param name="terminal">Terminal for output</param>
+        /// <param name="teammates">Optional list of dungeon teammates (NPCs traveling with player)</param>
         public async Task<BossEncounterResult> StartBossEncounter(
-            Character player, OldGodType type, TerminalEmulator terminal)
+            Character player, OldGodType type, TerminalEmulator terminal, List<Character>? teammates = null)
         {
             if (!bossData.TryGetValue(type, out var boss))
             {
@@ -136,6 +170,7 @@ namespace UsurperRemake.Systems
             bossCurrentHP = boss.HP;
             bossDefeated = false;
             bossSaved = false;
+            dungeonTeammates = teammates; // Store for InitializeTeammates
 
             // GD.Print($"[BossSystem] Starting encounter with {boss.Name}");
 
@@ -227,11 +262,14 @@ namespace UsurperRemake.Systems
             var story = StoryProgressionSystem.Instance;
             bool playerDead = false;
 
+            // Initialize teammates from companions
+            InitializeTeammates();
+
             while (bossCurrentHP > 0 && !playerDead && !bossSaved)
             {
                 terminal.Clear();
 
-                // Display combat status
+                // Display combat status (including teammates)
                 DisplayCombatStatus(player, boss, terminal);
 
                 // Check for phase transitions
@@ -279,6 +317,12 @@ namespace UsurperRemake.Systems
                         break;
                 }
 
+                // Teammates attack the boss
+                if (bossCurrentHP > 0 && !bossSaved)
+                {
+                    await TeammatesAttack(boss, terminal);
+                }
+
                 // Boss turn (if still alive)
                 if (bossCurrentHP > 0 && !bossSaved)
                 {
@@ -318,13 +362,27 @@ namespace UsurperRemake.Systems
             var hpBar = RenderHealthBar(hpPercent, 40);
             var hpColor = hpPercent > 0.5 ? "green" : hpPercent > 0.2 ? "yellow" : "red";
             terminal.WriteLine($"  Boss HP: [{hpBar}] {bossCurrentHP:N0}/{boss.HP:N0}", hpColor);
+            terminal.WriteLine("");
 
             // Player HP bar
+            terminal.WriteLine($"  ═══ YOUR PARTY ═══", "bright_cyan");
             var playerPercent = (double)player.HP / player.MaxHP;
             var playerBar = RenderHealthBar(playerPercent, 30);
             var playerColor = playerPercent > 0.5 ? "green" : playerPercent > 0.2 ? "yellow" : "red";
-            terminal.WriteLine($"  Your HP: [{playerBar}] {player.HP}/{player.MaxHP}", playerColor);
+            terminal.WriteLine($"  You:     [{playerBar}] {player.HP}/{player.MaxHP}", playerColor);
 
+            // Teammate HP bars
+            foreach (var teammate in activeTeammates)
+            {
+                var tmPercent = (double)teammate.CurrentHP / teammate.MaxHP;
+                var tmBar = RenderHealthBar(tmPercent, 30);
+                var tmColor = teammate.IsAlive ? (tmPercent > 0.5 ? "cyan" : tmPercent > 0.2 ? "yellow" : "red") : "dark_gray";
+                var status = teammate.IsAlive ? $"{teammate.CurrentHP}/{teammate.MaxHP}" : "FALLEN";
+                var roleTag = teammate.IsCompanion ? "" : $" ({teammate.Role})";
+                terminal.WriteLine($"  {teammate.Name,-8} [{tmBar}] {status}{roleTag}", tmColor);
+            }
+
+            terminal.WriteLine("");
             if (player.MaxMana > 0)
             {
                 terminal.WriteLine($"  Mana:    {player.Mana}/{player.MaxMana}", "cyan");
@@ -555,37 +613,94 @@ namespace UsurperRemake.Systems
         }
 
         /// <summary>
-        /// Process boss turn
+        /// Process boss turn - attacks player and teammates
         /// </summary>
         private async Task<bool> BossTurn(Character player, OldGodBossData boss, TerminalEmulator terminal)
         {
             var random = new Random();
 
-            // Select ability based on phase
-            var abilities = boss.Abilities.Where(a => a.Phase <= currentPhase).ToList();
-            var ability = abilities[random.Next(abilities.Count)];
+            // Boss attacks multiple times based on AttacksPerRound
+            int attackCount = boss.AttacksPerRound;
 
             terminal.WriteLine("");
-            terminal.WriteLine($"  {boss.Name} uses {ability.Name}!", boss.ThemeColor);
+            terminal.WriteLine($"  ═══ {boss.Name.ToUpper()}'S TURN ═══", boss.ThemeColor);
 
-            long damage = ability.BaseDamage + random.Next(ability.BaseDamage / 2);
-            damage = (long)(damage * (1.0 + (currentPhase - 1) * 0.15)); // Phase scaling
-
-            // Apply player defense
-            long defense = player.Defence + player.ArmPow;
-            damage = Math.Max(1, damage - defense / 2);
-
-            player.HP -= damage;
-
-            terminal.WriteLine($"  You take {damage} damage!", "red");
-
-            // Special effects
-            if (ability.HasSpecialEffect)
+            for (int attack = 0; attack < attackCount; attack++)
             {
-                terminal.WriteLine($"  {ability.EffectDescription}", "dark_red");
+                if (player.HP <= 0) break;
+
+                // Select ability based on phase
+                var abilities = boss.Abilities.Where(a => a.Phase <= currentPhase).ToList();
+                var ability = abilities[random.Next(abilities.Count)];
+
+                terminal.WriteLine("");
+                terminal.WriteLine($"  {boss.Name} uses {ability.Name}!", boss.ThemeColor);
+
+                long damage = ability.BaseDamage + random.Next(ability.BaseDamage / 2);
+                damage = (long)(damage * (1.0 + (currentPhase - 1) * 0.15)); // Phase scaling
+
+                // Select target: player or a teammate
+                // 60% chance to target player, 40% to target a random alive teammate
+                var aliveTeammates = activeTeammates.Where(t => t.IsAlive).ToList();
+                bool targetPlayer = aliveTeammates.Count == 0 || random.Next(100) < 60;
+
+                if (targetPlayer)
+                {
+                    // Attack player
+                    long defense = player.Defence + player.ArmPow;
+                    double defenseReduction = Math.Min(0.75, defense / (double)(defense + 200));
+                    long actualDamage = (long)(damage * (1.0 - defenseReduction));
+                    actualDamage = Math.Max(10, actualDamage);
+
+                    player.HP -= actualDamage;
+
+                    terminal.WriteLine($"  You take {actualDamage} damage!", "red");
+                }
+                else
+                {
+                    // Attack a random teammate
+                    var target = aliveTeammates[random.Next(aliveTeammates.Count)];
+
+                    // Apply teammate defense as percentage reduction
+                    double teammateDefenseReduction = Math.Min(0.50, target.Defense / (double)(target.Defense + 100));
+                    long actualDamage = (long)(damage * (1.0 - teammateDefenseReduction));
+                    actualDamage = Math.Max(15, actualDamage);
+
+                    target.CurrentHP -= actualDamage;
+
+                    // Also damage the underlying character if it's an NPC
+                    if (!target.IsCompanion && target.CharacterRef != null)
+                    {
+                        target.CharacterRef.HP = Math.Max(0, target.CharacterRef.HP - actualDamage);
+                    }
+
+                    if (target.CurrentHP <= 0)
+                    {
+                        target.CurrentHP = 0;
+                        terminal.WriteLine($"  {target.Name} takes {actualDamage} damage and falls!", "dark_red");
+                        terminal.WriteLine($"  \"{target.Name}! NO!\"", "red");
+                    }
+                    else
+                    {
+                        terminal.WriteLine($"  {target.Name} takes {actualDamage} damage!", "yellow");
+                    }
+                }
+
+                // Special effects
+                if (ability.HasSpecialEffect)
+                {
+                    terminal.WriteLine($"  {ability.EffectDescription}", "dark_red");
+                }
+
+                await Task.Delay(500);
             }
 
-            await Task.Delay(1000);
+            if (attackCount > 1)
+            {
+                terminal.WriteLine($"  ({attackCount} attacks this round)", "gray");
+            }
+
+            await Task.Delay(500);
 
             return player.HP <= 0;
         }
@@ -745,6 +860,214 @@ namespace UsurperRemake.Systems
         }
 
         #region Helper Methods
+
+        /// <summary>
+        /// Initialize teammates from both active companions AND dungeon teammates (NPCs)
+        /// </summary>
+        private void InitializeTeammates()
+        {
+            activeTeammates.Clear();
+
+            // Add companions from CompanionSystem
+            var companionSystem = CompanionSystem.Instance;
+            if (companionSystem != null)
+            {
+                foreach (var companion in companionSystem.GetActiveCompanions())
+                {
+                    if (companion != null && !companion.IsDead)
+                    {
+                        // Scale companion HP based on their level and base stats
+                        long scaledHP = companion.BaseStats.HP * (1 + companion.Level / 10);
+
+                        // Determine role string from CombatRole
+                        string role = companion.CombatRole switch
+                        {
+                            CombatRole.Tank => "Tank",
+                            CombatRole.Damage => "DPS",
+                            CombatRole.Healer => "Healer",
+                            CombatRole.Hybrid => "Hybrid",
+                            _ => "Fighter"
+                        };
+
+                        activeTeammates.Add(new BossFightTeammate
+                        {
+                            Name = companion.Name,
+                            CurrentHP = scaledHP,
+                            MaxHP = scaledHP,
+                            Attack = companion.BaseStats.Attack + companion.Level * 2,
+                            Defense = companion.BaseStats.Defense,
+                            Role = role,
+                            Abilities = companion.Abilities ?? Array.Empty<string>(),
+                            IsCompanion = true,
+                            CompanionRef = companion
+                        });
+                    }
+                }
+            }
+
+            // Add NPC teammates from dungeon (spouses, team members, lovers, etc.)
+            if (dungeonTeammates != null)
+            {
+                foreach (var npc in dungeonTeammates)
+                {
+                    if (npc != null && npc.IsAlive)
+                    {
+                        // Skip if this is a companion Character (already added above)
+                        if (npc.IsCompanion) continue;
+
+                        // Determine role based on class
+                        string role = npc.Class switch
+                        {
+                            CharacterClass.Warrior or CharacterClass.Barbarian or CharacterClass.Paladin => "Tank",
+                            CharacterClass.Assassin or CharacterClass.Ranger => "DPS",
+                            CharacterClass.Cleric => "Healer",
+                            CharacterClass.Magician or CharacterClass.Sage => "Hybrid",
+                            _ => "Fighter"
+                        };
+
+                        // Generate abilities based on class
+                        string[] abilities = npc.Class switch
+                        {
+                            CharacterClass.Warrior => new[] { "Cleave", "Shield Bash", "Battle Cry" },
+                            CharacterClass.Barbarian => new[] { "Rage Strike", "Reckless Attack", "Intimidate" },
+                            CharacterClass.Paladin => new[] { "Holy Strike", "Lay on Hands", "Divine Shield" },
+                            CharacterClass.Assassin => new[] { "Backstab", "Poison Strike", "Shadow Step" },
+                            CharacterClass.Ranger => new[] { "Precise Shot", "Twin Strike", "Hunter's Mark" },
+                            CharacterClass.Cleric => new[] { "Divine Smite", "Heal", "Holy Light" },
+                            CharacterClass.Magician => new[] { "Fireball", "Lightning Bolt", "Arcane Blast" },
+                            CharacterClass.Sage => new[] { "Mind Blast", "Energy Drain", "Mystic Strike" },
+                            CharacterClass.Bard => new[] { "Inspiring Song", "Cutting Words", "Vicious Mockery" },
+                            CharacterClass.Alchemist => new[] { "Acid Flask", "Healing Bomb", "Explosive Mixture" },
+                            CharacterClass.Jester => new[] { "Trick Attack", "Confuse", "Lucky Strike" },
+                            _ => new[] { "Attack", "Power Strike", "Defend" }
+                        };
+
+                        activeTeammates.Add(new BossFightTeammate
+                        {
+                            Name = npc.DisplayName,
+                            CurrentHP = npc.HP,
+                            MaxHP = npc.MaxHP,
+                            Attack = npc.Strength + npc.WeapPow,
+                            Defense = npc.Defence + npc.ArmPow,
+                            Role = role,
+                            Abilities = abilities,
+                            IsCompanion = false,
+                            CharacterRef = npc
+                        });
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Process all teammates' attacks against the boss
+        /// </summary>
+        private async Task TeammatesAttack(OldGodBossData boss, TerminalEmulator terminal)
+        {
+            var aliveTeammates = activeTeammates.Where(t => t.IsAlive).ToList();
+            if (aliveTeammates.Count == 0) return;
+
+            terminal.WriteLine("");
+            terminal.WriteLine($"  ═══ YOUR ALLIES ATTACK ═══", "bright_cyan");
+
+            var random = new Random();
+
+            foreach (var teammate in aliveTeammates)
+            {
+                if (bossCurrentHP <= 0) break;
+
+                // Calculate teammate damage based on their role and stats
+                long baseDamage = teammate.Attack;
+
+                // Add role-specific bonuses
+                switch (teammate.Role)
+                {
+                    case "DPS":
+                        baseDamage = (long)(baseDamage * 1.5); // DPS does 50% more damage
+                        break;
+                    case "Hybrid":
+                        baseDamage = (long)(baseDamage * 1.2); // Hybrids do 20% more
+                        break;
+                    case "Tank":
+                        baseDamage = (long)(baseDamage * 0.8); // Tanks do less damage
+                        break;
+                    case "Healer":
+                        baseDamage = (long)(baseDamage * 0.6); // Healers do least damage
+                        break;
+                    case "Fighter":
+                    default:
+                        // Standard damage for generic fighters
+                        break;
+                }
+
+                // Add some variance
+                long damage = baseDamage + random.Next(Math.Max(1, (int)(baseDamage / 3)));
+
+                // Phase resistance affects teammates
+                damage = (long)(damage * (1.0 - (currentPhase - 1) * 0.05));
+                damage = Math.Max(5, damage);
+
+                bossCurrentHP -= damage;
+
+                // Pick an ability name
+                string abilityName = GetTeammateAbilityName(teammate);
+
+                terminal.WriteLine($"  {teammate.Name} uses {abilityName}!", "cyan");
+                terminal.WriteLine($"    Dealt {damage:N0} damage to {boss.Name}!", "bright_cyan");
+
+                await Task.Delay(400);
+            }
+
+            // Healers may heal the party
+            foreach (var teammate in aliveTeammates.Where(t => t.Role == "Healer" || t.Role == "Hybrid"))
+            {
+                // 50% chance to heal
+                if (random.Next(100) < 50)
+                {
+                    long healAmount = 20 + random.Next(30);
+                    if (teammate.IsCompanion && teammate.CompanionRef != null)
+                    {
+                        healAmount = teammate.CompanionRef.BaseStats.HealingPower * 2 + random.Next(20);
+                    }
+
+                    terminal.WriteLine($"  {teammate.Name} channels healing energy!", "green");
+                    terminal.WriteLine($"    The party is healed for {healAmount} HP!", "bright_green");
+
+                    await Task.Delay(300);
+                }
+            }
+
+            await Task.Delay(500);
+        }
+
+        /// <summary>
+        /// Get a thematic ability name for a teammate based on their role and abilities
+        /// </summary>
+        private string GetTeammateAbilityName(BossFightTeammate teammate)
+        {
+            var random = new Random();
+
+            if (teammate.Abilities != null && teammate.Abilities.Length > 0)
+            {
+                // Use one of their defined abilities (skip "Sacrifice")
+                var usableAbilities = teammate.Abilities.Where(a => !a.Contains("Sacrifice")).ToArray();
+                if (usableAbilities.Length > 0)
+                {
+                    return usableAbilities[random.Next(usableAbilities.Length)];
+                }
+            }
+
+            // Fallback generic attacks by role
+            return teammate.Role switch
+            {
+                "Tank" => "Shield Bash",
+                "DPS" => "Vicious Strike",
+                "Healer" => "Divine Smite",
+                "Hybrid" => "Power Attack",
+                "Fighter" => "Heavy Blow",
+                _ => "Attack"
+            };
+        }
 
         private string CenterText(string text, int width)
         {

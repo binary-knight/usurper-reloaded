@@ -432,7 +432,7 @@ public class LevelMasterLocation : BaseLocation
         terminal.WriteLine("  (Use (T)raining at the Level Master to improve your skills)");
         terminal.WriteLine("");
 
-        await terminal.PressAnyKey("  Press any key to continue...");
+        await terminal.PressAnyKey("  Press Enter to continue...");
     }
 
     /// <summary>

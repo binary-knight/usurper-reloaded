@@ -56,6 +56,10 @@ public abstract class BaseLocation
         // Track location visit statistics
         player.Statistics?.RecordLocationVisit(Name);
 
+        // Check for achievements on location entry (catches non-combat achievements)
+        AchievementSystem.CheckAchievements(player);
+        await AchievementSystem.ShowPendingNotifications(term);
+
         // Ensure NPCs are initialized (safety check)
         if (NPCSpawnSystem.Instance.ActiveNPCs.Count == 0)
         {

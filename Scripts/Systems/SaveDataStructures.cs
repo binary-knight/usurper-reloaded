@@ -397,6 +397,12 @@ namespace UsurperRemake.Systems
 
         // Marketplace inventory - items NPC has to sell
         public List<MarketItemData> MarketInventory { get; set; } = new();
+
+        // Modern RPG Equipment System - equipped items on this NPC
+        public Dictionary<int, int> EquippedItems { get; set; } = new(); // EquipmentSlot -> Equipment ID
+
+        // Dynamic equipment that this NPC has equipped (dungeon loot, etc.)
+        public List<DynamicEquipmentData> DynamicEquipment { get; set; } = new();
     }
 
     /// <summary>

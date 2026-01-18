@@ -604,6 +604,6 @@ public static class MaintenanceSystemValidation
         }
         
         terminal.WriteLine("", "white");
-        await terminal.PressAnyKey("Press any key to continue...");
+        await terminal.PressAnyKey("Press Enter to continue...");
     }
 } 

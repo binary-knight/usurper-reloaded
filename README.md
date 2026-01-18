@@ -1,6 +1,6 @@
 # Usurper Reborn
 
-## ALPHA v0.7 - Balance & Accessibility Update
+## ALPHA v0.8 - Combat AI & Royal Systems Update
 
 **FREE AND OPEN SOURCE SOFTWARE - GPL v2 Licensed**
 
@@ -348,7 +348,20 @@ For detailed BBS setup instructions, see [DOCS/BBS_DOOR_SETUP.md](DOCS/BBS_DOOR_
 - Audio and enhanced ANSI art
 - Additional companion personal quest storylines
 
-### Recently Completed (v0.7)
+### Recently Completed (v0.8)
+- **NPC Teammate Combat AI** - NPCs now cast offensive spells, use class abilities, and heal more intelligently
+  - Spell-casters (Magician, Sage, Cleric, Paladin, Bard) now cast attack spells in combat
+  - Class abilities: Warrior Power Attack, Ranger Multi-Shot, Assassin Backstab, Paladin Smite, Bard Inspire
+  - Improved healing logic: healers heal at 70% HP, others at 50%, self-preservation at 25%
+- **Royal Blessing System** - King can now bestow Royal Blessing status effect (+10% combat stats for a day)
+- **Enhanced Castle Throne Room** - Expanded royal court with audiences, blessings, and political intrigue
+- **Team Equipment System** - NPCs now spawn with proper equipment based on class and level
+- **Companion XP Display** - Companions now show XP progress during combat like NPC teammates
+- **Old God Boss Improvements** - Boss abilities now scale with phase (100%/150%/200% strength)
+- **Dungeon Entry Fee System** - Overleveled teammates pay entry fees based on level difference
+- **Street Encounter Fix** - Romantic partners no longer appear as hostile random encounters
+
+### Completed in v0.7
 - **Screen Reader Accessibility** - Full screen reader support for visually impaired players
 - **Dungeon Reward Balancing** - XP/gold from events now scales with dungeon level using `level^1.5` formula
 - **Quest Level Fix** - Dungeon expedition quests now correctly validate player level requirements
@@ -430,7 +443,7 @@ Join our Discord server for discussions, feedback, and updates:
 - Romance/marriage/family systems
 - Story progression and endings
 
-### Known Issues (Alpha v0.7)
+### Known Issues (Alpha v0.8)
 - Some edge cases in combat may cause unexpected behavior
 - NPC AI occasionally makes suboptimal decisions
 - Save files from earlier alpha versions may not be fully compatible
@@ -444,4 +457,4 @@ Join our Discord server for discussions, feedback, and updates:
 
 ---
 
-**Status**: ALPHA v0.7 - Balance & Accessibility Update
+**Status**: ALPHA v0.8 - Combat AI & Royal Systems Update

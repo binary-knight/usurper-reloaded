@@ -207,13 +207,11 @@ namespace UsurperRemake.Systems
         private PuzzleInstance GenerateSymbolPuzzle(int difficulty, DungeonTheme theme)
         {
             var symbols = GetThemedSymbols(theme);
-            int panelCount = 3 + (difficulty / 2);
-            var solution = new List<string>();
+            int panelCount = Math.Min(3 + (difficulty / 2), symbols.Length); // Don't exceed available symbols
 
-            for (int i = 0; i < panelCount; i++)
-            {
-                solution.Add(symbols[random.Next(symbols.Length)]);
-            }
+            // Shuffle symbols and pick unique ones for the solution (no repeats)
+            var shuffledSymbols = symbols.OrderBy(_ => random.Next()).ToList();
+            var solution = shuffledSymbols.Take(panelCount).ToList();
 
             // Generate cryptic clues that allow the player to deduce the solution
             var clues = GenerateSymbolClues(solution, symbols, theme);

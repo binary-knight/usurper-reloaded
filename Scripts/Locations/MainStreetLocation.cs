@@ -220,14 +220,16 @@ public class MainStreetLocation : BaseLocation
         terminal.SetColor("white");
         terminal.Write("agic Shop   ");
 
-        terminal.SetColor("darkgray");
-        terminal.Write("[");
-        terminal.SetColor("bright_cyan");
-        terminal.Write("J");
-        terminal.SetColor("darkgray");
-        terminal.Write("]");
-        terminal.SetColor("white");
-        terminal.WriteLine("Marketplace");
+        // Marketplace removed - waiting for multiplayer support
+        // terminal.SetColor("darkgray");
+        // terminal.Write("[");
+        // terminal.SetColor("bright_cyan");
+        // terminal.Write("J");
+        // terminal.SetColor("darkgray");
+        // terminal.Write("]");
+        // terminal.SetColor("white");
+        // terminal.WriteLine("Marketplace");
+        terminal.WriteLine(""); // Blank space where Marketplace was
 
         // Row 3 - Services
         terminal.SetColor("darkgray");
@@ -333,14 +335,16 @@ public class MainStreetLocation : BaseLocation
         terminal.SetColor("white");
         terminal.Write("ame         ");
 
-        terminal.SetColor("darkgray");
-        terminal.Write("[");
-        terminal.SetColor("cyan");
-        terminal.Write("L");
-        terminal.SetColor("darkgray");
-        terminal.Write("]");
-        terminal.SetColor("white");
-        terminal.WriteLine("ist Citizens");
+        // List Citizens removed - merged into Fame (F) which now shows locations
+        // terminal.SetColor("darkgray");
+        // terminal.Write("[");
+        // terminal.SetColor("cyan");
+        // terminal.Write("L");
+        // terminal.SetColor("darkgray");
+        // terminal.Write("]");
+        // terminal.SetColor("white");
+        // terminal.WriteLine("ist Citizens");
+        terminal.WriteLine(""); // Blank space where List Citizens was
 
         // Row 6 - Stats & Progress
         terminal.SetColor("darkgray");
@@ -351,15 +355,6 @@ public class MainStreetLocation : BaseLocation
         terminal.Write("]");
         terminal.SetColor("white");
         terminal.Write("Stats       ");
-
-        terminal.SetColor("darkgray");
-        terminal.Write("[");
-        terminal.SetColor("bright_yellow");
-        terminal.Write("!");
-        terminal.SetColor("darkgray");
-        terminal.Write("]");
-        terminal.SetColor("white");
-        terminal.Write("Achievements ");
 
         terminal.SetColor("darkgray");
         terminal.Write("[");
@@ -381,16 +376,17 @@ public class MainStreetLocation : BaseLocation
 
         // Row 7 - Combat & Shady Areas
         terminal.SetColor("darkgray");
-        terminal.Write(" [");
-        terminal.SetColor("red");
-        terminal.Write("U");
-        terminal.SetColor("darkgray");
-        terminal.Write("]");
-        terminal.SetColor("white");
-        terminal.Write("Assault     ");
+        // Assault removed - players can challenge NPCs via Talk feature
+        // terminal.Write(" [");
+        // terminal.SetColor("red");
+        // terminal.Write("U");
+        // terminal.SetColor("darkgray");
+        // terminal.Write("]");
+        // terminal.SetColor("white");
+        // terminal.Write("Assault     ");
 
         terminal.SetColor("darkgray");
-        terminal.Write("[");
+        terminal.Write(" [");
         terminal.SetColor("bright_red");
         terminal.Write("Y");
         terminal.SetColor("darkgray");
@@ -449,7 +445,7 @@ public class MainStreetLocation : BaseLocation
         terminal.WriteLine("  W - Weapon Shop");
         terminal.WriteLine("  A - Armor Shop");
         terminal.WriteLine("  M - Magic Shop");
-        terminal.WriteLine("  J - Marketplace");
+        // terminal.WriteLine("  J - Marketplace");  // Removed - waiting for multiplayer
         terminal.WriteLine("  B - Bank");
         terminal.WriteLine("  1 - Healer");
         terminal.WriteLine("");
@@ -465,15 +461,14 @@ public class MainStreetLocation : BaseLocation
         terminal.WriteLine("  S - Status");
         terminal.WriteLine("  N - News");
         terminal.WriteLine("  F - Fame");
-        terminal.WriteLine("  L - List Citizens");
+        // terminal.WriteLine("  L - List Citizens");  // Merged into Fame
         terminal.WriteLine("  = - Stats Record");
-        terminal.WriteLine("  ! - Achievements");
         terminal.WriteLine("  P - Progress");
         terminal.WriteLine("  R - Relations");
         terminal.WriteLine("");
 
         terminal.WriteLine("Other:");
-        terminal.WriteLine("  U - Assault");
+        // terminal.WriteLine("  U - Assault");  // Removed - use Talk to challenge NPCs
         terminal.WriteLine("  Y - Dark Alley");
         terminal.WriteLine("  X - Love Street");
         terminal.WriteLine("  Q - Quit Game");
@@ -572,9 +567,10 @@ public class MainStreetLocation : BaseLocation
                 await NavigateToTeamCorner();
                 return true;
                 
-            case "L":
-                await ListCharacters();
-                return false;
+            // List Citizens removed - merged into Fame (F) which now shows locations
+            // case "L":
+            //     await ListCharacters();
+            //     return false;
                 
             case "T":
                 terminal.WriteLine("You enter the Temple of the Gods...", "cyan");
@@ -586,9 +582,10 @@ public class MainStreetLocation : BaseLocation
                 await Task.Delay(1500);
                 throw new LocationExitException(GameLocation.LoveCorner);
                 
-            case "J":
-                await NavigateToLocation(GameLocation.Marketplace);
-                return true;
+            // Marketplace removed - waiting for multiplayer support
+            // case "J":
+            //     await NavigateToLocation(GameLocation.Marketplace);
+            //     return true;
                 
             case "R":
                 await ShowRelations();
@@ -602,9 +599,10 @@ public class MainStreetLocation : BaseLocation
                 await ShowStatistics();
                 return false;
 
-            case "!":
-                await ShowAchievements();
-                return false;
+            // Achievements removed - available via Trophy Room at Home
+            // case "!":
+            //     await ShowAchievements();
+            //     return false;
 
             case "9":
                 await TestCombat();
@@ -623,9 +621,10 @@ public class MainStreetLocation : BaseLocation
                 await NavigateToLocation(GameLocation.Church);
                 return true;
 
-            case "U":
-                await AttackSomeone();
-                return false;
+            // Assault removed - players can challenge NPCs via Talk feature
+            // case "U":
+            //     await AttackSomeone();
+            //     return false;
 
             case "Y":
                 terminal.WriteLine("You head to the Dark Alley...", "gray");
@@ -762,18 +761,19 @@ public class MainStreetLocation : BaseLocation
             npcs = NPCSpawnSystem.Instance.ActiveNPCs;
         }
 
-        // Build a list of all characters for ranking
-        var allCharacters = new List<(string Name, int Level, string Class, long Experience, bool IsPlayer, bool IsAlive)>();
+        // Build a list of all characters for ranking (now includes location)
+        var allCharacters = new List<(string Name, int Level, string Class, long Experience, string Location, bool IsPlayer, bool IsAlive)>();
 
         // Add player
-        allCharacters.Add((currentPlayer.DisplayName, currentPlayer.Level, currentPlayer.Class.ToString(), currentPlayer.Experience, true, currentPlayer.IsAlive));
+        allCharacters.Add((currentPlayer.DisplayName, currentPlayer.Level, currentPlayer.Class.ToString(), currentPlayer.Experience, "Main Street", true, currentPlayer.IsAlive));
 
         // Add NPCs
         if (npcs != null)
         {
             foreach (var npc in npcs)
             {
-                allCharacters.Add((npc.Name, npc.Level, npc.Class.ToString(), npc.Experience, false, npc.IsAlive));
+                string location = string.IsNullOrEmpty(npc.CurrentLocation) ? "???" : npc.CurrentLocation;
+                allCharacters.Add((npc.Name, npc.Level, npc.Class.ToString(), npc.Experience, location, false, npc.IsAlive));
             }
         }
 
@@ -808,10 +808,10 @@ public class MainStreetLocation : BaseLocation
             terminal.WriteLine($"  Your Rank: #{playerRank} of {ranked.Count} - {currentPlayer.DisplayName} (Level {currentPlayer.Level})");
             terminal.WriteLine("");
 
-            // Column headers
+            // Column headers (adjusted for location)
             terminal.SetColor("gray");
-            terminal.WriteLine($"  {"Rank",-6} {"Name",-20} {"Level",5}  {"Class",-12} {"Experience",12}");
-            terminal.WriteLine($"  {"────",-6} {"────────────────────",-20} {"─────",5}  {"────────────",-12} {"────────────",12}");
+            terminal.WriteLine($"  {"Rank",-5} {"Name",-18} {"Lv",3} {"Class",-10} {"Location",-12} {"Experience",10}");
+            terminal.WriteLine($"  {"────",-5} {"──────────────────",-18} {"──",3} {"──────────",-10} {"────────────",-12} {"──────────",10}");
 
             // Display current page
             int startIdx = currentPage * itemsPerPage;
@@ -835,9 +835,12 @@ public class MainStreetLocation : BaseLocation
 
                 terminal.SetColor(color);
 
-                string rankStr = rank <= 3 ? $"#{rank}" : $" {rank}.";
+                string rankStr = rank <= 3 ? $"#{rank}" : $"{rank}.";
                 string marker = entry.IsPlayer ? "*" : " ";
-                terminal.WriteLine($"  {rankStr,-6}{marker}{entry.Name,-19} {entry.Level,5}  {entry.Class,-12} {entry.Experience,12:N0}");
+                string nameDisplay = entry.Name.Length > 17 ? entry.Name.Substring(0, 17) : entry.Name;
+                string classDisplay = entry.Class.Length > 10 ? entry.Class.Substring(0, 10) : entry.Class;
+                string locDisplay = entry.Location.Length > 12 ? entry.Location.Substring(0, 12) : entry.Location;
+                terminal.WriteLine($"  {rankStr,-5}{marker}{nameDisplay,-17} {entry.Level,3} {classDisplay,-10} {locDisplay,-12} {entry.Experience,10:N0}");
             }
 
             terminal.WriteLine("");
@@ -1119,7 +1122,7 @@ public class MainStreetLocation : BaseLocation
         terminal.WriteLine("");
 
         terminal.SetColor("gray");
-        terminal.WriteLine("Press any key to continue...");
+        terminal.WriteLine("Press Enter to continue...");
         await terminal.PressAnyKey();
     }
 
@@ -1238,7 +1241,7 @@ public class MainStreetLocation : BaseLocation
             {
                 terminal.WriteLine("");
                 terminal.SetColor("cyan");
-                terminal.WriteLine("Press any key for more, or Q to quit...");
+                terminal.WriteLine("Press Enter for more, or Q to quit...");
                 var key = await terminal.GetKeyInput();
                 if (key?.ToUpper() == "Q") return;
                 terminal.ClearScreen();
@@ -1250,7 +1253,7 @@ public class MainStreetLocation : BaseLocation
 
         terminal.WriteLine("");
         terminal.SetColor("gray");
-        terminal.WriteLine("Press any key to continue...");
+        terminal.WriteLine("Press Enter to continue...");
         await terminal.PressAnyKey();
     }
 
@@ -1457,10 +1460,15 @@ public class MainStreetLocation : BaseLocation
     private async Task QuitGame()
     {
         terminal.SetColor("yellow");
+        terminal.WriteLine("Saving your progress...");
+
+        // Actually save the game before quitting!
+        await GameEngine.Instance.SaveCurrentGame();
+
+        terminal.WriteLine("");
         terminal.WriteLine("Thanks for playing Usurper Reborn!");
-        terminal.WriteLine("Your progress has been saved.");
         await Task.Delay(2000);
-        
+
         // Signal game should quit
         throw new LocationExitException(GameLocation.NoWhere);
     }
@@ -1938,7 +1946,7 @@ public class MainStreetLocation : BaseLocation
             terminal.WriteLine("Invalid choice!", "red");
         }
         
-        await terminal.PressAnyKey("Press any key to continue...");
+        await terminal.PressAnyKey("Press Enter to continue...");
     }
     
     /// <summary>
@@ -2001,7 +2009,7 @@ public class MainStreetLocation : BaseLocation
                 break;
         }
         
-        await terminal.PressAnyKey("Press any key to continue...");
+        await terminal.PressAnyKey("Press Enter to continue...");
     }
     
     /// <summary>
@@ -2010,7 +2018,7 @@ public class MainStreetLocation : BaseLocation
     private async Task SaveGameNow()
     {
         await GameEngine.Instance.SaveCurrentGame();
-        await terminal.PressAnyKey("Press any key to continue...");
+        await terminal.PressAnyKey("Press Enter to continue...");
     }
     
     /// <summary>
@@ -2030,7 +2038,7 @@ public class MainStreetLocation : BaseLocation
         if (saves.Count == 0)
         {
             terminal.WriteLine("No save files found!", "red");
-            await terminal.PressAnyKey("Press any key to continue...");
+            await terminal.PressAnyKey("Press Enter to continue...");
             return;
         }
         
@@ -2062,7 +2070,7 @@ public class MainStreetLocation : BaseLocation
             terminal.WriteLine("Invalid choice!", "red");
         }
         
-        await terminal.PressAnyKey("Press any key to continue...");
+        await terminal.PressAnyKey("Press Enter to continue...");
     }
     
     /// <summary>
@@ -2086,7 +2094,7 @@ public class MainStreetLocation : BaseLocation
         if (saves.Count == 0)
         {
             terminal.WriteLine("No save files found!", "yellow");
-            await terminal.PressAnyKey("Press any key to continue...");
+            await terminal.PressAnyKey("Press Enter to continue...");
             return;
         }
         
@@ -2132,7 +2140,7 @@ public class MainStreetLocation : BaseLocation
             terminal.WriteLine("Invalid choice!", "red");
         }
         
-        await terminal.PressAnyKey("Press any key to continue...");
+        await terminal.PressAnyKey("Press Enter to continue...");
     }
     
     /// <summary>
@@ -2152,7 +2160,7 @@ public class MainStreetLocation : BaseLocation
         if (saves.Count == 0)
         {
             terminal.WriteLine("No save files found!", "red");
-            await terminal.PressAnyKey("Press any key to continue...");
+            await terminal.PressAnyKey("Press Enter to continue...");
             return;
         }
         
@@ -2168,7 +2176,7 @@ public class MainStreetLocation : BaseLocation
             terminal.WriteLine("");
         }
         
-        await terminal.PressAnyKey("Press any key to continue...");
+        await terminal.PressAnyKey("Press Enter to continue...");
     }
     
     /// <summary>
@@ -2202,7 +2210,7 @@ public class MainStreetLocation : BaseLocation
             terminal.WriteLine("Reset cancelled.", "yellow");
         }
         
-        await terminal.PressAnyKey("Press any key to continue...");
+        await terminal.PressAnyKey("Press Enter to continue...");
     }
     
     /// <summary>
@@ -2259,7 +2267,7 @@ public class MainStreetLocation : BaseLocation
         terminal.WriteLine("  [C] Castle        - Visit the royal court");
         terminal.WriteLine("  [Y] Your Home     - Rest and manage your belongings");
         terminal.WriteLine("  [*] Level Master  - Train to increase your level");
-        terminal.WriteLine("  [K] Marketplace   - Trade goods and find bargains");
+        // terminal.WriteLine("  [K] Marketplace   - Trade goods and find bargains");  // Removed - waiting for multiplayer
         terminal.WriteLine("  [X] Dark Alley    - Shady dealings and criminal activity");
         terminal.WriteLine("");
 
@@ -2267,7 +2275,7 @@ public class MainStreetLocation : BaseLocation
         terminal.WriteLine("=== INFORMATION ===");
         terminal.SetColor("white");
         terminal.WriteLine("  [S] Status        - View your character stats");
-        terminal.WriteLine("  [L] List Players  - See other characters in the realm");
+        // terminal.WriteLine("  [L] List Players  - See other characters in the realm");  // Merged into Fame
         terminal.WriteLine("  [N] News          - Read the daily news");
         terminal.WriteLine("  [F] Fame          - View the hall of fame");
         terminal.WriteLine("  [R] Relations     - Check your relationships with NPCs");
@@ -2293,7 +2301,7 @@ public class MainStreetLocation : BaseLocation
         terminal.WriteLine("");
 
         terminal.SetColor("cyan");
-        await terminal.PressAnyKey("Press any key to return to Main Street...");
+        await terminal.PressAnyKey("Press Enter to return to Main Street...");
     }
 
     /// <summary>
@@ -2304,7 +2312,7 @@ public class MainStreetLocation : BaseLocation
         terminal.ClearScreen();
         WorldEventSystem.Instance.DisplayWorldStatus(terminal);
         terminal.WriteLine("");
-        await terminal.PressAnyKey("Press any key to continue...");
+        await terminal.PressAnyKey("Press Enter to continue...");
     }
 
     /// <summary>
@@ -2542,6 +2550,6 @@ public class MainStreetLocation : BaseLocation
 
         terminal.WriteLine("");
         terminal.SetColor("gray");
-        await terminal.PressAnyKey("Press any key to return to Main Street...");
+        await terminal.PressAnyKey("Press Enter to return to Main Street...");
     }
 } 

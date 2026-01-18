@@ -200,7 +200,7 @@ public partial class PrisonWalkLocation : BaseLocation
         await terminal.WriteLineAsync($"Chivalry: {player.Chivalry:N0}");
         await terminal.WriteLineAsync($"Darkness: {player.Darkness:N0}");
         await terminal.WriteLineAsync();
-        await terminal.WriteAsync("Press any key to continue...");
+        await terminal.WriteAsync("Press Enter to continue...");
         await terminal.GetCharAsync();
     }
     
@@ -247,7 +247,7 @@ public partial class PrisonWalkLocation : BaseLocation
         }
         
         await terminal.WriteLineAsync();
-        await terminal.WriteAsync("Press any key to continue...");
+        await terminal.WriteAsync("Press Enter to continue...");
         await terminal.GetCharAsync();
     }
     

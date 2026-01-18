@@ -277,7 +277,7 @@ public partial class CombatEngine
                 {
                     // Auto-combat: automatically attack random living monster
                     terminal.SetColor("bright_cyan");
-                    terminal.WriteLine("[AUTO-COMBAT] Press any key to stop...");
+                    terminal.WriteLine("[AUTO-COMBAT] Press Enter to stop...");
                     terminal.WriteLine("");
 
                     // Create auto-attack action
@@ -725,6 +725,8 @@ public partial class CombatEngine
             monsterAC += 2; // Power stance is less accurate
         if (attacker.HasStatus(StatusEffect.Blessed))
             monsterAC -= 2; // Blessing helps accuracy
+        if (attacker.HasStatus(StatusEffect.RoyalBlessing))
+            monsterAC -= 2; // Royal blessing from the king helps accuracy
         if (attacker.Blind || attacker.HasStatus(StatusEffect.Blinded))
             monsterAC += 6; // Blindness severely reduces accuracy
 
@@ -788,6 +790,8 @@ public partial class CombatEngine
 
         if (attacker.HasStatus(StatusEffect.Blessed))
             attackPower += attacker.Level / 5 + 2;
+        if (attacker.HasStatus(StatusEffect.RoyalBlessing))
+            attackPower = (long)(attackPower * 1.10); // 10% damage bonus from king's blessing
         if (attacker.HasStatus(StatusEffect.Weakened))
             attackPower = Math.Max(1, attackPower - attacker.Level / 10 - 4);
 
@@ -1306,6 +1310,8 @@ public partial class CombatEngine
 
         if (player.HasStatus(StatusEffect.Blessed))
             playerDefense += 2;
+        if (player.HasStatus(StatusEffect.RoyalBlessing))
+            playerDefense = (long)(playerDefense * 1.10); // 10% defense bonus from king's blessing
         if (player.IsRaging)
             playerDefense = Math.Max(0, playerDefense - 4);
 
@@ -4319,7 +4325,7 @@ public partial class CombatEngine
     }
 
     /// <summary>
-    /// Process teammate action in multi-monster combat with intelligent healing AI
+    /// Process teammate action in multi-monster combat with intelligent AI
     /// </summary>
     private async Task ProcessTeammateActionMultiMonster(Character teammate, List<Monster> monsters, CombatResult result)
     {
@@ -4335,6 +4341,20 @@ public partial class CombatEngine
         if (healAction)
         {
             return; // Healing action was taken
+        }
+
+        // Check if teammate should cast an offensive spell
+        var spellAction = await TryTeammateOffensiveSpell(teammate, monsters, result);
+        if (spellAction)
+        {
+            return; // Spell was cast
+        }
+
+        // Check if teammate should use a class ability
+        var abilityAction = await TryTeammateClassAbility(teammate, monsters, result);
+        if (abilityAction)
+        {
+            return; // Ability was used
         }
 
         // Otherwise, attack the weakest monster
@@ -4382,30 +4402,36 @@ public partial class CombatEngine
 
         double injuredPercent = (double)mostInjured.HP / mostInjured.MaxHP;
 
-        // Only heal if someone is below 60% HP
-        if (injuredPercent > 0.6)
-        {
-            return false;
-        }
-
-        // Check if teammate is a healer (Cleric) with mana
-        bool isHealer = teammate.Class == CharacterClass.Cleric || teammate.Class == CharacterClass.Paladin;
-        bool hasMana = teammate.Mana > 10;
+        // Check if teammate can heal with spells (any class with mana and healing spells)
+        bool canHealWithSpells = teammate.Mana > 10 && GetBestHealSpell(teammate) != null;
         bool hasPotion = teammate.Healing > 0;
 
-        // Healers prefer spells, others use potions
-        if (isHealer && hasMana)
+        // Classes that prioritize healing
+        bool isHealerClass = teammate.Class == CharacterClass.Cleric ||
+                            teammate.Class == CharacterClass.Paladin ||
+                            teammate.Class == CharacterClass.Bard;
+
+        // Healer classes heal more aggressively (below 70% HP)
+        // Other classes with heals are more conservative (below 50% HP)
+        double healThreshold = isHealerClass ? 0.70 : 0.50;
+
+        // Use heal spell if available and target needs it
+        if (canHealWithSpells && injuredPercent < healThreshold)
         {
-            // Cast a healing spell on the most injured party member
             return await TeammateHealWithSpell(teammate, mostInjured, result);
         }
-        else if (hasPotion)
+
+        // Use potion if no spells or low mana and target is critical (below 35%)
+        if (hasPotion && injuredPercent < 0.35)
         {
-            // Use a healing potion (only if target is below 40%)
-            if (injuredPercent < 0.4)
-            {
-                return await TeammateHealWithPotion(teammate, mostInjured, result);
-            }
+            return await TeammateHealWithPotion(teammate, mostInjured, result);
+        }
+
+        // Self-preservation: if the teammate themselves is below 25% HP, use a potion
+        double selfPercent = (double)teammate.HP / teammate.MaxHP;
+        if (hasPotion && selfPercent < 0.25)
+        {
+            return await TeammateHealWithPotion(teammate, teammate, result);
         }
 
         return false;
@@ -4532,6 +4558,385 @@ public partial class CombatEngine
                         caster.Mana >= s.ManaCost)
             .OrderByDescending(s => s.Level) // Prefer higher level heals
             .FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Get the best offensive spell the character can cast based on their current mana
+    /// Prefers AoE spells when multiple enemies exist, otherwise single-target
+    /// </summary>
+    private SpellSystem.SpellInfo? GetBestOffensiveSpell(Character caster, bool preferAoE)
+    {
+        var spells = SpellSystem.GetAllSpellsForClass(caster.Class);
+        if (spells == null || spells.Count == 0) return null;
+
+        var availableAttacks = spells
+            .Where(s => s.SpellType == "Attack" &&
+                        caster.Level >= SpellSystem.GetLevelRequired(caster.Class, s.Level) &&
+                        caster.Mana >= SpellSystem.CalculateManaCost(s, caster))
+            .ToList();
+
+        if (availableAttacks.Count == 0) return null;
+
+        // If preferring AoE and we have AoE spells, use the best one
+        if (preferAoE)
+        {
+            var aoeSpell = availableAttacks
+                .Where(s => s.IsMultiTarget)
+                .OrderByDescending(s => s.Level)
+                .FirstOrDefault();
+            if (aoeSpell != null) return aoeSpell;
+        }
+
+        // Otherwise return best single-target attack
+        return availableAttacks
+            .Where(s => !s.IsMultiTarget)
+            .OrderByDescending(s => s.Level)
+            .FirstOrDefault() ?? availableAttacks.OrderByDescending(s => s.Level).FirstOrDefault();
+    }
+
+    /// <summary>
+    /// NPC teammate attempts to cast an offensive spell on enemies
+    /// </summary>
+    private async Task<bool> TryTeammateOffensiveSpell(Character teammate, List<Monster> monsters, CombatResult result)
+    {
+        // Only cast spells if teammate is a spell-casting class and has mana
+        bool isSpellCaster = teammate.Class == CharacterClass.Magician ||
+                            teammate.Class == CharacterClass.Sage ||
+                            teammate.Class == CharacterClass.Cleric ||
+                            teammate.Class == CharacterClass.Paladin ||
+                            teammate.Class == CharacterClass.Bard;
+
+        if (!isSpellCaster || teammate.Mana < 10) return false;
+
+        // Count living monsters to decide if AoE is worth it
+        var livingMonsters = monsters.Where(m => m.IsAlive).ToList();
+        if (livingMonsters.Count == 0) return false;
+
+        bool preferAoE = livingMonsters.Count >= 3;
+        var spell = GetBestOffensiveSpell(teammate, preferAoE);
+
+        if (spell == null) return false;
+
+        // 70% chance to cast spell instead of attacking (don't always spam spells)
+        if (random.Next(100) >= 70) return false;
+
+        // Cast the spell
+        int manaCost = SpellSystem.CalculateManaCost(spell, teammate);
+        teammate.Mana -= manaCost;
+
+        var spellResult = SpellSystem.CastSpell(teammate, spell.Level, null);
+
+        terminal.WriteLine("");
+        terminal.SetColor("magenta");
+        terminal.WriteLine($"{teammate.DisplayName} casts {spell.Name}!");
+
+        if (!spellResult.Success)
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("The spell fizzles!");
+            result.CombatLog.Add($"{teammate.DisplayName}'s {spell.Name} fizzles.");
+            await Task.Delay(GetCombatDelay(600));
+            return true; // Still used their turn
+        }
+
+        // Calculate damage
+        long damage = spellResult.Damage;
+        if (damage <= 0)
+        {
+            damage = spell.Level * 40 + (teammate.Intelligence / 2);
+        }
+
+        // Apply AoE damage
+        if (spell.IsMultiTarget && livingMonsters.Count >= 2)
+        {
+            long damagePerTarget = damage / livingMonsters.Count;
+            damagePerTarget = Math.Max(damagePerTarget, damage / 3); // Min 1/3 damage each
+
+            foreach (var monster in livingMonsters)
+            {
+                long actualDamage = Math.Min(damagePerTarget, monster.HP);
+                monster.HP -= (int)actualDamage;
+
+                terminal.SetColor("bright_red");
+                terminal.WriteLine($"  {monster.Name} takes {actualDamage} damage!");
+
+                if (monster.HP <= 0)
+                {
+                    monster.HP = 0;
+                    terminal.SetColor("yellow");
+                    terminal.WriteLine($"  {monster.Name} is destroyed!");
+                }
+            }
+            result.CombatLog.Add($"{teammate.DisplayName} casts {spell.Name} for {damage} total damage!");
+        }
+        else
+        {
+            // Single target - hit weakest monster
+            var target = livingMonsters.OrderBy(m => m.HP).FirstOrDefault();
+            if (target != null)
+            {
+                long actualDamage = Math.Min(damage, target.HP);
+                target.HP -= (int)actualDamage;
+
+                terminal.SetColor("bright_red");
+                terminal.WriteLine($"{target.Name} takes {actualDamage} damage!");
+
+                if (target.HP <= 0)
+                {
+                    target.HP = 0;
+                    terminal.SetColor("yellow");
+                    terminal.WriteLine($"{target.Name} is destroyed!");
+                }
+                result.CombatLog.Add($"{teammate.DisplayName} casts {spell.Name} on {target.Name} for {actualDamage} damage!");
+            }
+        }
+
+        await Task.Delay(GetCombatDelay(800));
+        return true;
+    }
+
+    /// <summary>
+    /// NPC teammate attempts to use their class-specific ability
+    /// </summary>
+    private async Task<bool> TryTeammateClassAbility(Character teammate, List<Monster> monsters, CombatResult result)
+    {
+        var livingMonsters = monsters.Where(m => m.IsAlive).ToList();
+        if (livingMonsters.Count == 0) return false;
+
+        // Check class-specific abilities
+        switch (teammate.Class)
+        {
+            case CharacterClass.Warrior:
+                // Warriors can use Power Attack (costs stamina/HP but deals extra damage)
+                if (teammate.HP > teammate.MaxHP * 0.3 && random.Next(100) < 25)
+                {
+                    return await TeammateWarriorPowerAttack(teammate, livingMonsters, result);
+                }
+                break;
+
+            case CharacterClass.Ranger:
+                // Rangers can use Multi-Shot (attacks multiple targets)
+                if (livingMonsters.Count >= 2 && random.Next(100) < 30)
+                {
+                    return await TeammateRangerMultiShot(teammate, livingMonsters, result);
+                }
+                break;
+
+            case CharacterClass.Assassin:
+                // Assassins can backstab for critical damage
+                if (random.Next(100) < 35)
+                {
+                    return await TeammateAssassinBackstab(teammate, livingMonsters, result);
+                }
+                break;
+
+            case CharacterClass.Paladin:
+                // Paladins can smite evil
+                if (teammate.Mana >= 15 && random.Next(100) < 30)
+                {
+                    return await TeammatePaladinSmite(teammate, livingMonsters, result);
+                }
+                break;
+
+            case CharacterClass.Bard:
+                // Bards can inspire allies (buff)
+                if (teammate.Mana >= 10 && random.Next(100) < 20)
+                {
+                    return await TeammateBardInspire(teammate, result);
+                }
+                break;
+        }
+
+        return false;
+    }
+
+    private async Task<bool> TeammateWarriorPowerAttack(Character teammate, List<Monster> monsters, CombatResult result)
+    {
+        var target = monsters.OrderBy(m => m.HP).FirstOrDefault();
+        if (target == null) return false;
+
+        // Power attack costs 5% HP but deals 2x damage
+        long hpCost = Math.Max(1, teammate.MaxHP / 20);
+        teammate.HP -= hpCost;
+
+        long damage = CalculateBaseDamage(teammate) * 2;
+        long actualDamage = Math.Min(damage, target.HP);
+        target.HP -= (int)actualDamage;
+
+        terminal.WriteLine("");
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine($"{teammate.DisplayName} uses POWER ATTACK!");
+        terminal.SetColor("bright_red");
+        terminal.WriteLine($"{target.Name} takes {actualDamage} damage!");
+
+        if (target.HP <= 0)
+        {
+            target.HP = 0;
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"{target.Name} is defeated!");
+        }
+
+        result.CombatLog.Add($"{teammate.DisplayName} Power Attack hits {target.Name} for {actualDamage}!");
+        await Task.Delay(GetCombatDelay(700));
+        return true;
+    }
+
+    private async Task<bool> TeammateRangerMultiShot(Character teammate, List<Monster> monsters, CombatResult result)
+    {
+        terminal.WriteLine("");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine($"{teammate.DisplayName} fires a MULTI-SHOT!");
+
+        long baseDamage = CalculateBaseDamage(teammate) / 2; // Half damage but hits multiple
+        int targetsHit = Math.Min(3, monsters.Count);
+
+        for (int i = 0; i < targetsHit; i++)
+        {
+            var target = monsters[i];
+            if (!target.IsAlive) continue;
+
+            long actualDamage = Math.Min(baseDamage, target.HP);
+            target.HP -= (int)actualDamage;
+
+            terminal.SetColor("bright_red");
+            terminal.WriteLine($"  {target.Name} takes {actualDamage} damage!");
+
+            if (target.HP <= 0)
+            {
+                target.HP = 0;
+                terminal.SetColor("yellow");
+                terminal.WriteLine($"  {target.Name} is defeated!");
+            }
+        }
+
+        result.CombatLog.Add($"{teammate.DisplayName} Multi-Shot hits {targetsHit} targets!");
+        await Task.Delay(GetCombatDelay(700));
+        return true;
+    }
+
+    private async Task<bool> TeammateAssassinBackstab(Character teammate, List<Monster> monsters, CombatResult result)
+    {
+        var target = monsters.OrderBy(m => m.HP).FirstOrDefault();
+        if (target == null) return false;
+
+        // Backstab has a chance to crit (3x damage) or normal (1.5x)
+        bool crit = random.Next(100) < 40; // 40% crit chance
+        double multiplier = crit ? 3.0 : 1.5;
+
+        long damage = (long)(CalculateBaseDamage(teammate) * multiplier);
+        long actualDamage = Math.Min(damage, target.HP);
+        target.HP -= (int)actualDamage;
+
+        terminal.WriteLine("");
+        terminal.SetColor("dark_magenta");
+        terminal.WriteLine($"{teammate.DisplayName} strikes from the shadows!");
+        if (crit)
+        {
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine("CRITICAL BACKSTAB!");
+        }
+        terminal.SetColor("bright_red");
+        terminal.WriteLine($"{target.Name} takes {actualDamage} damage!");
+
+        if (target.HP <= 0)
+        {
+            target.HP = 0;
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"{target.Name} is defeated!");
+        }
+
+        result.CombatLog.Add($"{teammate.DisplayName} Backstab {(crit ? "CRIT " : "")}hits {target.Name} for {actualDamage}!");
+        await Task.Delay(GetCombatDelay(700));
+        return true;
+    }
+
+    private async Task<bool> TeammatePaladinSmite(Character teammate, List<Monster> monsters, CombatResult result)
+    {
+        var target = monsters.OrderBy(m => m.HP).FirstOrDefault();
+        if (target == null) return false;
+
+        teammate.Mana -= 15;
+
+        // Smite deals weapon damage + holy damage
+        long damage = CalculateBaseDamage(teammate) + (teammate.Level * 5) + (teammate.Wisdom / 2);
+        long actualDamage = Math.Min(damage, target.HP);
+        target.HP -= (int)actualDamage;
+
+        terminal.WriteLine("");
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine($"{teammate.DisplayName} calls down HOLY SMITE!");
+        terminal.SetColor("bright_white");
+        terminal.WriteLine($"Divine light strikes {target.Name}!");
+        terminal.SetColor("bright_red");
+        terminal.WriteLine($"{target.Name} takes {actualDamage} holy damage!");
+
+        if (target.HP <= 0)
+        {
+            target.HP = 0;
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"{target.Name} is destroyed!");
+        }
+
+        result.CombatLog.Add($"{teammate.DisplayName} Smite hits {target.Name} for {actualDamage}!");
+        await Task.Delay(GetCombatDelay(700));
+        return true;
+    }
+
+    private async Task<bool> TeammateBardInspire(Character teammate, CombatResult result)
+    {
+        teammate.Mana -= 10;
+
+        terminal.WriteLine("");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine($"{teammate.DisplayName} plays an inspiring melody!");
+        terminal.SetColor("bright_green");
+        terminal.WriteLine("The party feels invigorated!");
+
+        // Apply a small attack buff (tracked in result for this combat)
+        result.CombatLog.Add($"{teammate.DisplayName} inspires the party with a battle hymn!");
+
+        // Give a small heal to all party members
+        if (currentTeammates != null)
+        {
+            int healAmount = teammate.Level * 2 + 10;
+            foreach (var ally in currentTeammates.Where(t => t.IsAlive))
+            {
+                ally.HP = Math.Min(ally.MaxHP, ally.HP + healAmount);
+            }
+            if (currentPlayer != null && currentPlayer.IsAlive)
+            {
+                currentPlayer.HP = Math.Min(currentPlayer.MaxHP, currentPlayer.HP + healAmount);
+            }
+            terminal.SetColor("green");
+            terminal.WriteLine($"Everyone recovers {healAmount} HP!");
+        }
+
+        await Task.Delay(GetCombatDelay(700));
+        return true;
+    }
+
+    /// <summary>
+    /// Calculate base physical damage for a character
+    /// </summary>
+    private long CalculateBaseDamage(Character character)
+    {
+        // Base damage from strength + weapon power
+        long damage = character.Strength / 2;
+
+        // Add weapon power if equipped
+        if (character.WeapPow > 0)
+        {
+            damage += character.WeapPow + random.Next(1, 16);
+        }
+        else
+        {
+            damage += character.Level * 2; // Unarmed damage scales with level
+        }
+
+        // Add additional strength bonus
+        damage += character.Strength / 10;
+
+        return Math.Max(1, damage);
     }
 
     /// <summary>

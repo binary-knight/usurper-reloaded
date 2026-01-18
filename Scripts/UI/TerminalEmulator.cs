@@ -521,7 +521,7 @@ public partial class TerminalEmulator : Control
         WriteLine($"[Status] {statusText}", "bright_cyan");
     }
     
-    public async Task PressAnyKey(string message = "Press any key to continue...")
+    public async Task PressAnyKey(string message = "Press Enter to continue...")
     {
         await GetInput(message);
     }
@@ -555,7 +555,7 @@ public partial class TerminalEmulator : Control
         return await GetInput(prompt);
     }
     
-    public async Task WaitForKeyPress(string message = "Press any key to continue...")
+    public async Task WaitForKeyPress(string message = "Press Enter to continue...")
     {
         await GetInput(message);
     }

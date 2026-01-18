@@ -875,18 +875,32 @@ public static class AchievementSystem
 
     /// <summary>
     /// Show any pending achievement notifications
+    /// Shows consolidated view if multiple achievements unlocked at once
     /// </summary>
     public static async System.Threading.Tasks.Task ShowPendingNotifications(TerminalEmulator terminal)
     {
+        if (PendingNotifications.Count == 0) return;
+
+        // Collect all pending achievements
+        var achievements = new List<Achievement>();
         while (PendingNotifications.Count > 0)
         {
-            var achievement = PendingNotifications.Dequeue();
-            await ShowAchievementUnlock(terminal, achievement);
+            achievements.Add(PendingNotifications.Dequeue());
         }
+
+        // Single achievement - show full display
+        if (achievements.Count == 1)
+        {
+            await ShowAchievementUnlock(terminal, achievements[0]);
+            return;
+        }
+
+        // Multiple achievements - show consolidated view
+        await ShowMultipleAchievements(terminal, achievements);
     }
 
     /// <summary>
-    /// Display achievement unlock notification
+    /// Display a single achievement unlock notification
     /// </summary>
     private static async System.Threading.Tasks.Task ShowAchievementUnlock(TerminalEmulator terminal, Achievement achievement)
     {
@@ -921,6 +935,57 @@ public static class AchievementSystem
         terminal.WriteLine("╚══════════════════════════════════════════════════════════╝");
         terminal.WriteLine("");
 
-        await System.Threading.Tasks.Task.Delay(2000);
+        await System.Threading.Tasks.Task.Delay(1500);
+    }
+
+    /// <summary>
+    /// Display multiple achievements in a consolidated view
+    /// </summary>
+    private static async System.Threading.Tasks.Task ShowMultipleAchievements(TerminalEmulator terminal, List<Achievement> achievements)
+    {
+        long totalGold = achievements.Sum(a => a.GoldReward);
+        long totalXP = achievements.Sum(a => a.ExperienceReward);
+
+        terminal.WriteLine("");
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════╗");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine($"║      * {achievements.Count} ACHIEVEMENTS UNLOCKED! *".PadRight(59) + "║");
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("╠══════════════════════════════════════════════════════════╣");
+
+        // Show up to 8 achievements, summarize if more
+        int shown = 0;
+        foreach (var achievement in achievements.OrderByDescending(a => a.Tier).Take(8))
+        {
+            terminal.SetColor(achievement.GetTierColor());
+            var name = achievement.Name.Length > 45 ? achievement.Name.Substring(0, 42) + "..." : achievement.Name;
+            terminal.WriteLine($"║  {achievement.GetTierSymbol()} {name,-48} ║");
+            shown++;
+        }
+
+        if (achievements.Count > 8)
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine($"║  ... and {achievements.Count - 8} more!".PadRight(56) + "║");
+        }
+
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("╠══════════════════════════════════════════════════════════╣");
+
+        if (totalGold > 0 || totalXP > 0)
+        {
+            var rewards = "";
+            if (totalGold > 0) rewards += $"+{totalGold:N0} Gold ";
+            if (totalXP > 0) rewards += $"+{totalXP:N0} XP";
+            terminal.SetColor("bright_green");
+            terminal.WriteLine($"║  Total Rewards: {rewards,-38} ║");
+        }
+
+        terminal.SetColor("bright_yellow");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+
+        await System.Threading.Tasks.Task.Delay(2500);
     }
 }

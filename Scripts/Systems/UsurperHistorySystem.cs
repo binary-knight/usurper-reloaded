@@ -71,7 +71,7 @@ public class UsurperHistorySystem
         terminal.WriteLine("");
 
         terminal.SetColor("yellow");
-        terminal.WriteLine("                              [Press any key to continue]");
+        terminal.WriteLine("                              [Press Enter to continue]");
         await terminal.WaitForKey();
     }
 
@@ -126,7 +126,7 @@ public class UsurperHistorySystem
         terminal.WriteLine("");
 
         terminal.SetColor("yellow");
-        terminal.WriteLine("                              [Press any key to continue]");
+        terminal.WriteLine("                              [Press Enter to continue]");
         await terminal.WaitForKey();
     }
 
@@ -179,7 +179,7 @@ public class UsurperHistorySystem
         terminal.WriteLine("");
 
         terminal.SetColor("yellow");
-        terminal.WriteLine("                              [Press any key to continue]");
+        terminal.WriteLine("                              [Press Enter to continue]");
         await terminal.WaitForKey();
     }
 
@@ -235,7 +235,7 @@ public class UsurperHistorySystem
         terminal.WriteLine("");
 
         terminal.SetColor("yellow");
-        terminal.WriteLine("                              [Press any key to continue]");
+        terminal.WriteLine("                              [Press Enter to continue]");
         await terminal.WaitForKey();
 
         // Continue with Dan Zingaro
@@ -277,7 +277,7 @@ public class UsurperHistorySystem
         terminal.WriteLine("");
 
         terminal.SetColor("yellow");
-        terminal.WriteLine("                              [Press any key to continue]");
+        terminal.WriteLine("                              [Press Enter to continue]");
         await terminal.WaitForKey();
     }
 
@@ -342,7 +342,7 @@ public class UsurperHistorySystem
         terminal.WriteLine("");
 
         terminal.SetColor("yellow");
-        terminal.WriteLine("                              [Press any key to return]");
+        terminal.WriteLine("                              [Press Enter to return]");
         await terminal.WaitForKey();
     }
 }

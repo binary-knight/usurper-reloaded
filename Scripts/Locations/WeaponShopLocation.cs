@@ -51,7 +51,7 @@ public class WeaponShopLocation : BaseLocation
             terminal.WriteLine("The big trolls pick you up and throw you out!");
             terminal.WriteLine("Maybe you should be more careful about haggling next time...");
             terminal.WriteLine("");
-            terminal.WriteLine("Press any key to return to street...", "yellow");
+            terminal.WriteLine("Press Enter to return to street...", "yellow");
             return;
         }
 
