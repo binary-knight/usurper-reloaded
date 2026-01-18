@@ -1228,10 +1228,43 @@ namespace UsurperRemake.Systems
         }
 
         /// <summary>
+        /// Reset all companions to their initial state (not recruited, not dead)
+        /// Called before loading a save to prevent state bleeding between characters
+        /// </summary>
+        public void ResetAllCompanions()
+        {
+            foreach (var companion in companions.Values)
+            {
+                companion.IsRecruited = false;
+                companion.IsActive = false;
+                companion.IsDead = false;
+                companion.DeathType = null;
+                companion.LoyaltyLevel = 50;
+                companion.TrustLevel = 50;
+                companion.RomanceLevel = 0;
+                companion.PersonalQuestStarted = false;
+                companion.PersonalQuestCompleted = false;
+                companion.PersonalQuestSuccess = false;
+                companion.RecruitedDay = 0;
+                companion.History.Clear();
+                companion.Level = Math.Max(1, companion.RecruitLevel + 5);
+                companion.Experience = GetExperienceForLevel(companion.Level);
+            }
+
+            activeCompanions.Clear();
+            fallenCompanions.Clear();
+            companionCurrentHP.Clear();
+            pendingNotifications.Clear();
+        }
+
+        /// <summary>
         /// Restore companion state from save
         /// </summary>
         public void Deserialize(CompanionSystemData data)
         {
+            // Always reset first to prevent state bleeding from previous saves
+            ResetAllCompanions();
+
             if (data == null) return;
 
             foreach (var save in data.CompanionStates)

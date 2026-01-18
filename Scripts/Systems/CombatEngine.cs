@@ -3596,13 +3596,18 @@ public partial class CombatEngine
                 target.HP -= actualDamage;
                 result.TotalDamageDealt += actualDamage;
 
+                // Track damage dealt statistics
+                result.Player?.Statistics.RecordDamageDealt(actualDamage, false);
+
                 terminal.SetColor("bright_red");
                 terminal.WriteLine($"You deal {actualDamage} damage to {target.Name}!");
 
                 if (target.HP <= 0)
                 {
+                    target.HP = 0;
                     terminal.SetColor("bright_green");
                     terminal.WriteLine($"{target.Name} is slain!");
+                    result.DefeatedMonsters.Add(target);
                 }
             }
         }
