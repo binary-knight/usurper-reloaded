@@ -92,6 +92,16 @@ public class DungeonLocation : BaseLocation
         // Restore NPC teammates (spouses, team members, lovers) from saved state
         await RestoreNPCTeammates(term);
 
+        // Check for dungeon entry fees for overleveled teammates
+        if (!await CheckAndPayEntryFees(player, term))
+        {
+            // Player couldn't afford fees - return to Main Street
+            term.WriteLine("You cannot afford to bring your allies into the dungeon.", "red");
+            term.WriteLine("Return when you have more gold, or dismiss some teammates.", "gray");
+            await Task.Delay(2000);
+            throw new LocationExitException(GameLocation.MainStreet);
+        }
+
         // Call base to enter the location loop
         await base.EnterLocation(player, term);
     }
@@ -556,6 +566,74 @@ public class DungeonLocation : BaseLocation
             .Select(n => n.ID)
             .ToList();
         GameEngine.Instance?.SetDungeonPartyNPCs(npcIds);
+    }
+
+    /// <summary>
+    /// Check for dungeon entry fees for overleveled teammates
+    /// Displays fee breakdown and asks player to confirm payment
+    /// Returns true if entry is allowed (no fees, or player paid)
+    /// </summary>
+    private async Task<bool> CheckAndPayEntryFees(Character player, TerminalEmulator term)
+    {
+        var balanceSystem = UsurperRemake.Systems.TeamBalanceSystem.Instance;
+        long totalFee = balanceSystem.CalculateTotalEntryFees(player, teammates);
+
+        // No fees needed
+        if (totalFee == 0)
+        {
+            // Still show XP penalty info if applicable
+            float xpMult = balanceSystem.CalculateXPMultiplier(player, teammates);
+            if (xpMult < 1.0f)
+            {
+                await balanceSystem.DisplayFeeInfo(term, player, teammates);
+            }
+            return true;
+        }
+
+        // Display fee information
+        await balanceSystem.DisplayFeeInfo(term, player, teammates);
+
+        // Check if player can afford
+        if (player.Gold < totalFee)
+        {
+            term.SetColor("red");
+            term.WriteLine($"You need {totalFee:N0} gold but only have {player.Gold:N0}!");
+            term.SetColor("white");
+            await Task.Delay(1500);
+            return false;
+        }
+
+        // Ask for confirmation
+        term.SetColor("cyan");
+        var confirm = await term.GetInput($"Pay {totalFee:N0} gold to bring your allies? (Y/N): ");
+
+        if (confirm.ToUpper().StartsWith("Y"))
+        {
+            player.Gold -= totalFee;
+            term.SetColor("green");
+            term.WriteLine($"Paid {totalFee:N0} gold. Your allies prepare for the dungeon.");
+            term.SetColor("gray");
+            term.WriteLine($"Remaining gold: {player.Gold:N0}");
+            await Task.Delay(1000);
+            return true;
+        }
+        else
+        {
+            term.SetColor("gray");
+            term.WriteLine("You decide not to pay. Your allies won't join you this time.");
+
+            // Remove overleveled NPCs from party
+            var breakdown = balanceSystem.GetFeeBreakdown(player, teammates);
+            foreach (var (npc, fee, _) in breakdown.Where(b => b.fee > 0))
+            {
+                teammates.Remove(npc);
+                term.WriteLine($"  {npc.Name} stays behind.", "darkgray");
+            }
+
+            SyncNPCTeammatesToGameEngine();
+            await Task.Delay(1000);
+            return true; // Still allow entry, just without the expensive teammates
+        }
     }
 
     /// <summary>
@@ -5790,27 +5868,37 @@ public class DungeonLocation : BaseLocation
         {
             terminal.SetColor("green");
             terminal.WriteLine("Available Allies (not in dungeon party):");
+            var balanceSystem = UsurperRemake.Systems.TeamBalanceSystem.Instance;
             for (int i = 0; i < npcTeammates.Count; i++)
             {
                 var npc = npcTeammates[i];
                 bool isSpouse = spouseNpc != null && npc.ID == spouseNpc.ID;
                 bool isLover = romance?.CurrentLovers?.Any(l => l.NPCId == npc.ID) == true;
+                long fee = balanceSystem.CalculateEntryFee(player, npc);
+                string feeStr = fee > 0 ? $" [Fee: {fee:N0}g]" : "";
 
                 if (isSpouse)
                 {
                     terminal.SetColor("bright_magenta");
-                    terminal.WriteLine($"  [{i + 1}] <3 {npc.DisplayName} (Spouse) - Level {npc.Level} {npc.Class} - HP: {npc.HP}/{npc.MaxHP}");
+                    terminal.Write($"  [{i + 1}] <3 {npc.DisplayName} (Spouse) - Level {npc.Level} {npc.Class} - HP: {npc.HP}/{npc.MaxHP}");
+                    if (fee > 0) { terminal.SetColor("yellow"); terminal.Write(feeStr); }
+                    terminal.WriteLine("");
                     terminal.SetColor("green");
                 }
                 else if (isLover)
                 {
                     terminal.SetColor("magenta");
-                    terminal.WriteLine($"  [{i + 1}] <3 {npc.DisplayName} (Lover) - Level {npc.Level} {npc.Class} - HP: {npc.HP}/{npc.MaxHP}");
+                    terminal.Write($"  [{i + 1}] <3 {npc.DisplayName} (Lover) - Level {npc.Level} {npc.Class} - HP: {npc.HP}/{npc.MaxHP}");
+                    if (fee > 0) { terminal.SetColor("yellow"); terminal.Write(feeStr); }
+                    terminal.WriteLine("");
                     terminal.SetColor("green");
                 }
                 else
                 {
-                    terminal.WriteLine($"  [{i + 1}] {npc.DisplayName} - Level {npc.Level} {npc.Class} - HP: {npc.HP}/{npc.MaxHP}");
+                    terminal.Write($"  [{i + 1}] {npc.DisplayName} - Level {npc.Level} {npc.Class} - HP: {npc.HP}/{npc.MaxHP}");
+                    if (fee > 0) { terminal.SetColor("yellow"); terminal.Write(feeStr); }
+                    terminal.WriteLine("");
+                    terminal.SetColor("green");
                 }
             }
             terminal.WriteLine("");
@@ -5878,6 +5966,7 @@ public class DungeonLocation : BaseLocation
 
     private async Task AddTeammateToParty(List<NPC> available)
     {
+        var player = GetCurrentPlayer();
         terminal.WriteLine("");
         terminal.SetColor("white");
         terminal.Write("Enter number of team member to add (1-");
@@ -5888,6 +5977,47 @@ public class DungeonLocation : BaseLocation
         if (int.TryParse(input, out int index) && index >= 1 && index <= available.Count)
         {
             var npc = available[index - 1];
+
+            // Check for dungeon entry fee for overleveled NPCs
+            var balanceSystem = UsurperRemake.Systems.TeamBalanceSystem.Instance;
+            long fee = balanceSystem.CalculateEntryFee(player, npc);
+
+            if (fee > 0)
+            {
+                // Show fee info
+                int levelGap = npc.Level - player.Level;
+                terminal.WriteLine("");
+                terminal.SetColor("yellow");
+                terminal.WriteLine($"{npc.DisplayName} is {levelGap} levels higher than you.");
+                terminal.WriteLine($"They demand {fee:N0} gold to join you in the dungeon.");
+                terminal.SetColor("gray");
+                terminal.WriteLine($"Your gold: {player.Gold:N0}");
+
+                if (player.Gold < fee)
+                {
+                    terminal.SetColor("red");
+                    terminal.WriteLine("You cannot afford this fee!");
+                    await Task.Delay(2000);
+                    return;
+                }
+
+                terminal.WriteLine("");
+                terminal.SetColor("cyan");
+                var confirm = await terminal.GetInput($"Pay {fee:N0} gold? (Y/N): ");
+                if (!confirm.ToUpper().StartsWith("Y"))
+                {
+                    terminal.SetColor("gray");
+                    terminal.WriteLine($"{npc.DisplayName} shrugs and stays behind.");
+                    await Task.Delay(1500);
+                    return;
+                }
+
+                // Deduct fee
+                player.Gold -= fee;
+                terminal.SetColor("green");
+                terminal.WriteLine($"Paid {fee:N0} gold.");
+            }
+
             teammates.Add(npc);
 
             // Move NPC to dungeon
@@ -5900,9 +6030,19 @@ public class DungeonLocation : BaseLocation
             terminal.WriteLine($"{npc.DisplayName} joins your dungeon party!");
             terminal.WriteLine("They will fight alongside you against monsters.");
 
-            // 15% team XP/gold bonus for having teammates
-            terminal.SetColor("cyan");
-            terminal.WriteLine("Team bonus: +15% XP and gold from battles!");
+            // Show XP penalty warning if applicable
+            float xpMult = balanceSystem.CalculateXPMultiplier(player, teammates);
+            if (xpMult < 1.0f)
+            {
+                terminal.SetColor("yellow");
+                terminal.WriteLine($"Warning: XP penalty active ({(int)(xpMult * 100)}% rate due to high-level ally)");
+            }
+            else
+            {
+                // 15% team XP/gold bonus for having teammates
+                terminal.SetColor("cyan");
+                terminal.WriteLine("Team bonus: +15% XP and gold from battles!");
+            }
         }
         else
         {

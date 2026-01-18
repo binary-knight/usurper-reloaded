@@ -1592,6 +1592,14 @@ public partial class CombatEngine
             expReward = (long)(expReward * childXPMult);
         }
 
+        // Team balance XP penalty - reduced XP when carried by high-level teammates
+        float teamXPMult = TeamBalanceSystem.Instance.CalculateXPMultiplier(result.Player, result.Teammates);
+        long preTeamBalanceXP = expReward;
+        if (teamXPMult < 1.0f)
+        {
+            expReward = (long)(expReward * teamXPMult);
+        }
+
         result.Player.Experience += expReward;
         result.Player.Gold += goldReward;
         result.Player.MKills++;
@@ -1643,6 +1651,14 @@ public partial class CombatEngine
             var blessing = DivineBlessingSystem.Instance.GetBlessings(result.Player);
             terminal.SetColor("bright_cyan");
             terminal.WriteLine($"  ({blessing.GodName}'s favor: +{divineXPAmount} XP)");
+        }
+
+        // Show team balance XP penalty if applicable
+        if (teamXPMult < 1.0f)
+        {
+            long xpLost = preTeamBalanceXP - expReward;
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"  (High-level ally penalty: -{xpLost} XP, {(int)(teamXPMult * 100)}% rate)");
         }
 
         // Offer weapon pickup
@@ -4979,6 +4995,14 @@ public partial class CombatEngine
             adjustedExp = (long)(adjustedExp * childXPMult);
         }
 
+        // Team balance XP penalty - reduced XP when carried by high-level teammates
+        float teamXPMult = TeamBalanceSystem.Instance.CalculateXPMultiplier(result.Player, result.Teammates);
+        long preTeamBalanceExp = adjustedExp;
+        if (teamXPMult < 1.0f)
+        {
+            adjustedExp = (long)(adjustedExp * teamXPMult);
+        }
+
         // Apply rewards
         result.Player.Experience += adjustedExp;
         result.Player.Gold += adjustedGold;
@@ -5001,6 +5025,14 @@ public partial class CombatEngine
         terminal.SetColor("yellow");
         terminal.WriteLine($"Defeated {result.DefeatedMonsters.Count} monster(s)!");
         terminal.WriteLine($"Experience gained: {adjustedExp}");
+
+        // Show team balance XP penalty if applicable
+        if (teamXPMult < 1.0f)
+        {
+            long xpLost = preTeamBalanceExp - adjustedExp;
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"  (High-level ally penalty: -{xpLost} XP, {(int)(teamXPMult * 100)}% rate)");
+        }
         terminal.WriteLine($"Gold gained: {adjustedGold:N0}");
 
         // Show bonus from world events if any
@@ -5078,6 +5110,14 @@ public partial class CombatEngine
             adjustedExp = (long)(adjustedExp * childXPMult);
         }
 
+        // Team balance XP penalty - reduced XP when carried by high-level teammates
+        float teamXPMult = TeamBalanceSystem.Instance.CalculateXPMultiplier(result.Player, result.Teammates);
+        long preTeamBalanceExp = adjustedExp;
+        if (teamXPMult < 1.0f)
+        {
+            adjustedExp = (long)(adjustedExp * teamXPMult);
+        }
+
         result.Player.Experience += adjustedExp;
         result.Player.Gold += adjustedGold;
 
@@ -5088,6 +5128,14 @@ public partial class CombatEngine
         AwardTeammateExperience(result.Teammates, adjustedExp, terminal);
 
         terminal.WriteLine($"Experience gained: {adjustedExp}");
+
+        // Show team balance XP penalty if applicable
+        if (teamXPMult < 1.0f)
+        {
+            long xpLost = preTeamBalanceExp - adjustedExp;
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"  (High-level ally penalty: -{xpLost} XP, {(int)(teamXPMult * 100)}% rate)");
+        }
         terminal.WriteLine($"Gold gained: {adjustedGold:N0}");
 
         // Show bonus from world events if any
