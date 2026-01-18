@@ -322,7 +322,7 @@ namespace UsurperRemake.Systems
             if (RecoveredMemories.Add(fragment))
             {
                 var data = MemoryData[fragment];
-                GD.Print($"[Amnesia] Recovered memory: {data.Title}");
+                // GD.Print($"[Amnesia] Recovered memory: {data.Title}");
 
                 // Notify the Ocean Philosophy system
                 if (RecoveredMemories.Count >= MemoryData.Count - 2)
@@ -449,7 +449,7 @@ namespace UsurperRemake.Systems
             if (memory.HasValue && !RecoveredMemories.Contains(memory.Value))
             {
                 RecoverMemory(memory.Value);
-                GD.Print($"[Amnesia] Major memory revealed: {memoryKey} -> {memory.Value}");
+                // GD.Print($"[Amnesia] Major memory revealed: {memoryKey} -> {memory.Value}");
 
                 // Also trigger story flag
                 StoryProgressionSystem.Instance.SetStoryFlag($"memory_{memoryKey}", true);

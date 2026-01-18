@@ -1307,7 +1307,7 @@ public class BankLocation : BaseLocation
         if (player.BankGuard && player.IsAlive)
         {
             player.BankGold += player.BankWage;
-            GD.Print($"[Bank] Paid {player.BankWage} guard wages to {player.DisplayName}");
+            // GD.Print($"[Bank] Paid {player.BankWage} guard wages to {player.DisplayName}");
         }
 
         // Add interest on savings
@@ -1318,7 +1318,7 @@ public class BankLocation : BaseLocation
             {
                 player.Interest += interest;
                 player.BankGold += interest;
-                GD.Print($"[Bank] Added {interest} interest to {player.DisplayName}'s account");
+                // GD.Print($"[Bank] Added {interest} interest to {player.DisplayName}'s account");
             }
         }
 
@@ -1327,7 +1327,7 @@ public class BankLocation : BaseLocation
         {
             long loanInterest = (long)(player.Loan * LoanInterestRate);
             player.Loan = SafeAddGold(player.Loan, loanInterest);
-            GD.Print($"[Bank] Charged {loanInterest} loan interest to {player.DisplayName}");
+            // GD.Print($"[Bank] Charged {loanInterest} loan interest to {player.DisplayName}");
 
             // LOAN CONSEQUENCES - escalating based on debt level
             ProcessLoanConsequences(player);
@@ -1350,7 +1350,7 @@ public class BankLocation : BaseLocation
             long seizure = Math.Min(player.BankGold, player.Loan);
             player.BankGold -= seizure;
             player.Loan -= seizure;
-            GD.Print($"[Bank] Seized {seizure} gold from {player.DisplayName}'s account to cover loan");
+            // GD.Print($"[Bank] Seized {seizure} gold from {player.DisplayName}'s account to cover loan");
             NewsSystem.Instance.Newsy(false, $"The Ironvault Bank seized {seizure:N0} gold from {player.DisplayName}'s account.");
         }
 
@@ -1362,7 +1362,7 @@ public class BankLocation : BaseLocation
             if (damage > 0)
             {
                 player.HP -= damage;
-                GD.Print($"[Bank] Debt collectors dealt {damage} damage to {player.DisplayName}");
+                // GD.Print($"[Bank] Debt collectors dealt {damage} damage to {player.DisplayName}");
                 NewsSystem.Instance.Newsy(true, $"Debt collectors from the Ironvault Bank paid {player.DisplayName} a painful visit.");
             }
 
@@ -1377,7 +1377,7 @@ public class BankLocation : BaseLocation
             long confiscate = Math.Min(player.Gold, player.Loan / 2);
             player.Gold -= confiscate;
             player.Loan -= confiscate;
-            GD.Print($"[Bank] Confiscated {confiscate} gold from {player.DisplayName}'s purse");
+            // GD.Print($"[Bank] Confiscated {confiscate} gold from {player.DisplayName}'s purse");
             NewsSystem.Instance.Newsy(true, $"Bank enforcers confiscated {confiscate:N0} gold directly from {player.DisplayName}!");
         }
 

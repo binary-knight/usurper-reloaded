@@ -48,7 +48,7 @@ namespace UsurperRemake.Systems
             {
                 bossData[boss.Type] = boss;
             }
-            GD.Print($"[BossSystem] Loaded {bossData.Count} Old God bosses");
+            // GD.Print($"[BossSystem] Loaded {bossData.Count} Old God bosses");
         }
 
         /// <summary>
@@ -137,7 +137,7 @@ namespace UsurperRemake.Systems
             bossDefeated = false;
             bossSaved = false;
 
-            GD.Print($"[BossSystem] Starting encounter with {boss.Name}");
+            // GD.Print($"[BossSystem] Starting encounter with {boss.Name}");
 
             // Play introduction
             await PlayBossIntroduction(boss, terminal);

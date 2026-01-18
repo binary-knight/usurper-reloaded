@@ -47,7 +47,7 @@ namespace UsurperRemake.Systems
                 return new DialogueResult { Completed = false, EndNode = null };
             }
 
-            GD.Print($"[Dialogue] Starting dialogue tree: {treeId}");
+            // GD.Print($"[Dialogue] Starting dialogue tree: {treeId}");
 
             currentNode = tree.RootNode;
             var result = await ProcessDialogueTree(tree);
@@ -390,7 +390,7 @@ namespace UsurperRemake.Systems
             {
                 case EffectType.SetStoryFlag:
                     story.SetStoryFlag(effect.StringValue ?? "", true);
-                    GD.Print($"[Dialogue] Set story flag: {effect.StringValue}");
+                    // GD.Print($"[Dialogue] Set story flag: {effect.StringValue}");
                     break;
 
                 case EffectType.ClearStoryFlag:
@@ -666,7 +666,7 @@ namespace UsurperRemake.Systems
             // Register NPC dialogues
             RegisterNPCDialogues();
 
-            GD.Print($"[Dialogue] Registered {dialogueTrees.Count} dialogue trees");
+            // GD.Print($"[Dialogue] Registered {dialogueTrees.Count} dialogue trees");
         }
 
         /// <summary>

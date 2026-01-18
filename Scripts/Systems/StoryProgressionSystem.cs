@@ -198,7 +198,7 @@ namespace UsurperRemake.Systems
                 Timestamp = DateTime.Now
             });
 
-            GD.Print($"[Story] Advanced to chapter: {CurrentChapter}");
+            // GD.Print($"[Story] Advanced to chapter: {CurrentChapter}");
         }
 
         private StoryChapter GetNextChapter()
@@ -260,7 +260,7 @@ namespace UsurperRemake.Systems
                 Timestamp = DateTime.Now
             });
 
-            GD.Print($"[Story] Recorded choice: {choiceId} = {option}");
+            // GD.Print($"[Story] Recorded choice: {choiceId} = {option}");
         }
 
         /// <summary>
@@ -269,7 +269,7 @@ namespace UsurperRemake.Systems
         public void SetFlag(StoryFlag flag)
         {
             StoryFlags |= (int)flag;
-            GD.Print($"[Story] Set flag: {flag}");
+            // GD.Print($"[Story] Set flag: {flag}");
         }
 
         /// <summary>
@@ -288,12 +288,12 @@ namespace UsurperRemake.Systems
             if (value)
             {
                 StringStoryFlags.Add(flag);
-                GD.Print($"[Story] Set string flag: {flag}");
+                // GD.Print($"[Story] Set string flag: {flag}");
             }
             else
             {
                 StringStoryFlags.Remove(flag);
-                GD.Print($"[Story] Cleared string flag: {flag}");
+                // GD.Print($"[Story] Cleared string flag: {flag}");
             }
         }
 
@@ -324,7 +324,7 @@ namespace UsurperRemake.Systems
                 Description = $"Event triggered: {eventId} - {description}",
                 Timestamp = DateTime.Now
             });
-            GD.Print($"[Story] Event triggered: {eventId}");
+            // GD.Print($"[Story] Event triggered: {eventId}");
         }
 
         /// <summary>
@@ -344,7 +344,7 @@ namespace UsurperRemake.Systems
                 Timestamp = DateTime.Now
             });
 
-            GD.Print($"[Story] Advanced to chapter: {CurrentChapter}");
+            // GD.Print($"[Story] Advanced to chapter: {CurrentChapter}");
         }
 
         /// <summary>
@@ -360,7 +360,7 @@ namespace UsurperRemake.Systems
                     Description = $"Collected artifact: {artifact}",
                     Timestamp = DateTime.Now
                 });
-                GD.Print($"[Story] Collected artifact: {artifact}");
+                // GD.Print($"[Story] Collected artifact: {artifact}");
             }
         }
 
@@ -377,7 +377,7 @@ namespace UsurperRemake.Systems
                     Description = $"Collected seal: {seal}",
                     Timestamp = DateTime.Now
                 });
-                GD.Print($"[Story] Collected seal: {seal}");
+                // GD.Print($"[Story] Collected seal: {seal}");
             }
         }
 
@@ -398,7 +398,7 @@ namespace UsurperRemake.Systems
                     Timestamp = DateTime.Now
                 });
 
-                GD.Print($"[Story] God {god} status: {oldStatus} -> {newStatus}");
+                // GD.Print($"[Story] God {god} status: {oldStatus} -> {newStatus}");
             }
         }
 
@@ -449,7 +449,7 @@ namespace UsurperRemake.Systems
                 Timestamp = DateTime.Now
             });
 
-            GD.Print($"[Story] Completed ending: {ending}");
+            // GD.Print($"[Story] Completed ending: {ending}");
         }
 
         /// <summary>

@@ -2837,7 +2837,7 @@ public class CastleLocation : BaseLocation
         var npcs = NPCSpawnSystem.Instance.ActiveNPCs;
         if (npcs == null || npcs.Count == 0)
         {
-            GD.Print("[Castle] No NPCs available for succession - throne remains empty");
+            // GD.Print("[Castle] No NPCs available for succession - throne remains empty");
             return;
         }
 
@@ -2849,7 +2849,7 @@ public class CastleLocation : BaseLocation
 
         if (candidates.Count == 0)
         {
-            GD.Print("[Castle] No worthy NPCs found for succession - throne remains empty");
+            // GD.Print("[Castle] No worthy NPCs found for succession - throne remains empty");
             return;
         }
 
@@ -2912,7 +2912,7 @@ public class CastleLocation : BaseLocation
             EndReason = ""
         });
 
-        GD.Print($"[Castle] {npc.DisplayName} has been crowned {(npc.Sex == CharacterSex.Male ? "King" : "Queen")}!");
+        // GD.Print($"[Castle] {npc.DisplayName} has been crowned {(npc.Sex == CharacterSex.Male ? "King" : "Queen")}!");
     }
 
     /// <summary>
@@ -2945,7 +2945,7 @@ public class CastleLocation : BaseLocation
             CoronationDate = DateTime.Now
         };
 
-        GD.Print($"[Castle] {npc.Name} has been restored as monarch");
+        // GD.Print($"[Castle] {npc.Name} has been restored as monarch");
     }
 }
 

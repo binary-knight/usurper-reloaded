@@ -58,7 +58,7 @@ public partial class QuestSystem : Node
         // Update king's quest count
         king.QuestsLeft--;
         
-        GD.Print($"[QuestSystem] Quest created by {king.Name2}: {quest.GetTargetDescription()}");
+        // GD.Print($"[QuestSystem] Quest created by {king.Name2}: {quest.GetTargetDescription()}");
         
         return quest;
     }
@@ -84,7 +84,7 @@ public partial class QuestSystem : Node
         // Track in player list
         player.ActiveQuests.Add(foundQuest);
         
-        GD.Print($"[QuestSystem] Quest claimed by {player.Name2}: {foundQuest.Id}");
+        // GD.Print($"[QuestSystem] Quest claimed by {player.Name2}: {foundQuest.Id}");
         
         // Send confirmation mail (Pascal: Quest claim notification)
         MailSystem.SendQuestClaimedMail(player.Name2, foundQuest.Title);
@@ -140,7 +140,7 @@ public partial class QuestSystem : Node
         // News announcement (Pascal: News generation)
         GenerateQuestCompletionNews(player, quest);
         
-        GD.Print($"[QuestSystem] Quest completed by {player.Name2}: {quest.Id}");
+        // GD.Print($"[QuestSystem] Quest completed by {player.Name2}: {quest.Id}");
         
         return QuestCompletionResult.Success;
     }
@@ -190,7 +190,7 @@ public partial class QuestSystem : Node
         // Send quest offer mail (Pascal: Quest offer mail)
         MailSystem.SendQuestOfferMail(playerName, quest.Title);
         
-        GD.Print($"[QuestSystem] Quest offered to {playerName}: {quest.Id}");
+        // GD.Print($"[QuestSystem] Quest offered to {playerName}: {quest.Id}");
     }
     
     /// <summary>
@@ -220,7 +220,7 @@ public partial class QuestSystem : Node
         // Clean up old completed quests (keep database manageable)
         CleanupOldQuests();
         
-        GD.Print($"[QuestSystem] Daily maintenance: {failedQuests.Count} quests failed");
+        // GD.Print($"[QuestSystem] Daily maintenance: {failedQuests.Count} quests failed");
     }
     
     /// <summary>
@@ -404,7 +404,7 @@ public partial class QuestSystem : Node
         // Add to database
         questDatabase.Add(quest);
 
-        GD.Print($"[QuestSystem] Dungeon quest created: {quest.Title}");
+        // GD.Print($"[QuestSystem] Dungeon quest created: {quest.Title}");
 
         return quest;
     }
@@ -449,7 +449,7 @@ public partial class QuestSystem : Node
             existingCount++;
         }
 
-        GD.Print($"[QuestSystem] Bounty board refreshed with {existingCount} quests");
+        // GD.Print($"[QuestSystem] Bounty board refreshed with {existingCount} quests");
     }
     
     /// <summary>
@@ -613,7 +613,7 @@ public partial class QuestSystem : Node
         quest.Deleted = true;
         quest.Occupier = "";
         
-        GD.Print($"[QuestSystem] Quest failed: {quest.Id} by {quest.Occupier}");
+        // GD.Print($"[QuestSystem] Quest failed: {quest.Id} by {quest.Occupier}");
     }
     
     /// <summary>
@@ -624,7 +624,7 @@ public partial class QuestSystem : Node
         // In a full implementation, would load player and apply penalties
         // For now, just log the penalty
         var penaltyAmount = quest.CalculateReward(10); // Use level 10 as default
-        GD.Print($"[QuestSystem] Penalty applied: {quest.PenaltyType} -{penaltyAmount}");
+        // GD.Print($"[QuestSystem] Penalty applied: {quest.PenaltyType} -{penaltyAmount}");
     }
     
     /// <summary>
@@ -659,7 +659,7 @@ public partial class QuestSystem : Node
         
         if (removedCount > 0)
         {
-            GD.Print($"[QuestSystem] Cleaned up {removedCount} old quests");
+            // GD.Print($"[QuestSystem] Cleaned up {removedCount} old quests");
         }
     }
     
@@ -693,7 +693,7 @@ public partial class QuestSystem : Node
 
         if (savedQuests == null || savedQuests.Count == 0)
         {
-            GD.Print("[QuestSystem] No saved quests to restore");
+            // GD.Print("[QuestSystem] No saved quests to restore");
             return;
         }
 
@@ -753,7 +753,7 @@ public partial class QuestSystem : Node
             questDatabase.Add(quest);
         }
 
-        GD.Print($"[QuestSystem] Restored {questDatabase.Count} quests from save data");
+        // GD.Print($"[QuestSystem] Restored {questDatabase.Count} quests from save data");
     }
 
     /// <summary>
@@ -762,7 +762,7 @@ public partial class QuestSystem : Node
     public static void ClearAllQuests()
     {
         questDatabase.Clear();
-        GD.Print("[QuestSystem] Quest database cleared");
+        // GD.Print("[QuestSystem] Quest database cleared");
     }
 
     #region Quest Progress Tracking
@@ -924,7 +924,7 @@ public partial class QuestSystem : Node
             // Announce the bounty completion
             NewsSystem.Instance?.Newsy(true, $"{player.Name2} collected the bounty on {npcName}! (+{reward:N0} gold)");
 
-            GD.Print($"[QuestSystem] Auto-completed bounty on {npcName} for {player.Name2}, reward: {reward} gold");
+            // GD.Print($"[QuestSystem] Auto-completed bounty on {npcName} for {player.Name2}, reward: {reward} gold");
         }
 
         return totalReward;
@@ -947,7 +947,7 @@ public partial class QuestSystem : Node
         // If we removed any bounties, spawn replacements
         if (bountiesRemoved > 0)
         {
-            GD.Print($"[QuestSystem] Removed {bountiesRemoved} bounties for dead NPC: {npcName}");
+            // GD.Print($"[QuestSystem] Removed {bountiesRemoved} bounties for dead NPC: {npcName}");
             RefreshKingBounties();
         }
     }
@@ -1025,7 +1025,7 @@ public partial class QuestSystem : Node
         // Don't add if there are already quests
         if (questDatabase.Count > 0) return;
 
-        GD.Print("[QuestSystem] Initializing starter quests...");
+        // GD.Print("[QuestSystem] Initializing starter quests...");
 
         // Beginner quests (levels 1-10)
         CreateStarterQuest("The King's Pest Control",
@@ -1086,7 +1086,7 @@ public partial class QuestSystem : Node
             QuestTarget.ReachFloor, 4, 35, 100,
             floorTarget: 50);
 
-        GD.Print($"[QuestSystem] Created {questDatabase.Count} starter quests");
+        // GD.Print($"[QuestSystem] Created {questDatabase.Count} starter quests");
     }
 
     /// <summary>
@@ -1218,7 +1218,7 @@ public partial class QuestSystem : Node
             existingCount++;
         }
 
-        GD.Print($"[QuestSystem] King bounties refreshed: {existingCount} active");
+        // GD.Print($"[QuestSystem] King bounties refreshed: {existingCount} active");
     }
 
     /// <summary>
@@ -1404,7 +1404,7 @@ public partial class QuestSystem : Node
 
         questDatabase.Add(bounty);
         NewsSystem.Instance?.Newsy(true, $"The Crown has posted a bounty on {playerName}!");
-        GD.Print($"[QuestSystem] Bounty posted on player {playerName} for {crime}");
+        // GD.Print($"[QuestSystem] Bounty posted on player {playerName} for {crime}");
     }
 
     #endregion

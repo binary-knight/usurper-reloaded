@@ -40,7 +40,7 @@ public class NPCBrain
         
         InitializeGoals();
         InitializeEnhancedBehaviors(); // Phase 21
-        GD.Print($"[AI] Created enhanced brain for {npc.Name} ({profile.Archetype})");
+        // GD.Print($"[AI] Created enhanced brain for {npc.Name} ({profile.Archetype})");
     }
     
     /// <summary>
@@ -411,7 +411,7 @@ public class NPCBrain
         goals.AddGoal(new Goal($"Serve {owner.God}", GoalType.Social, 0.7f));
         goals.AddGoal(new Goal("Live According to Faith", GoalType.Personal, 0.6f));
         
-        GD.Print($"[Faith] {owner.Name} converted to {owner.God}");
+        // GD.Print($"[Faith] {owner.Name} converted to {owner.God}");
     }
     
     private void ProcessFaithActions()
@@ -796,7 +796,7 @@ public class NPCBrain
         // Update goals based on interaction
         goals.ProcessInteractionFeedback(type, other, importance);
         
-        GD.Print($"[AI] {owner.Name} recorded {type} interaction with {other.Name}");
+        // GD.Print($"[AI] {owner.Name} recorded {type} interaction with {other.Name}");
     }
     
     private MemoryType MapInteractionToMemoryType(InteractionType type)

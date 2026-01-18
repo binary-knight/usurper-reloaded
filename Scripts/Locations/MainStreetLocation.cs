@@ -873,10 +873,10 @@ public class MainStreetLocation : BaseLocation
         // Debug: If no NPCs, try to initialize them
         if (npcs == null || npcs.Count == 0)
         {
-            GD.Print("[ListCharacters] No NPCs found, attempting to initialize...");
+            // GD.Print("[ListCharacters] No NPCs found, attempting to initialize...");
             await NPCSpawnSystem.Instance.InitializeClassicNPCs();
             npcs = NPCSpawnSystem.Instance.ActiveNPCs;
-            GD.Print($"[ListCharacters] After init: {npcs?.Count ?? 0} NPCs");
+            // GD.Print($"[ListCharacters] After init: {npcs?.Count ?? 0} NPCs");
         }
 
         var aliveNPCs = npcs?.Where(n => n.IsAlive).OrderByDescending(n => n.Level).ThenBy(n => n.Name).ToList() ?? new List<NPC>();

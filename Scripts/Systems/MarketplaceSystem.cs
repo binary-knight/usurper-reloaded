@@ -70,7 +70,7 @@ namespace UsurperRemake.Systems
             };
 
             Listings.Add(listing);
-            GD.Print($"[Marketplace] {sellerName} listed {item.Name} for {price} gold");
+            // GD.Print($"[Marketplace] {sellerName} listed {item.Name} for {price} gold");
         }
 
         /// <summary>
@@ -94,7 +94,7 @@ namespace UsurperRemake.Systems
 
             // Generate news about the listing
             NewsSystem.Instance?.Newsy(false, $"{npc.Name} put {item.Name} up for sale at the marketplace.");
-            GD.Print($"[Marketplace] NPC {npc.Name} listed {item.Name} for {price} gold");
+            // GD.Print($"[Marketplace] NPC {npc.Name} listed {item.Name} for {price} gold");
         }
 
         /// <summary>
@@ -131,7 +131,7 @@ namespace UsurperRemake.Systems
             // Check buyer has enough gold
             if (buyer.Gold < listing.Price)
             {
-                GD.Print($"[Marketplace] {buyer.Name2} can't afford {listing.Item.Name} ({listing.Price} gold)");
+                // GD.Print($"[Marketplace] {buyer.Name2} can't afford {listing.Item.Name} ({listing.Price} gold)");
                 return false;
             }
 
@@ -150,7 +150,7 @@ namespace UsurperRemake.Systems
             // Remove listing
             Listings.RemoveAt(listingIndex);
 
-            GD.Print($"[Marketplace] {buyer.Name2} purchased {listing.Item.Name} for {listing.Price} gold from {listing.Seller}");
+            // GD.Print($"[Marketplace] {buyer.Name2} purchased {listing.Item.Name} for {listing.Price} gold from {listing.Seller}");
             return true;
         }
 
@@ -196,7 +196,7 @@ namespace UsurperRemake.Systems
             // Remove listing
             Listings.RemoveAt(choice.index);
 
-            GD.Print($"[Marketplace] NPC {npc.Name} purchased {listing.Item.Name} for {listing.Price} gold");
+            // GD.Print($"[Marketplace] NPC {npc.Name} purchased {listing.Item.Name} for {listing.Price} gold");
         }
 
         /// <summary>
@@ -292,7 +292,7 @@ namespace UsurperRemake.Systems
                     }
 
                     npc.WeapPow = item.Attack;
-                    GD.Print($"[Marketplace] {npc.Name} equipped {item.Name}");
+                    // GD.Print($"[Marketplace] {npc.Name} equipped {item.Name}");
                 }
                 else
                 {
@@ -321,7 +321,7 @@ namespace UsurperRemake.Systems
                     }
 
                     npc.ArmPow = item.Armor;
-                    GD.Print($"[Marketplace] {npc.Name} equipped {item.Name}");
+                    // GD.Print($"[Marketplace] {npc.Name} equipped {item.Name}");
                 }
                 else
                 {
@@ -350,7 +350,7 @@ namespace UsurperRemake.Systems
             int removed = Listings.RemoveAll(l => l.IsExpired);
             if (removed > 0)
             {
-                GD.Print($"[Marketplace] Removed {removed} expired listings");
+                // GD.Print($"[Marketplace] Removed {removed} expired listings");
             }
         }
 
@@ -446,7 +446,7 @@ namespace UsurperRemake.Systems
                 Listings.Add(listing);
             }
 
-            GD.Print($"[Marketplace] Loaded {Listings.Count} listings from save data");
+            // GD.Print($"[Marketplace] Loaded {Listings.Count} listings from save data");
         }
 
         /// <summary>

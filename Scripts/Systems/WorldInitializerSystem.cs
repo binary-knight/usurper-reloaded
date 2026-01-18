@@ -63,11 +63,11 @@ public class WorldInitializerSystem
     {
         if (worldInitialized)
         {
-            GD.Print("[WorldInit] World already initialized");
+            // GD.Print("[WorldInit] World already initialized");
             return;
         }
 
-        GD.Print($"[WorldInit] Simulating {daysToSimulate} days of world history...");
+        // GD.Print($"[WorldInit] Simulating {daysToSimulate} days of world history...");
 
         var npcs = NPCSpawnSystem.Instance.ActiveNPCs;
         if (npcs == null || npcs.Count == 0)
@@ -101,8 +101,8 @@ public class WorldInitializerSystem
         SimulatedDays = daysToSimulate;
         worldInitialized = true;
 
-        GD.Print($"[WorldInit] World initialization complete! {ActiveTeams.Count} teams, King established, city controlled");
-        GD.Print($"[WorldInit] {DeadNPCNames.Count} NPCs died during history, replaced with new adventurers");
+        // GD.Print($"[WorldInit] World initialization complete! {ActiveTeams.Count} teams, King established, city controlled");
+        // GD.Print($"[WorldInit] {DeadNPCNames.Count} NPCs died during history, replaced with new adventurers");
     }
 
     /// <summary>
@@ -110,7 +110,7 @@ public class WorldInitializerSystem
     /// </summary>
     private async Task SimulateTeamFormation(List<NPC> npcs, int days)
     {
-        GD.Print($"[WorldInit] Simulating team formation ({days} days)...");
+        // GD.Print($"[WorldInit] Simulating team formation ({days} days)...");
 
         int targetTeams = 5; // Create 5 teams initially
         int teamsFormed = 0;
@@ -174,7 +174,7 @@ public class WorldInitializerSystem
             teamsFormed++;
 
             worldHistory.Add($"Day {team.DayFounded}: {leader.Name} founded '{teamName}' with {team.MemberNames.Count - 1} followers");
-            GD.Print($"[WorldInit] Team '{teamName}' founded by {leader.Name} with {team.MemberNames.Count} members");
+            // GD.Print($"[WorldInit] Team '{teamName}' founded by {leader.Name} with {team.MemberNames.Count} members");
         }
 
         await Task.CompletedTask;
@@ -186,7 +186,7 @@ public class WorldInitializerSystem
     /// </summary>
     private async Task SimulateKingshipEstablishment(List<NPC> npcs)
     {
-        GD.Print("[WorldInit] Establishing initial monarch...");
+        // GD.Print("[WorldInit] Establishing initial monarch...");
 
         // Find the most powerful NPC to become King
         // IMPORTANT: Exclude story NPCs (they have narrative roles and cannot become King)
@@ -234,7 +234,7 @@ public class WorldInitializerSystem
         CastleLocation.SetKing(kingData);
 
         worldHistory.Add($"Day 25: {kingData.GetTitle()} {newKing.Name} claimed the throne!");
-        GD.Print($"[WorldInit] {kingData.GetTitle()} {newKing.Name} established as monarch");
+        // GD.Print($"[WorldInit] {kingData.GetTitle()} {newKing.Name} established as monarch");
 
         await Task.CompletedTask;
     }
@@ -244,7 +244,7 @@ public class WorldInitializerSystem
     /// </summary>
     private async Task SimulateCityControlCompetition(List<NPC> npcs)
     {
-        GD.Print("[WorldInit] Simulating city control competition...");
+        // GD.Print("[WorldInit] Simulating city control competition...");
 
         var king = CastleLocation.GetCurrentKing();
         string kingName = king?.Name ?? "";
@@ -257,7 +257,7 @@ public class WorldInitializerSystem
 
         if (eligibleTeams.Count == 0)
         {
-            GD.Print("[WorldInit] No eligible teams for city control");
+            // GD.Print("[WorldInit] No eligible teams for city control");
             return;
         }
 
@@ -300,7 +300,7 @@ public class WorldInitializerSystem
             }
 
             worldHistory.Add($"Day 40: '{strongestTeam.Name}' seized control of the city!");
-            GD.Print($"[WorldInit] Team '{strongestTeam.Name}' controls the city");
+            // GD.Print($"[WorldInit] Team '{strongestTeam.Name}' controls the city");
         }
 
         await Task.CompletedTask;
@@ -311,7 +311,7 @@ public class WorldInitializerSystem
     /// </summary>
     private async Task SimulateGuardRecruitment(List<NPC> npcs)
     {
-        GD.Print("[WorldInit] Recruiting guards...");
+        // GD.Print("[WorldInit] Recruiting guards...");
 
         var king = CastleLocation.GetCurrentKing();
         if (king == null) return;
@@ -359,7 +359,7 @@ public class WorldInitializerSystem
             worldHistory.Add($"Day {55}: {candidate.Name} hired as bank guard");
         }
 
-        GD.Print($"[WorldInit] {guardsHired} royal guards and {bankGuardCandidates.Count} bank guards hired");
+        // GD.Print($"[WorldInit] {guardsHired} royal guards and {bankGuardCandidates.Count} bank guards hired");
 
         await Task.CompletedTask;
     }
@@ -369,7 +369,7 @@ public class WorldInitializerSystem
     /// </summary>
     private async Task SimulateWorldActivity(List<NPC> npcs, int days)
     {
-        GD.Print($"[WorldInit] Simulating {days} days of world activity...");
+        // GD.Print($"[WorldInit] Simulating {days} days of world activity...");
 
         for (int day = 0; day < days; day++)
         {

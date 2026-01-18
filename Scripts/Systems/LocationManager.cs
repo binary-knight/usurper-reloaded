@@ -96,7 +96,7 @@ public class LocationManager
 
         // Note: Gym removed - stat training doesn't fit single-player endless format
 
-        GD.Print($"[LocationManager] Initialized {locations.Count} locations");
+        // GD.Print($"[LocationManager] Initialized {locations.Count} locations");
     }
     
     /// <summary>
@@ -226,7 +226,7 @@ public class LocationManager
         // Update player location (Pascal compatibility)
         currentPlayer.Location = (int)locationId;
         
-        GD.Print($"[LocationManager] Player {player.DisplayName} entering {BaseLocation.GetLocationName(locationId)}");
+        // GD.Print($"[LocationManager] Player {player.DisplayName} entering {BaseLocation.GetLocationName(locationId)}");
         
         // Enter the location
         try

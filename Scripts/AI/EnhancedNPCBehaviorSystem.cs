@@ -237,7 +237,7 @@ public class EnhancedNPCBehaviorSystem : Node
     /// </summary>
     private async Task RemoveGang(string gangName, List<Character> npcs)
     {
-        GD.Print($"Removing NPC team: {gangName}");
+        // GD.Print($"Removing NPC team: {gangName}");
         
         // Generate news
         NewsSystem.Instance.Newsy($"{GameConfig.TeamColor}{gangName}{GameConfig.NewsColorDefault} ceased to exist!", false, GameConfig.NewsCategory.General);

@@ -407,7 +407,7 @@ namespace UsurperRemake.Systems
 
             // Auto-save after recruiting a companion - this is a major milestone
             await SaveSystem.Instance.AutoSave(player);
-            GD.Print($"[Companion] Auto-saved after recruiting {companion.Name}");
+            // GD.Print($"[Companion] Auto-saved after recruiting {companion.Name}");
 
             return true;
         }
@@ -702,7 +702,7 @@ namespace UsurperRemake.Systems
                 !companion.PersonalQuestStarted && !companion.PersonalQuestCompleted)
             {
                 companion.PersonalQuestAvailable = true;
-                Godot.GD.Print($"[Companion] {companion.Name}'s personal quest unlocked: {companion.PersonalQuestName}");
+                // Godot.GD.Print($"[Companion] {companion.Name}'s personal quest unlocked: {companion.PersonalQuestName}");
 
                 // Queue a notification for the player
                 QueueQuestUnlockNotification(companion);
@@ -964,7 +964,7 @@ namespace UsurperRemake.Systems
 
             OnCompanionDeath?.Invoke(companion.Id, DeathType.ChoiceBased);
 
-            GD.Print($"[Companion] {companionName} died from moral paradox choice");
+            // GD.Print($"[Companion] {companionName} died from moral paradox choice");
         }
 
         #endregion
@@ -1263,7 +1263,7 @@ namespace UsurperRemake.Systems
                     else
                     {
                         companion.Experience = GetExperienceForLevel(companion.Level);
-                        Godot.GD.Print($"[Companion] Initialized {companion.Name}'s XP to {companion.Experience} for level {companion.Level}");
+                        // Godot.GD.Print($"[Companion] Initialized {companion.Name}'s XP to {companion.Experience} for level {companion.Level}");
                     }
 
                     // Restore base stats if saved (otherwise they keep defaults)
@@ -1415,7 +1415,7 @@ namespace UsurperRemake.Systems
                 companionCurrentHP[companion.Id] = companion.BaseStats.HP;
             }
 
-            GD.Print($"[Companion] {companion.Name} leveled up to {companion.Level}! HP: {companion.BaseStats.HP}, ATK: {companion.BaseStats.Attack}, DEF: {companion.BaseStats.Defense}");
+            // GD.Print($"[Companion] {companion.Name} leveled up to {companion.Level}! HP: {companion.BaseStats.HP}, ATK: {companion.BaseStats.Attack}, DEF: {companion.BaseStats.Defense}");
         }
 
         /// <summary>

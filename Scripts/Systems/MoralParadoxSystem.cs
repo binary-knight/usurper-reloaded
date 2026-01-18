@@ -642,7 +642,7 @@ namespace UsurperRemake.Systems
                 }
             };
 
-            GD.Print($"[MoralParadox] Initialized {paradoxes.Count} moral paradoxes");
+            // GD.Print($"[MoralParadox] Initialized {paradoxes.Count} moral paradoxes");
         }
 
         /// <summary>
@@ -652,7 +652,7 @@ namespace UsurperRemake.Systems
         {
             if (!paradoxes.TryGetValue(paradoxId, out var paradox))
             {
-                GD.Print($"[MoralParadox] Paradox not found: {paradoxId}");
+                // GD.Print($"[MoralParadox] Paradox not found: {paradoxId}");
                 return null;
             }
 
@@ -874,7 +874,7 @@ namespace UsurperRemake.Systems
                 StoryProgressionSystem.Instance.SetStoryFlag($"ending_type_{choice.EndingType}", true);
             }
 
-            GD.Print($"[MoralParadox] Applied effects for choice: {choice.Id}");
+            // GD.Print($"[MoralParadox] Applied effects for choice: {choice.Id}");
         }
 
         /// <summary>

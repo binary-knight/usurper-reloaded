@@ -238,7 +238,7 @@ namespace UsurperRemake.Systems
                 return false;
 
             player.Gold -= totalFee;
-            GD.Print($"[TeamBalance] Player paid {totalFee} gold in dungeon entry fees");
+            // GD.Print($"[TeamBalance] Player paid {totalFee} gold in dungeon entry fees");
             return true;
         }
 

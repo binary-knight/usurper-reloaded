@@ -173,7 +173,7 @@ namespace UsurperRemake.Systems
                 RedemptionPath = "There is no redemption needed - only grief"
             };
 
-            GD.Print($"[Betrayal] Initialized {betrayalProfiles.Count} potential betrayers");
+            // GD.Print($"[Betrayal] Initialized {betrayalProfiles.Count} potential betrayers");
         }
 
         /// <summary>
@@ -205,7 +205,7 @@ namespace UsurperRemake.Systems
             });
 
             // Hidden from player - no notification
-            GD.Print($"[Betrayal] {npcId} gained {points} betrayal points: {reason} (Total: {profile.BetrayalPoints})");
+            // GD.Print($"[Betrayal] {npcId} gained {points} betrayal points: {reason} (Total: {profile.BetrayalPoints})");
 
             // Check for betrayal trigger
             CheckBetrayalTrigger(profile);
@@ -220,7 +220,7 @@ namespace UsurperRemake.Systems
             {
                 profile.BetrayalPoints = Math.Max(0, profile.BetrayalPoints - points);
                 profile.ActsOfKindness.Add(reason);
-                GD.Print($"[Betrayal] {npcId} lost {points} betrayal points: {reason} (Total: {profile.BetrayalPoints})");
+                // GD.Print($"[Betrayal] {npcId} lost {points} betrayal points: {reason} (Total: {profile.BetrayalPoints})");
             }
         }
 
@@ -274,7 +274,7 @@ namespace UsurperRemake.Systems
             {
                 profile.IsPendingBetrayal = true;
                 profile.TriggerReason = triggerReason;
-                GD.Print($"[Betrayal] {profile.NPCId} is now pending betrayal: {triggerReason}");
+                // GD.Print($"[Betrayal] {profile.NPCId} is now pending betrayal: {triggerReason}");
             }
         }
 

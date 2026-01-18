@@ -51,7 +51,7 @@ public class WorldSimulator
         // running head-less outside the Godot scene tree.
         _ = System.Threading.Tasks.Task.Run(async () =>
         {
-            GD.Print($"[WorldSim] Background world simulation running – {npcs.Count} NPCs");
+            // GD.Print($"[WorldSim] Background world simulation running – {npcs.Count} NPCs");
             while (isRunning)
             {
                 try
@@ -70,7 +70,7 @@ public class WorldSimulator
     public void StopSimulation()
     {
         isRunning = false;
-        GD.Print("[WorldSim] Simulation stopped");
+        // GD.Print("[WorldSim] Simulation stopped");
     }
     
     public void SimulateStep()
@@ -108,7 +108,7 @@ public class WorldSimulator
             if (!deadNPCRespawnTimers.ContainsKey(npc.Name))
             {
                 deadNPCRespawnTimers[npc.Name] = NPC_RESPAWN_TICKS;
-                GD.Print($"[WorldSim] {npc.Name} added to respawn queue ({NPC_RESPAWN_TICKS} ticks)");
+                // GD.Print($"[WorldSim] {npc.Name} added to respawn queue ({NPC_RESPAWN_TICKS} ticks)");
             }
         }
 
@@ -151,7 +151,7 @@ public class WorldSimulator
                 npc.Gold = Math.Max(0, npc.Gold / 2);
 
                 NewsSystem.Instance.Newsy(true, $"{npc.Name} has returned from the realm of the dead!");
-                GD.Print($"[WorldSim] {npc.Name} respawned!");
+                // GD.Print($"[WorldSim] {npc.Name} respawned!");
             }
 
             deadNPCRespawnTimers.Remove(npcName);
@@ -400,7 +400,7 @@ public class WorldSimulator
                     npc.CTurf = teamLeader.CTurf;
 
                     NewsSystem.Instance.Newsy(true, $"{npc.Name} joined the team '{npc.Team}'!");
-                    GD.Print($"[WorldSim] {npc.Name} joined team '{npc.Team}'");
+                    // GD.Print($"[WorldSim] {npc.Name} joined team '{npc.Team}'");
                     return;
                 }
             }
@@ -436,7 +436,7 @@ public class WorldSimulator
                 recruit.CTurf = false;
 
                 NewsSystem.Instance.Newsy(true, $"{npc.Name} formed a new team called '{teamName}' with {recruit.Name}!");
-                GD.Print($"[WorldSim] {npc.Name} formed team '{teamName}' with {recruit.Name}");
+                // GD.Print($"[WorldSim] {npc.Name} formed team '{teamName}' with {recruit.Name}");
             }
         }
     }
@@ -483,7 +483,7 @@ public class WorldSimulator
             {
                 NewsSystem.Instance.Newsy(true, $"{npc.Name} recruited {candidate.Name} into '{npc.Team}'!");
             }
-            GD.Print($"[WorldSim] {npc.Name} recruited {candidate.Name} into team '{npc.Team}'");
+            // GD.Print($"[WorldSim] {npc.Name} recruited {candidate.Name} into team '{npc.Team}'");
         }
     }
 
@@ -562,7 +562,7 @@ public class WorldSimulator
                     NewsSystem.Instance.Newsy(true, $"Team '{npc.Team}' conquered dungeon level {dungeonLevel}, defeating {monsterCount} monsters!");
                 }
 
-                GD.Print($"[WorldSim] Team '{npc.Team}' won! {survivors.Count} survivors shared {totalExp} XP and {totalGold} gold");
+                // GD.Print($"[WorldSim] Team '{npc.Team}' won! {survivors.Count} survivors shared {totalExp} XP and {totalGold} gold");
             }
         }
         else
@@ -576,7 +576,7 @@ public class WorldSimulator
                 {
                     NewsSystem.Instance.WriteDeathNews(deadMember.Name, killerName, "the Dungeon");
                 }
-                GD.Print($"[WorldSim] Team '{npc.Team}' was defeated! {dead.Count} members died");
+                // GD.Print($"[WorldSim] Team '{npc.Team}' was defeated! {dead.Count} members died");
             }
 
             // Survivors flee
@@ -692,7 +692,7 @@ public class WorldSimulator
             {
                 var loot = NPCItemGenerator.GenerateDungeonLoot(npc, dungeonLevel);
                 npc.MarketInventory.Add(loot);
-                GD.Print($"[WorldSim] {npc.Name} found {loot.Name} in the dungeon!");
+                // GD.Print($"[WorldSim] {npc.Name} found {loot.Name} in the dungeon!");
             }
 
             // Generate news for notable victories
@@ -704,19 +704,19 @@ public class WorldSimulator
                 NewsSystem.Instance.Newsy(true, newsMsg);
             }
 
-            GD.Print($"[WorldSim] {npc.Name} defeated {monster.Name}, gained {expGain} XP and {goldGain} gold");
+            // GD.Print($"[WorldSim] {npc.Name} defeated {monster.Name}, gained {expGain} XP and {goldGain} gold");
         }
         else if (!npc.IsAlive)
         {
             // NPC died - generate death news
             NewsSystem.Instance.WriteDeathNews(npc.Name, monster.Name, "the Dungeon");
-            GD.Print($"[WorldSim] {npc.Name} was slain by {monster.Name} in the dungeon!");
+            // GD.Print($"[WorldSim] {npc.Name} was slain by {monster.Name} in the dungeon!");
         }
         else
         {
             // Fled or timeout
             npc.UpdateLocation("Main Street");
-            GD.Print($"[WorldSim] {npc.Name} fled from {monster.Name}");
+            // GD.Print($"[WorldSim] {npc.Name} fled from {monster.Name}");
         }
     }
 
@@ -763,7 +763,7 @@ public class WorldSimulator
             NewsSystem.Instance.Newsy(true, $"{npc.Name} purchased {itemBought} from the shop.");
         }
 
-        GD.Print($"[WorldSim] {npc.Name} went shopping" + (boughtSomething ? $" and bought {itemBought}" : " but couldn't afford anything"));
+        // GD.Print($"[WorldSim] {npc.Name} went shopping" + (boughtSomething ? $" and bought {itemBought}" : " but couldn't afford anything"));
     }
 
     /// <summary>
@@ -810,7 +810,7 @@ public class WorldSimulator
                 npc.HP = Math.Min(npc.HP + 5, npc.MaxHP);
             }
 
-            GD.Print($"[WorldSim] {npc.Name} trained at the Gym and gained {statName}");
+            // GD.Print($"[WorldSim] {npc.Name} trained at the Gym and gained {statName}");
 
             // Occasionally newsworthy
             if (random.NextDouble() < 0.05)
@@ -843,7 +843,7 @@ public class WorldSimulator
 
             // This is always newsworthy!
             NewsSystem.Instance.Newsy(true, $"{npc.Name} has achieved Level {npc.Level}!");
-            GD.Print($"[WorldSim] {npc.Name} leveled up to {npc.Level}!");
+            // GD.Print($"[WorldSim] {npc.Name} leveled up to {npc.Level}!");
         }
     }
 
@@ -859,7 +859,7 @@ public class WorldSimulator
         {
             npc.SpendGold(healCost);
             npc.HP = npc.MaxHP;
-            GD.Print($"[WorldSim] {npc.Name} healed at the Healer for {healCost} gold");
+            // GD.Print($"[WorldSim] {npc.Name} healed at the Healer for {healCost} gold");
         }
         else if (npc.HP < npc.MaxHP)
         {
@@ -870,7 +870,7 @@ public class WorldSimulator
             {
                 npc.SpendGold(canAfford);
                 npc.HP = Math.Min(npc.HP + hpToHeal, npc.MaxHP);
-                GD.Print($"[WorldSim] {npc.Name} partially healed at the Healer");
+                // GD.Print($"[WorldSim] {npc.Name} partially healed at the Healer");
             }
         }
     }
@@ -938,7 +938,7 @@ public class WorldSimulator
         if (newLocation != npc.CurrentLocation)
         {
             npc.UpdateLocation(newLocation);
-            GD.Print($"[WorldSim] {npc.Name} moved to {newLocation}");
+            // GD.Print($"[WorldSim] {npc.Name} moved to {newLocation}");
         }
     }
 
@@ -948,7 +948,7 @@ public class WorldSimulator
     private void NPCGoHome(NPC npc)
     {
         npc.UpdateLocation("Home");
-        GD.Print($"[WorldSim] {npc.Name} went home to be with their partner");
+        // GD.Print($"[WorldSim] {npc.Name} went home to be with their partner");
 
         // Small chance to generate sweet news about it
         if (random.NextDouble() < 0.15)
@@ -978,7 +978,7 @@ public class WorldSimulator
     private void NPCVisitLoveStreet(NPC npc)
     {
         npc.UpdateLocation("Love Street");
-        GD.Print($"[WorldSim] {npc.Name} visits Love Street");
+        // GD.Print($"[WorldSim] {npc.Name} visits Love Street");
 
         var personality = npc.Brain?.Personality;
         if (personality == null) return;
@@ -993,7 +993,7 @@ public class WorldSimulator
         if (roll < 0.4f)
         {
             // Just socializing/looking for dates
-            GD.Print($"[WorldSim] {npc.Name} is looking for romance at Love Street");
+            // GD.Print($"[WorldSim] {npc.Name} is looking for romance at Love Street");
             // Could meet other NPCs here for relationship building
         }
         else if (roll < 0.7f && npc.Gold >= 500)
@@ -1013,11 +1013,11 @@ public class WorldSimulator
                 npc.HP = Math.Max(1, npc.HP / 2);
                 NewsSystem.Instance.Newsy(true,
                     $"{npc.Name} caught a nasty disease at Love Street!");
-                GD.Print($"[WorldSim] {npc.Name} contracted a disease at Love Street!");
+                // GD.Print($"[WorldSim] {npc.Name} contracted a disease at Love Street!");
             }
             else
             {
-                GD.Print($"[WorldSim] {npc.Name} spent {cost} gold at Love Street");
+                // GD.Print($"[WorldSim] {npc.Name} spent {cost} gold at Love Street");
             }
 
             // Generate news occasionally
@@ -1044,7 +1044,7 @@ public class WorldSimulator
                 {
                     // Improve relationship
                     RelationshipSystem.UpdateRelationship(npc, target, 1, 2, true);
-                    GD.Print($"[WorldSim] {npc.Name} and {target.Name} hit it off at Love Street");
+                    // GD.Print($"[WorldSim] {npc.Name} and {target.Name} hit it off at Love Street");
                 }
             }
         }
@@ -1056,7 +1056,7 @@ public class WorldSimulator
     private void NPCVisitTemple(NPC npc)
     {
         npc.UpdateLocation("Temple");
-        GD.Print($"[WorldSim] {npc.Name} visits the Temple");
+        // GD.Print($"[WorldSim] {npc.Name} visits the Temple");
 
         var personality = npc.Brain?.Personality;
         float roll = (float)random.NextDouble();
@@ -1065,7 +1065,7 @@ public class WorldSimulator
         if (roll < 0.4f)
         {
             // Prayer and worship
-            GD.Print($"[WorldSim] {npc.Name} prays at the Temple");
+            // GD.Print($"[WorldSim] {npc.Name} prays at the Temple");
 
             // Small chance of receiving a blessing
             if (random.NextDouble() < 0.1)
@@ -1085,7 +1085,7 @@ public class WorldSimulator
                         break;
                 }
                 NewsSystem.Instance.Newsy(false, $"{npc.Name} received a divine blessing at the Temple.");
-                GD.Print($"[WorldSim] {npc.Name} received a divine blessing!");
+                // GD.Print($"[WorldSim] {npc.Name} received a divine blessing!");
             }
         }
         else if (roll < 0.6f && npc.Gold >= 500)
@@ -1097,7 +1097,7 @@ public class WorldSimulator
             // Boost chivalry slightly
             npc.Chivalry += sacrifice / 500;
 
-            GD.Print($"[WorldSim] {npc.Name} sacrificed {sacrifice} gold at the Temple");
+            // GD.Print($"[WorldSim] {npc.Name} sacrificed {sacrifice} gold at the Temple");
 
             // Occasional news for large sacrifices
             if (sacrifice >= 2000 && random.NextDouble() < 0.3)
@@ -1108,7 +1108,7 @@ public class WorldSimulator
         else if (roll < 0.75f && personality != null && personality.Aggression > 0.6f && npc.Darkness > npc.Chivalry)
         {
             // Evil NPCs might desecrate an altar
-            GD.Print($"[WorldSim] {npc.Name} desecrates an altar at the Temple!");
+            // GD.Print($"[WorldSim] {npc.Name} desecrates an altar at the Temple!");
 
             // Gain darkness, risk divine retribution
             npc.Darkness += random.Next(10, 25);
@@ -1119,7 +1119,7 @@ public class WorldSimulator
                 int damage = random.Next(20, 50 + npc.Level);
                 npc.HP = Math.Max(1, npc.HP - damage);
                 NewsSystem.Instance.Newsy(true, $"{npc.Name} was struck by divine wrath for desecrating an altar!");
-                GD.Print($"[WorldSim] {npc.Name} was struck by divine wrath!");
+                // GD.Print($"[WorldSim] {npc.Name} was struck by divine wrath!");
             }
             else
             {
@@ -1130,7 +1130,7 @@ public class WorldSimulator
         {
             // Meditation and contemplation - slight HP recovery
             npc.HP = Math.Min(npc.HP + npc.MaxHP / 10, npc.MaxHP);
-            GD.Print($"[WorldSim] {npc.Name} meditates peacefully at the Temple");
+            // GD.Print($"[WorldSim] {npc.Name} meditates peacefully at the Temple");
 
             // Meet other NPCs at temple for relationship building
             var otherNPCs = npcs
@@ -1142,7 +1142,7 @@ public class WorldSimulator
                 var other = otherNPCs[random.Next(otherNPCs.Count)];
                 // Spiritual bond - improve relationship
                 RelationshipSystem.UpdateRelationship(npc, other, 1, 1, false);
-                GD.Print($"[WorldSim] {npc.Name} and {other.Name} share a moment of spiritual connection");
+                // GD.Print($"[WorldSim] {npc.Name} and {other.Name} share a moment of spiritual connection");
             }
         }
     }
@@ -1153,7 +1153,7 @@ public class WorldSimulator
     private void NPCVisitBank(NPC npc)
     {
         npc.UpdateLocation("Bank");
-        GD.Print($"[WorldSim] {npc.Name} visits the Bank");
+        // GD.Print($"[WorldSim] {npc.Name} visits the Bank");
 
         var personality = npc.Brain?.Personality;
         float roll = (float)random.NextDouble();
@@ -1168,7 +1168,7 @@ public class WorldSimulator
             npc.SpendGold(depositAmount);
             npc.BankGold += depositAmount;
 
-            GD.Print($"[WorldSim] {npc.Name} deposited {depositAmount} gold at the Bank");
+            // GD.Print($"[WorldSim] {npc.Name} deposited {depositAmount} gold at the Bank");
 
             // Occasional news for large deposits
             if (depositAmount >= 10000 && random.NextDouble() < 0.2)
@@ -1183,7 +1183,7 @@ public class WorldSimulator
             npc.BankGold -= withdrawAmount;
             npc.GainGold(withdrawAmount);
 
-            GD.Print($"[WorldSim] {npc.Name} withdrew {withdrawAmount} gold from the Bank");
+            // GD.Print($"[WorldSim] {npc.Name} withdrew {withdrawAmount} gold from the Bank");
         }
         else if (!npc.BankGuard && npc.Level >= 5 && npc.Darkness <= 100 && roll < 0.85f)
         {
@@ -1194,7 +1194,7 @@ public class WorldSimulator
                 npc.BankWage = 1000 + (npc.Level * 50);
 
                 NewsSystem.Instance.Newsy(true, $"{npc.Name} has been hired as a guard at the Ironvault Bank!");
-                GD.Print($"[WorldSim] {npc.Name} became a bank guard (wage: {npc.BankWage}/day)");
+                // GD.Print($"[WorldSim] {npc.Name} became a bank guard (wage: {npc.BankWage}/day)");
             }
         }
         else if (npc.BankGuard && random.NextDouble() < 0.05f)
@@ -1202,12 +1202,12 @@ public class WorldSimulator
             // Small chance to resign from guard duty
             npc.BankGuard = false;
             npc.BankWage = 0;
-            GD.Print($"[WorldSim] {npc.Name} resigned from bank guard duty");
+            // GD.Print($"[WorldSim] {npc.Name} resigned from bank guard duty");
         }
         else
         {
             // Just checking account or socializing at the bank
-            GD.Print($"[WorldSim] {npc.Name} checked their account at the Bank");
+            // GD.Print($"[WorldSim] {npc.Name} checked their account at the Bank");
 
             // Might meet other NPCs at the bank
             var otherNPCs = npcs
@@ -1219,7 +1219,7 @@ public class WorldSimulator
                 var other = otherNPCs[random.Next(otherNPCs.Count)];
                 // Business acquaintance - small relationship boost
                 RelationshipSystem.UpdateRelationship(npc, other, 1, 0, false);
-                GD.Print($"[WorldSim] {npc.Name} and {other.Name} chatted at the Bank");
+                // GD.Print($"[WorldSim] {npc.Name} and {other.Name} chatted at the Bank");
             }
         }
     }
@@ -1230,7 +1230,7 @@ public class WorldSimulator
     private void NPCVisitMarketplace(NPC npc)
     {
         npc.UpdateLocation("Market");
-        GD.Print($"[WorldSim] {npc.Name} visits the Marketplace");
+        // GD.Print($"[WorldSim] {npc.Name} visits the Marketplace");
 
         // 50% chance to list an item if has inventory
         if (npc.MarketInventory.Count > 0 && random.NextDouble() < 0.5)
@@ -1255,7 +1255,7 @@ public class WorldSimulator
         {
             var other = otherNPCs[random.Next(otherNPCs.Count)];
             RelationshipSystem.UpdateRelationship(npc, other, 1, 0, false);
-            GD.Print($"[WorldSim] {npc.Name} and {other.Name} haggled together at the Marketplace");
+            // GD.Print($"[WorldSim] {npc.Name} and {other.Name} haggled together at the Marketplace");
         }
     }
 
@@ -1278,7 +1278,7 @@ public class WorldSimulator
             npc.Brain?.RecordInteraction(target, InteractionType.Traded);
             target.Brain?.RecordInteraction(npc, InteractionType.Traded);
             
-            GD.Print($"[WorldSim] {npc.Name} traded with {target.Name}");
+            // GD.Print($"[WorldSim] {npc.Name} traded with {target.Name}");
         }
     }
     
@@ -1303,7 +1303,7 @@ public class WorldSimulator
             {
                 npc.AddRelationship(target.Id, 0);
                 target.AddRelationship(npc.Id, 0);
-                GD.Print($"[WorldSim] {npc.Name} and {target.Name} became friends");
+                // GD.Print($"[WorldSim] {npc.Name} and {target.Name} became friends");
             }
         }
         else if (compatibility < 0.3f)
@@ -1312,7 +1312,7 @@ public class WorldSimulator
             npc.Brain?.RecordInteraction(target, InteractionType.Insulted);
             target.Brain?.RecordInteraction(npc, InteractionType.Insulted);
             
-            GD.Print($"[WorldSim] {npc.Name} had a negative interaction with {target.Name}");
+            // GD.Print($"[WorldSim] {npc.Name} had a negative interaction with {target.Name}");
         }
     }
     
@@ -1355,16 +1355,16 @@ public class WorldSimulator
                 // Generate news about the killing!
                 NewsSystem.Instance.WriteDeathNews(target.Name, npc.Name, npc.CurrentLocation ?? "unknown");
 
-                GD.Print($"[WorldSim] {npc.Name} killed {target.Name}!");
+                // GD.Print($"[WorldSim] {npc.Name} killed {target.Name}!");
             }
             else
             {
-                GD.Print($"[WorldSim] {npc.Name} attacked {target.Name} for {damage} damage");
+                // GD.Print($"[WorldSim] {npc.Name} attacked {target.Name} for {damage} damage");
             }
         }
         else
         {
-            GD.Print($"[WorldSim] {npc.Name} attacked {target.Name} but missed");
+            // GD.Print($"[WorldSim] {npc.Name} attacked {target.Name} but missed");
         }
     }
     
@@ -1374,7 +1374,7 @@ public class WorldSimulator
         npc.Heal(healAmount);
         npc.ChangeActivity(Activity.Resting, "Recovering health");
         
-        GD.Print($"[WorldSim] {npc.Name} rested and healed {healAmount} HP");
+        // GD.Print($"[WorldSim] {npc.Name} rested and healed {healAmount} HP");
     }
     
     private void ExecuteTrain(NPC npc)
@@ -1384,7 +1384,7 @@ public class WorldSimulator
         {
             var expGain = GD.RandRange(10, 30);
             npc.GainExperience(expGain);
-            GD.Print($"[WorldSim] {npc.Name} trained and gained {expGain} experience");
+            // GD.Print($"[WorldSim] {npc.Name} trained and gained {expGain} experience");
         }
         
         npc.ChangeActivity(Activity.Working, "Training and improving skills");
@@ -1417,7 +1417,7 @@ public class WorldSimulator
                 Location = npc.CurrentLocation
             });
             
-            GD.Print($"[WorldSim] {npc.Name} joined {gangLeader.Name}'s gang");
+            // GD.Print($"[WorldSim] {npc.Name} joined {gangLeader.Name}'s gang");
         }
     }
     
@@ -1463,7 +1463,7 @@ public class WorldSimulator
         };
         
         var randomEvent = events[GD.RandRange(0, events.Length - 1)];
-        GD.Print($"[WorldSim] World Event: {randomEvent}");
+        // GD.Print($"[WorldSim] World Event: {randomEvent}");
         
         // Record event in all NPC memories with low importance
         foreach (var npc in npcs.Where(n => n.IsAlive && n.Brain != null))
@@ -1568,7 +1568,7 @@ public class WorldSimulator
                 member.TeamRec = 0;
 
                 NewsSystem.Instance.Newsy(true, $"{member.Name} abandoned '{oldTeam}'!");
-                GD.Print($"[WorldSim] {member.Name} left team '{oldTeam}'");
+                // GD.Print($"[WorldSim] {member.Name} left team '{oldTeam}'");
 
                 // Check if team is now empty
                 var remainingMembers = npcs.Count(n => n.Team == oldTeam && n.IsAlive);
@@ -1619,7 +1619,7 @@ public class WorldSimulator
         string team2Name = team2Group.Key;
 
         NewsSystem.Instance.Newsy(true, $"Team War! '{team1Name}' clashes with '{team2Name}' at {team1Location}!");
-        GD.Print($"[WorldSim] Team war between '{team1Name}' and '{team2Name}'");
+        // GD.Print($"[WorldSim] Team war between '{team1Name}' and '{team2Name}'");
 
         // Simulate team battle
         bool team1Won = SimulateTeamVsTeamCombat(team1, team2);
@@ -1729,7 +1729,7 @@ public class WorldSimulator
             }
 
             NewsSystem.Instance.Newsy(true, $"'{strongestTeam.TeamName}' has taken control of the town!");
-            GD.Print($"[WorldSim] Team '{strongestTeam.TeamName}' took control of turf");
+            // GD.Print($"[WorldSim] Team '{strongestTeam.TeamName}' took control of turf");
         }
     }
     
@@ -1754,7 +1754,7 @@ public class WorldSimulator
                     member.Brain?.RecordInteraction(gangLeader, InteractionType.Betrayed);
                     gangLeader.Brain?.RecordInteraction(member, InteractionType.Betrayed);
                     
-                    GD.Print($"[WorldSim] {member.Name} betrayed {gangLeader.Name}'s gang!");
+                    // GD.Print($"[WorldSim] {member.Name} betrayed {gangLeader.Name}'s gang!");
                 }
             }
         }
@@ -1786,7 +1786,7 @@ public class WorldSimulator
                     newMember.GangId = leader.Id;
                     leader.GangMembers.Add(newMember.Id);
                     
-                    GD.Print($"[WorldSim] {leader.Name} formed a new gang with {newMember.Name}");
+                    // GD.Print($"[WorldSim] {leader.Name} formed a new gang with {newMember.Name}");
                 }
             }
         }
@@ -1807,7 +1807,7 @@ public class WorldSimulator
                     // Escalate the rivalry
                     if (npc.CurrentLocation == enemy.CurrentLocation)
                     {
-                        GD.Print($"[WorldSim] Rivalry escalates between {npc.Name} and {enemy.Name}");
+                        // GD.Print($"[WorldSim] Rivalry escalates between {npc.Name} and {enemy.Name}");
                         ExecuteAttack(npc, enemyId, new WorldState(npcs));
                     }
                 }

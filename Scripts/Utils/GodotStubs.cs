@@ -159,7 +159,9 @@ namespace Godot
         
         public static void Print(params object[] args)
         {
-            Console.WriteLine(string.Join(" ", args));
+            // Disabled - debug output was spamming screen readers
+            // To re-enable for debugging, uncomment the line below:
+            // Console.WriteLine(string.Join(" ", args));
         }
         
         public static void PrintErr(params object[] args)

@@ -79,7 +79,7 @@ public class ChallengeSystem
 
         if (candidates == null || candidates.Count == 0)
         {
-            GD.Print("[Challenge] No suitable throne challengers found");
+            // GD.Print("[Challenge] No suitable throne challengers found");
             return;
         }
 
@@ -92,7 +92,7 @@ public class ChallengeSystem
             // Will they leave their team for the throne?
             if (challenger.Brain?.Personality?.Ambition < 0.8f)
             {
-                GD.Print($"[Challenge] {challenger.Name} chose to stay with their team");
+                // GD.Print($"[Challenge] {challenger.Name} chose to stay with their team");
                 return;
             }
 
@@ -100,7 +100,7 @@ public class ChallengeSystem
         }
 
         NewsSystem.Instance?.Newsy(true, $"{challenger.Name} has challenged {king.GetTitle()} {king.Name} for the throne!");
-        GD.Print($"[Challenge] {challenger.Name} challenges for the throne!");
+        // GD.Print($"[Challenge] {challenger.Name} challenges for the throne!");
 
         // Fight sequence: Monsters -> NPC Guards -> King
         bool success = SimulateThroneChallenge(challenger, king);
@@ -132,7 +132,7 @@ public class ChallengeSystem
         {
             if (challengerHP <= 0) break;
 
-            GD.Print($"[Challenge] {challenger.Name} fights monster guard {monster.Name}");
+            // GD.Print($"[Challenge] {challenger.Name} fights monster guard {monster.Name}");
 
             // Simulate combat
             while (challengerHP > 0 && monster.HP > 0)
@@ -168,7 +168,7 @@ public class ChallengeSystem
         {
             if (challengerHP <= 0) break;
 
-            GD.Print($"[Challenge] {challenger.Name} fights guard {guard.Name}");
+            // GD.Print($"[Challenge] {challenger.Name} fights guard {guard.Name}");
 
             // Simulate guard combat (guards are tough)
             int guardStr = 50 + random.Next(50);
@@ -201,7 +201,7 @@ public class ChallengeSystem
         }
 
         // Phase 3: Fight the King
-        GD.Print($"[Challenge] {challenger.Name} fights {king.GetTitle()} {king.Name}!");
+        // GD.Print($"[Challenge] {challenger.Name} fights {king.GetTitle()} {king.Name}!");
 
         int kingStr = 100 + random.Next(100);
         int kingHP = 500 + random.Next(500);
@@ -271,7 +271,7 @@ public class ChallengeSystem
         NewsSystem.Instance?.Newsy(true,
             $"ALL HAIL {kingData.GetTitle()} {newKing.Name}! A new monarch sits upon the throne!");
 
-        GD.Print($"[Challenge] {newKing.Name} crowned as new {kingData.GetTitle()}");
+        // GD.Print($"[Challenge] {newKing.Name} crowned as new {kingData.GetTitle()}");
     }
 
     /// <summary>
@@ -306,7 +306,7 @@ public class ChallengeSystem
 
         if (candidates == null || candidates.Count == 0)
         {
-            GD.Print("[Challenge] No one available to claim the empty throne");
+            // GD.Print("[Challenge] No one available to claim the empty throne");
             return;
         }
 
@@ -329,7 +329,7 @@ public class ChallengeSystem
         NewsSystem.Instance?.Newsy(true,
             $"{newKing.Name} has claimed the empty throne! ALL HAIL {kingData.GetTitle()} {newKing.Name}!");
 
-        GD.Print($"[Challenge] {newKing.Name} claimed empty throne");
+        // GD.Print($"[Challenge] {newKing.Name} claimed empty throne");
     }
 
     /// <summary>
@@ -349,7 +349,7 @@ public class ChallengeSystem
 
         if (teams == null || teams.Count < 2)
         {
-            GD.Print("[Challenge] Not enough teams for city challenge");
+            // GD.Print("[Challenge] Not enough teams for city challenge");
             return;
         }
 
@@ -373,14 +373,14 @@ public class ChallengeSystem
         var king = CastleLocation.GetCurrentKing();
         if (king != null && king.Name == teamLeader.Name)
         {
-            GD.Print("[Challenge] Team's leader is King - cannot challenge for city");
+            // GD.Print("[Challenge] Team's leader is King - cannot challenge for city");
             return;
         }
 
         NewsSystem.Instance?.Newsy(true,
             $"'{challengerTeamName}' is challenging for city control!");
 
-        GD.Print($"[Challenge] Team '{challengerTeamName}' challenges for city control");
+        // GD.Print($"[Challenge] Team '{challengerTeamName}' challenges for city control");
 
         // Use CityControlSystem's challenge logic
         bool success = CityControlSystem.Instance.ChallengeForCityControl(teamLeader, challengerTeamName);
@@ -408,7 +408,7 @@ public class ChallengeSystem
         king?.ImprisonCharacter(npc.Name, days, crime);
 
         NewsSystem.Instance?.Newsy(true, $"{npc.Name} was thrown in prison for {days} days!");
-        GD.Print($"[Challenge] {npc.Name} imprisoned for {days} days: {crime}");
+        // GD.Print($"[Challenge] {npc.Name} imprisoned for {days} days: {crime}");
     }
 
     /// <summary>

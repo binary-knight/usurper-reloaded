@@ -106,7 +106,7 @@ namespace UsurperRemake.Systems
             PvPVictories = 0;
             PvPDefeats = 0;
 
-            GD.Print("[Archetype] Tracker reset");
+            // GD.Print("[Archetype] Tracker reset");
         }
 
         #region Scoring Methods
@@ -158,7 +158,7 @@ namespace UsurperRemake.Systems
                 AddScore(JungianArchetype.Magician, 3);
             }
 
-            GD.Print($"[Archetype] Boss defeated: {bossName} (+{points} Hero)");
+            // GD.Print($"[Archetype] Boss defeated: {bossName} (+{points} Hero)");
         }
 
         /// <summary>
@@ -231,7 +231,7 @@ namespace UsurperRemake.Systems
             // Some defiance shows bravery
             AddScore(JungianArchetype.Hero, 1);
 
-            GD.Print($"[Archetype] Rule defied: {context} (+5 Rebel)");
+            // GD.Print($"[Archetype] Rule defied: {context} (+5 Rebel)");
         }
 
         /// <summary>
@@ -246,7 +246,7 @@ namespace UsurperRemake.Systems
             AddScore(JungianArchetype.Innocent, -2);
             AddScore(JungianArchetype.Caregiver, -1);
 
-            GD.Print($"[Archetype] Dark choice: {context}");
+            // GD.Print($"[Archetype] Dark choice: {context}");
         }
 
         /// <summary>
@@ -296,7 +296,7 @@ namespace UsurperRemake.Systems
             LeadershipActions++;
             AddScore(JungianArchetype.Ruler, 5);
 
-            GD.Print($"[Archetype] Leadership: {context} (+5 Ruler)");
+            // GD.Print($"[Archetype] Leadership: {context} (+5 Ruler)");
         }
 
         /// <summary>
@@ -306,7 +306,7 @@ namespace UsurperRemake.Systems
         {
             AddScore(JungianArchetype.Ruler, 50);
             AddScore(JungianArchetype.Hero, 10);
-            GD.Print("[Archetype] Became King! (+50 Ruler, +10 Hero)");
+            // GD.Print("[Archetype] Became King! (+50 Ruler, +10 Hero)");
         }
 
         /// <summary>
@@ -327,7 +327,7 @@ namespace UsurperRemake.Systems
             AddScore(JungianArchetype.Lover, 15);
             AddScore(JungianArchetype.Caregiver, 5); // Commitment to another
 
-            GD.Print("[Archetype] Marriage recorded (+15 Lover)");
+            // GD.Print("[Archetype] Marriage recorded (+15 Lover)");
         }
 
         /// <summary>
@@ -710,7 +710,7 @@ namespace UsurperRemake.Systems
             PvPVictories = data.PvPVictories;
             PvPDefeats = data.PvPDefeats;
 
-            GD.Print($"[Archetype] Loaded tracker data - Dominant: {GetDominantArchetype()}");
+            // GD.Print($"[Archetype] Loaded tracker data - Dominant: {GetDominantArchetype()}");
         }
 
         #endregion

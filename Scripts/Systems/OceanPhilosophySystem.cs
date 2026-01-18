@@ -175,7 +175,7 @@ namespace UsurperRemake.Systems
             if (CollectedFragments.Add(fragment))
             {
                 var data = FragmentData[fragment];
-                GD.Print($"[Ocean] Collected fragment: {data.Title}");
+                // GD.Print($"[Ocean] Collected fragment: {data.Title}");
 
                 // Fragments contribute to awakening
                 CheckAwakeningProgress();
@@ -189,7 +189,7 @@ namespace UsurperRemake.Systems
         {
             if (ExperiencedMoments.Add(moment))
             {
-                GD.Print($"[Ocean] Experienced moment: {moment}");
+                // GD.Print($"[Ocean] Experienced moment: {moment}");
 
                 // Add insight based on moment
                 var insight = CreateInsightForMoment(moment);
@@ -219,12 +219,12 @@ namespace UsurperRemake.Systems
                     points / 10 // Contributes to awakening
                 );
                 Insights.Add(insight);
-                GD.Print($"[Ocean] Gained {points} insight points");
+                // GD.Print($"[Ocean] Gained {points} insight points");
             }
             else if (points < 0)
             {
                 // Grasping moves away from awakening
-                GD.Print($"[Ocean] Lost {-points} insight points (grasping)");
+                // GD.Print($"[Ocean] Lost {-points} insight points (grasping)");
             }
 
             CheckAwakeningProgress();
@@ -240,7 +240,7 @@ namespace UsurperRemake.Systems
             {
                 int oldLevel = AwakeningLevel;
                 AwakeningLevel = newLevel;
-                GD.Print($"[Ocean] Awakening increased: {oldLevel} -> {newLevel}");
+                // GD.Print($"[Ocean] Awakening increased: {oldLevel} -> {newLevel}");
             }
         }
 

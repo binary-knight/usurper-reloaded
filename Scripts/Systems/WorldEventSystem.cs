@@ -550,7 +550,7 @@ namespace UsurperRemake.Systems
                 }
             }
 
-            GD.Print($"[WorldEvent] Activated: {evt.Title} ({evt.DaysRemaining} days)");
+            // GD.Print($"[WorldEvent] Activated: {evt.Title} ({evt.DaysRemaining} days)");
         }
 
         /// <summary>
@@ -783,7 +783,7 @@ namespace UsurperRemake.Systems
 
             if (savedEvents == null || savedEvents.Count == 0)
             {
-                GD.Print("[WorldEvent] No saved events to restore");
+                // GD.Print("[WorldEvent] No saved events to restore");
                 return;
             }
 
@@ -806,7 +806,7 @@ namespace UsurperRemake.Systems
                 // Parse event type
                 if (!Enum.TryParse<EventType>(eventData.Type, out var eventType))
                 {
-                    GD.Print($"[WorldEvent] Unknown event type: {eventData.Type}");
+                    // GD.Print($"[WorldEvent] Unknown event type: {eventData.Type}");
                     continue;
                 }
 
@@ -841,12 +841,12 @@ namespace UsurperRemake.Systems
                 }
 
                 _activeEvents.Add(evt);
-                GD.Print($"[WorldEvent] Restored: {evt.Title} ({evt.DaysRemaining} days remaining)");
+                // GD.Print($"[WorldEvent] Restored: {evt.Title} ({evt.DaysRemaining} days remaining)");
             }
 
             // Recalculate modifiers from restored events
             RecalculateGlobalModifiers();
-            GD.Print($"[WorldEvent] Restored {_activeEvents.Count} active events");
+            // GD.Print($"[WorldEvent] Restored {_activeEvents.Count} active events");
         }
 
         /// <summary>

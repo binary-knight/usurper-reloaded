@@ -44,7 +44,7 @@ namespace UsurperRemake.Systems
                 return; // Prevent duplicates
 
             _children.Add(child);
-            GD.Print($"[Family] Registered child: {child.Name}");
+            // GD.Print($"[Family] Registered child: {child.Name}");
         }
 
         /// <summary>
@@ -200,7 +200,7 @@ namespace UsurperRemake.Systems
         /// </summary>
         private void ConvertChildToNPC(Child child)
         {
-            GD.Print($"[Family] {child.Name} has come of age and is now an adult!");
+            // GD.Print($"[Family] {child.Name} has come of age and is now an adult!");
 
             // Create NPC from child
             var npc = new NPC
@@ -281,7 +281,7 @@ namespace UsurperRemake.Systems
             NewsSystem.Instance?.Newsy(true,
                 $"{child.Name}, child of {child.Mother} and {child.Father}, has come of age and joined the realm!");
 
-            GD.Print($"[Family] Created adult NPC: {npc.Name2} ({npc.Class})");
+            // GD.Print($"[Family] Created adult NPC: {npc.Name2} ({npc.Class})");
         }
 
         /// <summary>
@@ -475,7 +475,7 @@ namespace UsurperRemake.Systems
                 _children.Add(child);
             }
 
-            GD.Print($"[Family] Loaded {_children.Count} children from save");
+            // GD.Print($"[Family] Loaded {_children.Count} children from save");
         }
 
         /// <summary>

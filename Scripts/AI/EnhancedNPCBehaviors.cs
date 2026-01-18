@@ -169,7 +169,7 @@ public static class EnhancedNPCBehaviors
         {
             if (shout)
             {
-                GD.Print($"{npc.Name2} starts to use the new item instead.");
+                // GD.Print($"{npc.Name2} starts to use the new item instead.");
             }
             
             // Send mail notification (Pascal Inform_By_Mail)
@@ -181,7 +181,7 @@ public static class EnhancedNPCBehaviors
         {
             if (shout)
             {
-                GD.Print($"{npc.Name2} starts to use the new item.");
+                // GD.Print($"{npc.Name2} starts to use the new item.");
             }
             
             SendItemNotificationMail(npc, itemId);
@@ -261,7 +261,7 @@ public static class EnhancedNPCBehaviors
     private static void DissolveGang(string gangName, List<NPC> npcs)
     {
         // Pascal Remove_Gang procedure
-        GD.Print($"Removing NPC team: {gangName}");
+        // GD.Print($"Removing NPC team: {gangName}");
         
         foreach (var member in npcs.Where(n => n.Team == gangName))
         {
@@ -325,7 +325,7 @@ public static class EnhancedNPCBehaviors
         npc.Memory?.AddMemory($"I found faith in {npc.God}", "faith", DateTime.Now);
         npc.EmotionalState?.AdjustMood("spiritual", 0.3f);
         
-        GD.Print($"[Faith] {npc.Name2} converted to {npc.God}");
+        // GD.Print($"[Faith] {npc.Name2} converted to {npc.God}");
     }
     
     private static void ProcessBelieverActions(NPC npc)

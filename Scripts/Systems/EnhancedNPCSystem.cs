@@ -139,7 +139,7 @@ public class EnhancedNPCSystem : Node
         {
             if (shout)
             {
-                GD.Print($"{npc.Name2} starts to use the new item.");
+                // GD.Print($"{npc.Name2} starts to use the new item.");
             }
             
             // Send mail notification
@@ -234,7 +234,7 @@ public class EnhancedNPCSystem : Node
         if (gods.Length > 0)
         {
             npc.God = gods[random.Next(gods.Length)];
-            GD.Print($"[Faith] {npc.Name2} converted to {npc.God}");
+            // GD.Print($"[Faith] {npc.Name2} converted to {npc.God}");
         }
     }
     

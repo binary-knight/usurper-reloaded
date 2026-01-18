@@ -30,11 +30,11 @@ namespace UsurperRemake.Systems
             // This handles cases where the flag is set but NPCs weren't actually created
             if (npcsInitialized && spawnedNPCs.Count > 0)
             {
-                GD.Print($"[NPCSpawn] NPCs already initialized ({spawnedNPCs.Count} active)");
+                // GD.Print($"[NPCSpawn] NPCs already initialized ({spawnedNPCs.Count} active)");
                 return;
             }
 
-            GD.Print("[NPCSpawn] Initializing 50 classic Usurper NPCs...");
+            // GD.Print("[NPCSpawn] Initializing 50 classic Usurper NPCs...");
 
             var npcTemplates = ClassicNPCs.GetClassicNPCs();
             spawnedNPCs.Clear();
@@ -49,7 +49,7 @@ namespace UsurperRemake.Systems
             DistributeNPCsAcrossWorld();
 
             npcsInitialized = true;
-            GD.Print($"[NPCSpawn] Successfully initialized {spawnedNPCs.Count} NPCs");
+            // GD.Print($"[NPCSpawn] Successfully initialized {spawnedNPCs.Count} NPCs");
 
             await Task.CompletedTask;
         }
@@ -59,7 +59,7 @@ namespace UsurperRemake.Systems
         /// </summary>
         public async Task ForceReinitializeNPCs()
         {
-            GD.Print("[NPCSpawn] Force reinitializing NPCs...");
+            // GD.Print("[NPCSpawn] Force reinitializing NPCs...");
             npcsInitialized = false;
             spawnedNPCs.Clear();
             await InitializeClassicNPCs();
@@ -409,7 +409,7 @@ namespace UsurperRemake.Systems
                 }
             }
 
-            GD.Print($"[NPCSpawn] NPCs distributed across {locationCounts.Count} locations");
+            // GD.Print($"[NPCSpawn] NPCs distributed across {locationCounts.Count} locations");
         }
 
         /// <summary>
@@ -436,7 +436,7 @@ namespace UsurperRemake.Systems
         {
             spawnedNPCs.Clear();
             npcsInitialized = false;
-            GD.Print("[NPCSpawn] NPCs reset");
+            // GD.Print("[NPCSpawn] NPCs reset");
         }
 
         /// <summary>
@@ -469,7 +469,7 @@ namespace UsurperRemake.Systems
             npc.CellDoorOpen = false;
             npc.RescuedBy = "";
             npc.CurrentLocation = "Prison";
-            GD.Print($"[NPCSpawn] {npc.Name2} imprisoned for {days} days");
+            // GD.Print($"[NPCSpawn] {npc.Name2} imprisoned for {days} days");
         }
 
         /// <summary>
@@ -483,8 +483,8 @@ namespace UsurperRemake.Systems
             npc.RescuedBy = rescuerName;
             npc.HP = npc.MaxHP;
             npc.CurrentLocation = "Main Street";
-            GD.Print($"[NPCSpawn] {npc.Name2} released from prison" +
-                (string.IsNullOrEmpty(rescuerName) ? "" : $" by {rescuerName}"));
+            // GD.Print($"[NPCSpawn] {npc.Name2} released from prison" +
+            //     (string.IsNullOrEmpty(rescuerName) ? "" : $" by {rescuerName}"));
         }
 
         /// <summary>
@@ -495,7 +495,7 @@ namespace UsurperRemake.Systems
             if (npc == null) return;
             npc.CellDoorOpen = true;
             npc.RescuedBy = rescuerName;
-            GD.Print($"[NPCSpawn] Cell door opened for {npc.Name2} by {rescuerName}");
+            // GD.Print($"[NPCSpawn] Cell door opened for {npc.Name2} by {rescuerName}");
         }
 
         /// <summary>
@@ -505,7 +505,7 @@ namespace UsurperRemake.Systems
         {
             spawnedNPCs.Clear();
             npcsInitialized = false;
-            GD.Print("[NPCSpawn] All NPCs cleared for save restoration");
+            // GD.Print("[NPCSpawn] All NPCs cleared for save restoration");
         }
 
         /// <summary>
@@ -527,7 +527,7 @@ namespace UsurperRemake.Systems
             }
             else
             {
-                GD.Print($"[NPCSpawn] Skipping duplicate NPC: {npc.Name2}");
+                // GD.Print($"[NPCSpawn] Skipping duplicate NPC: {npc.Name2}");
             }
         }
 
@@ -537,7 +537,7 @@ namespace UsurperRemake.Systems
         public void MarkAsInitialized()
         {
             npcsInitialized = true;
-            GD.Print($"[NPCSpawn] Marked as initialized with {spawnedNPCs.Count} NPCs");
+            // GD.Print($"[NPCSpawn] Marked as initialized with {spawnedNPCs.Count} NPCs");
         }
 
         /// <summary>

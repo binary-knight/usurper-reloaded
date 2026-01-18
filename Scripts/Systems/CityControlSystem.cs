@@ -119,7 +119,7 @@ public class CityControlSystem
             controller.GainGold(sharePerMember);
         }
 
-        GD.Print($"[CityControl] Distributed {cityShare} gold tax share to {controllers.Count} city controllers");
+        // GD.Print($"[CityControl] Distributed {cityShare} gold tax share to {controllers.Count} city controllers");
     }
 
     /// <summary>
@@ -130,7 +130,7 @@ public class CityControlSystem
     {
         if (string.IsNullOrEmpty(challengerTeam))
         {
-            GD.Print("[CityControl] Challenge failed: Challenger must be in a team");
+            // GD.Print("[CityControl] Challenge failed: Challenger must be in a team");
             return false;
         }
 
@@ -138,7 +138,7 @@ public class CityControlSystem
         var king = CastleLocation.GetCurrentKing();
         if (king != null && king.Name == challenger.Name2)
         {
-            GD.Print("[CityControl] Challenge failed: King cannot control the city");
+            // GD.Print("[CityControl] Challenge failed: King cannot control the city");
             return false;
         }
 
@@ -160,7 +160,7 @@ public class CityControlSystem
 
         if (challengingTeam.Count == 0)
         {
-            GD.Print("[CityControl] Challenge failed: No team members available");
+            // GD.Print("[CityControl] Challenge failed: No team members available");
             return false;
         }
 
@@ -210,7 +210,7 @@ public class CityControlSystem
             npc.TeamRec = 0;
         }
 
-        GD.Print($"[CityControl] City control transferred to '{newControllingTeam}'");
+        // GD.Print($"[CityControl] City control transferred to '{newControllingTeam}'");
     }
 
     /// <summary>
@@ -227,7 +227,7 @@ public class CityControlSystem
         }
 
         NewsSystem.Instance?.Newsy(true, $"The city is no longer under team control!");
-        GD.Print($"[CityControl] Removed city control from '{teamName}'");
+        // GD.Print($"[CityControl] Removed city control from '{teamName}'");
     }
 
     /// <summary>
@@ -254,7 +254,7 @@ public class CityControlSystem
         character.TeamRec = 0;
 
         NewsSystem.Instance?.Newsy(true, $"{character.Name2} has left '{oldTeam}'.");
-        GD.Print($"[CityControl] {character.Name2} forced to leave team '{oldTeam}'");
+        // GD.Print($"[CityControl] {character.Name2} forced to leave team '{oldTeam}'");
     }
 
     /// <summary>

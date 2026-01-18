@@ -233,7 +233,7 @@ namespace UsurperRemake.Systems
                 IconColor = "white"
             };
 
-            GD.Print($"[Artifacts] Initialized {artifacts.Count} divine artifacts");
+            // GD.Print($"[Artifacts] Initialized {artifacts.Count} divine artifacts");
         }
 
         /// <summary>
@@ -410,7 +410,7 @@ namespace UsurperRemake.Systems
                 }
             }
 
-            GD.Print($"[Artifacts] Applied bonuses from {artifact.Name}");
+            // GD.Print($"[Artifacts] Applied bonuses from {artifact.Name}");
         }
 
         /// <summary>

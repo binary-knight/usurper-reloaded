@@ -155,7 +155,7 @@ namespace UsurperRemake.Systems
             }
 
             SaveData();
-            GD.Print($"[MetaProgression] Recorded ending {ending}. Total playthroughs: {data.TotalPlaythroughs}");
+            // GD.Print($"[MetaProgression] Recorded ending {ending}. Total playthroughs: {data.TotalPlaythroughs}");
         }
 
         /// <summary>
@@ -336,14 +336,14 @@ namespace UsurperRemake.Systems
                     var loaded = JsonSerializer.Deserialize<MetaProgressionData>(json);
                     if (loaded != null)
                     {
-                        GD.Print($"[MetaProgression] Loaded data: {loaded.TotalPlaythroughs} playthroughs, {loaded.UnlockedEndings.Count} endings");
+                        // GD.Print($"[MetaProgression] Loaded data: {loaded.TotalPlaythroughs} playthroughs, {loaded.UnlockedEndings.Count} endings");
                         return loaded;
                     }
                 }
             }
             catch (Exception ex)
             {
-                GD.Print($"[MetaProgression] Error loading data: {ex.Message}");
+                // GD.Print($"[MetaProgression] Error loading data: {ex.Message}");
             }
 
             return new MetaProgressionData();
@@ -362,11 +362,11 @@ namespace UsurperRemake.Systems
                 var options = new JsonSerializerOptions { WriteIndented = true };
                 string json = JsonSerializer.Serialize(data, options);
                 File.WriteAllText(saveFilePath, json);
-                GD.Print("[MetaProgression] Data saved");
+                // GD.Print("[MetaProgression] Data saved");
             }
             catch (Exception ex)
             {
-                GD.Print($"[MetaProgression] Error saving data: {ex.Message}");
+                // GD.Print($"[MetaProgression] Error saving data: {ex.Message}");
             }
         }
 

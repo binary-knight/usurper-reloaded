@@ -251,7 +251,7 @@ namespace UsurperRemake.Systems
 
             temporaryBlessings[character.Name2] = blessing;
 
-            GD.Print($"[Divine] {character.Name2} received {blessing.Name} for {durationMinutes} minutes");
+            // GD.Print($"[Divine] {character.Name2} received {blessing.Name} for {durationMinutes} minutes");
 
             return blessing;
         }
@@ -331,7 +331,7 @@ namespace UsurperRemake.Systems
             // Roll for divine intervention
             if (random.Next(100) < blessing.DivineSaveChance)
             {
-                GD.Print($"[Divine] {blessing.GodName} intervened to save {character.Name2}!");
+                // GD.Print($"[Divine] {blessing.GodName} intervened to save {character.Name2}!");
                 return true;
             }
 

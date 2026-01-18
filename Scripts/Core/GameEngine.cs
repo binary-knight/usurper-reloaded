@@ -1333,7 +1333,7 @@ public partial class GameEngine : Node
                 // Register with the original ID so EquippedItems references still work
                 EquipmentDatabase.RegisterDynamicWithId(equipment, equipData.Id);
             }
-            GD.Print($"[GameEngine] Restored {playerData.DynamicEquipment.Count} dynamic equipment items");
+            // GD.Print($"[GameEngine] Restored {playerData.DynamicEquipment.Count} dynamic equipment items");
         }
 
         // NEW: Restore equipment system
@@ -1579,7 +1579,7 @@ public partial class GameEngine : Node
     {
         if (worldState == null)
         {
-            GD.Print("[GameEngine] No world state to restore");
+            // GD.Print("[GameEngine] No world state to restore");
             return;
         }
 
@@ -1606,10 +1606,10 @@ public partial class GameEngine : Node
         if (worldState.MarketplaceListings != null && worldState.MarketplaceListings.Count > 0)
         {
             UsurperRemake.Systems.MarketplaceSystem.Instance.LoadFromSaveData(worldState.MarketplaceListings);
-            GD.Print($"[GameEngine] Restored {worldState.MarketplaceListings.Count} marketplace listings");
+            // GD.Print($"[GameEngine] Restored {worldState.MarketplaceListings.Count} marketplace listings");
         }
 
-        GD.Print($"[GameEngine] World state restored: {worldState.ActiveEvents?.Count ?? 0} active events, {worldState.ActiveQuests?.Count ?? 0} quests");
+        // GD.Print($"[GameEngine] World state restored: {worldState.ActiveEvents?.Count ?? 0} active events, {worldState.ActiveQuests?.Count ?? 0} quests");
         await Task.CompletedTask;
     }
     
@@ -1755,7 +1755,7 @@ public partial class GameEngine : Node
             if (npc.Experience <= 0 && npc.Level > 1)
             {
                 npc.Experience = GetExperienceForNPCLevel(npc.Level);
-                GD.Print($"[GameEngine] Initialized {npc.Name}'s XP to {npc.Experience} for level {npc.Level}");
+                // GD.Print($"[GameEngine] Initialized {npc.Name}'s XP to {npc.Experience} for level {npc.Level}");
             }
 
             // Initialize base stats if they're not set (legacy save compatibility)

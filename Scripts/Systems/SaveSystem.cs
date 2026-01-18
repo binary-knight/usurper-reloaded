@@ -86,7 +86,7 @@ namespace UsurperRemake.Systems
                 
                 await File.WriteAllTextAsync(filePath, json);
                 
-                GD.Print($"Game saved successfully: {fileName}");
+                // GD.Print($"Game saved successfully: {fileName}");
                 return true;
             }
             catch (Exception ex)
@@ -127,7 +127,7 @@ namespace UsurperRemake.Systems
                     return null;
                 }
                 
-                GD.Print($"Game loaded successfully: {fileName}");
+                // GD.Print($"Game loaded successfully: {fileName}");
                 return saveData;
             }
             catch (Exception ex)
@@ -160,7 +160,7 @@ namespace UsurperRemake.Systems
                 if (File.Exists(filePath))
                 {
                     File.Delete(filePath);
-                    GD.Print($"Save file deleted: {fileName}");
+                    // GD.Print($"Save file deleted: {fileName}");
                     return true;
                 }
                 
@@ -262,7 +262,7 @@ namespace UsurperRemake.Systems
                 for (int i = 5; i < sortedFiles.Count; i++)
                 {
                     sortedFiles[i].Delete();
-                    GD.Print($"Deleted old autosave: {sortedFiles[i].Name}");
+                    // GD.Print($"Deleted old autosave: {sortedFiles[i].Name}");
                 }
             }
             catch (Exception ex)
@@ -366,7 +366,7 @@ namespace UsurperRemake.Systems
                     return null;
                 }
 
-                GD.Print($"Game loaded successfully: {fileName}");
+                // GD.Print($"Game loaded successfully: {fileName}");
                 return saveData;
             }
             catch (Exception ex)

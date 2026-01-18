@@ -44,7 +44,7 @@ public class NPCMaintenanceEngine : Node
     {
         if (!npcMaintEnabled) return;
         
-        GD.Print("[NPCMaint] Starting maintenance cycle");
+        // GD.Print("[NPCMaint] Starting maintenance cycle");
         
         foreach (var npc in npcs.Where(n => n.IsAlive))
         {
@@ -53,7 +53,7 @@ public class NPCMaintenanceEngine : Node
         
         ProcessGangMaintenance(npcs);
         
-        GD.Print("[NPCMaint] Maintenance cycle completed");
+        // GD.Print("[NPCMaint] Maintenance cycle completed");
     }
     
     /// <summary>
@@ -87,7 +87,7 @@ public class NPCMaintenanceEngine : Node
         {
             if (AttemptPurchase(npc, goal))
             {
-                GD.Print($"[NPCMaint] {npc.Name} purchased {goal}");
+                // GD.Print($"[NPCMaint] {npc.Name} purchased {goal}");
                 break; // One purchase per cycle
             }
         }
@@ -177,7 +177,7 @@ public class NPCMaintenanceEngine : Node
         if (availableGods.Length > 0)
         {
             npc.God = availableGods[random.Next(availableGods.Length)];
-            GD.Print($"[NPCMaint] {npc.Name} converted to {npc.God}");
+            // GD.Print($"[NPCMaint] {npc.Name} converted to {npc.God}");
         }
         await Task.CompletedTask;
     }
@@ -187,7 +187,7 @@ public class NPCMaintenanceEngine : Node
         // Pascal believer actions
         if (random.Next(10) == 0)
         {
-            GD.Print($"[NPCMaint] {npc.Name} performed religious act");
+            // GD.Print($"[NPCMaint] {npc.Name} performed religious act");
         }
     }
     
@@ -206,7 +206,7 @@ public class NPCMaintenanceEngine : Node
     
     private void DissolveGang(string gangName, List<NPC> npcs)
     {
-        GD.Print($"[NPCMaint] Dissolving gang: {gangName}");
+        // GD.Print($"[NPCMaint] Dissolving gang: {gangName}");
         
         foreach (var member in npcs.Where(n => n.Team == gangName))
         {
@@ -227,7 +227,7 @@ public class NPCMaintenanceEngine : Node
             if (random.Next(3) == 0)
             {
                 candidate.Team = gangName;
-                GD.Print($"[NPCMaint] {candidate.Name} recruited to {gangName}");
+                // GD.Print($"[NPCMaint] {candidate.Name} recruited to {gangName}");
             }
         }
     }

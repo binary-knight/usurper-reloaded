@@ -52,7 +52,7 @@ namespace UsurperRemake.Systems
             AgreedStructures.Clear();
             CuckArrangements.Clear();
             PolyNetworks.Clear();
-            GD.Print("[Romance] Romance tracker reset");
+            // GD.Print("[Romance] Romance tracker reset");
         }
 
         /// <summary>
@@ -62,7 +62,7 @@ namespace UsurperRemake.Systems
         {
             if (CurrentLovers.Any(l => l.NPCId == npcId))
             {
-                GD.Print($"[Romance] {npcId} is already a lover");
+                // GD.Print($"[Romance] {npcId} is already a lover");
                 return;
             }
 
@@ -77,7 +77,7 @@ namespace UsurperRemake.Systems
             };
 
             CurrentLovers.Add(lover);
-            GD.Print($"[Romance] New lover added: {npcId}");
+            // GD.Print($"[Romance] New lover added: {npcId}");
 
             // Track archetype - Lover
             ArchetypeTracker.Instance.RecordRomanceEncounter(wasIntimate: false);
@@ -93,7 +93,7 @@ namespace UsurperRemake.Systems
         {
             if (Spouses.Any(s => s.NPCId == npcId))
             {
-                GD.Print($"[Romance] Already married to {npcId}");
+                // GD.Print($"[Romance] Already married to {npcId}");
                 return;
             }
 
@@ -104,7 +104,7 @@ namespace UsurperRemake.Systems
                 var currentSpouse = Spouses.FirstOrDefault();
                 if (currentSpouse != null && !currentSpouse.AcceptsPolyamory)
                 {
-                    GD.Print($"[Romance] Cannot marry {npcId} - current spouse does not accept polyamory");
+                    // GD.Print($"[Romance] Cannot marry {npcId} - current spouse does not accept polyamory");
                     return;
                 }
             }
@@ -127,7 +127,7 @@ namespace UsurperRemake.Systems
             // Track archetype - Marriage is a major Lover event
             ArchetypeTracker.Instance.RecordMarriage();
 
-            GD.Print($"[Romance] Married to {npcId}!");
+            // GD.Print($"[Romance] Married to {npcId}!");
         }
 
         /// <summary>
@@ -138,7 +138,7 @@ namespace UsurperRemake.Systems
             if (!FriendsWithBenefits.Contains(npcId))
             {
                 FriendsWithBenefits.Add(npcId);
-                GD.Print($"[Romance] FWB relationship with {npcId}");
+                // GD.Print($"[Romance] FWB relationship with {npcId}");
             }
         }
 
@@ -155,7 +155,7 @@ namespace UsurperRemake.Systems
                 if (!Exes.Contains(npcId))
                     Exes.Add(npcId);
 
-                GD.Print($"[Romance] Relationship ended with {npcId}: {reason}");
+                // GD.Print($"[Romance] Relationship ended with {npcId}: {reason}");
             }
         }
 
@@ -192,7 +192,7 @@ namespace UsurperRemake.Systems
                 if (!Exes.Contains(npcId))
                     Exes.Add(npcId);
 
-                GD.Print($"[Romance] Divorced from {spouse.NPCName ?? npcId} (Reason: {reason}, Children: {spouse.Children})");
+                // GD.Print($"[Romance] Divorced from {spouse.NPCName ?? npcId} (Reason: {reason}, Children: {spouse.Children})");
             }
         }
 
@@ -223,7 +223,7 @@ namespace UsurperRemake.Systems
             // Track archetype - Intimate encounter is major Lover event
             ArchetypeTracker.Instance.RecordRomanceEncounter(wasIntimate: true);
 
-            GD.Print($"[Romance] Intimate encounter recorded: {encounter.Type} with {string.Join(", ", encounter.PartnerIds)}");
+            // GD.Print($"[Romance] Intimate encounter recorded: {encounter.Type} with {string.Join(", ", encounter.PartnerIds)}");
         }
 
         /// <summary>
@@ -282,7 +282,7 @@ namespace UsurperRemake.Systems
                 // Remove from current spouses
                 Spouses.Remove(spouse);
 
-                GD.Print($"[Romance] Spouse {spouse.NPCName ?? npcId} has died. Player is now a widow/widower.");
+                // GD.Print($"[Romance] Spouse {spouse.NPCName ?? npcId} has died. Player is now a widow/widower.");
             }
         }
 
@@ -313,7 +313,7 @@ namespace UsurperRemake.Systems
                 if (!spouse.AcceptsPolyamory && !spouse.KnowsAboutOthers)
                 {
                     JealousyLevels[spouse.NPCId] = Math.Min(100, (JealousyLevels.GetValueOrDefault(spouse.NPCId, 0)) + 30);
-                    GD.Print($"[Romance] {spouse.NPCId} is getting jealous!");
+                    // GD.Print($"[Romance] {spouse.NPCId} is getting jealous!");
                 }
             }
 
@@ -323,7 +323,7 @@ namespace UsurperRemake.Systems
                 if (!lover.KnowsAboutOthers)
                 {
                     JealousyLevels[lover.NPCId] = Math.Min(100, (JealousyLevels.GetValueOrDefault(lover.NPCId, 0)) + 20);
-                    GD.Print($"[Romance] {lover.NPCId} is getting jealous!");
+                    // GD.Print($"[Romance] {lover.NPCId} is getting jealous!");
                 }
             }
         }
@@ -465,7 +465,7 @@ namespace UsurperRemake.Systems
             };
 
             CuckArrangements.Add(arrangement);
-            GD.Print($"[Romance] Cuckold arrangement set up with {primaryPartnerId} and {thirdPartyId}");
+            // GD.Print($"[Romance] Cuckold arrangement set up with {primaryPartnerId} and {thirdPartyId}");
         }
 
         /// <summary>
@@ -481,7 +481,7 @@ namespace UsurperRemake.Systems
             };
 
             PolyNetworks.Add(network);
-            GD.Print($"[Romance] Poly network '{networkName}' established with {members.Count} members");
+            // GD.Print($"[Romance] Poly network '{networkName}' established with {members.Count} members");
         }
 
         /// <summary>
@@ -753,7 +753,7 @@ namespace UsurperRemake.Systems
                 VisualNovelDialogueSystem.Instance.LoadConversationStates(data.ConversationStates);
             }
 
-            GD.Print($"[Romance] Loaded romance data: {Spouses.Count} spouses, {CurrentLovers.Count} lovers, {EncounterHistory.Count} encounters");
+            // GD.Print($"[Romance] Loaded romance data: {Spouses.Count} spouses, {CurrentLovers.Count} lovers, {EncounterHistory.Count} encounters");
         }
 
         /// <summary>
@@ -790,7 +790,7 @@ namespace UsurperRemake.Systems
             if (spouse != null)
             {
                 spouse.Children++;
-                GD.Print($"[Romance] Child added to marriage with {npcId}. Total children: {spouse.Children}");
+                // GD.Print($"[Romance] Child added to marriage with {npcId}. Total children: {spouse.Children}");
             }
         }
     }

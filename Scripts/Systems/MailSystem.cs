@@ -37,7 +37,7 @@ public static partial class MailSystem
         
         SaveMailRecord(mail);
         
-        GD.Print($"[MailSystem] System mail sent to {playerName}: {subject}");
+        // GD.Print($"[MailSystem] System mail sent to {playerName}: {subject}");
     }
     
     /// <summary>
@@ -71,7 +71,7 @@ public static partial class MailSystem
         
         SaveMailRecord(mail);
         
-        GD.Print($"[MailSystem] Birthday mail sent to {playerName} for age {newAge}");
+        // GD.Print($"[MailSystem] Birthday mail sent to {playerName} for age {newAge}");
     }
     
     /// <summary>
@@ -107,7 +107,7 @@ public static partial class MailSystem
         
         SaveMailRecord(mail);
         
-        GD.Print($"[MailSystem] Royal guard recruitment mail sent to {playerName}");
+        // GD.Print($"[MailSystem] Royal guard recruitment mail sent to {playerName}");
     }
     
     /// <summary>
@@ -160,7 +160,7 @@ public static partial class MailSystem
         
         SaveMailRecord(mail);
         
-        GD.Print($"[MailSystem] Marriage mail sent to {receiverName}");
+        // GD.Print($"[MailSystem] Marriage mail sent to {receiverName}");
     }
     
     /// <summary>
@@ -198,7 +198,7 @@ public static partial class MailSystem
         
         SaveMailRecord(mail);
         
-        GD.Print($"[MailSystem] Child birth mail sent to {parentName}");
+        // GD.Print($"[MailSystem] Child birth mail sent to {parentName}");
     }
     
     /// <summary>
@@ -228,7 +228,7 @@ public static partial class MailSystem
             SaveMailRecord(mail);
         }
         
-        GD.Print($"[MailSystem] News mail sent: {headline}");
+        // GD.Print($"[MailSystem] News mail sent: {headline}");
     }
     
     /// <summary>
@@ -494,7 +494,7 @@ public static partial class MailSystem
         mailDatabase.Add(mail);
         
         // In a real implementation, this would save to file
-        GD.Print($"[MailSystem] Mail saved: {mail.Subject} to {mail.Receiver}");
+        // GD.Print($"[MailSystem] Mail saved: {mail.Subject} to {mail.Receiver}");
     }
     
     /// <summary>
@@ -517,7 +517,7 @@ public static partial class MailSystem
         
         if (removedCount > 0)
         {
-            GD.Print($"[MailSystem] Cleaned up {removedCount} old mail records");
+            // GD.Print($"[MailSystem] Cleaned up {removedCount} old mail records");
         }
     }
 }

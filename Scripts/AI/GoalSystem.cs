@@ -20,7 +20,7 @@ public partial class GoalSystem
     public void AddGoal(Goal goal)
     {
         goals.Add(goal);
-        GD.Print($"[Goals] Added goal: {goal.Name} (Priority: {goal.Priority:F2})");
+        // GD.Print($"[Goals] Added goal: {goal.Name} (Priority: {goal.Priority:F2})");
     }
     
     public void RemoveGoal(string goalName)
@@ -52,12 +52,12 @@ public partial class GoalSystem
             if (IsGoalCompleted(goal, owner, world))
             {
                 goal.Complete();
-                GD.Print($"[Goals] {owner.Name} completed goal: {goal.Name}");
+                // GD.Print($"[Goals] {owner.Name} completed goal: {goal.Name}");
             }
             else if (goal.Priority < 0.1f)
             {
                 goal.IsActive = false;
-                GD.Print($"[Goals] {owner.Name} abandoned goal: {goal.Name}");
+                // GD.Print($"[Goals] {owner.Name} abandoned goal: {goal.Name}");
             }
         }
         

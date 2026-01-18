@@ -96,7 +96,7 @@ namespace UsurperRemake.Systems
                 CreatedDay = GetCurrentDay()
             });
 
-            GD.Print($"[Grief] Began grieving for {companionName}. Stage: Denial");
+            // GD.Print($"[Grief] Began grieving for {companionName}. Stage: Denial");
         }
 
         /// <summary>
@@ -113,7 +113,7 @@ namespace UsurperRemake.Systems
             // Don't duplicate grief for the same NPC
             if (activeNpcGrief.ContainsKey(npcId))
             {
-                GD.Print($"[Grief] Already grieving for {npcName}");
+                // GD.Print($"[Grief] Already grieving for {npcName}");
                 return;
             }
 
@@ -139,7 +139,7 @@ namespace UsurperRemake.Systems
                 CreatedDay = GetCurrentDay()
             });
 
-            GD.Print($"[Grief] Began grieving for NPC {npcName}. Stage: Denial");
+            // GD.Print($"[Grief] Began grieving for NPC {npcName}. Stage: Denial");
         }
 
         /// <summary>
@@ -523,13 +523,13 @@ namespace UsurperRemake.Systems
                     "You have found peace with their passing. They live on in your memory.");
 
                 // Grant wisdom
-                GD.Print($"[Grief] Grief complete for {grief.CompanionName}. Player gains +5 Wisdom.");
+                // GD.Print($"[Grief] Grief complete for {grief.CompanionName}. Player gains +5 Wisdom.");
 
                 OnGriefComplete?.Invoke(grief.CompanionId);
             }
 
             OnGriefStageChanged?.Invoke(grief.CompanionId, grief.CurrentStage);
-            GD.Print($"[Grief] {grief.CompanionName} grief advanced to: {grief.CurrentStage}");
+            // GD.Print($"[Grief] {grief.CompanionName} grief advanced to: {grief.CurrentStage}");
         }
 
         private void AdvanceNpcGriefStage(GriefState grief, string npcId, int currentDay)
@@ -557,13 +557,13 @@ namespace UsurperRemake.Systems
                     "You have found peace with their passing. They live on in your memory.");
 
                 // Grant wisdom
-                GD.Print($"[Grief] NPC grief complete for {grief.CompanionName}. Player gains +5 Wisdom.");
+                // GD.Print($"[Grief] NPC grief complete for {grief.CompanionName}. Player gains +5 Wisdom.");
 
                 OnNpcGriefComplete?.Invoke(npcId);
             }
 
             OnNpcGriefStageChanged?.Invoke(npcId, grief.CurrentStage);
-            GD.Print($"[Grief] {grief.CompanionName} grief advanced to: {grief.CurrentStage}");
+            // GD.Print($"[Grief] {grief.CompanionName} grief advanced to: {grief.CurrentStage}");
         }
 
         private int GetStageDuration(GriefStage stage)
