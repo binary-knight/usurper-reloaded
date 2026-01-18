@@ -1359,9 +1359,21 @@ public class StreetEncounterSystem
         var npcs = NPCSpawnSystem.Instance.ActiveNPCs;
         if (npcs == null || npcs.Count == 0) return null;
 
-        // Find NPCs at this location who might be hostile
+        // Get romantic partner IDs to exclude from hostile encounters
+        var romanceTracker = RomanceTracker.Instance;
+        var protectedIds = new HashSet<string>();
+        if (romanceTracker != null)
+        {
+            foreach (var spouse in romanceTracker.Spouses)
+                protectedIds.Add(spouse.NPCId);
+            foreach (var lover in romanceTracker.CurrentLovers)
+                protectedIds.Add(lover.NPCId);
+        }
+
+        // Find NPCs at this location who might be hostile (excluding romantic partners)
         var potentialEnemies = npcs
             .Where(n => n.IsAlive && n.Level >= player.Level - 5 && n.Level <= player.Level + 5)
+            .Where(n => !protectedIds.Contains(n.ID)) // Never attack romantic partners
             .Where(n => n.Darkness > n.Chivalry || _random.Next(100) < 20) // Evil or random chance
             .ToList();
 
@@ -1381,9 +1393,21 @@ public class StreetEncounterSystem
         var npcs = NPCSpawnSystem.Instance.ActiveNPCs;
         if (npcs == null || npcs.Count == 0) return null;
 
-        // Find NPCs near player's level who might challenge
+        // Get romantic partner IDs to exclude from hostile encounters
+        var romanceTracker = RomanceTracker.Instance;
+        var protectedIds = new HashSet<string>();
+        if (romanceTracker != null)
+        {
+            foreach (var spouse in romanceTracker.Spouses)
+                protectedIds.Add(spouse.NPCId);
+            foreach (var lover in romanceTracker.CurrentLovers)
+                protectedIds.Add(lover.NPCId);
+        }
+
+        // Find NPCs near player's level who might challenge (excluding romantic partners)
         var potentialChallengers = npcs
             .Where(n => n.IsAlive && Math.Abs(n.Level - player.Level) <= 3)
+            .Where(n => !protectedIds.Contains(n.ID)) // Romantic partners don't challenge to fights
             .ToList();
 
         if (potentialChallengers.Count > 0)
