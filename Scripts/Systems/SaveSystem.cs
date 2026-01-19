@@ -77,7 +77,8 @@ namespace UsurperRemake.Systems
                     NPCs = await SerializeNPCs(),
                     WorldState = SerializeWorldState(),
                     Settings = SerializeDailySettings(),
-                    StorySystems = SerializeStorySystems()
+                    StorySystems = SerializeStorySystems(),
+                    Telemetry = TelemetrySystem.Instance.Serialize()
                 };
                 
                 var fileName = GetSaveFileName(playerName);

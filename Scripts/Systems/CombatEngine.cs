@@ -353,6 +353,21 @@ public partial class CombatEngine
             terminal.SetColor("yellow");
             terminal.WriteLine("You escaped from combat!");
 
+            // Track flee telemetry for multi-monster
+            int maxMonsterLevel = monsters.Any() ? monsters.Max(m => m.Level) : 0;
+            TelemetrySystem.Instance.TrackCombat(
+                "fled",
+                player.Level,
+                maxMonsterLevel,
+                monsters.Count,
+                result.TotalDamageDealt,
+                result.TotalDamageTaken,
+                monsters.FirstOrDefault()?.Name,
+                monsters.Any(m => m.IsBoss),
+                roundNumber,
+                player.Class.ToString()
+            );
+
             // Calculate partial exp/gold from defeated monsters
             if (result.DefeatedMonsters.Count > 0)
             {
@@ -900,6 +915,9 @@ public partial class CombatEngine
         bool wasCritical = attackRoll.IsCriticalSuccess || dexCrit;
         attacker.Statistics.RecordDamageDealt(actualDamage, wasCritical);
 
+        // Track for telemetry
+        result.TotalDamageDealt += actualDamage;
+
         terminal.SetColor("red");
         terminal.WriteLine($"{target.Name} takes {actualDamage} damage!");
 
@@ -976,6 +994,7 @@ public partial class CombatEngine
 
             target.HP = Math.Max(0, target.HP - backstabPower);
             player.Statistics.RecordDamageDealt(backstabPower, true); // Backstab counts as critical
+            result.TotalDamageDealt += backstabPower; // Track for telemetry
             result.CombatLog.Add($"Player backstabs {target.Name} for {backstabPower} damage");
         }
         else
@@ -1008,6 +1027,7 @@ public partial class CombatEngine
 
             target.HP = Math.Max(0, target.HP - soulPower);
             player.Statistics.RecordDamageDealt(soulPower, false);
+            result.TotalDamageDealt += soulPower; // Track for telemetry
             result.CombatLog.Add($"Player Soul Strike hits {target.Name} for {soulPower} damage");
         }
         else
@@ -1369,6 +1389,9 @@ public partial class CombatEngine
         // Track statistics - damage taken
         player.Statistics.RecordDamageTaken(actualDamage);
 
+        // Track for telemetry
+        result.TotalDamageTaken += actualDamage;
+
         terminal.SetColor("red");
         if (blocked && actualDamage < monsterAttack / 2)
         {
@@ -1517,6 +1540,20 @@ public partial class CombatEngine
         {
             result.Outcome = CombatOutcome.PlayerEscaped;
             terminal.WriteLine("You have fled from combat.", "yellow");
+
+            // Track flee telemetry
+            TelemetrySystem.Instance.TrackCombat(
+                "fled",
+                result.Player.Level,
+                result.Monster.Level,
+                1,
+                result.TotalDamageDealt,
+                result.TotalDamageTaken,
+                result.Monster.Name,
+                result.Monster.IsBoss,
+                0, // Round count not tracked in single combat
+                result.Player.Class.ToString()
+            );
         }
         else if (!result.Player.IsAlive)
         {
@@ -1528,7 +1565,7 @@ public partial class CombatEngine
             result.Outcome = CombatOutcome.Victory;
             await HandleVictory(result);
         }
-        
+
         await Task.Delay(GetCombatDelay(2000));
     }
     
@@ -1619,6 +1656,30 @@ public partial class CombatEngine
         // Track statistics
         result.Player.Statistics.RecordMonsterKill(expReward, goldReward, isBoss, result.Monster.IsUnique);
         result.Player.Statistics.RecordGoldChange(result.Player.Gold);
+
+        // Track telemetry for combat victory
+        TelemetrySystem.Instance.TrackCombat(
+            "victory",
+            result.Player.Level,
+            result.Monster?.Level ?? 0,
+            1,
+            result.TotalDamageDealt,
+            result.TotalDamageTaken,
+            result.Monster?.Name,
+            isBoss,
+            0, // Round count not tracked in single combat
+            result.Player.Class.ToString()
+        );
+
+        // Track boss kill milestone
+        if (isBoss)
+        {
+            TelemetrySystem.Instance.TrackMilestone(
+                $"boss_defeated_{result.Monster.Name.Replace(" ", "_").ToLower()}",
+                result.Player.Level,
+                result.Player.Class.ToString()
+            );
+        }
 
         // Track archetype (Hero for combat, with bonus for bosses and rare monsters)
         ArchetypeTracker.Instance.RecordMonsterKill(result.Monster.Level, result.Monster.IsUnique);
@@ -2653,6 +2714,7 @@ public partial class CombatEngine
         if (attacker == currentPlayer || attacker == result.Player)
         {
             result.Player?.Statistics.RecordDamageDealt(actualDamage, false);
+            result.TotalDamageDealt += actualDamage; // Track for telemetry
         }
 
         // Use new colored combat messages - different message for player vs allies
@@ -5428,6 +5490,21 @@ public partial class CombatEngine
         // Track peak gold
         result.Player.Statistics.RecordGoldChange(result.Player.Gold);
 
+        // Track telemetry for multi-monster combat victory
+        bool hasBoss = result.DefeatedMonsters.Any(m => m.IsBoss);
+        TelemetrySystem.Instance.TrackCombat(
+            "victory",
+            result.Player.Level,
+            result.DefeatedMonsters.Max(m => m.Level),
+            result.DefeatedMonsters.Count,
+            result.TotalDamageDealt,
+            result.TotalDamageTaken,
+            result.DefeatedMonsters.FirstOrDefault()?.Name,
+            hasBoss,
+            0, // Round count tracked separately in flee tracking
+            result.Player.Class.ToString()
+        );
+
         // Award experience to active companions (50% of player's XP)
         CompanionSystem.Instance?.AwardCompanionExperience(adjustedExp, terminal);
 
@@ -5591,6 +5668,13 @@ public partial class CombatEngine
 
         // Track statistics - death (not from player)
         result.Player.Statistics.RecordDeath(false);
+
+        // Track telemetry for player death
+        TelemetrySystem.Instance.TrackDeath(
+            result.Player.Level,
+            result.Monster?.Name ?? "unknown",
+            result.Monster?.Level ?? 0 // use monster level as proxy for dungeon depth
+        );
 
         // Present resurrection options
         var resurrectionResult = await PresentResurrectionChoices(result);

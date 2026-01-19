@@ -1299,7 +1299,7 @@ namespace UsurperRemake.Systems
                         // Godot.GD.Print($"[Companion] Initialized {companion.Name}'s XP to {companion.Experience} for level {companion.Level}");
                     }
 
-                    // Restore base stats if saved (otherwise they keep defaults)
+                    // Restore base stats if saved (otherwise scale from defaults)
                     if (save.BaseStatsHP > 0)
                     {
                         companion.BaseStats.HP = save.BaseStatsHP;
@@ -1308,6 +1308,13 @@ namespace UsurperRemake.Systems
                         companion.BaseStats.MagicPower = save.BaseStatsMagicPower;
                         companion.BaseStats.Speed = save.BaseStatsSpeed;
                         companion.BaseStats.HealingPower = save.BaseStatsHealingPower;
+                    }
+                    else if (companion.IsRecruited && companion.Level > 1)
+                    {
+                        // Legacy save without stats - scale from default base stats
+                        // First reset to original defaults, then scale
+                        ResetCompanionToBaseStats(companion);
+                        ScaleCompanionStatsToLevel(companion);
                     }
                 }
             }
@@ -1544,6 +1551,50 @@ namespace UsurperRemake.Systems
                         companion.BaseStats.HealingPower += 1;
                         break;
                 }
+            }
+        }
+
+        /// <summary>
+        /// Reset a companion's base stats to their original default values
+        /// Used when loading legacy saves that didn't include stat data
+        /// </summary>
+        private void ResetCompanionToBaseStats(Companion companion)
+        {
+            // Get the original default stats for each companion
+            switch (companion.Id)
+            {
+                case CompanionId.Lyris:
+                    companion.BaseStats.HP = 200;
+                    companion.BaseStats.Attack = 25;
+                    companion.BaseStats.Defense = 15;
+                    companion.BaseStats.MagicPower = 50;
+                    companion.BaseStats.Speed = 35;
+                    companion.BaseStats.HealingPower = 30;
+                    break;
+                case CompanionId.Aldric:
+                    companion.BaseStats.HP = 350;
+                    companion.BaseStats.Attack = 45;
+                    companion.BaseStats.Defense = 40;
+                    companion.BaseStats.MagicPower = 5;
+                    companion.BaseStats.Speed = 20;
+                    companion.BaseStats.HealingPower = 0;
+                    break;
+                case CompanionId.Mira:
+                    companion.BaseStats.HP = 180;
+                    companion.BaseStats.Attack = 10;
+                    companion.BaseStats.Defense = 12;
+                    companion.BaseStats.MagicPower = 35;
+                    companion.BaseStats.Speed = 25;
+                    companion.BaseStats.HealingPower = 60;
+                    break;
+                case CompanionId.Vex:
+                    companion.BaseStats.HP = 150;
+                    companion.BaseStats.Attack = 35;
+                    companion.BaseStats.Defense = 15;
+                    companion.BaseStats.MagicPower = 10;
+                    companion.BaseStats.Speed = 50;
+                    companion.BaseStats.HealingPower = 0;
+                    break;
             }
         }
 

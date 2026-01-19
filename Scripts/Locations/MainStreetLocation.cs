@@ -1462,6 +1462,18 @@ public class MainStreetLocation : BaseLocation
         terminal.SetColor("yellow");
         terminal.WriteLine("Saving your progress...");
 
+        // Track session end telemetry
+        if (currentPlayer != null)
+        {
+            int playtimeMinutes = (int)currentPlayer.Statistics.TotalPlayTime.TotalMinutes;
+            UsurperRemake.Systems.TelemetrySystem.Instance.TrackSessionEnd(
+                currentPlayer.Level,
+                playtimeMinutes,
+                (int)currentPlayer.MDefeats,
+                (int)currentPlayer.MKills
+            );
+        }
+
         // Actually save the game before quitting!
         await GameEngine.Instance.SaveCurrentGame();
 

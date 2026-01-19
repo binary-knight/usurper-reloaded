@@ -204,7 +204,7 @@ namespace UsurperRemake.Systems
 
             // Determine what's in the room
             room.HasMonsters = random.NextDouble() < 0.6; // 60% chance of monsters
-            room.HasTreasure = random.NextDouble() < 0.25; // 25% chance of treasure
+            room.HasTreasure = false; // Treasure only placed in special designated rooms
             room.HasEvent = random.NextDouble() < 0.3; // 30% chance of special event
             room.HasTrap = random.NextDouble() < 0.15; // 15% chance of trap
 
@@ -1069,13 +1069,17 @@ namespace UsurperRemake.Systems
             bossRoom.HasMonsters = true;
             floor.BossRoomId = bossRoom.Id;
 
-            // Add a treasure room
+            // Add a single treasure room per floor - always guarded by monsters
             var treasureRoom = floor.Rooms[floor.Rooms.Count / 2];
             if (!treasureRoom.IsBossRoom)
             {
-                treasureRoom.Name = "Hidden Treasury";
+                treasureRoom.Name = "Guarded Treasury";
+                treasureRoom.Description = "A chamber filled with glittering treasure, watched over by fearsome guardians who will fight to the death to protect their hoard.";
                 treasureRoom.HasTreasure = true;
                 treasureRoom.HasTrap = true;
+                treasureRoom.HasMonsters = true; // Treasure is ALWAYS guarded
+                treasureRoom.MonsterCount = 2 + random.Next(2); // 2-3 guards
+                treasureRoom.TreasureQuality = TreasureQuality.Rare; // Better quality for the single treasure room
                 floor.TreasureRoomId = treasureRoom.Id;
             }
 
@@ -1236,7 +1240,8 @@ namespace UsurperRemake.Systems
                         room.HasTreasure = true;
                         room.TreasureQuality = TreasureQuality.Legendary;
                         room.HasTrap = true;
-                        room.HasMonsters = random.NextDouble() < 0.4; // Guardian
+                        room.HasMonsters = true; // Legendary treasure ALWAYS guarded
+                        room.MonsterCount = 2 + random.Next(3); // 2-4 elite guardians
                         break;
                 }
             }

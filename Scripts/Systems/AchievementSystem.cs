@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using UsurperRemake.Systems;
 
 /// <summary>
 /// Achievement categories for organization
@@ -783,6 +784,14 @@ public static class AchievementSystem
             // Update statistics
             player.Statistics.TotalExperienceEarned += achievement.ExperienceReward;
             player.Statistics.TotalGoldEarned += achievement.GoldReward;
+
+            // Track achievement telemetry
+            TelemetrySystem.Instance.TrackAchievement(
+                achievementId,
+                achievement.Name,
+                player.Level,
+                achievement.Category.ToString()
+            );
 
             return true;
         }

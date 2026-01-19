@@ -539,6 +539,12 @@ public class ArmorShopLocation : BaseLocation
 
             // Recalculate combat stats
             currentPlayer.RecalculateStats();
+
+            // Track shop purchase telemetry
+            TelemetrySystem.Instance.TrackShopTransaction(
+                "armor", "buy", item.Name, adjustedPrice,
+                currentPlayer.Level, currentPlayer.Gold
+            );
         }
         else
         {
@@ -672,6 +678,12 @@ public class ArmorShopLocation : BaseLocation
 
             currentPlayer.Gold += price;
             currentPlayer.RecalculateStats();
+
+            // Track shop sale telemetry
+            TelemetrySystem.Instance.TrackShopTransaction(
+                "armor", "sell", selected.name, price,
+                currentPlayer.Level, currentPlayer.Gold
+            );
 
             terminal.SetColor("bright_green");
             terminal.WriteLine("");

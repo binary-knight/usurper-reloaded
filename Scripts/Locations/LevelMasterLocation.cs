@@ -368,6 +368,27 @@ public class LevelMasterLocation : BaseLocation
                 currentPlayer.Statistics.RecordLevelUp(startLevel + i + 1);
             }
 
+            // Track telemetry for level up with full stats
+            UsurperRemake.Systems.TelemetrySystem.Instance.TrackLevelUp(
+                currentPlayer.Level,
+                currentPlayer.Class.ToString(),
+                (int)currentPlayer.Strength,
+                (int)currentPlayer.Dexterity,
+                (int)currentPlayer.Constitution,
+                (int)currentPlayer.Intelligence,
+                (int)currentPlayer.Wisdom,
+                (int)currentPlayer.Charisma
+            );
+
+            // Update user properties in PostHog so level is current for dashboards
+            UsurperRemake.Systems.TelemetrySystem.Instance.SetUserProperties(
+                new System.Collections.Generic.Dictionary<string, object>
+                {
+                    ["level"] = currentPlayer.Level,
+                    ["max_level_reached"] = currentPlayer.Level
+                }
+            );
+
             // Display level up celebration with training points earned
             await DisplayLevelUpCelebration(levelsRaised, startLevel, totalTrainingPoints);
 

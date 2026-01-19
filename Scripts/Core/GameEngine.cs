@@ -968,6 +968,9 @@ public partial class GameEngine : Node
             // Restore story systems (companions, children, seals, etc.)
             SaveSystem.Instance.RestoreStorySystems(saveData.StorySystems);
 
+            // Restore telemetry settings
+            TelemetrySystem.Instance.Deserialize(saveData.Telemetry);
+
             terminal.WriteLine("Save loaded successfully!", "bright_green");
             await Task.Delay(1000);
 
@@ -1035,6 +1038,28 @@ public partial class GameEngine : Node
         // Restore story systems (companions, children, seals, etc.)
         SaveSystem.Instance.RestoreStorySystems(saveData.StorySystems);
 
+        // Restore telemetry settings
+        TelemetrySystem.Instance.Deserialize(saveData.Telemetry);
+
+        // Track session start if telemetry is enabled
+        if (TelemetrySystem.Instance.IsEnabled)
+        {
+            TelemetrySystem.Instance.TrackSessionStart(
+                GameConfig.Version,
+                System.Environment.OSVersion.Platform.ToString()
+            );
+
+            // Identify user for PostHog dashboards (DAUs, WAUs, Retention)
+            // This updates user properties and ensures they show up in daily/weekly counts
+            TelemetrySystem.Instance.Identify(
+                characterName: currentPlayer.Name,
+                characterClass: currentPlayer.Class.ToString(),
+                race: currentPlayer.Race.ToString(),
+                level: currentPlayer.Level,
+                difficulty: DifficultySystem.CurrentDifficulty.ToString()
+            );
+        }
+
         terminal.WriteLine($"Game loaded successfully! Day {saveData.CurrentDay}, {saveData.Player.TurnsRemaining} turns remaining", "green");
         await Task.Delay(1500);
         
@@ -1053,6 +1078,11 @@ public partial class GameEngine : Node
         // Reset singleton systems for new game
         UsurperRemake.Systems.RomanceTracker.Instance.Reset();
         UsurperRemake.Systems.FamilySystem.Instance.Reset();
+        UsurperRemake.Systems.NPCSpawnSystem.Instance.ResetNPCs();
+        UsurperRemake.Systems.CompanionSystem.Instance?.ResetAllCompanions();
+        WorldInitializerSystem.Instance.ResetWorld();
+        UsurperRemake.Systems.StoryProgressionSystem.Instance.FullReset();
+        UsurperRemake.Systems.ArchetypeTracker.Instance.Reset();
 
         // Create new player using character creation system
         var newCharacter = await CreateNewPlayer(playerName);
@@ -1062,6 +1092,9 @@ public partial class GameEngine : Node
         }
 
         currentPlayer = (Character)newCharacter;
+
+        // Ask about telemetry opt-in for new players
+        await PromptTelemetryOptIn();
 
         // Save the new game using the character's actual name (Name1)
         // This is important because playerName may be empty if coming from no-saves path
@@ -2190,6 +2223,18 @@ public partial class GameEngine : Node
     {
         terminal.WriteLine("Saving game...", "yellow");
 
+        // Track session end telemetry
+        if (currentPlayer != null)
+        {
+            int playtimeMinutes = (int)currentPlayer.Statistics.TotalPlayTime.TotalMinutes;
+            TelemetrySystem.Instance.TrackSessionEnd(
+                currentPlayer.Level,
+                playtimeMinutes,
+                (int)currentPlayer.MDefeats,
+                (int)currentPlayer.MKills
+            );
+        }
+
         // Ensure save completes before exiting
         if (currentPlayer != null)
         {
@@ -2599,6 +2644,81 @@ public partial class GameEngine : Node
         {
             GD.PrintErr($"Magic Shop Test Error: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Prompt player to opt-in to anonymous telemetry for alpha testing
+    /// </summary>
+    private async Task PromptTelemetryOptIn()
+    {
+        terminal.Clear();
+        terminal.SetColor("cyan");
+        terminal.WriteLine("");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║              HELP IMPROVE USURPER REBORN                     ║");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+        terminal.SetColor("white");
+        terminal.WriteLine("During this alpha testing phase, we can collect anonymous");
+        terminal.WriteLine("gameplay statistics to help improve game balance and identify bugs.");
+        terminal.WriteLine("");
+        terminal.SetColor("gray");
+        terminal.WriteLine("What we collect:");
+        terminal.WriteLine("  - Combat statistics (victories, defeats, damage dealt)");
+        terminal.WriteLine("  - Player milestones (level ups, boss defeats)");
+        terminal.WriteLine("  - Feature usage (which areas you visit most)");
+        terminal.WriteLine("  - Errors and crashes");
+        terminal.WriteLine("");
+        terminal.SetColor("bright_green");
+        terminal.WriteLine("What we DON'T collect:");
+        terminal.WriteLine("  - Your real name or identifying information");
+        terminal.WriteLine("  - Your IP address");
+        terminal.WriteLine("  - Chat messages or custom text");
+        terminal.WriteLine("");
+        terminal.SetColor("yellow");
+        terminal.WriteLine("You can disable this at any time from the Settings menu.");
+        terminal.WriteLine("");
+        terminal.SetColor("white");
+        terminal.Write("Would you like to help us improve the game? [Y/N]: ");
+
+        var response = await terminal.GetInput("");
+        if (response.Trim().ToUpper() == "Y" || response.Trim().ToUpper() == "YES")
+        {
+            TelemetrySystem.Instance.Enable();
+            terminal.SetColor("bright_green");
+            terminal.WriteLine("");
+            terminal.WriteLine("Thank you! Your feedback will help make Usurper Reborn better.");
+            terminal.WriteLine("");
+
+            // Track new character creation with details - this sends immediately
+            TelemetrySystem.Instance.TrackNewCharacter(
+                currentPlayer.Race.ToString(),
+                currentPlayer.Class.ToString(),
+                currentPlayer.Sex.ToString(),
+                DifficultySystem.CurrentDifficulty.ToString(),
+                (int)currentPlayer.Gold
+            );
+
+            // Identify user for PostHog dashboards (DAUs, WAUs, Retention)
+            TelemetrySystem.Instance.Identify(
+                characterName: currentPlayer.Name,
+                characterClass: currentPlayer.Class.ToString(),
+                race: currentPlayer.Race.ToString(),
+                level: currentPlayer.Level,
+                difficulty: DifficultySystem.CurrentDifficulty.ToString(),
+                firstSeen: DateTime.UtcNow
+            );
+        }
+        else
+        {
+            TelemetrySystem.Instance.Disable();
+            terminal.SetColor("gray");
+            terminal.WriteLine("");
+            terminal.WriteLine("No problem! You can enable telemetry later in Settings if you change your mind.");
+            terminal.WriteLine("");
+        }
+
+        await Task.Delay(1500);
     }
 }
 

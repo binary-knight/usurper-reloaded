@@ -2767,6 +2767,14 @@ public class DungeonLocation : BaseLocation
         hasRestThisFloor = false;
         consecutiveMonsterRooms = 0;
 
+        // Track dungeon floor telemetry
+        if (player != null)
+        {
+            TelemetrySystem.Instance.TrackDungeonEvent(
+                "enter_floor", player.Level, currentDungeonLevel
+            );
+        }
+
         // Update quest progress for reaching this floor
         if (player != null)
         {

@@ -688,6 +688,12 @@ public class WeaponShopLocation : BaseLocation
                 terminal.WriteLine(message);
             }
             currentPlayer.RecalculateStats();
+
+            // Track shop purchase telemetry
+            TelemetrySystem.Instance.TrackShopTransaction(
+                "weapon", "buy", item.Name, adjustedPrice,
+                currentPlayer.Level, currentPlayer.Gold
+            );
         }
         else
         {
@@ -918,6 +924,12 @@ public class WeaponShopLocation : BaseLocation
 
             currentPlayer.Gold += price;
             currentPlayer.RecalculateStats();
+
+            // Track shop sale telemetry
+            TelemetrySystem.Instance.TrackShopTransaction(
+                "weapon", "sell", selected.name, price,
+                currentPlayer.Level, currentPlayer.Gold
+            );
 
             terminal.SetColor("bright_green");
             terminal.WriteLine("");

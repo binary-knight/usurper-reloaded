@@ -83,12 +83,21 @@ public partial class QuestSystem : Node
         
         // Track in player list
         player.ActiveQuests.Add(foundQuest);
-        
+
         // GD.Print($"[QuestSystem] Quest claimed by {player.Name2}: {foundQuest.Id}");
-        
+
         // Send confirmation mail (Pascal: Quest claim notification)
         MailSystem.SendQuestClaimedMail(player.Name2, foundQuest.Title);
-        
+
+        // Track telemetry for quest acceptance
+        TelemetrySystem.Instance.TrackQuest(
+            foundQuest.Title ?? foundQuest.GetTargetDescription(),
+            "accepted",
+            player.Level,
+            reward: null,
+            questType: foundQuest.QuestType.ToString()
+        );
+
         return QuestClaimResult.CanClaim;
     }
     
@@ -136,12 +145,21 @@ public partial class QuestSystem : Node
 
         // Send completion notification to king (Pascal: King notification)
         SendQuestCompletionMail(player, quest, rewardAmount);
-        
+
         // News announcement (Pascal: News generation)
         GenerateQuestCompletionNews(player, quest);
-        
+
+        // Track telemetry for quest completion
+        TelemetrySystem.Instance.TrackQuest(
+            quest.Title ?? quest.GetTargetDescription(),
+            "completed",
+            player.Level,
+            reward: rewardAmount,
+            questType: quest.QuestType.ToString()
+        );
+
         // GD.Print($"[QuestSystem] Quest completed by {player.Name2}: {quest.Id}");
-        
+
         return QuestCompletionResult.Success;
     }
     

@@ -847,6 +847,9 @@ public abstract class BaseLocation
 
             // Screen reader mode
             terminal.WriteLine($"  Screen Reader Mode: {(currentPlayer.ScreenReaderMode ? "Enabled (Simplified Text)" : "Disabled")}", "yellow");
+
+            // Telemetry
+            terminal.WriteLine($"  Alpha Telemetry: {(UsurperRemake.Systems.TelemetrySystem.Instance.IsEnabled ? "Enabled (Sending Anonymous Stats)" : "Disabled")}", "yellow");
             terminal.WriteLine("");
 
             terminal.SetColor("white");
@@ -855,6 +858,7 @@ public abstract class BaseLocation
             terminal.WriteLine("[2] Toggle Auto-heal in Battle");
             terminal.WriteLine("[3] Toggle Skip Intimate Scenes");
             terminal.WriteLine("[4] Toggle Screen Reader Mode (Accessibility)");
+            terminal.WriteLine("[5] Toggle Alpha Telemetry (Anonymous Stats)");
             terminal.WriteLine("[0] Back");
             terminal.WriteLine("");
 
@@ -913,6 +917,28 @@ public abstract class BaseLocation
                     {
                         terminal.WriteLine("Screen Reader Mode DISABLED", "green");
                         terminal.WriteLine("Menus will use visual ASCII art format.", "white");
+                    }
+                    await GameEngine.Instance.SaveCurrentGame();
+                    await Task.Delay(1200);
+                    break;
+
+                case "5":
+                    if (UsurperRemake.Systems.TelemetrySystem.Instance.IsEnabled)
+                    {
+                        UsurperRemake.Systems.TelemetrySystem.Instance.Disable();
+                        terminal.WriteLine("Alpha Telemetry DISABLED", "green");
+                        terminal.WriteLine("We will no longer collect anonymous gameplay statistics.", "white");
+                    }
+                    else
+                    {
+                        UsurperRemake.Systems.TelemetrySystem.Instance.Enable();
+                        terminal.WriteLine("Alpha Telemetry ENABLED", "green");
+                        terminal.WriteLine("Thank you for helping us improve the game!", "white");
+                        // Track session start when enabling
+                        UsurperRemake.Systems.TelemetrySystem.Instance.TrackSessionStart(
+                            GameConfig.Version,
+                            System.Environment.OSVersion.Platform.ToString()
+                        );
                     }
                     await GameEngine.Instance.SaveCurrentGame();
                     await Task.Delay(1200);

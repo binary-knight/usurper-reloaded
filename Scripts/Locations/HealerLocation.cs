@@ -395,6 +395,11 @@ public class HealerLocation : BaseLocation
         player.HP += (int)hpToHeal;
         if (player.HP > player.MaxHP) player.HP = player.MaxHP;
 
+        // Track healer telemetry
+        TelemetrySystem.Instance.TrackShopTransaction(
+            "healer", "heal", $"heal_{hpToHeal}hp", cost, player.Level, player.Gold
+        );
+
         terminal.WriteLine("");
         terminal.WriteLine($"{Manager} places his hands on your wounds...", "gray");
         await Task.Delay(1000);
@@ -507,6 +512,11 @@ public class HealerLocation : BaseLocation
         player.Gold -= cost;
         player.Statistics.RecordPurchase(cost);
         player.Healing += quantity;
+
+        // Track potion purchase telemetry
+        TelemetrySystem.Instance.TrackShopTransaction(
+            "healer", "buy", $"healing_potion_x{quantity}", cost, player.Level, player.Gold
+        );
 
         terminal.WriteLine("");
         terminal.WriteLine($"{Manager} hands you {quantity} healing potion{(quantity > 1 ? "s" : "")}.", "gray");

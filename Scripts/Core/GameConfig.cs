@@ -9,6 +9,10 @@ using System.Collections.Generic;
 /// </summary>
 public static partial class GameConfig
 {
+    // Version information
+    public const string Version = "0.8.0-alpha";
+    public const string VersionName = "Awakening";
+
     // From Pascal global_maxXX constants
     public const int MaxPlayers = 400;           // global_maxplayers
     public const int MaxTeamMembers = 5;         // global_maxteammembers

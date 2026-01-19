@@ -1,6 +1,6 @@
 # Usurper Reborn
 
-## ALPHA v0.8 - Combat AI & Royal Systems Update
+## ALPHA v0.9 - Analytics & Telemetry Update
 
 **FREE AND OPEN SOURCE SOFTWARE - GPL v2 Licensed**
 
@@ -348,7 +348,17 @@ For detailed BBS setup instructions, see [DOCS/BBS_DOOR_SETUP.md](DOCS/BBS_DOOR_
 - Audio and enhanced ANSI art
 - Additional companion personal quest storylines
 
-### Recently Completed (v0.8)
+### Recently Completed (v0.9)
+- **PostHog Analytics Integration** - Opt-in telemetry system for alpha testing insights
+  - Tracks combat outcomes, shop transactions, achievements, dungeon exploration
+  - Tracks level ups, quests accepted/completed, player deaths, session statistics
+  - Privacy-focused: GeoIP disabled, no location tracking, fully opt-in
+  - Powers DAU/WAU/Retention dashboards for game balance analysis
+- **Quest Telemetry** - Track quest acceptance and completion rates
+- **Session Analytics** - Playtime, final level, deaths, and monsters killed on quit
+- **Dungeon Feature Interactions** - Enhanced room features with skill-based outcomes
+
+### Completed in v0.8
 - **NPC Teammate Combat AI** - NPCs now cast offensive spells, use class abilities, and heal more intelligently
   - Spell-casters (Magician, Sage, Cleric, Paladin, Bard) now cast attack spells in combat
   - Class abilities: Warrior Power Attack, Ranger Multi-Shot, Assassin Backstab, Paladin Smite, Bard Inspire
@@ -443,7 +453,7 @@ Join our Discord server for discussions, feedback, and updates:
 - Romance/marriage/family systems
 - Story progression and endings
 
-### Known Issues (Alpha v0.8)
+### Known Issues (Alpha v0.9)
 - Some edge cases in combat may cause unexpected behavior
 - NPC AI occasionally makes suboptimal decisions
 - Save files from earlier alpha versions may not be fully compatible
@@ -457,4 +467,4 @@ Join our Discord server for discussions, feedback, and updates:
 
 ---
 
-**Status**: ALPHA v0.8 - Combat AI & Royal Systems Update
+**Status**: ALPHA v0.9 - Analytics & Telemetry Update
