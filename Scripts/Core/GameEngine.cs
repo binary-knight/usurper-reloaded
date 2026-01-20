@@ -2423,7 +2423,7 @@ public partial class GameEngine : Node
         terminal.SetColor("bright_cyan");
         terminal.WriteLine("  COMMUNITY:");
         terminal.SetColor("gray");
-        terminal.WriteLine("    Join us on Discord: https://discord.gg/BqY66QkPGE");
+        terminal.WriteLine("    Join us on Discord: https://discord.gg/EZhwgDT6Ta");
         terminal.WriteLine("");
 
         terminal.SetColor("yellow");

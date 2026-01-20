@@ -25,7 +25,7 @@ dotnet publish usurper-reloaded.csproj -c Release -o publish
 ./publish/UsurperRemake.exe  # or ./publish/UsurperRemake on Linux/Mac
 ```
 
-**Report bugs**: https://discord.gg/BqY66QkPGE (or GitHub Issues)
+**Report bugs**: https://discord.gg/EZhwgDT6Ta (or GitHub Issues)
 
 ## About
 
@@ -426,7 +426,7 @@ For detailed BBS setup instructions, see [DOCS/BBS_DOOR_SETUP.md](DOCS/BBS_DOOR_
 ## Community
 
 Join our Discord server for discussions, feedback, and updates:
-**https://discord.gg/BqY66QkPGE**
+**https://discord.gg/EZhwgDT6Ta**
 
 ## Acknowledgments
 
@@ -460,7 +460,7 @@ Join our Discord server for discussions, feedback, and updates:
 - BBS socket mode may not work on all Linux distributions (falls back to console I/O)
 
 ### How to Report Bugs
-1. Join Discord: https://discord.gg/BqY66QkPGE
+1. Join Discord: https://discord.gg/EZhwgDT6Ta
 2. Describe what you were doing
 3. Include any error messages
 4. Note your platform (Windows/Linux/Mac)
