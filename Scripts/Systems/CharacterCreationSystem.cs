@@ -729,7 +729,8 @@ public class CharacterCreationSystem
         // Roll each stat using 3d6 base + class modifier + small random bonus
         // Class attributes act as bonuses to make classes feel distinct
         character.Strength = Roll3d6() + classAttrib.Strength + raceAttrib.StrengthBonus;
-        character.Defence = Roll3d6() + classAttrib.Defence + raceAttrib.DefenceBonus;
+        // Defence starts low (no 3d6 roll) - gear and levels provide the bulk of defence
+        character.Defence = classAttrib.Defence + raceAttrib.DefenceBonus;
         character.Stamina = Roll3d6() + classAttrib.Stamina + raceAttrib.StaminaBonus;
         character.Agility = Roll3d6() + classAttrib.Agility;
         character.Charisma = Roll3d6() + classAttrib.Charisma;
