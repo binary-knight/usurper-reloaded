@@ -70,6 +70,151 @@ namespace UsurperRemake.BBS
             { "bright_white", "97" }
         };
 
+        // Unicode to CP437 character mapping for BBS compatibility
+        // Maps Unicode box-drawing and special characters to their CP437 byte equivalents
+        private static readonly Dictionary<char, byte> UnicodeToCp437 = new()
+        {
+            // Box drawing - single line
+            { '─', 196 }, // Horizontal line
+            { '│', 179 }, // Vertical line
+            { '┌', 218 }, // Top-left corner
+            { '┐', 191 }, // Top-right corner
+            { '└', 192 }, // Bottom-left corner
+            { '┘', 217 }, // Bottom-right corner
+            { '├', 195 }, // Left T
+            { '┤', 180 }, // Right T
+            { '┬', 194 }, // Top T
+            { '┴', 193 }, // Bottom T
+            { '┼', 197 }, // Cross
+
+            // Box drawing - double line
+            { '═', 205 }, // Double horizontal
+            { '║', 186 }, // Double vertical
+            { '╔', 201 }, // Double top-left
+            { '╗', 187 }, // Double top-right
+            { '╚', 200 }, // Double bottom-left
+            { '╝', 188 }, // Double bottom-right
+            { '╠', 204 }, // Double left T
+            { '╣', 185 }, // Double right T
+            { '╦', 203 }, // Double top T
+            { '╩', 202 }, // Double bottom T
+            { '╬', 206 }, // Double cross
+
+            // Box drawing - mixed single/double
+            { '╒', 213 }, // Down single, right double
+            { '╓', 214 }, // Down double, right single
+            { '╕', 184 }, // Down single, left double
+            { '╖', 183 }, // Down double, left single
+            { '╘', 212 }, // Up single, right double
+            { '╙', 211 }, // Up double, right single
+            { '╛', 190 }, // Up single, left double
+            { '╜', 189 }, // Up double, left single
+            { '╞', 198 }, // Vertical single, right double
+            { '╟', 199 }, // Vertical double, right single
+            { '╡', 181 }, // Vertical single, left double
+            { '╢', 182 }, // Vertical double, left single
+            { '╤', 209 }, // Down single, horizontal double
+            { '╥', 210 }, // Down double, horizontal single
+            { '╧', 207 }, // Up single, horizontal double
+            { '╨', 208 }, // Up double, horizontal single
+            { '╪', 216 }, // Vertical single, horizontal double
+            { '╫', 215 }, // Vertical double, horizontal single
+
+            // Block elements
+            { '█', 219 }, // Full block
+            { '▄', 220 }, // Lower half block
+            { '▀', 223 }, // Upper half block
+            { '▌', 221 }, // Left half block
+            { '▐', 222 }, // Right half block
+            { '░', 176 }, // Light shade
+            { '▒', 177 }, // Medium shade
+            { '▓', 178 }, // Dark shade
+
+            // Arrows
+            { '↑', 24 },
+            { '↓', 25 },
+            { '→', 26 },
+            { '←', 27 },
+            { '↔', 29 },
+            { '↕', 18 },
+
+            // Math and symbols
+            { '≡', 240 }, // Identical to
+            { '±', 241 }, // Plus-minus
+            { '≥', 242 }, // Greater than or equal
+            { '≤', 243 }, // Less than or equal
+            { '÷', 246 }, // Division
+            { '≈', 247 }, // Almost equal
+            { '°', 248 }, // Degree
+            { '•', 249 }, // Bullet
+            { '·', 250 }, // Middle dot
+            { '√', 251 }, // Square root
+            { '²', 253 }, // Superscript 2
+            { '■', 254 }, // Black square
+
+            // Currency and misc
+            { '¢', 155 },
+            { '£', 156 },
+            { '¥', 157 },
+            { '₧', 158 }, // Peseta
+            { 'ƒ', 159 }, // Florin
+
+            // Greek letters (commonly used)
+            { 'α', 224 },
+            { 'β', 225 },
+            { 'Γ', 226 },
+            { 'π', 227 },
+            { 'Σ', 228 },
+            { 'σ', 229 },
+            { 'µ', 230 },
+            { 'τ', 231 },
+            { 'Φ', 232 },
+            { 'Θ', 233 },
+            { 'Ω', 234 },
+            { 'δ', 235 },
+            { '∞', 236 },
+            { 'φ', 237 },
+            { 'ε', 238 },
+            { '∩', 239 },
+
+            // Special characters
+            { '♠', 6 },
+            { '♣', 5 },
+            { '♥', 3 },
+            { '♦', 4 },
+            { '☺', 1 },
+            { '☻', 2 },
+            { '☼', 15 },
+            { '♪', 13 },
+            { '♫', 14 },
+
+            // Accented vowels (common ones)
+            { 'á', 160 },
+            { 'í', 161 },
+            { 'ó', 162 },
+            { 'ú', 163 },
+            { 'ñ', 164 },
+            { 'Ñ', 165 },
+            { 'ª', 166 },
+            { 'º', 167 },
+            { '¿', 168 },
+            { '¡', 173 },
+            { 'ä', 132 },
+            { 'Ä', 142 },
+            { 'ö', 148 },
+            { 'Ö', 153 },
+            { 'ü', 129 },
+            { 'Ü', 154 },
+            { 'é', 130 },
+            { 'è', 138 },
+            { 'ê', 136 },
+            { 'ë', 137 },
+            { 'â', 131 },
+            { 'à', 133 },
+            { 'ç', 135 },
+            { 'Ç', 128 },
+        };
+
         public bool IsConnected => _socket?.Connected ?? false;
         public BBSSessionInfo SessionInfo => _sessionInfo;
 
@@ -156,7 +301,7 @@ namespace UsurperRemake.BBS
 
         public async Task WriteAsync(string text)
         {
-            if (_sessionInfo.CommType == ConnectionType.Local || _writer == null)
+            if (_sessionInfo.CommType == ConnectionType.Local || _stream == null)
             {
                 Console.Write(text);
                 return;
@@ -164,12 +309,45 @@ namespace UsurperRemake.BBS
 
             try
             {
-                await _writer.WriteAsync(text);
+                // Convert text to CP437 bytes for BBS compatibility
+                var bytes = ConvertToCp437(text);
+                await _stream.WriteAsync(bytes, 0, bytes.Length);
+                await _stream.FlushAsync();
             }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"Socket write error: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Convert a Unicode string to CP437 bytes for BBS terminal compatibility.
+        /// Characters with known CP437 mappings are converted, others are passed through as ASCII.
+        /// </summary>
+        private byte[] ConvertToCp437(string text)
+        {
+            var result = new byte[text.Length];
+            for (int i = 0; i < text.Length; i++)
+            {
+                char c = text[i];
+
+                // Check if we have a CP437 mapping for this character
+                if (UnicodeToCp437.TryGetValue(c, out byte cp437Byte))
+                {
+                    result[i] = cp437Byte;
+                }
+                else if (c <= 127)
+                {
+                    // Standard ASCII - pass through directly
+                    result[i] = (byte)c;
+                }
+                else
+                {
+                    // Unknown character - use '?' as fallback
+                    result[i] = (byte)'?';
+                }
+            }
+            return result;
         }
 
         public async Task WriteLineAsync(string text = "")
@@ -234,11 +412,11 @@ namespace UsurperRemake.BBS
         }
 
         /// <summary>
-        /// Write raw bytes/text without any processing
+        /// Write raw bytes/text without any CP437 processing (used for ANSI escape codes)
         /// </summary>
         private async Task WriteRawAsync(string data)
         {
-            if (_sessionInfo.CommType == ConnectionType.Local || _writer == null)
+            if (_sessionInfo.CommType == ConnectionType.Local || _stream == null)
             {
                 Console.Write(data);
                 return;
@@ -246,7 +424,10 @@ namespace UsurperRemake.BBS
 
             try
             {
-                await _writer.WriteAsync(data);
+                // Write raw ASCII bytes without CP437 conversion (for ANSI escape codes)
+                var bytes = Encoding.ASCII.GetBytes(data);
+                await _stream.WriteAsync(bytes, 0, bytes.Length);
+                await _stream.FlushAsync();
             }
             catch { }
         }
