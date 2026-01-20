@@ -115,6 +115,9 @@ public abstract class BaseLocation
             {
                 currentPlayer.TurnCount++;
 
+                // Apply poison damage each turn
+                await ApplyPoisonDamage();
+
                 // Run world simulation every 5 turns
                 if (currentPlayer.TurnCount % 5 == 0)
                 {
@@ -161,7 +164,56 @@ public abstract class BaseLocation
             await AlignmentSystem.Instance.CheckAlignmentEvent(currentPlayer, terminal);
         }
     }
-    
+
+    /// <summary>
+    /// Apply poison damage each turn if player is poisoned
+    /// </summary>
+    private async Task ApplyPoisonDamage()
+    {
+        if (currentPlayer == null || currentPlayer.Poison <= 0)
+            return;
+
+        // Poison damage scales with poison level
+        // Base damage: 1-3 HP per turn, plus 1 HP per 10 poison levels
+        int baseDamage = 1 + new Random().Next(3);
+        int poisonBonus = currentPlayer.Poison / 10;
+        int totalDamage = baseDamage + poisonBonus;
+
+        // Cap damage at 10% of max HP to prevent instant deaths
+        int maxDamage = (int)Math.Max(1, currentPlayer.MaxHP / 10);
+        totalDamage = Math.Min(totalDamage, maxDamage);
+
+        // Apply damage
+        currentPlayer.HP -= totalDamage;
+
+        // Show poison damage message
+        terminal.SetColor("magenta");
+        terminal.WriteLine($"The poison courses through your veins! (-{totalDamage} HP)");
+
+        // Check if player died from poison
+        if (currentPlayer.HP <= 0)
+        {
+            currentPlayer.HP = 0;
+            terminal.SetColor("red");
+            terminal.WriteLine("The poison has claimed your life!");
+            await Task.Delay(1500);
+        }
+        else
+        {
+            // Small chance (5%) for poison to naturally wear off slightly each turn
+            if (new Random().Next(100) < 5)
+            {
+                currentPlayer.Poison = Math.Max(0, currentPlayer.Poison - 1);
+                if (currentPlayer.Poison == 0)
+                {
+                    terminal.SetColor("green");
+                    terminal.WriteLine("The poison has finally left your system!");
+                }
+            }
+            await Task.Delay(500);
+        }
+    }
+
     /// <summary>
     /// Display the location screen
     /// </summary>

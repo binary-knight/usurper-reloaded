@@ -10,8 +10,8 @@ using System.Collections.Generic;
 public static partial class GameConfig
 {
     // Version information
-    public const string Version = "0.8.0-alpha";
-    public const string VersionName = "Awakening";
+    public const string Version = "0.10.0-alpha";
+    public const string VersionName = "Quality of Life";
 
     // From Pascal global_maxXX constants
     public const int MaxPlayers = 400;           // global_maxplayers
@@ -659,39 +659,94 @@ public static partial class GameConfig
     public const string RaceHelpText = @"
 Race determines your basic physical and mental characteristics:
 
-Human - Well-balanced race, good for beginners
-Hobbit - Small but hardy, excellent constitution
-Elf - Graceful and wise, naturally magical
-Half-Elf - Good balance of human and elven traits
-Dwarf - Short but incredibly strong and tough
-Troll - Massive and powerful, fearsome in combat
-Orc - Strong and aggressive, natural fighters
-Gnome - Small and clever, skilled craftsmen
-Gnoll - Pack hunters with poisonous bite
-Mutant - Unpredictable abilities, random attributes
+Human     - Balanced in all areas. Can be any class.
+Hobbit    - Small but agile. Good rangers, rogues, bards. Too small for heavy combat.
+Elf       - Graceful and magical. Excellent mages and clerics. Dislike brute force.
+Half-Elf  - Versatile like humans. Can be any class.
+Dwarf     - Strong and tough. Great warriors. Distrust arcane magic.
+Troll     - Massive brutes. Warriors, barbarians, rangers only.
+Orc       - Aggressive fighters. Warriors, assassins, rangers. Limited magic.
+Gnome     - Small and clever. Great mages, alchemists. Poor heavy fighters.
+Gnoll     - Pack hunters. Warriors, rangers, assassins. Limited intellect.
+Mutant    - Chaotic and unpredictable. Can be any class.
 ";
 
     public const string ClassHelpText = @"
 Class determines your profession and abilities:
 
-Warrior - Strong fighters, masters of weapons
-Paladin - Holy warriors, cannot be evil races
-Ranger - Woodsmen and trackers, balanced fighters
-Assassin - Deadly killers, masters of stealth
-Bard - Musicians and storytellers, social skills
-Jester - Entertainers and tricksters, very agile
-Alchemist - Potion makers and researchers
-Magician - Powerful spellcasters, low health
-Cleric - Healers and holy magic users
-Sage - Scholars and wise magic users
-Barbarian - Savage fighters, incredible strength
+=== MELEE FIGHTERS ===
+Warrior   - Strong fighters, masters of weapons. Balanced and reliable.
+Barbarian - Savage fighters with incredible strength. Requires brute force races.
+Paladin   - Holy warriors of virtue. Restricted to honorable races.
+
+=== HYBRID CLASSES ===
+Ranger    - Woodsmen and trackers. Balanced fighters with survival skills.
+Assassin  - Deadly killers, masters of stealth. Requires cunning and dexterity.
+Bard      - Musicians and storytellers. Social skills and light combat.
+Jester    - Entertainers and tricksters. Very agile and unpredictable.
+
+=== MAGIC USERS ===
+Magician  - Powerful spellcasters with low health. Requires high intellect.
+Sage      - Scholars and wise magic users. Requires wisdom and study.
+Cleric    - Healers and holy magic users. Requires devotion and wisdom.
+Alchemist - Potion makers and researchers. Requires intellect and patience.
 ";
 
-    // Invalid Race/Class Combinations (Pascal validation)
+    // Invalid Race/Class Combinations (Pascal validation + expanded restrictions)
+    // Based on racial attributes and common-sense fantasy archetypes
     public static readonly Dictionary<CharacterRace, CharacterClass[]> InvalidCombinations = new()
     {
-        [CharacterRace.Troll] = new[] { CharacterClass.Paladin },
-        [CharacterRace.Orc] = new[] { CharacterClass.Paladin }
+        // Humans can be anything - jack of all trades
+        // [CharacterRace.Human] = no restrictions
+
+        // Hobbits: Small, not strong - can't be heavy melee classes
+        [CharacterRace.Hobbit] = new[] { CharacterClass.Barbarian, CharacterClass.Paladin },
+
+        // Elves: Graceful and magical - poor at brute force classes
+        [CharacterRace.Elf] = new[] { CharacterClass.Barbarian },
+
+        // Half-Elves: Versatile like humans - no restrictions
+        // [CharacterRace.HalfElf] = no restrictions
+
+        // Dwarves: Strong but stubborn, distrust magic - no pure casters
+        [CharacterRace.Dwarf] = new[] { CharacterClass.Magician, CharacterClass.Sage },
+
+        // Trolls: Massive brutes, too stupid for magic or finesse
+        [CharacterRace.Troll] = new[] {
+            CharacterClass.Paladin, CharacterClass.Magician, CharacterClass.Sage,
+            CharacterClass.Cleric, CharacterClass.Alchemist, CharacterClass.Bard,
+            CharacterClass.Assassin, CharacterClass.Jester
+        },
+
+        // Orcs: Aggressive fighters, limited magical ability
+        [CharacterRace.Orc] = new[] {
+            CharacterClass.Paladin, CharacterClass.Magician, CharacterClass.Sage,
+            CharacterClass.Bard
+        },
+
+        // Gnomes: Small and clever, poor at heavy combat
+        [CharacterRace.Gnome] = new[] { CharacterClass.Barbarian, CharacterClass.Paladin },
+
+        // Gnolls: Pack hunters, limited intellect
+        [CharacterRace.Gnoll] = new[] {
+            CharacterClass.Paladin, CharacterClass.Magician, CharacterClass.Sage,
+            CharacterClass.Cleric, CharacterClass.Alchemist
+        },
+
+        // Mutants: Unpredictable - can be anything (chaos incarnate)
+        // [CharacterRace.Mutant] = no restrictions
+    };
+
+    // Restriction reasons for player feedback
+    public static readonly Dictionary<CharacterRace, string> RaceRestrictionReasons = new()
+    {
+        [CharacterRace.Hobbit] = "Hobbits are too small for heavy armor and brutal combat styles.",
+        [CharacterRace.Elf] = "Elves find brute-force fighting distasteful and beneath them.",
+        [CharacterRace.Dwarf] = "Dwarves distrust arcane magic, preferring steel to spells.",
+        [CharacterRace.Troll] = "Trolls lack the intelligence and discipline for most classes.",
+        [CharacterRace.Orc] = "Orcs are too aggressive and impatient for scholarly or holy pursuits.",
+        [CharacterRace.Gnome] = "Gnomes are too small to wield heavy weapons effectively.",
+        [CharacterRace.Gnoll] = "Gnolls lack the intellect for complex magic or holy devotion."
     };
 
     #endregion

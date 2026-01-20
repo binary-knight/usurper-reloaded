@@ -148,11 +148,7 @@ public class MainStreetLocation : BaseLocation
         terminal.SetColor("bright_yellow");
         terminal.WriteLine("║                          -= MAIN STREET =-                                  ║");
         terminal.SetColor("bright_cyan");
-        terminal.WriteLine("╠═════════════════════════════════════════════════════════════════════════════╣");
-
-        // Show current objective hint
-        ShowObjectiveHint();
-
+        terminal.WriteLine("╚═════════════════════════════════════════════════════════════════════════════╝");
         terminal.WriteLine("");
 
         // Row 1 - Primary locations
@@ -426,10 +422,6 @@ public class MainStreetLocation : BaseLocation
     {
         terminal.WriteLine("");
         terminal.WriteLine("Main Street Menu");
-        terminal.WriteLine("");
-
-        // Show current objective hint
-        ShowObjectiveHint();
         terminal.WriteLine("");
 
         terminal.WriteLine("Locations:");
@@ -1255,100 +1247,6 @@ public class MainStreetLocation : BaseLocation
         terminal.SetColor("gray");
         terminal.WriteLine("Press Enter to continue...");
         await terminal.PressAnyKey();
-    }
-
-    /// <summary>
-    /// Show the current objective hint to guide players through the core loop
-    /// </summary>
-    private void ShowObjectiveHint()
-    {
-        var story = StoryProgressionSystem.Instance;
-        var sealsCollected = story.CollectedSeals?.Count ?? 0;
-        int playerLevel = currentPlayer?.Level ?? 1;
-
-        string hint;
-        string hintColor;
-
-        // Determine the most relevant objective based on progress
-        if (playerLevel < 5)
-        {
-            // New player - guide to dungeon
-            hint = "TIP: Enter the [D]ungeons to fight monsters and gain experience!";
-            hintColor = "bright_green";
-        }
-        else if (currentPlayer?.CurrentHP < currentPlayer?.MaxHP / 3)
-        {
-            // Low health - guide to healer
-            hint = "WARNING: Health low! Visit the [1]Healer or [I]nn to recover.";
-            hintColor = "bright_red";
-        }
-        else if (sealsCollected == 0 && playerLevel >= 10)
-        {
-            // No seals yet - explain seals
-            hint = "QUEST: Explore dungeon floors 15, 30, 45, 60, 80, 99 to find the Seven Seals!";
-            hintColor = "bright_cyan";
-        }
-        else if (sealsCollected > 0 && sealsCollected < 7)
-        {
-            // Partial seals - show progress
-            var nextSealFloor = GetNextSealFloor(story);
-            hint = $"QUEST: Seals collected: {sealsCollected}/7. Next seal on floor {nextSealFloor}.";
-            hintColor = "bright_magenta";
-        }
-        else if (sealsCollected >= 7 && playerLevel < 100)
-        {
-            // All seals, need to reach floor 100
-            hint = "QUEST: All seals collected! Reach floor 100 to face Manwe, the Creator.";
-            hintColor = "bright_yellow";
-        }
-        else if (playerLevel >= 60 && !story.HasStoryFlag("maelketh_encountered"))
-        {
-            // Ready for first god
-            hint = "BOSS: You're strong enough to face Maelketh on floor 60!";
-            hintColor = "bright_red";
-        }
-        else if (playerLevel >= 80 && !story.HasStoryFlag("terravok_encountered"))
-        {
-            // Ready for Terravok
-            hint = "BOSS: Terravok awaits on floor 80. Will you wake the mountain?";
-            hintColor = "yellow";
-        }
-        else if (playerLevel >= 95)
-        {
-            // Endgame
-            hint = "FINALE: The Creator awaits on floor 100. Your choices will determine the ending.";
-            hintColor = "bright_white";
-        }
-        else
-        {
-            // Default - show dungeon progress
-            int suggestedFloor = Math.Min(100, playerLevel + 5);
-            hint = $"TIP: You can safely explore floors up to {suggestedFloor}. Press [D] to enter.";
-            hintColor = "gray";
-        }
-
-        terminal.SetColor(hintColor);
-        terminal.WriteLine($"║ {hint,-75} ║");
-    }
-
-    /// <summary>
-    /// Get the next seal floor the player hasn't collected yet
-    /// </summary>
-    private int GetNextSealFloor(StoryProgressionSystem story)
-    {
-        // Floor 0 = Temple (Creation seal), rest are dungeon floors
-        int[] sealFloors = { 0, 15, 30, 45, 60, 80, 99 };
-        var sealTypes = new[] { SealType.Creation, SealType.FirstWar, SealType.Corruption, SealType.Imprisonment, SealType.Prophecy, SealType.Regret, SealType.Truth };
-
-        for (int i = 0; i < sealFloors.Length; i++)
-        {
-            if (!story.CollectedSeals.Contains(sealTypes[i]))
-            {
-                // Return 0 for Temple seal, otherwise dungeon floor
-                return sealFloors[i];
-            }
-        }
-        return 99; // Final seal (Truth) on floor 99
     }
 
     /// <summary>
@@ -2365,9 +2263,8 @@ public class MainStreetLocation : BaseLocation
         terminal.WriteLine("║  Ancient artifacts that reveal the truth of creation                         ║");
         terminal.WriteLine("║                                                                              ║");
 
-        // Seal status display (floor 0 = Temple for Creation seal, rest are dungeon floors)
+        // Seal status display
         var sealTypes = new[] { SealType.Creation, SealType.FirstWar, SealType.Corruption, SealType.Imprisonment, SealType.Prophecy, SealType.Regret, SealType.Truth };
-        var sealFloors = new[] { 0, 15, 30, 45, 60, 80, 99 };
         var sealNames = new[] { "Creation", "First War", "Corruption", "Imprisonment", "Prophecy", "Regret", "Truth" };
 
         int sealsCollected = story.CollectedSeals?.Count ?? 0;
@@ -2391,14 +2288,15 @@ public class MainStreetLocation : BaseLocation
         terminal.SetColor("white");
         terminal.WriteLine($"                                      ║");
 
-        // Show detailed seal info
+        // Show detailed seal info (without floor numbers - let players discover them)
         for (int i = 0; i < sealTypes.Length; i++)
         {
             bool hasIt = story.CollectedSeals?.Contains(sealTypes[i]) ?? false;
             string status = hasIt ? "+" : " ";
             string color = hasIt ? "bright_green" : "darkgray";
+            string locationHint = hasIt ? "Found" : "Hidden in the depths...";
             terminal.SetColor(color);
-            terminal.WriteLine($"║    {status} Seal of {sealNames[i],-12} (Floor {sealFloors[i],3})                                      ║");
+            terminal.WriteLine($"║    {status} Seal of {sealNames[i],-12} - {locationHint,-30}                 ║");
         }
 
         terminal.SetColor("bright_cyan");
@@ -2413,36 +2311,40 @@ public class MainStreetLocation : BaseLocation
 
         var godData = new[]
         {
-            ("Maelketh", "God of War", 60, "maelketh_encountered", "maelketh_defeated"),
-            ("Terravok", "God of Earth", 80, "terravok_encountered", "terravok_defeated"),
-            ("Manwe", "Lord of Air", 100, "manwe_encountered", "manwe_defeated")
+            ("Maelketh", "God of War", "maelketh_encountered", "maelketh_defeated"),
+            ("Terravok", "God of Earth", "terravok_encountered", "terravok_defeated"),
+            ("Manwe", "Lord of Air", "manwe_encountered", "manwe_defeated")
         };
 
-        foreach (var (name, title, floor, encFlag, defFlag) in godData)
+        foreach (var (name, title, encFlag, defFlag) in godData)
         {
             bool encountered = story.HasStoryFlag(encFlag);
             bool defeated = story.HasStoryFlag(defFlag);
 
             string status;
             string color;
+            string location;
             if (defeated)
             {
                 status = "DEFEATED";
                 color = "bright_green";
+                location = "Conquered";
             }
             else if (encountered)
             {
                 status = "Encountered";
                 color = "bright_yellow";
+                location = "Known";
             }
             else
             {
                 status = "Unknown";
                 color = "darkgray";
+                location = "Somewhere in the depths...";
             }
 
             terminal.SetColor(color);
-            terminal.WriteLine($"║    {name,-10} {title,-15} Floor {floor,3}  [{status,-12}]              ║");
+            terminal.WriteLine($"║    {name,-10} {title,-15} {location,-25} [{status,-12}] ║");
         }
 
         terminal.SetColor("bright_cyan");
@@ -2543,17 +2445,16 @@ public class MainStreetLocation : BaseLocation
         terminal.SetColor("bright_cyan");
         terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
 
-        // Next objective hint
+        // Next objective hint (vague to encourage exploration)
         terminal.WriteLine("");
         terminal.SetColor("bright_yellow");
         if (sealsCollected < 7)
         {
-            int nextFloor = GetNextSealFloor(story);
-            terminal.WriteLine($"  NEXT OBJECTIVE: Find the Seal on Floor {nextFloor}");
+            terminal.WriteLine($"  The ancient seals await discovery in the dungeon's depths...");
         }
         else if (!story.HasStoryFlag("manwe_defeated"))
         {
-            terminal.WriteLine("  NEXT OBJECTIVE: Challenge Manwe, Lord of Air, on Floor 100");
+            terminal.WriteLine("  All seals gathered. The Creator awaits in the deepest reaches...");
         }
         else
         {

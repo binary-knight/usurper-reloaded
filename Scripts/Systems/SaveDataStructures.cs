@@ -319,6 +319,12 @@ namespace UsurperRemake.Systems
 
         // Recurring Duelist Rival
         public DuelistData? RecurringDuelist { get; set; }
+
+        // Dungeon progression - tracks which boss/seal floors have been cleared
+        public HashSet<int> ClearedSpecialFloors { get; set; } = new();
+
+        // Dungeon floor persistence - tracks room state, respawn timers, etc.
+        public Dictionary<int, DungeonFloorStateData> DungeonFloorStates { get; set; } = new();
     }
 
     /// <summary>
@@ -974,5 +980,38 @@ namespace UsurperRemake.Systems
         public bool ConfessionAccepted { get; set; }
         public List<string> TopicsDiscussed { get; set; } = new();
         public DateTime LastConversationDate { get; set; }
+    }
+
+    /// <summary>
+    /// Persistent dungeon floor state - tracks room exploration, clears, and respawn timing
+    /// </summary>
+    public class DungeonFloorStateData
+    {
+        public int FloorLevel { get; set; }
+        public DateTime LastClearedAt { get; set; }          // When floor was fully cleared
+        public DateTime LastVisitedAt { get; set; }          // When player last visited
+        public bool EverCleared { get; set; } = false;       // Has this floor ever been fully cleared? (for first-clear bonus)
+        public bool IsPermanentlyClear { get; set; } = false; // Boss/seal floors stay cleared forever
+        public string CurrentRoomId { get; set; } = "";      // Where player left off
+        public List<DungeonRoomStateData> Rooms { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Persistent room state within a dungeon floor
+    /// </summary>
+    public class DungeonRoomStateData
+    {
+        public string RoomId { get; set; } = "";
+        public bool IsExplored { get; set; }
+        public bool IsCleared { get; set; }
+        public bool TreasureLooted { get; set; }
+        public bool TrapTriggered { get; set; }
+        public bool EventCompleted { get; set; }
+        public bool PuzzleSolved { get; set; }
+        public bool RiddleAnswered { get; set; }
+        public bool LoreCollected { get; set; }
+        public bool InsightGranted { get; set; }
+        public bool MemoryTriggered { get; set; }
+        public bool SecretBossDefeated { get; set; }
     }
 } 

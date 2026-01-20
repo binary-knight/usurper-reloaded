@@ -52,12 +52,21 @@ public class DungeonLocation : BaseLocation
         if (currentDungeonLevel > maxDungeonLevel)
             currentDungeonLevel = maxDungeonLevel;
 
-        // Generate floor for this player's level
+        // Check if player is trying to skip an uncleared boss/seal floor
+        // They can't enter floors beyond an uncleared special floor
+        currentDungeonLevel = GetMaxAccessibleFloor(player, currentDungeonLevel);
+
+        // Generate or restore floor based on persistence state
         bool isNewFloor = currentFloor == null || currentFloor.Level != currentDungeonLevel;
         if (isNewFloor)
         {
-            currentFloor = DungeonGenerator.GenerateFloor(currentDungeonLevel);
-            roomsExploredThisFloor = 0;
+            // Check if we have saved state for this floor
+            var floorResult = GenerateOrRestoreFloor(player, currentDungeonLevel);
+            currentFloor = floorResult.Floor;
+            bool wasRestored = floorResult.WasRestored;
+            bool didRespawn = floorResult.DidRespawn;
+
+            roomsExploredThisFloor = wasRestored ? currentFloor.Rooms.Count(r => r.IsExplored) : 0;
             hasRestThisFloor = false;
 
             // Track dungeon exploration statistics
@@ -66,7 +75,7 @@ public class DungeonLocation : BaseLocation
             // Track archetype - Explorer for dungeon exploration
             UsurperRemake.Systems.ArchetypeTracker.Instance.RecordDungeonExploration(currentDungeonLevel);
 
-            // Show dramatic dungeon entrance art for new floors
+            // Show dramatic dungeon entrance art
             term.ClearScreen();
             await UsurperRemake.UI.ANSIArt.DisplayArtAnimated(term, UsurperRemake.UI.ANSIArt.DungeonEntrance, 40);
             term.WriteLine("");
@@ -74,6 +83,19 @@ public class DungeonLocation : BaseLocation
             term.WriteLine($"  Floor {currentDungeonLevel} - {currentFloor.Theme}");
             term.SetColor("gray");
             term.WriteLine($"  {GetThemeDescription(currentFloor.Theme)}");
+
+            // Show persistence status
+            if (wasRestored && !didRespawn)
+            {
+                term.SetColor("bright_green");
+                term.WriteLine("  [Continuing where you left off...]");
+            }
+            else if (didRespawn)
+            {
+                term.SetColor("yellow");
+                term.WriteLine("  [The dungeon's dark magic has drawn new creatures from the depths...]");
+            }
+
             term.WriteLine("");
             term.SetColor("darkgray");
             term.Write("  Press Enter to continue...");
@@ -1656,12 +1678,12 @@ public class DungeonLocation : BaseLocation
         }
         else if (floor >= 50 && floor < 60)
         {
-            hint = $"TIP: Floor 60 has the first Old God. Prepare your equipment!";
+            hint = "TIP: Something powerful stirs in the depths below...";
             color = "yellow";
         }
         else if (floor >= 70 && floor < 80)
         {
-            hint = $"TIP: Floor 80 has another Old God. Are you ready?";
+            hint = "TIP: Ancient power awaits those who dare descend further...";
             color = "yellow";
         }
 
@@ -1681,6 +1703,21 @@ public class DungeonLocation : BaseLocation
             return $"Dungeons > Level {currentDungeonLevel} > {room.Name}";
         }
         return $"Main Street > Dungeons > Level {currentDungeonLevel}";
+    }
+
+    /// <summary>
+    /// Override to save floor state before leaving dungeon
+    /// </summary>
+    protected override async Task NavigateToLocation(GameLocation destination)
+    {
+        // Save current floor state before leaving
+        var player = GetCurrentPlayer();
+        if (player != null)
+        {
+            SaveFloorState(player);
+        }
+
+        await base.NavigateToLocation(destination);
     }
 
     protected override async Task<bool> ProcessChoice(string choice)
@@ -1869,21 +1906,15 @@ public class DungeonLocation : BaseLocation
 
         if (level < 10)
             return "Explore the dungeons and grow stronger. Something awaits in the depths...";
-        if (level < 15)
-            return "Descend to floor 15 where ancient blood stains the stones. A Seal awaits.";
         if (story.CollectedSeals.Count == 0)
             return "Find the Seals of the Old Gods hidden throughout the dungeon. They hold the truth.";
-        if (level < 50 && story.CollectedSeals.Count < 4)
+        if (story.CollectedSeals.Count < 4)
             return "Continue collecting Seals. Each one reveals more of the divine history.";
-        if (level < 60)
-            return "The prophecy awaits on floor 60. Discover what the Oracle foretold.";
-        if (level < 75)
-            return "Descend deeper. Your memories are returning. The truth is close.";
-        if (level < 99)
-            return "Reach floor 99 for the final Seal. Then face what waits on floor 100.";
         if (story.CollectedSeals.Count < 7)
-            return "Collect all Seven Seals before facing Manwe to unlock the true ending.";
-        return "Face Manwe, the Creator. Choose your ending. The story ends where it began.";
+            return "Descend deeper. The remaining Seals await discovery in the abyss.";
+        if (!story.HasStoryFlag("manwe_defeated"))
+            return "All Seals collected. Face Manwe, the Creator. Choose your ending.";
+        return "The story ends where it began. Seek your ending.";
     }
 
     private void ShowKnownLore(StoryProgressionSystem story)
@@ -1937,11 +1968,11 @@ public class DungeonLocation : BaseLocation
 
         // Level suggestions
         if (level < 15)
-            steps.Add("- Reach level 15 to access the first Seal location");
+            steps.Add("- Grow stronger to delve deeper into the dungeon");
         else if (level < 50)
             steps.Add("- Continue leveling to access deeper dungeon floors");
         else if (level < 100)
-            steps.Add("- Push toward floor 100 for the final confrontation");
+            steps.Add("- Descend deeper. Ancient powers await in the abyss.");
 
         // Story suggestions
         if (!story.HasStoryFlag("met_stranger"))
@@ -1951,7 +1982,7 @@ public class DungeonLocation : BaseLocation
 
         if (steps.Count == 0)
         {
-            steps.Add("- You are ready. Face Manwe on floor 100.");
+            steps.Add("- You are ready. Face the Creator in the deepest depths.");
         }
 
         foreach (var step in steps.Take(4))
@@ -2728,6 +2759,294 @@ public class DungeonLocation : BaseLocation
         );
     }
 
+    // Floors that require full clear before leaving
+    private static readonly int[] SealFloors = { 15, 30, 45, 60, 80, 99 };
+    private static readonly int[] SecretBossFloors = { 25, 50, 75, 99 };
+
+    // Combined list of all special floors for easy lookup
+    private static readonly int[] AllSpecialFloors = { 15, 25, 30, 45, 50, 60, 75, 80, 99 };
+
+    /// <summary>
+    /// Result of floor generation/restoration
+    /// </summary>
+    private struct FloorGenerationResult
+    {
+        public DungeonFloor Floor;
+        public bool WasRestored;  // True if floor was restored from save
+        public bool DidRespawn;   // True if monsters respawned (24h passed)
+    }
+
+    /// <summary>
+    /// Generate a new floor or restore from saved state with respawn logic
+    /// - If no saved state: generate fresh floor
+    /// - If saved state exists and <24h: restore exactly as saved
+    /// - If saved state exists and >24h: restore but respawn monsters (keep treasure looted)
+    /// - Boss/seal floors: never respawn once cleared
+    /// </summary>
+    private FloorGenerationResult GenerateOrRestoreFloor(Character player, int floorLevel)
+    {
+        // Check if we have saved state for this floor
+        if (player.DungeonFloorStates.TryGetValue(floorLevel, out var savedState))
+        {
+            // Generate fresh floor structure (layout is deterministic per level)
+            var floor = DungeonGenerator.GenerateFloor(floorLevel);
+
+            bool shouldRespawn = savedState.ShouldRespawn();
+
+            // Restore room states
+            foreach (var room in floor.Rooms)
+            {
+                if (savedState.RoomStates.TryGetValue(room.Id, out var roomState))
+                {
+                    room.IsExplored = roomState.IsExplored;
+
+                    // Monster clear status respawns after 24h (unless permanent)
+                    if (shouldRespawn && !savedState.IsPermanentlyClear)
+                    {
+                        // Monsters respawn - room is no longer cleared
+                        room.IsCleared = false;
+                    }
+                    else
+                    {
+                        room.IsCleared = roomState.IsCleared;
+                    }
+
+                    // These are permanent - never respawn
+                    room.TreasureLooted = roomState.TreasureLooted;
+                    room.TrapTriggered = roomState.TrapTriggered;
+                    room.EventCompleted = roomState.EventCompleted;
+                    room.PuzzleSolved = roomState.PuzzleSolved;
+                    room.RiddleAnswered = roomState.RiddleAnswered;
+                    room.LoreCollected = roomState.LoreCollected;
+                    room.InsightGranted = roomState.InsightGranted;
+                    room.MemoryTriggered = roomState.MemoryTriggered;
+                    room.SecretBossDefeated = roomState.SecretBossDefeated;
+                }
+            }
+
+            // Restore current room position
+            if (!string.IsNullOrEmpty(savedState.CurrentRoomId))
+            {
+                floor.CurrentRoomId = savedState.CurrentRoomId;
+            }
+
+            // Update visit time
+            savedState.LastVisitedAt = DateTime.Now;
+
+            return new FloorGenerationResult
+            {
+                Floor = floor,
+                WasRestored = true,
+                DidRespawn = shouldRespawn && !savedState.IsPermanentlyClear
+            };
+        }
+
+        // No saved state - generate fresh floor
+        var newFloor = DungeonGenerator.GenerateFloor(floorLevel);
+
+        // Create initial floor state
+        bool isSpecialFloor = SealFloors.Contains(floorLevel) || SecretBossFloors.Contains(floorLevel);
+        player.DungeonFloorStates[floorLevel] = new DungeonFloorState
+        {
+            FloorLevel = floorLevel,
+            LastVisitedAt = DateTime.Now,
+            IsPermanentlyClear = false, // Will be set true when cleared if special floor
+            RoomStates = new Dictionary<string, DungeonRoomState>()
+        };
+
+        return new FloorGenerationResult
+        {
+            Floor = newFloor,
+            WasRestored = false,
+            DidRespawn = false
+        };
+    }
+
+    /// <summary>
+    /// Save current floor state to player's persistent data
+    /// Called when leaving dungeon or changing floors
+    /// </summary>
+    private void SaveFloorState(Character player)
+    {
+        if (currentFloor == null || player == null) return;
+
+        var floorLevel = currentDungeonLevel;
+
+        // Get or create floor state
+        if (!player.DungeonFloorStates.TryGetValue(floorLevel, out var floorState))
+        {
+            floorState = new DungeonFloorState { FloorLevel = floorLevel };
+            player.DungeonFloorStates[floorLevel] = floorState;
+        }
+
+        floorState.LastVisitedAt = DateTime.Now;
+        floorState.CurrentRoomId = currentFloor.CurrentRoomId;
+
+        // Check if floor is now fully cleared
+        bool isNowCleared = IsFloorCleared();
+        if (isNowCleared && !floorState.EverCleared)
+        {
+            floorState.EverCleared = true;
+            floorState.LastClearedAt = DateTime.Now;
+
+            // Special floors stay permanently cleared
+            if (SealFloors.Contains(floorLevel) || SecretBossFloors.Contains(floorLevel))
+            {
+                floorState.IsPermanentlyClear = true;
+            }
+        }
+
+        // Save room states
+        floorState.RoomStates.Clear();
+        foreach (var room in currentFloor.Rooms)
+        {
+            floorState.RoomStates[room.Id] = new DungeonRoomState
+            {
+                RoomId = room.Id,
+                IsExplored = room.IsExplored,
+                IsCleared = room.IsCleared,
+                TreasureLooted = room.TreasureLooted,
+                TrapTriggered = room.TrapTriggered,
+                EventCompleted = room.EventCompleted,
+                PuzzleSolved = room.PuzzleSolved,
+                RiddleAnswered = room.RiddleAnswered,
+                LoreCollected = room.LoreCollected,
+                InsightGranted = room.InsightGranted,
+                MemoryTriggered = room.MemoryTriggered,
+                SecretBossDefeated = room.SecretBossDefeated
+            };
+        }
+    }
+
+    /// <summary>
+    /// Get the maximum floor the player can access based on their cleared special floors
+    /// Players cannot skip past uncleared boss/seal floors
+    /// </summary>
+    private int GetMaxAccessibleFloor(Character player, int requestedFloor)
+    {
+        if (player == null)
+            return requestedFloor;
+
+        // Find the first uncleared special floor that would block access
+        foreach (int specialFloor in AllSpecialFloors.OrderBy(f => f))
+        {
+            // If player wants to go to or past this special floor
+            if (requestedFloor >= specialFloor)
+            {
+                // But hasn't cleared it yet
+                if (!player.ClearedSpecialFloors.Contains(specialFloor))
+                {
+                    // They must start at this floor (or below it if they're lower level)
+                    return Math.Min(requestedFloor, specialFloor);
+                }
+            }
+        }
+
+        return requestedFloor;
+    }
+
+    /// <summary>
+    /// Check if current floor requires clearing before leaving
+    /// Boss floors and seal floors must be fully cleared
+    /// </summary>
+    private bool RequiresFloorClear()
+    {
+        return SealFloors.Contains(currentDungeonLevel) || SecretBossFloors.Contains(currentDungeonLevel);
+    }
+
+    /// <summary>
+    /// Check if current floor is fully cleared (all monster rooms defeated)
+    /// </summary>
+    private bool IsFloorCleared()
+    {
+        if (currentFloor == null) return true;
+        return currentFloor.Rooms.All(r => !r.HasMonsters || r.IsCleared);
+    }
+
+    /// <summary>
+    /// Get description of what remains to clear on the floor
+    /// </summary>
+    private string GetRemainingClearInfo()
+    {
+        if (currentFloor == null) return "";
+        int remaining = currentFloor.Rooms.Count(r => r.HasMonsters && !r.IsCleared);
+        int total = currentFloor.Rooms.Count(r => r.HasMonsters);
+        return $"{remaining} of {total} monster rooms remain uncleared";
+    }
+
+    /// <summary>
+    /// Award bonus XP and gold for fully clearing a floor
+    /// Only awards bonus on FIRST clear - respawned floors don't give bonus again
+    /// </summary>
+    private async Task AwardFloorCompletionBonus(Character player, int floorLevel)
+    {
+        // Check if this is the first time clearing this floor
+        bool isFirstClear = true;
+        if (player.DungeonFloorStates.TryGetValue(floorLevel, out var floorState))
+        {
+            isFirstClear = !floorState.EverCleared;
+        }
+
+        // Only award bonus on first clear
+        if (!isFirstClear)
+        {
+            terminal.WriteLine("");
+            terminal.WriteLine("You have re-cleared this floor.", "gray");
+            terminal.WriteLine("(Completion bonus only awarded on first clear)", "darkgray");
+            terminal.WriteLine("");
+            await Task.Delay(1500);
+            return;
+        }
+
+        // Base bonus scales with floor level
+        int baseXP = (int)(50 * Math.Pow(floorLevel, 1.2));
+        int baseGold = (int)(25 * Math.Pow(floorLevel, 1.15));
+
+        // Boss/seal floors give 3x bonus
+        bool isSpecialFloor = SealFloors.Contains(floorLevel) || SecretBossFloors.Contains(floorLevel);
+        float multiplier = isSpecialFloor ? 3.0f : 1.0f;
+
+        int xpBonus = (int)(baseXP * multiplier);
+        int goldBonus = (int)(baseGold * multiplier);
+
+        // Award the bonus
+        player.Experience += xpBonus;
+        player.Gold += goldBonus;
+
+        // Display the bonus
+        terminal.WriteLine("");
+        if (isSpecialFloor)
+        {
+            terminal.WriteLine("╔══════════════════════════════════════╗", "bright_yellow");
+            terminal.WriteLine("║      FLOOR CONQUERED!                ║", "bright_yellow");
+            terminal.WriteLine("╚══════════════════════════════════════╝", "bright_yellow");
+            terminal.WriteLine($"You have proven your worth on this sacred floor!", "bright_magenta");
+        }
+        else
+        {
+            terminal.WriteLine("═══ FLOOR CLEARED ═══", "bright_green");
+            terminal.WriteLine("You have vanquished all foes on this level!", "green");
+        }
+        terminal.WriteLine($"  Bonus XP: +{xpBonus:N0}", "bright_cyan");
+        terminal.WriteLine($"  Bonus Gold: +{goldBonus:N0}", "bright_yellow");
+        terminal.WriteLine("");
+
+        // Track telemetry
+        TelemetrySystem.Instance.TrackDungeonEvent(
+            "floor_cleared", player.Level, floorLevel,
+            details: isSpecialFloor ? "boss_floor" : "normal",
+            xpGained: xpBonus, goldChange: goldBonus
+        );
+
+        // Mark special floors as cleared in persistent player data
+        if (isSpecialFloor)
+        {
+            player.ClearedSpecialFloors.Add(floorLevel);
+        }
+
+        await Task.Delay(2500);
+    }
+
     /// <summary>
     /// Descend to the next floor
     /// </summary>
@@ -2736,6 +3055,25 @@ public class DungeonLocation : BaseLocation
         var player = GetCurrentPlayer();
         var playerLevel = player?.Level ?? 1;
         int maxAccessible = Math.Min(maxDungeonLevel, playerLevel + 10);
+
+        // Check if this is a boss/seal floor that requires clearing
+        if (RequiresFloorClear() && !IsFloorCleared())
+        {
+            terminal.WriteLine("", "red");
+            if (SealFloors.Contains(currentDungeonLevel))
+            {
+                terminal.WriteLine("This floor holds an ancient Seal.", "bright_magenta");
+                terminal.WriteLine("You must clear this floor before you can descend.", "yellow");
+            }
+            else
+            {
+                terminal.WriteLine("A powerful presence blocks your path.", "bright_red");
+                terminal.WriteLine("You must defeat the guardian of this floor before descending.", "yellow");
+            }
+            terminal.WriteLine($"({GetRemainingClearInfo()})", "gray");
+            await Task.Delay(2500);
+            return;
+        }
 
         // Check level restriction (player level +/- 10)
         if (currentDungeonLevel >= maxAccessible)
@@ -2754,6 +3092,18 @@ public class DungeonLocation : BaseLocation
             return;
         }
 
+        // Award floor completion bonus if fully cleared (optional for non-boss floors)
+        if (IsFloorCleared() && player != null)
+        {
+            await AwardFloorCompletionBonus(player, currentDungeonLevel);
+        }
+
+        // Save current floor state before leaving
+        if (player != null)
+        {
+            SaveFloorState(player);
+        }
+
         terminal.ClearScreen();
         terminal.SetColor("blue");
         terminal.WriteLine("You descend the ancient stairs...");
@@ -2761,9 +3111,12 @@ public class DungeonLocation : BaseLocation
         terminal.WriteLine("The air grows colder.");
         await Task.Delay(2000);
 
-        currentDungeonLevel++;
-        currentFloor = DungeonGenerator.GenerateFloor(currentDungeonLevel);
-        roomsExploredThisFloor = 0;
+        // Generate or restore the next floor
+        int nextLevel = currentDungeonLevel + 1;
+        var floorResult = GenerateOrRestoreFloor(player, nextLevel);
+        currentFloor = floorResult.Floor;
+        currentDungeonLevel = nextLevel;
+        roomsExploredThisFloor = floorResult.WasRestored ? currentFloor.Rooms.Count(r => r.IsExplored) : 0;
         hasRestThisFloor = false;
         consecutiveMonsterRooms = 0;
 
@@ -2781,17 +3134,20 @@ public class DungeonLocation : BaseLocation
             QuestSystem.OnDungeonFloorReached(player, currentDungeonLevel);
         }
 
-        // Start in entrance room
-        currentFloor.CurrentRoomId = currentFloor.EntranceRoomId;
-        var entranceRoom = currentFloor.GetCurrentRoom();
-        if (entranceRoom != null)
+        // Start in entrance room (or restored position)
+        if (!floorResult.WasRestored || string.IsNullOrEmpty(currentFloor.CurrentRoomId))
         {
-            entranceRoom.IsExplored = true;
-            roomsExploredThisFloor++;
-            // Auto-clear rooms without monsters
-            if (!entranceRoom.HasMonsters)
+            currentFloor.CurrentRoomId = currentFloor.EntranceRoomId;
+            var entranceRoom = currentFloor.GetCurrentRoom();
+            if (entranceRoom != null)
             {
-                entranceRoom.IsCleared = true;
+                entranceRoom.IsExplored = true;
+                roomsExploredThisFloor++;
+                // Auto-clear rooms without monsters
+                if (!entranceRoom.HasMonsters)
+                {
+                    entranceRoom.IsCleared = true;
+                }
             }
         }
 
@@ -2799,6 +3155,19 @@ public class DungeonLocation : BaseLocation
         terminal.WriteLine("");
         terminal.WriteLine($"You arrive at Level {currentDungeonLevel}");
         terminal.WriteLine($"Theme: {currentFloor.Theme}");
+
+        // Show restoration status
+        if (floorResult.WasRestored && !floorResult.DidRespawn)
+        {
+            terminal.SetColor("bright_green");
+            terminal.WriteLine("[Continuing where you left off...]");
+        }
+        else if (floorResult.DidRespawn)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("[New creatures have emerged from the depths...]");
+        }
+
         terminal.WriteLine("");
         terminal.SetColor("gray");
         terminal.WriteLine(GetFloorFlavorText(currentFloor.Theme));
@@ -2827,8 +3196,22 @@ public class DungeonLocation : BaseLocation
         long healAmount = player.MaxHP / 4;
         player.HP = Math.Min(player.MaxHP, player.HP + healAmount);
 
+        // Recover 25% of max Mana
+        long manaAmount = player.MaxMana / 4;
+        player.Mana = Math.Min(player.MaxMana, player.Mana + manaAmount);
+
+        // Recover 25% of max Combat Stamina
+        long staminaAmount = player.MaxCombatStamina / 4;
+        player.CurrentCombatStamina = Math.Min(player.MaxCombatStamina, player.CurrentCombatStamina + staminaAmount);
+
         terminal.WriteLine($"You recover {healAmount} hit points.");
-        terminal.WriteLine($"HP: {player.HP}/{player.MaxHP}");
+        if (manaAmount > 0)
+            terminal.WriteLine($"You recover {manaAmount} mana.");
+        if (staminaAmount > 0)
+            terminal.WriteLine($"You recover {staminaAmount} stamina.");
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"HP: {player.HP}/{player.MaxHP}  MP: {player.Mana}/{player.MaxMana}  ST: {player.CurrentCombatStamina}/{player.MaxCombatStamina}");
 
         hasRestThisFloor = true;
 
@@ -2877,18 +3260,56 @@ public class DungeonLocation : BaseLocation
         // Clamp to accessible range based on player level (+/- 10)
         targetLevel = Math.Max(minAccessible, Math.Min(maxAccessible, targetLevel));
 
+        // Check if trying to leave a boss/seal floor that requires clearing
+        if (targetLevel != currentDungeonLevel && RequiresFloorClear() && !IsFloorCleared())
+        {
+            terminal.WriteLine("", "red");
+            if (SealFloors.Contains(currentDungeonLevel))
+            {
+                terminal.WriteLine("This floor holds an ancient Seal.", "bright_magenta");
+                terminal.WriteLine("You must clear this floor before you can leave.", "yellow");
+            }
+            else
+            {
+                terminal.WriteLine("A powerful presence blocks your path.", "bright_red");
+                terminal.WriteLine("You must defeat the guardian of this floor before leaving.", "yellow");
+            }
+            terminal.WriteLine($"({GetRemainingClearInfo()})", "gray");
+            await Task.Delay(2500);
+            return;
+        }
+
         if (targetLevel != currentDungeonLevel)
         {
+            var player = GetCurrentPlayer();
+
+            // Save current floor state before leaving
+            if (player != null)
+            {
+                SaveFloorState(player);
+            }
+
+            // Generate or restore the target floor
+            var floorResult = GenerateOrRestoreFloor(player, targetLevel);
+            currentFloor = floorResult.Floor;
             currentDungeonLevel = targetLevel;
-            currentFloor = DungeonGenerator.GenerateFloor(currentDungeonLevel);
-            roomsExploredThisFloor = 0;
+            roomsExploredThisFloor = floorResult.WasRestored ? currentFloor.Rooms.Count(r => r.IsExplored) : 0;
             hasRestThisFloor = false;
             consecutiveMonsterRooms = 0;
 
             terminal.WriteLine($"Dungeon level set to {currentDungeonLevel}.", "green");
 
+            // Show restoration status
+            if (floorResult.WasRestored && !floorResult.DidRespawn)
+            {
+                terminal.WriteLine("[Continuing where you left off...]", "bright_green");
+            }
+            else if (floorResult.DidRespawn)
+            {
+                terminal.WriteLine("[New creatures have emerged from the depths...]", "yellow");
+            }
+
             // Check for story events (seals, narrative moments) on this new floor
-            var player = GetCurrentPlayer();
             if (player != null)
             {
                 await CheckFloorStoryEvents(player, terminal);
@@ -3267,7 +3688,7 @@ public class DungeonLocation : BaseLocation
             {
                 "\"Day 12: The creatures here grow stronger. I've heard whispers of something ancient below...\"",
                 "\"I've discovered that certain monsters fear fire. Must remember this.\"",
-                "\"The merchants in town warned me about floor 25. They were right to be afraid.\"",
+                "\"The merchants in town warned me about these depths. They were right to be afraid.\"",
                 "\"If anyone finds this: Defend often. Healing is precious. Don't fight tired.\""
             };
         }
@@ -7573,9 +7994,21 @@ public class DungeonLocation : BaseLocation
         if (!hasRestThisFloor)
         {
             terminal.WriteLine("You rest and recover your strength.", "green");
+
+            // Sanctuary provides better recovery - 33% of max stats
             long healAmount = player.MaxHP / 3;
             player.HP = Math.Min(player.MaxHP, player.HP + healAmount);
             terminal.WriteLine($"You recover {healAmount} HP!");
+
+            long manaAmount = player.MaxMana / 3;
+            player.Mana = Math.Min(player.MaxMana, player.Mana + manaAmount);
+            if (manaAmount > 0)
+                terminal.WriteLine($"You recover {manaAmount} mana!");
+
+            long staminaAmount = player.MaxCombatStamina / 3;
+            player.CurrentCombatStamina = Math.Min(player.MaxCombatStamina, player.CurrentCombatStamina + staminaAmount);
+            if (staminaAmount > 0)
+                terminal.WriteLine($"You recover {staminaAmount} stamina!");
 
             // Cure poison
             if (player.Poison > 0)

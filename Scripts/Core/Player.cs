@@ -22,7 +22,7 @@ public class Player : Character
     public int Deaths { get; set; }
     public int TimesRuler { get; set; }
     public int DungeonLevel { get; set; } = 1;
-    
+
     // Player preferences
     public bool AutoFight { get; set; } = false;
     public bool CompactMode { get; set; } = false;

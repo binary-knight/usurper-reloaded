@@ -1562,11 +1562,70 @@ public partial class GameEngine : Node
                 playerData.RecurringDuelist.IsDead);
         }
 
+        // Restore dungeon progression (cleared boss/seal floors)
+        if (playerData.ClearedSpecialFloors != null)
+        {
+            player.ClearedSpecialFloors = playerData.ClearedSpecialFloors;
+        }
+
+        // Restore dungeon floor states (room exploration, respawn timers)
+        if (playerData.DungeonFloorStates != null)
+        {
+            player.DungeonFloorStates = RestoreDungeonFloorStates(playerData.DungeonFloorStates);
+        }
+
         // CRITICAL: Recalculate stats to apply equipment bonuses from loaded items
         // This ensures WeapPow, ArmPow, and all stat bonuses are correctly applied
         player.RecalculateStats();
 
         return player;
+    }
+
+    /// <summary>
+    /// Restore dungeon floor states from save data
+    /// </summary>
+    private Dictionary<int, UsurperRemake.Systems.DungeonFloorState> RestoreDungeonFloorStates(
+        Dictionary<int, DungeonFloorStateData> savedStates)
+    {
+        var result = new Dictionary<int, UsurperRemake.Systems.DungeonFloorState>();
+
+        foreach (var kvp in savedStates)
+        {
+            var saved = kvp.Value;
+            var state = new UsurperRemake.Systems.DungeonFloorState
+            {
+                FloorLevel = saved.FloorLevel,
+                LastClearedAt = saved.LastClearedAt,
+                LastVisitedAt = saved.LastVisitedAt,
+                EverCleared = saved.EverCleared,
+                IsPermanentlyClear = saved.IsPermanentlyClear,
+                CurrentRoomId = saved.CurrentRoomId,
+                RoomStates = new Dictionary<string, UsurperRemake.Systems.DungeonRoomState>()
+            };
+
+            foreach (var roomData in saved.Rooms)
+            {
+                state.RoomStates[roomData.RoomId] = new UsurperRemake.Systems.DungeonRoomState
+                {
+                    RoomId = roomData.RoomId,
+                    IsExplored = roomData.IsExplored,
+                    IsCleared = roomData.IsCleared,
+                    TreasureLooted = roomData.TreasureLooted,
+                    TrapTriggered = roomData.TrapTriggered,
+                    EventCompleted = roomData.EventCompleted,
+                    PuzzleSolved = roomData.PuzzleSolved,
+                    RiddleAnswered = roomData.RiddleAnswered,
+                    LoreCollected = roomData.LoreCollected,
+                    InsightGranted = roomData.InsightGranted,
+                    MemoryTriggered = roomData.MemoryTriggered,
+                    SecretBossDefeated = roomData.SecretBossDefeated
+                };
+            }
+
+            result[kvp.Key] = state;
+        }
+
+        return result;
     }
 
     /// <summary>

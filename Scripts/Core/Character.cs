@@ -1,4 +1,5 @@
 using UsurperRemake.Utils;
+using UsurperRemake.Systems;
 using Godot;
 using System;
 using System.Collections.Generic;
@@ -720,7 +721,13 @@ public class Character
     public int RoyQuestsToday { get; set; }         // royal quests today
     public byte KingVotePoll { get; set; }          // days since king vote
     public byte KingLastVote { get; set; }          // last vote value
-    
+
+    // Dungeon progression - tracks which boss/seal floors have been cleared
+    public HashSet<int> ClearedSpecialFloors { get; set; } = new HashSet<int>();
+
+    // Dungeon floor persistence - tracks room state per floor for respawn system
+    public Dictionary<int, DungeonFloorState> DungeonFloorStates { get; set; } = new Dictionary<int, DungeonFloorState>();
+
     // Marriage and family
     public bool Married { get; set; }               // is married?
     public int Kids { get; set; }                   // number of children

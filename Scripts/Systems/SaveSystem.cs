@@ -728,8 +728,64 @@ namespace UsurperRemake.Systems
                 BonusMaxHP = player.BonusMaxHP,
 
                 // Recurring Duelist Rival
-                RecurringDuelist = SerializeRecurringDuelist(player)
+                RecurringDuelist = SerializeRecurringDuelist(player),
+
+                // Dungeon progression
+                ClearedSpecialFloors = player.ClearedSpecialFloors ?? new HashSet<int>(),
+
+                // Dungeon floor persistence
+                DungeonFloorStates = SerializeDungeonFloorStates(player)
             };
+        }
+
+        /// <summary>
+        /// Serialize dungeon floor states for saving
+        /// </summary>
+        private Dictionary<int, DungeonFloorStateData> SerializeDungeonFloorStates(Character player)
+        {
+            var result = new Dictionary<int, DungeonFloorStateData>();
+
+            if (player.DungeonFloorStates == null)
+                return result;
+
+            foreach (var kvp in player.DungeonFloorStates)
+            {
+                var state = kvp.Value;
+                var data = new DungeonFloorStateData
+                {
+                    FloorLevel = state.FloorLevel,
+                    LastClearedAt = state.LastClearedAt,
+                    LastVisitedAt = state.LastVisitedAt,
+                    EverCleared = state.EverCleared,
+                    IsPermanentlyClear = state.IsPermanentlyClear,
+                    CurrentRoomId = state.CurrentRoomId,
+                    Rooms = new List<DungeonRoomStateData>()
+                };
+
+                foreach (var roomKvp in state.RoomStates)
+                {
+                    var roomState = roomKvp.Value;
+                    data.Rooms.Add(new DungeonRoomStateData
+                    {
+                        RoomId = roomState.RoomId,
+                        IsExplored = roomState.IsExplored,
+                        IsCleared = roomState.IsCleared,
+                        TreasureLooted = roomState.TreasureLooted,
+                        TrapTriggered = roomState.TrapTriggered,
+                        EventCompleted = roomState.EventCompleted,
+                        PuzzleSolved = roomState.PuzzleSolved,
+                        RiddleAnswered = roomState.RiddleAnswered,
+                        LoreCollected = roomState.LoreCollected,
+                        InsightGranted = roomState.InsightGranted,
+                        MemoryTriggered = roomState.MemoryTriggered,
+                        SecretBossDefeated = roomState.SecretBossDefeated
+                    });
+                }
+
+                result[kvp.Key] = data;
+            }
+
+            return result;
         }
 
         /// <summary>

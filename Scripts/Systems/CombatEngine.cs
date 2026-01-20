@@ -5697,8 +5697,9 @@ public partial class CombatEngine
         }
         else
         {
-            // True death - apply penalties
+            // True death - apply penalties and return to temple
             await ApplyDeathPenalties(result);
+            result.ShouldReturnToTemple = true; // Player resurrects at temple after death
         }
     }
 

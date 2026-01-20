@@ -401,7 +401,7 @@ public class CharacterCreationSystem
     private async Task<CharacterRace> SelectRace()
     {
         string choice = "?";
-        
+
         while (true)
         {
             if (choice == "?")
@@ -410,25 +410,26 @@ public class CharacterCreationSystem
                 terminal.WriteLine("");
                 terminal.WriteLine("Choose your Race:", "cyan");
                 terminal.WriteLine("");
-                
-                // Pascal race menu layout
-                terminal.WriteLine("(0) Human", "white");
-                terminal.WriteLine("(1) Hobbit", "white");
-                terminal.WriteLine("(2) Elf", "white");
-                terminal.WriteLine("(3) Half-elf", "white");
-                terminal.WriteLine("(4) Dwarf", "white");
-                terminal.WriteLine("(5) Troll", "white");
-                terminal.WriteLine("(6) Orc", "white");
-                terminal.WriteLine("(7) Gnome", "white");
-                terminal.WriteLine("(8) Gnoll *poisonous bite", "white");
-                terminal.WriteLine("(9) Mutant", "white");
+
+                // Show race menu with available classes
+                DisplayRaceOption(0, "Human", CharacterRace.Human);
+                DisplayRaceOption(1, "Hobbit", CharacterRace.Hobbit);
+                DisplayRaceOption(2, "Elf", CharacterRace.Elf);
+                DisplayRaceOption(3, "Half-elf", CharacterRace.HalfElf);
+                DisplayRaceOption(4, "Dwarf", CharacterRace.Dwarf);
+                DisplayRaceOption(5, "Troll", CharacterRace.Troll);
+                DisplayRaceOption(6, "Orc", CharacterRace.Orc);
+                DisplayRaceOption(7, "Gnome", CharacterRace.Gnome);
+                DisplayRaceOption(8, "Gnoll", CharacterRace.Gnoll, "*poisonous bite");
+                DisplayRaceOption(9, "Mutant", CharacterRace.Mutant);
+                terminal.WriteLine("");
                 terminal.WriteLine("(H) Help", "green");
                 terminal.WriteLine("(A) Abort", "red");
                 terminal.WriteLine("");
             }
-            
+
             choice = await terminal.GetInputAsync("Your choice: ");
-            
+
             // Handle help
             if (choice.ToUpper() == "H")
             {
@@ -436,7 +437,7 @@ public class CharacterCreationSystem
                 choice = "?";
                 continue;
             }
-            
+
             // Handle abort
             if (choice.ToUpper() == "A")
             {
@@ -447,19 +448,19 @@ public class CharacterCreationSystem
                 choice = "?";
                 continue;
             }
-            
+
             // Handle race selection
             if (int.TryParse(choice, out int raceChoice) && raceChoice >= 0 && raceChoice <= 9)
             {
                 var race = (CharacterRace)raceChoice;
                 var description = GameConfig.RaceDescriptions[race];
-                
+
                 terminal.WriteLine("");
                 if (await ConfirmChoice($"Be {description}", false))
                 {
                     return race;
                 }
-                
+
                 choice = "?";
             }
             else
@@ -467,6 +468,70 @@ public class CharacterCreationSystem
                 terminal.WriteLine("Invalid choice. Please select 0-9, H for help, or A to abort.", "red");
             }
         }
+    }
+
+    /// <summary>
+    /// Display a race option with available classes
+    /// </summary>
+    private void DisplayRaceOption(int number, string raceName, CharacterRace race, string suffix = "")
+    {
+        // Get all classes
+        var allClasses = new[] {
+            CharacterClass.Warrior, CharacterClass.Paladin, CharacterClass.Ranger,
+            CharacterClass.Assassin, CharacterClass.Bard, CharacterClass.Jester,
+            CharacterClass.Alchemist, CharacterClass.Magician, CharacterClass.Cleric,
+            CharacterClass.Sage, CharacterClass.Barbarian
+        };
+
+        // Get restricted classes for this race
+        CharacterClass[] restrictedClasses = GameConfig.InvalidCombinations.ContainsKey(race)
+            ? GameConfig.InvalidCombinations[race]
+            : Array.Empty<CharacterClass>();
+
+        // Get available classes
+        var availableClasses = allClasses.Where(c => !restrictedClasses.Contains(c)).ToList();
+
+        // Build class abbreviation string
+        string classAbbreviations = GetClassAbbreviations(availableClasses);
+
+        // Format the display
+        string suffixText = string.IsNullOrEmpty(suffix) ? "" : $" {suffix}";
+        terminal.Write($"({number}) ", "white");
+        terminal.Write($"{raceName,-10}", "white");
+        terminal.Write($"{suffixText}", "yellow");
+
+        // Show available classes in a muted color
+        if (availableClasses.Count == allClasses.Length)
+        {
+            terminal.WriteLine($" [All classes]", "darkgray");
+        }
+        else
+        {
+            terminal.WriteLine($" [{classAbbreviations}]", "darkgray");
+        }
+    }
+
+    /// <summary>
+    /// Get abbreviated class names for display
+    /// </summary>
+    private string GetClassAbbreviations(List<CharacterClass> classes)
+    {
+        var abbreviations = new Dictionary<CharacterClass, string>
+        {
+            { CharacterClass.Warrior, "War" },
+            { CharacterClass.Paladin, "Pal" },
+            { CharacterClass.Ranger, "Ran" },
+            { CharacterClass.Assassin, "Asn" },
+            { CharacterClass.Bard, "Brd" },
+            { CharacterClass.Jester, "Jst" },
+            { CharacterClass.Alchemist, "Alc" },
+            { CharacterClass.Magician, "Mag" },
+            { CharacterClass.Cleric, "Clr" },
+            { CharacterClass.Sage, "Sge" },
+            { CharacterClass.Barbarian, "Bar" }
+        };
+
+        return string.Join("/", classes.Select(c => abbreviations[c]));
     }
     
     /// <summary>
@@ -492,30 +557,42 @@ public class CharacterCreationSystem
             { 10, CharacterClass.Barbarian }
         };
 
+        // Get restricted classes for this race (if any)
+        CharacterClass[] restrictedClasses = GameConfig.InvalidCombinations.ContainsKey(race)
+            ? GameConfig.InvalidCombinations[race]
+            : Array.Empty<CharacterClass>();
+
         while (true)
         {
             if (choice == "?")
             {
                 terminal.Clear();
                 terminal.WriteLine("");
-                terminal.WriteLine("Choose your Class:", "cyan");
+                terminal.WriteLine($"Choose your Class (as a {GameConfig.RaceNames[(int)race]}):", "cyan");
                 terminal.WriteLine("");
 
-                // Pascal class menu layout
-                terminal.WriteLine("(0) Warrior", "white");
-                terminal.WriteLine("(1) Paladin", "white");
-                terminal.WriteLine("(2) Ranger", "white");
-                terminal.WriteLine("(3) Assassin", "white");
-                terminal.WriteLine("(4) Bard", "white");
-                terminal.WriteLine("(5) Jester", "white");
-                terminal.WriteLine("(6) Alchemist", "white");
-                terminal.WriteLine("(7) Magician", "white");
-                terminal.WriteLine("(8) Cleric", "white");
-                terminal.WriteLine("(9) Sage", "white");
-                terminal.WriteLine("(10) Barbarian", "white");
+                // Show class menu with restrictions marked
+                DisplayClassOption(0, "Warrior", CharacterClass.Warrior, restrictedClasses);
+                DisplayClassOption(1, "Paladin", CharacterClass.Paladin, restrictedClasses);
+                DisplayClassOption(2, "Ranger", CharacterClass.Ranger, restrictedClasses);
+                DisplayClassOption(3, "Assassin", CharacterClass.Assassin, restrictedClasses);
+                DisplayClassOption(4, "Bard", CharacterClass.Bard, restrictedClasses);
+                DisplayClassOption(5, "Jester", CharacterClass.Jester, restrictedClasses);
+                DisplayClassOption(6, "Alchemist", CharacterClass.Alchemist, restrictedClasses);
+                DisplayClassOption(7, "Magician", CharacterClass.Magician, restrictedClasses);
+                DisplayClassOption(8, "Cleric", CharacterClass.Cleric, restrictedClasses);
+                DisplayClassOption(9, "Sage", CharacterClass.Sage, restrictedClasses);
+                DisplayClassOption(10, "Barbarian", CharacterClass.Barbarian, restrictedClasses);
                 terminal.WriteLine("(H) Help", "green");
                 terminal.WriteLine("(A) Abort", "red");
                 terminal.WriteLine("");
+
+                // Show restriction reason if this race has restrictions
+                if (restrictedClasses.Length > 0 && GameConfig.RaceRestrictionReasons.ContainsKey(race))
+                {
+                    terminal.WriteLine($"Note: {GameConfig.RaceRestrictionReasons[race]}", "yellow");
+                    terminal.WriteLine("");
+                }
             }
 
             choice = await terminal.GetInputAsync("Your choice: ");
@@ -543,31 +620,51 @@ public class CharacterCreationSystem
             if (int.TryParse(choice, out int classChoice) && menuToClass.ContainsKey(classChoice))
             {
                 var characterClass = menuToClass[classChoice];
-                
-                // Pascal validation: Check invalid race/class combinations
-                if (GameConfig.InvalidCombinations.ContainsKey(race) && 
-                    GameConfig.InvalidCombinations[race].Contains(characterClass))
+
+                // Check invalid race/class combinations
+                if (restrictedClasses.Contains(characterClass))
                 {
                     terminal.WriteLine("");
                     terminal.WriteLine($"Sorry, {GameConfig.RaceNames[(int)race]} cannot be a {characterClass}!", "red");
-                    terminal.WriteLine("Some race/class combinations are impossible.", "yellow");
+                    if (GameConfig.RaceRestrictionReasons.ContainsKey(race))
+                    {
+                        terminal.WriteLine(GameConfig.RaceRestrictionReasons[race], "yellow");
+                    }
                     await Task.Delay(2000);
                     choice = "?";
                     continue;
                 }
-                
+
                 terminal.WriteLine("");
                 if (await ConfirmChoice($"Be a {characterClass}", false))
                 {
                     return characterClass;
                 }
-                
+
                 choice = "?";
             }
             else
             {
                 terminal.WriteLine("Invalid choice. Please select 0-10, H for help, or A to abort.", "red");
             }
+        }
+    }
+
+    /// <summary>
+    /// Display a class option with restriction indicator
+    /// </summary>
+    private void DisplayClassOption(int number, string className, CharacterClass classType, CharacterClass[] restrictedClasses)
+    {
+        bool isRestricted = restrictedClasses.Contains(classType);
+        string numberStr = number < 10 ? $"({number}) " : $"({number})";
+
+        if (isRestricted)
+        {
+            terminal.WriteLine($"{numberStr} {className,-12} [UNAVAILABLE]", "darkgray");
+        }
+        else
+        {
+            terminal.WriteLine($"{numberStr} {className}", "white");
         }
     }
     

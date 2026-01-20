@@ -1,6 +1,6 @@
 # Usurper Reborn
 
-## ALPHA v0.9 - Analytics & Telemetry Update
+## ALPHA v0.10 - Quality of Life Update
 
 **FREE AND OPEN SOURCE SOFTWARE - GPL v2 Licensed**
 
@@ -453,7 +453,7 @@ Join our Discord server for discussions, feedback, and updates:
 - Romance/marriage/family systems
 - Story progression and endings
 
-### Known Issues (Alpha v0.9)
+### Known Issues (Alpha v0.10)
 - Some edge cases in combat may cause unexpected behavior
 - NPC AI occasionally makes suboptimal decisions
 - Save files from earlier alpha versions may not be fully compatible
@@ -467,4 +467,4 @@ Join our Discord server for discussions, feedback, and updates:
 
 ---
 
-**Status**: ALPHA v0.9 - Analytics & Telemetry Update
+**Status**: ALPHA v0.10 - Quality of Life Update

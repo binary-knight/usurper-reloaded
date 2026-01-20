@@ -1628,4 +1628,71 @@ namespace UsurperRemake.Systems
         EchoOfSelf,         // Floor 75: Fight your past life
         TheOceanSpeaks      // Floor 99: The Ocean itself manifests
     }
+
+    /// <summary>
+    /// Persistent dungeon floor state - tracks exploration progress and respawn timing
+    /// Regular floors respawn after 24 hours, boss/seal floors stay cleared permanently
+    /// </summary>
+    public class DungeonFloorState
+    {
+        public int FloorLevel { get; set; }
+        public DateTime LastClearedAt { get; set; } = DateTime.MinValue;
+        public DateTime LastVisitedAt { get; set; } = DateTime.MinValue;
+        public bool EverCleared { get; set; } = false;        // For first-clear bonus eligibility
+        public bool IsPermanentlyClear { get; set; } = false; // Boss/seal floors
+        public string CurrentRoomId { get; set; } = "";
+
+        // Room-level state
+        public Dictionary<string, DungeonRoomState> RoomStates { get; set; } = new();
+
+        /// <summary>
+        /// Hours before regular floors respawn (monsters return, but treasure stays looted)
+        /// </summary>
+        public const int RESPAWN_HOURS = 6;
+
+        /// <summary>
+        /// Check if this floor should respawn (monsters return)
+        /// Boss/seal floors never respawn once cleared
+        /// </summary>
+        public bool ShouldRespawn()
+        {
+            if (IsPermanentlyClear) return false;
+            if (LastClearedAt == DateTime.MinValue) return false;
+
+            var hoursSinceCleared = (DateTime.Now - LastClearedAt).TotalHours;
+            return hoursSinceCleared >= RESPAWN_HOURS;
+        }
+
+        /// <summary>
+        /// Get time remaining until respawn (for display)
+        /// </summary>
+        public TimeSpan TimeUntilRespawn()
+        {
+            if (IsPermanentlyClear || LastClearedAt == DateTime.MinValue)
+                return TimeSpan.Zero;
+
+            var respawnAt = LastClearedAt.AddHours(RESPAWN_HOURS);
+            var remaining = respawnAt - DateTime.Now;
+            return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
+        }
+    }
+
+    /// <summary>
+    /// Persistent state for a single dungeon room
+    /// </summary>
+    public class DungeonRoomState
+    {
+        public string RoomId { get; set; } = "";
+        public bool IsExplored { get; set; }
+        public bool IsCleared { get; set; }           // Monsters defeated (can respawn)
+        public bool TreasureLooted { get; set; }      // Permanent - doesn't respawn
+        public bool TrapTriggered { get; set; }       // Permanent - doesn't respawn
+        public bool EventCompleted { get; set; }      // Permanent - doesn't respawn
+        public bool PuzzleSolved { get; set; }        // Permanent
+        public bool RiddleAnswered { get; set; }      // Permanent
+        public bool LoreCollected { get; set; }       // Permanent
+        public bool InsightGranted { get; set; }      // Permanent
+        public bool MemoryTriggered { get; set; }     // Permanent
+        public bool SecretBossDefeated { get; set; }  // Permanent
+    }
 }
