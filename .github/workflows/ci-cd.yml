@@ -119,7 +119,7 @@ jobs:
           echo "Publishing Windows 64-bit executable..."
           dotnet publish usurper-reloaded.csproj -c Release -r win-x64 -o build/windows-x64 \
             -p:PublishSingleFile=true -p:SelfContained=true -p:InvariantGlobalization=true
-          if [ -f "build/windows-x64/UsurperRemake.exe" ]; then
+          if [ -f "build/windows-x64/UsurperReborn.exe" ]; then
             # Copy Windows launcher
             cp launchers/UsurperReborn.bat build/windows-x64/
             echo "✅ Windows 64-bit publish successful"
@@ -134,7 +134,7 @@ jobs:
           echo "Publishing Windows 32-bit executable..."
           dotnet publish usurper-reloaded.csproj -c Release -r win-x86 -o build/windows-x86 \
             -p:PublishSingleFile=true -p:SelfContained=true -p:InvariantGlobalization=true
-          if [ -f "build/windows-x86/UsurperRemake.exe" ]; then
+          if [ -f "build/windows-x86/UsurperReborn.exe" ]; then
             # Copy Windows launcher
             cp launchers/UsurperReborn.bat build/windows-x86/
             echo "✅ Windows 32-bit publish successful"
@@ -149,8 +149,8 @@ jobs:
           echo "Publishing Linux x64 executable..."
           dotnet publish usurper-reloaded.csproj -c Release -r linux-x64 -o build/linux-x64 \
             -p:PublishSingleFile=true -p:SelfContained=true -p:InvariantGlobalization=true
-          if [ -f "build/linux-x64/UsurperRemake" ]; then
-            chmod +x "build/linux-x64/UsurperRemake"
+          if [ -f "build/linux-x64/UsurperReborn" ]; then
+            chmod +x "build/linux-x64/UsurperReborn"
             cp launchers/usurper-reborn.sh build/linux-x64/
             chmod +x build/linux-x64/usurper-reborn.sh
             echo "✅ Linux x64 publish successful"
@@ -165,8 +165,8 @@ jobs:
           echo "Publishing Linux ARM64 executable..."
           dotnet publish usurper-reloaded.csproj -c Release -r linux-arm64 -o build/linux-arm64 \
             -p:PublishSingleFile=true -p:SelfContained=true -p:InvariantGlobalization=true
-          if [ -f "build/linux-arm64/UsurperRemake" ]; then
-            chmod +x "build/linux-arm64/UsurperRemake"
+          if [ -f "build/linux-arm64/UsurperReborn" ]; then
+            chmod +x "build/linux-arm64/UsurperReborn"
             cp launchers/usurper-reborn.sh build/linux-arm64/
             chmod +x build/linux-arm64/usurper-reborn.sh
             echo "✅ Linux ARM64 publish successful"
@@ -187,8 +187,8 @@ jobs:
           mkdir -p "build/mac/usurper-reloaded.app/Contents/Resources"
           
           # Copy executable
-          if [ -f "build/mac-temp/UsurperRemake" ]; then
-            cp "build/mac-temp/UsurperRemake" "build/mac/usurper-reloaded.app/Contents/MacOS/usurper-reloaded"
+          if [ -f "build/mac-temp/UsurperReborn" ]; then
+            cp "build/mac-temp/UsurperReborn" "build/mac/usurper-reloaded.app/Contents/MacOS/usurper-reloaded"
             chmod +x "build/mac/usurper-reloaded.app/Contents/MacOS/usurper-reloaded"
             
             # Copy other files
