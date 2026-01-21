@@ -8,9 +8,12 @@ using Godot;
 
 public class WorldSimulator
 {
-    private List<NPC> npcs;
     private bool isRunning = false;
     private Random random = new Random();
+
+    // Get the active NPC list from NPCSpawnSystem instead of caching
+    // This ensures we always use the current list even after save/load
+    private List<NPC> npcs => UsurperRemake.Systems.NPCSpawnSystem.Instance?.ActiveNPCs ?? new List<NPC>();
 
     private const float SIMULATION_INTERVAL = 60.0f; // seconds between simulation steps
     private const int MAX_TEAM_SIZE = 5; // Maximum members per team (from Pascal)
@@ -43,11 +46,12 @@ public class WorldSimulator
         "Healer", "Inn", "Temple", "Church", "Market", "Castle", "Love Street", "Bank"
     };
     
-    public void StartSimulation(List<NPC> worldNPCs)
+    public void StartSimulation(List<NPC>? worldNPCs = null)
     {
-        npcs = worldNPCs;
+        // Note: The worldNPCs parameter is ignored - we always use NPCSpawnSystem.Instance.ActiveNPCs
+        // This ensures the simulator sees the correct NPCs even after save/load
         isRunning = true;
-        
+
         // Start a background task to periodically run simulation steps. This works even when
         // running head-less outside the Godot scene tree.
         _ = System.Threading.Tasks.Task.Run(async () =>
@@ -103,8 +107,8 @@ public class WorldSimulator
             }
         }
 
-        // Track dead NPCs for respawn
-        foreach (var npc in npcs.Where(n => !n.IsAlive))
+        // Track dead NPCs for respawn (check both HP <= 0 and IsDead flag)
+        foreach (var npc in npcs.Where(n => !n.IsAlive || n.IsDead))
         {
             if (!deadNPCRespawnTimers.ContainsKey(npc.Name))
             {
@@ -118,6 +122,29 @@ public class WorldSimulator
 
         // Update relationships and social dynamics
         UpdateSocialDynamics();
+    }
+
+    /// <summary>
+    /// Force immediate processing of dead NPCs - call after loading a save
+    /// This ensures dead NPCs start their respawn timers immediately and
+    /// respawn NPCs that have been dead for a while (based on save data)
+    /// </summary>
+    public void ProcessDeadNPCsOnLoad()
+    {
+        if (npcs == null || npcs.Count == 0) return;
+
+        // Find all dead NPCs and add them to the respawn queue
+        foreach (var npc in npcs.Where(n => !n.IsAlive || n.IsDead))
+        {
+            if (!deadNPCRespawnTimers.ContainsKey(npc.Name))
+            {
+                // NPCs from saves respawn faster - just 2 ticks (~2 min) instead of 10
+                deadNPCRespawnTimers[npc.Name] = 2;
+                GD.Print($"[WorldSim] Queued {npc.Name} for respawn (loaded from save)");
+            }
+        }
+
+        GD.Print($"[WorldSim] Loaded {deadNPCRespawnTimers.Count} dead NPCs for respawn");
     }
 
     /// <summary>
@@ -144,7 +171,8 @@ public class WorldSimulator
             var npc = npcs.FirstOrDefault(n => n.Name == npcName);
             if (npc != null)
             {
-                // Respawn the NPC
+                // Respawn the NPC - clear permanent death flag and restore HP
+                npc.IsDead = false;  // Clear permanent death flag
                 npc.HP = npc.MaxHP;
                 npc.UpdateLocation("Main Street");
 
@@ -1669,6 +1697,280 @@ public class WorldSimulator
 
         // Process prisoner activities
         ProcessPrisonerActivities();
+
+        // Process royal court politics
+        ProcessRoyalCourtPolitics();
+    }
+
+    /// <summary>
+    /// Process royal court political activities - guard recruitment, court intrigue
+    /// </summary>
+    private void ProcessRoyalCourtPolitics()
+    {
+        try
+        {
+            var king = CastleLocation.GetCurrentKing();
+            if (king == null || !king.IsActive) return;
+
+            // NPC guard recruitment (10% chance per tick if there are openings)
+            if (king.Guards.Count < King.MaxNPCGuards && GD.Randf() < 0.10f)
+            {
+                ProcessNPCGuardRecruitment(king);
+            }
+
+            // Court intrigue processing (5% chance per tick)
+            if (GD.Randf() < 0.05f)
+            {
+                ProcessCourtIntrigue(king);
+            }
+
+            // Plot progression (all active plots advance)
+            foreach (var plot in king.ActivePlots.ToList())
+            {
+                AdvancePlot(king, plot);
+            }
+        }
+        catch (Exception ex)
+        {
+            GD.PrintErr($"[WorldSim] Error processing court politics: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// NPCs may apply to become royal guards if positions are available
+    /// </summary>
+    private void ProcessNPCGuardRecruitment(King king)
+    {
+        // Find NPCs who might want to become guards:
+        // - Not already a guard
+        // - Not in prison
+        // - Not on a team (guards serve the crown, not teams)
+        // - Not already the King
+        // - Level 5+ (minimum competency)
+        // - High loyalty/lawfulness personality
+        var candidates = npcs?
+            .Where(n => n.IsAlive &&
+                   n.Level >= 5 &&
+                   n.DaysInPrison <= 0 &&
+                   string.IsNullOrEmpty(n.Team) &&
+                   !n.King &&
+                   !n.IsStoryNPC &&
+                   !king.Guards.Any(g => g.Name == n.Name) &&
+                   (n.Brain?.Personality?.Trustworthiness > 0.5f ||
+                    n.Brain?.Personality?.Loyalty > 0.6f))
+            .OrderByDescending(n => n.Level)
+            .Take(3)
+            .ToList();
+
+        if (candidates == null || candidates.Count == 0) return;
+
+        // Pick a random candidate
+        var applicant = candidates[GD.RandRange(0, candidates.Count - 1)];
+
+        // Check if treasury can afford the recruitment cost
+        if (king.Treasury < GameConfig.GuardRecruitmentCost)
+        {
+            // GD.Print($"[WorldSim] {applicant.Name} wanted to join guards but treasury is low");
+            return;
+        }
+
+        // Add the NPC as a guard
+        var guard = new RoyalGuard
+        {
+            Name = applicant.Name,
+            AI = CharacterAI.Computer,
+            Sex = applicant.Sex,
+            DailySalary = GameConfig.BaseGuardSalary,
+            RecruitmentDate = DateTime.Now,
+            Loyalty = 70 + GD.RandRange(0, 30)  // New recruits have 70-100 loyalty
+        };
+
+        king.Guards.Add(guard);
+        king.Treasury -= GameConfig.GuardRecruitmentCost;
+
+        NewsSystem.Instance?.Newsy(false, $"{applicant.Name} has joined the Royal Guard!");
+        // GD.Print($"[WorldSim] {applicant.Name} recruited as Royal Guard");
+    }
+
+    /// <summary>
+    /// Process court intrigue - unhappy court members may start plots
+    /// </summary>
+    private void ProcessCourtIntrigue(King king)
+    {
+        // Initialize court if empty
+        if (king.CourtMembers.Count == 0)
+        {
+            InitializeCourtMembers(king);
+        }
+
+        // Check for new plots starting
+        var unhappyMembers = king.CourtMembers
+            .Where(c => c.LoyaltyToKing < 40 && !c.IsPlotting)
+            .ToList();
+
+        if (unhappyMembers.Count >= 2 && king.ActivePlots.Count < 3)
+        {
+            // Start a new plot
+            var conspirators = unhappyMembers.Take(GD.RandRange(2, Math.Min(4, unhappyMembers.Count))).ToList();
+
+            string plotType = GD.RandRange(0, 3) switch
+            {
+                0 => "Assassination",
+                1 => "Coup",
+                2 => "Scandal",
+                _ => "Sabotage"
+            };
+
+            var plot = new CourtIntrigue
+            {
+                PlotType = plotType,
+                Conspirators = conspirators.Select(c => c.Name).ToList(),
+                Target = king.Name,
+                Progress = 10 + GD.RandRange(0, 20),
+                StartDate = DateTime.Now
+            };
+
+            king.ActivePlots.Add(plot);
+            foreach (var conspirator in conspirators)
+            {
+                conspirator.IsPlotting = true;
+            }
+
+            // GD.Print($"[WorldSim] New {plotType} plot started by {string.Join(", ", plot.Conspirators)}");
+        }
+    }
+
+    /// <summary>
+    /// Initialize court members for a new king
+    /// </summary>
+    private void InitializeCourtMembers(King king)
+    {
+        // Create default court positions
+        var roles = new[] { "Royal Advisor", "Court Steward", "Marshal", "Spymaster", "Treasurer" };
+        var factions = Enum.GetValues<CourtFaction>().Where(f => f != CourtFaction.None).ToArray();
+
+        foreach (var role in roles)
+        {
+            var member = new CourtMember
+            {
+                Name = GenerateCourtMemberName(),
+                Role = role,
+                Faction = factions[GD.RandRange(0, factions.Length - 1)],
+                Influence = 40 + GD.RandRange(0, 40),
+                LoyaltyToKing = 50 + GD.RandRange(0, 40),
+                JoinedCourt = DateTime.Now
+            };
+            king.CourtMembers.Add(member);
+        }
+    }
+
+    /// <summary>
+    /// Generate a random court member name
+    /// </summary>
+    private string GenerateCourtMemberName()
+    {
+        var firstNames = new[] { "Lord", "Lady", "Sir", "Baron", "Countess", "Duke", "Duchess" };
+        var lastNames = new[] { "Blackwood", "Ashford", "Ironside", "Goldstein", "Silverhart",
+                                "Ravencroft", "Thornwood", "Nightingale", "Stormwind", "Darkhaven" };
+
+        return $"{firstNames[GD.RandRange(0, firstNames.Length - 1)]} {lastNames[GD.RandRange(0, lastNames.Length - 1)]}";
+    }
+
+    /// <summary>
+    /// Advance a plot toward completion
+    /// </summary>
+    private void AdvancePlot(King king, CourtIntrigue plot)
+    {
+        if (plot.IsDiscovered) return;
+
+        // Plots advance 5-15% per tick
+        plot.Progress += GD.RandRange(5, 15);
+
+        // Chance of discovery (higher for larger conspiracies)
+        float discoveryChance = 0.02f + (plot.Conspirators.Count * 0.01f);
+        if (GD.Randf() < discoveryChance)
+        {
+            plot.IsDiscovered = true;
+            plot.DiscoveredBy = "Royal Spymaster";
+
+            // Conspirators go to prison
+            foreach (var conspirator in plot.Conspirators)
+            {
+                var member = king.CourtMembers.FirstOrDefault(m => m.Name == conspirator);
+                if (member != null)
+                {
+                    member.IsPlotting = false;
+                    king.CourtMembers.Remove(member);
+                }
+            }
+
+            NewsSystem.Instance?.Newsy(true,
+                $"A {plot.PlotType.ToLower()} plot against {king.GetTitle()} {king.Name} was discovered!");
+
+            king.ActivePlots.Remove(plot);
+            return;
+        }
+
+        // Plot triggers at 100%
+        if (plot.Progress >= 100)
+        {
+            ExecutePlot(king, plot);
+        }
+    }
+
+    /// <summary>
+    /// Execute a completed plot
+    /// </summary>
+    private void ExecutePlot(King king, CourtIntrigue plot)
+    {
+        switch (plot.PlotType)
+        {
+            case "Assassination":
+                // King "survives" but is weakened
+                king.Treasury /= 2;
+                NewsSystem.Instance?.Newsy(true,
+                    $"ASSASSINATION ATTEMPT! {king.GetTitle()} {king.Name} narrowly survived an assassination plot!");
+                break;
+
+            case "Coup":
+                // Treasury stolen, guards desert
+                king.Treasury = Math.Max(0, king.Treasury - 10000);
+                var deserters = king.Guards.Where(g => g.Loyalty < 50).ToList();
+                foreach (var guard in deserters)
+                {
+                    king.Guards.Remove(guard);
+                }
+                NewsSystem.Instance?.Newsy(true,
+                    $"COUP ATTEMPT! {deserters.Count} guards joined the conspiracy against {king.GetTitle()} {king.Name}!");
+                break;
+
+            case "Scandal":
+                // King's reputation damaged - harder to collect taxes
+                king.TaxRate = Math.Max(0, king.TaxRate - 10);
+                NewsSystem.Instance?.Newsy(true,
+                    $"SCANDAL! Shocking revelations about {king.GetTitle()} {king.Name} rock the kingdom!");
+                break;
+
+            case "Sabotage":
+                // Treasury damaged
+                king.Treasury = Math.Max(0, king.Treasury - 5000);
+                king.MagicBudget = Math.Max(0, king.MagicBudget - 2000);
+                NewsSystem.Instance?.Newsy(true,
+                    $"SABOTAGE! The royal treasury has been plundered!");
+                break;
+        }
+
+        // Clear conspirators' plotting status
+        foreach (var conspirator in plot.Conspirators)
+        {
+            var member = king.CourtMembers.FirstOrDefault(m => m.Name == conspirator);
+            if (member != null)
+            {
+                member.IsPlotting = false;
+            }
+        }
+
+        king.ActivePlots.Remove(plot);
     }
 
     /// <summary>

@@ -18,7 +18,7 @@ public class King
     public long Treasury { get; set; } = GameConfig.DefaultRoyalTreasury;
 
     // Tax System (Pascal: tax, taxalignment)
-    public long TaxRate { get; set; } = 0;                     // Daily tax amount
+    public long TaxRate { get; set; } = 20;                    // Daily tax amount (default 20 gold per citizen)
     public GameConfig.TaxAlignment TaxAlignment { get; set; } = GameConfig.TaxAlignment.All;
 
     // City control tax share (percentage of sales that goes to city-controlling team)
@@ -50,7 +50,17 @@ public class King
     // Court Magic System
     public List<string> AvailableSpells { get; set; } = new();
     public long MagicBudget { get; set; } = 10000;
-    
+
+    // Defense Alert System - notify human guards when throne is challenged
+    public PendingDefenseEvent? ActiveDefenseEvent { get; set; }
+
+    // Political Systems
+    public List<CourtMember> CourtMembers { get; set; } = new();
+    public List<CourtIntrigue> ActivePlots { get; set; } = new();
+    public List<RoyalHeir> Heirs { get; set; } = new();
+    public RoyalSpouse? Spouse { get; set; }
+    public string? DesignatedHeir { get; set; }
+
     public King()
     {
         InitializeDefaultEstablishments();
@@ -125,9 +135,14 @@ public class King
     /// </summary>
     public long CalculateDailyIncome()
     {
-        // TODO: Integrate with player database to calculate actual tax income
-        // For now, return estimated income based on tax rate
-        return TaxRate * 10; // Estimate based on 10 taxpayers
+        // Base income from tax rate (TaxRate * number of active NPCs)
+        int npcCount = UsurperRemake.Systems.NPCSpawnSystem.Instance?.ActiveNPCs?.Count ?? 10;
+        long baseIncome = TaxRate * Math.Max(10, npcCount);
+
+        // Bonus income from merchant activity
+        long merchantBonus = CityTaxPercent * 50; // Estimate of daily merchant revenue
+
+        return baseIncome + merchantBonus;
     }
     
     /// <summary>
@@ -383,4 +398,93 @@ public static class MonsterGuardTypes
         ("Basilisk", 16, 10000L),
         ("Iron Golem", 25, 20000L)
     };
-} 
+}
+
+/// <summary>
+/// Pending defense event - when the throne is challenged and human guards need to be summoned
+/// </summary>
+public class PendingDefenseEvent
+{
+    public string ChallengerName { get; set; } = "";
+    public int ChallengerLevel { get; set; }
+    public DateTime EventTime { get; set; } = DateTime.Now;
+    public bool PlayerNotified { get; set; } = false;
+    public bool PlayerResponded { get; set; } = false;
+    public int TicksRemaining { get; set; } = 2;  // Combat delayed for 2 ticks
+    public string ChallengerTeam { get; set; } = "";
+
+    /// <summary>
+    /// Check if event has expired (player didn't respond in time)
+    /// </summary>
+    public bool IsExpired => TicksRemaining <= 0;
+}
+
+/// <summary>
+/// Court faction - political groups with different goals and influence
+/// </summary>
+public enum CourtFaction
+{
+    None,
+    Loyalists,      // Support current king unconditionally
+    Reformists,     // Want change through lawful means
+    Militarists,    // Believe strength should rule
+    Merchants,      // Economic interests above all
+    Faithful        // Religious interests and traditions
+}
+
+/// <summary>
+/// Court member - advisor, noble, or other influential court figure
+/// </summary>
+public class CourtMember
+{
+    public string Name { get; set; } = "";
+    public CourtFaction Faction { get; set; } = CourtFaction.None;
+    public int Influence { get; set; } = 50;         // 0-100, political power
+    public int LoyaltyToKing { get; set; } = 50;     // 0-100, how loyal to current ruler
+    public string Role { get; set; } = "Advisor";   // Advisor, Steward, Marshal, Spymaster, etc.
+    public DateTime JoinedCourt { get; set; } = DateTime.Now;
+    public bool IsPlotting { get; set; } = false;   // Involved in active intrigue
+}
+
+/// <summary>
+/// Court intrigue - plots and schemes against the throne
+/// </summary>
+public class CourtIntrigue
+{
+    public string PlotType { get; set; } = "";       // Assassination, Coup, Scandal, Sabotage
+    public List<string> Conspirators { get; set; } = new();
+    public string Target { get; set; } = "";         // Usually the king
+    public int Progress { get; set; } = 0;           // 0-100, triggers at 100
+    public DateTime StartDate { get; set; } = DateTime.Now;
+    public bool IsDiscovered { get; set; } = false;
+    public string DiscoveredBy { get; set; } = "";
+}
+
+/// <summary>
+/// Royal heir - potential successor to the throne
+/// </summary>
+public class RoyalHeir
+{
+    public string Name { get; set; } = "";
+    public int Age { get; set; } = 0;
+    public int ClaimStrength { get; set; } = 50;     // 0-100, legitimacy of claim
+    public string ParentName { get; set; } = "";
+    public CharacterSex Sex { get; set; } = CharacterSex.Male;
+    public bool IsDesignated { get; set; } = false;  // Named as official heir
+    public DateTime BirthDate { get; set; } = DateTime.Now;
+
+    public bool IsAdult => Age >= 18;
+}
+
+/// <summary>
+/// Royal spouse - political marriage partner
+/// </summary>
+public class RoyalSpouse
+{
+    public string Name { get; set; } = "";
+    public CharacterSex Sex { get; set; } = CharacterSex.Female;
+    public CourtFaction OriginalFaction { get; set; } = CourtFaction.None;
+    public long Dowry { get; set; } = 0;
+    public DateTime MarriageDate { get; set; } = DateTime.Now;
+    public int Happiness { get; set; } = 50;         // 0-100, affects heir legitimacy
+}

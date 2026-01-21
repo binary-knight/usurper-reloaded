@@ -436,6 +436,64 @@ public class DailySystemManager
         // Process World Event System - this handles all major events
         await WorldEventSystem.Instance.ProcessDailyEvents(currentDay);
 
+        // Update grief system - advances grief stages based on days passed
+        try
+        {
+            var grief = GriefSystem.Instance;
+            if (grief.IsGrieving)
+            {
+                var previousStage = grief.CurrentStage;
+                grief.UpdateGrief(currentDay);
+
+                // Notify player if grief stage changed
+                if (grief.CurrentStage != previousStage && terminal != null)
+                {
+                    terminal.WriteLine("");
+                    terminal.WriteLine($"Your grief has evolved... ({previousStage} → {grief.CurrentStage})", "dark_magenta");
+
+                    // Show stage effect
+                    var effects = grief.GetCurrentEffects();
+                    if (!string.IsNullOrEmpty(effects.Description))
+                    {
+                        terminal.WriteLine($"  {effects.Description}", "gray");
+                    }
+                    terminal.WriteLine("");
+                }
+            }
+        }
+        catch { /* Grief system not initialized */ }
+
+        // Process royal finances - guard salaries, monster feeding, tax collection
+        try
+        {
+            var king = CastleLocation.GetCurrentKing();
+            if (king?.IsActive == true)
+            {
+                var expensesBefore = king.CalculateDailyExpenses();
+                var incomeBefore = king.CalculateDailyIncome();
+                var treasuryBefore = king.Treasury;
+
+                king.ProcessDailyActivities();
+
+                // Process guard loyalty changes based on treasury health
+                ProcessGuardLoyalty(king, treasuryBefore, terminal);
+
+                // Check for treasury crisis
+                if (king.Treasury < king.CalculateDailyExpenses())
+                {
+                    ProcessTreasuryCrisis(king, terminal);
+                }
+
+                // Log royal finances to news
+                var netChange = incomeBefore - expensesBefore;
+                if (netChange < 0 && Math.Abs(netChange) > 100)
+                {
+                    NewsSystem.Instance?.Newsy(false, $"The royal treasury hemorrhages {Math.Abs(netChange)} gold daily!");
+                }
+            }
+        }
+        catch { /* King system not initialized */ }
+
         // Process Quest System daily maintenance (quest expiration, failure processing)
         QuestSystem.ProcessDailyQuestMaintenance();
 
@@ -536,6 +594,95 @@ public class DailySystemManager
             DailyCycleMode.Endless => TimeSpan.MaxValue, // Never resets
             _ => TimeSpan.Zero
         };
+    }
+
+    /// <summary>
+    /// Process guard loyalty changes based on treasury health and service time
+    /// </summary>
+    private void ProcessGuardLoyalty(King king, long treasuryBefore, TerminalUI? terminal)
+    {
+        var guardsToRemove = new List<RoyalGuard>();
+        var random = new Random();
+
+        foreach (var guard in king.Guards)
+        {
+            // Unpaid guards lose loyalty (treasury was depleted)
+            if (king.Treasury < king.CalculateDailyExpenses())
+            {
+                guard.Loyalty = Math.Max(0, guard.Loyalty - 5);
+                if (terminal != null && guard.AI == CharacterAI.Human)
+                {
+                    // Notify human guards of their pay issues
+                }
+            }
+            else
+            {
+                // Well-paid guards slowly gain loyalty
+                guard.Loyalty = Math.Min(100, guard.Loyalty + 1);
+            }
+
+            // Long service increases loyalty cap
+            var daysServed = (DateTime.Now - guard.RecruitmentDate).TotalDays;
+            if (daysServed > 30)
+            {
+                guard.Loyalty = Math.Min(100, guard.Loyalty + 1);
+            }
+
+            // Very low loyalty = desertion
+            if (guard.Loyalty <= 10)
+            {
+                guardsToRemove.Add(guard);
+                NewsSystem.Instance?.Newsy(true, $"Guard {guard.Name} has deserted the royal service!");
+            }
+            // Low loyalty has chance of desertion
+            else if (guard.Loyalty <= 25 && random.Next(100) < 10)
+            {
+                guardsToRemove.Add(guard);
+                NewsSystem.Instance?.Newsy(true, $"Disgruntled guard {guard.Name} has abandoned their post!");
+            }
+        }
+
+        // Remove deserters
+        foreach (var deserter in guardsToRemove)
+        {
+            king.Guards.Remove(deserter);
+        }
+    }
+
+    /// <summary>
+    /// Handle treasury crisis - guards may desert, monsters may escape
+    /// </summary>
+    private void ProcessTreasuryCrisis(King king, TerminalUI? terminal)
+    {
+        var random = new Random();
+
+        // All guards lose extra loyalty during crisis
+        foreach (var guard in king.Guards)
+        {
+            guard.Loyalty = Math.Max(0, guard.Loyalty - 3);
+        }
+
+        // Hungry monsters may escape (10% chance per monster when unfed)
+        var escapedMonsters = new List<MonsterGuard>();
+        foreach (var monster in king.MonsterGuards)
+        {
+            if (random.Next(100) < 10)
+            {
+                escapedMonsters.Add(monster);
+                NewsSystem.Instance?.Newsy(true, $"The unfed {monster.Name} has escaped from the castle moat!");
+            }
+        }
+
+        foreach (var monster in escapedMonsters)
+        {
+            king.MonsterGuards.Remove(monster);
+        }
+
+        // Treasury crisis is newsworthy
+        if (king.Guards.Count > 0 || king.MonsterGuards.Count > 0)
+        {
+            NewsSystem.Instance?.Newsy(false, $"Royal treasury crisis! Guards and monsters go unpaid!");
+        }
     }
 }
 

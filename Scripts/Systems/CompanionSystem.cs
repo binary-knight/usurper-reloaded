@@ -323,6 +323,22 @@ namespace UsurperRemake.Systems
         }
 
         /// <summary>
+        /// Get all recruited companions (active or not, but alive)
+        /// </summary>
+        public IEnumerable<Companion> GetRecruitedCompanions()
+        {
+            return companions.Values.Where(c => c.IsRecruited && !c.IsDead);
+        }
+
+        /// <summary>
+        /// Get inactive companions (recruited but not currently in active party)
+        /// </summary>
+        public IEnumerable<Companion> GetInactiveCompanions()
+        {
+            return companions.Values.Where(c => c.IsRecruited && !c.IsDead && !c.IsActive);
+        }
+
+        /// <summary>
         /// Get fallen (dead) companions
         /// </summary>
         public IEnumerable<(Companion Companion, CompanionDeath Death)> GetFallenCompanions()
@@ -459,6 +475,44 @@ namespace UsurperRemake.Systems
                     c.IsActive = true;
             }
 
+            return true;
+        }
+
+        /// <summary>
+        /// Deactivate a single companion (remove from active party but keep recruited)
+        /// </summary>
+        public bool DeactivateCompanion(CompanionId id)
+        {
+            if (!companions.TryGetValue(id, out var companion))
+                return false;
+
+            if (!companion.IsRecruited || companion.IsDead)
+                return false;
+
+            companion.IsActive = false;
+            activeCompanions.Remove(id);
+            return true;
+        }
+
+        /// <summary>
+        /// Activate a single companion (add to active party if room and recruited)
+        /// </summary>
+        public bool ActivateCompanion(CompanionId id)
+        {
+            if (!companions.TryGetValue(id, out var companion))
+                return false;
+
+            if (!companion.IsRecruited || companion.IsDead)
+                return false;
+
+            if (activeCompanions.Count >= MaxActiveCompanions)
+                return false;
+
+            if (!activeCompanions.Contains(id))
+            {
+                activeCompanions.Add(id);
+                companion.IsActive = true;
+            }
             return true;
         }
 
@@ -912,8 +966,18 @@ namespace UsurperRemake.Systems
             if (!companions.TryGetValue(id, out var companion))
                 return;
 
-            companion.PersonalQuestCompleted = true;
-            companion.PersonalQuestSuccess = success;
+            // On failure, reset quest state to allow retry; on success, mark complete
+            if (!success)
+            {
+                companion.PersonalQuestStarted = false;
+                companion.PersonalQuestCompleted = false;
+                companion.PersonalQuestSuccess = false;
+            }
+            else
+            {
+                companion.PersonalQuestCompleted = true;
+                companion.PersonalQuestSuccess = true;
+            }
 
             companion.AddHistory(new CompanionEvent
             {
@@ -1610,8 +1674,9 @@ namespace UsurperRemake.Systems
 
         private int GetPlayerLevel()
         {
-            // Would get from game state
-            return 1;
+            // Get actual player level from GameEngine
+            var player = GameEngine.Instance?.CurrentPlayer;
+            return player?.Level ?? 1;
         }
 
         #endregion

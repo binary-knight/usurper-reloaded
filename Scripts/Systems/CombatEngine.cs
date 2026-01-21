@@ -212,8 +212,8 @@ public partial class CombatEngine
         }
         else
         {
-            terminal.SetColor("yellow");
-            terminal.WriteLine($"You are facing a group of {monsters.Count} monsters!");
+            // Monster announcement is already shown by the calling code (dungeon, etc.)
+            // Just add an empty line for spacing
             terminal.WriteLine("");
         }
 
@@ -846,6 +846,27 @@ public partial class CombatEngine
         // Apply difficulty modifier to player damage
         attackPower = DifficultySystem.ApplyPlayerDamageMultiplier(attackPower);
 
+        // Apply grief effects - grief stage can modify damage dealt
+        var griefEffects = GriefSystem.Instance.GetCurrentEffects();
+        if (griefEffects.DamageModifier != 0 || griefEffects.CombatModifier != 0 || griefEffects.AllStatModifier != 0)
+        {
+            // Damage modifier: positive = more damage (Anger stage), negative = less damage
+            // Combat modifier: general combat effectiveness (Denial/Bargaining)
+            // AllStatModifier: affects everything (Depression)
+            float totalGriefMod = 1.0f + griefEffects.DamageModifier + griefEffects.CombatModifier + griefEffects.AllStatModifier;
+            attackPower = (long)(attackPower * totalGriefMod);
+
+            // Show grief effect message for significant modifiers
+            if (griefEffects.DamageModifier > 0.1f)
+            {
+                terminal.WriteLine("  (Rage fuels your strikes)", "dark_red");
+            }
+            else if (griefEffects.AllStatModifier < -0.1f)
+            {
+                terminal.WriteLine("  (Grief weighs on your arm)", "dark_gray");
+            }
+        }
+
         // Apply divine blessing bonus damage
         int divineBonusDamage = DivineBlessingSystem.Instance.CalculateBonusDamage(attacker, target, (int)attackPower);
         if (divineBonusDamage > 0)
@@ -1338,6 +1359,16 @@ public partial class CombatEngine
         // Apply temporary defense bonus from abilities
         playerDefense += player.TempDefenseBonus;
 
+        // Apply grief effects to defense - grief stage can modify defense
+        var griefDefenseEffects = GriefSystem.Instance.GetCurrentEffects();
+        if (griefDefenseEffects.DefenseModifier != 0 || griefDefenseEffects.AllStatModifier != 0)
+        {
+            // Defense modifier: positive = more defense, negative = less defense (Anger stage)
+            // AllStatModifier: affects everything (Depression)
+            float totalGriefDefMod = 1.0f + griefDefenseEffects.DefenseModifier + griefDefenseEffects.AllStatModifier;
+            playerDefense = (long)(playerDefense * totalGriefDefMod);
+        }
+
         // Apply monster distraction (reduces monster accuracy effectively increasing defense)
         if (monster.Distracted)
         {
@@ -1635,6 +1666,17 @@ public partial class CombatEngine
             expReward = (long)(expReward * childXPMult);
         }
 
+        // Team bonus - 15% extra XP and gold for having teammates
+        long teamXPBonus = 0;
+        long teamGoldBonus = 0;
+        if (result.Teammates != null && result.Teammates.Count > 0)
+        {
+            teamXPBonus = (long)(expReward * 0.15);
+            teamGoldBonus = (long)(goldReward * 0.15);
+            expReward += teamXPBonus;
+            goldReward += teamGoldBonus;
+        }
+
         // Team balance XP penalty - reduced XP when carried by high-level teammates
         float teamXPMult = TeamBalanceSystem.Instance.CalculateXPMultiplier(result.Player, result.Teammates);
         long preTeamBalanceXP = expReward;
@@ -1726,6 +1768,13 @@ public partial class CombatEngine
             long xpLost = preTeamBalanceXP - expReward;
             terminal.SetColor("yellow");
             terminal.WriteLine($"  (High-level ally penalty: -{xpLost} XP, {(int)(teamXPMult * 100)}% rate)");
+        }
+
+        // Show team bonus if applicable
+        if (teamXPBonus > 0 || teamGoldBonus > 0)
+        {
+            terminal.SetColor("cyan");
+            terminal.WriteLine($"  (Team bonus: +{teamXPBonus} XP, +{teamGoldBonus} gold)");
         }
 
         // Offer weapon pickup
@@ -5473,6 +5522,17 @@ public partial class CombatEngine
             adjustedExp = (long)(adjustedExp * childXPMult);
         }
 
+        // Team bonus - 15% extra XP and gold for having teammates
+        long teamXPBonus = 0;
+        long teamGoldBonus = 0;
+        if (result.Teammates != null && result.Teammates.Count > 0)
+        {
+            teamXPBonus = (long)(adjustedExp * 0.15);
+            teamGoldBonus = (long)(adjustedGold * 0.15);
+            adjustedExp += teamXPBonus;
+            adjustedGold += teamGoldBonus;
+        }
+
         // Team balance XP penalty - reduced XP when carried by high-level teammates
         float teamXPMult = TeamBalanceSystem.Instance.CalculateXPMultiplier(result.Player, result.Teammates);
         long preTeamBalanceExp = adjustedExp;
@@ -5525,6 +5585,13 @@ public partial class CombatEngine
             long xpLost = preTeamBalanceExp - adjustedExp;
             terminal.SetColor("yellow");
             terminal.WriteLine($"  (High-level ally penalty: -{xpLost} XP, {(int)(teamXPMult * 100)}% rate)");
+        }
+
+        // Show team bonus if applicable
+        if (teamXPBonus > 0 || teamGoldBonus > 0)
+        {
+            terminal.SetColor("cyan");
+            terminal.WriteLine($"  (Team bonus: +{teamXPBonus} XP, +{teamGoldBonus} gold)");
         }
         terminal.WriteLine($"Gold gained: {adjustedGold:N0}");
 

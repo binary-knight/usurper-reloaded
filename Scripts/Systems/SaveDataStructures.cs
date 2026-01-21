@@ -46,10 +46,13 @@ namespace UsurperRemake.Systems
         // Dungeon party NPCs (spouses, team members, lovers added via party management)
         public List<string> DungeonPartyNPCIds { get; set; } = new();
 
-        // Grief state
-        public int GriefStage { get; set; }
-        public int GriefDaysRemaining { get; set; }
-        public string GriefCompanionName { get; set; } = "";
+        // Grief state - full grief system data (supports multiple griefs)
+        public int GriefStage { get; set; }  // Legacy field for backwards compatibility
+        public int GriefDaysRemaining { get; set; }  // Legacy
+        public string GriefCompanionName { get; set; } = "";  // Legacy
+        public List<GriefStateSaveData> ActiveGriefs { get; set; } = new();  // Full grief states
+        public List<GriefStateSaveData> ActiveNpcGriefs { get; set; } = new();  // NPC teammate grief
+        public List<GriefMemorySaveData> GriefMemories { get; set; } = new();  // Memories of fallen
 
         // Story progression flags
         public Dictionary<string, bool> StoryFlags { get; set; } = new();
@@ -63,6 +66,12 @@ namespace UsurperRemake.Systems
 
         // Jungian Archetype tracking
         public ArchetypeTrackerData? ArchetypeTracker { get; set; }
+
+        // Royal Court Political Systems
+        public RoyalCourtSaveData? RoyalCourt { get; set; }
+
+        // Relationship System - all character relationships
+        public List<RelationshipSaveData> Relationships { get; set; } = new();
     }
 
 
@@ -78,6 +87,18 @@ namespace UsurperRemake.Systems
         public bool PersonalQuestStarted { get; set; }
         public bool PersonalQuestCompleted { get; set; }
         public int RecruitedDay { get; set; }
+
+        // Level and experience
+        public int Level { get; set; }
+        public long Experience { get; set; }
+
+        // Base stats (to preserve level-up gains)
+        public int BaseStatsHP { get; set; }
+        public int BaseStatsAttack { get; set; }
+        public int BaseStatsDefense { get; set; }
+        public int BaseStatsMagicPower { get; set; }
+        public int BaseStatsSpeed { get; set; }
+        public int BaseStatsHealingPower { get; set; }
     }
 
     public class CompanionDeathInfo
@@ -1013,5 +1034,114 @@ namespace UsurperRemake.Systems
         public bool InsightGranted { get; set; }
         public bool MemoryTriggered { get; set; }
         public bool SecretBossDefeated { get; set; }
+    }
+
+    /// <summary>
+    /// Save data for a single grief state (companion or NPC)
+    /// </summary>
+    public class GriefStateSaveData
+    {
+        public int CompanionId { get; set; }  // For companion grief (cast to CompanionId enum)
+        public string? NpcId { get; set; }  // For NPC grief
+        public string CompanionName { get; set; } = "";
+        public int DeathType { get; set; }  // Cast to DeathType enum
+        public int CurrentStage { get; set; }  // Cast to GriefStage enum
+        public int StageStartDay { get; set; }
+        public int GriefStartDay { get; set; }
+        public int ResurrectionAttempts { get; set; }
+        public bool IsComplete { get; set; }
+    }
+
+    /// <summary>
+    /// Save data for grief memory
+    /// </summary>
+    public class GriefMemorySaveData
+    {
+        public int CompanionId { get; set; }  // For companion memories
+        public string? NpcId { get; set; }  // For NPC memories
+        public string CompanionName { get; set; } = "";
+        public string MemoryText { get; set; } = "";
+        public int CreatedDay { get; set; }
+    }
+
+    /// <summary>
+    /// Save data for the entire royal court political system
+    /// </summary>
+    public class RoyalCourtSaveData
+    {
+        public string KingName { get; set; } = "";
+        public long Treasury { get; set; }
+        public long TaxRate { get; set; }
+        public long TotalReign { get; set; }
+        public string DesignatedHeir { get; set; } = "";
+
+        public List<CourtMemberSaveData> CourtMembers { get; set; } = new();
+        public List<RoyalHeirSaveData> Heirs { get; set; } = new();
+        public RoyalSpouseSaveData? Spouse { get; set; }
+        public List<CourtIntrigueSaveData> ActivePlots { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Save data for a court member
+    /// </summary>
+    public class CourtMemberSaveData
+    {
+        public string Name { get; set; } = "";
+        public int Faction { get; set; }
+        public int Influence { get; set; }
+        public int LoyaltyToKing { get; set; }
+        public string Role { get; set; } = "";
+        public bool IsPlotting { get; set; }
+    }
+
+    /// <summary>
+    /// Save data for a royal heir
+    /// </summary>
+    public class RoyalHeirSaveData
+    {
+        public string Name { get; set; } = "";
+        public int Age { get; set; }
+        public int ClaimStrength { get; set; }
+        public string ParentName { get; set; } = "";
+        public int Sex { get; set; }
+        public bool IsDesignated { get; set; }
+    }
+
+    /// <summary>
+    /// Save data for royal spouse
+    /// </summary>
+    public class RoyalSpouseSaveData
+    {
+        public string Name { get; set; } = "";
+        public int Sex { get; set; }
+        public int OriginalFaction { get; set; }
+        public long Dowry { get; set; }
+        public int Happiness { get; set; }
+    }
+
+    /// <summary>
+    /// Save data for court intrigue/plot
+    /// </summary>
+    public class CourtIntrigueSaveData
+    {
+        public string PlotType { get; set; } = "";
+        public List<string> Conspirators { get; set; } = new();
+        public string Target { get; set; } = "";
+        public int Progress { get; set; }
+        public bool IsDiscovered { get; set; }
+    }
+
+    /// <summary>
+    /// Save data for character relationships (from RelationshipSystem)
+    /// </summary>
+    public class RelationshipSaveData
+    {
+        public string Name1 { get; set; } = "";  // First character name
+        public string Name2 { get; set; } = "";  // Second character name
+        public int Relation1 { get; set; }       // Character 1's relation to Character 2
+        public int Relation2 { get; set; }       // Character 2's relation to Character 1
+        public int MarriedDays { get; set; }     // Days married (0 if not married)
+        public bool Deleted { get; set; }
+        public DateTime LastUpdated { get; set; }
     }
 } 

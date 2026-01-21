@@ -1465,14 +1465,22 @@ public partial class GameEngine : Node
             player.SkillTrainingProgress = new Dictionary<string, int>(playerData.SkillTrainingProgress);
         }
 
-        // Restore spells and skills
+        // Restore spells and skills (ensure lists are never null)
         if (playerData.Spells?.Count > 0)
         {
             player.Spell = playerData.Spells;
         }
+        else if (player.Spell == null)
+        {
+            player.Spell = new List<List<bool>>();
+        }
         if (playerData.Skills?.Count > 0)
         {
             player.Skill = playerData.Skills;
+        }
+        else if (player.Skill == null)
+        {
+            player.Skill = new List<int>();
         }
 
         // Restore legacy equipment slots
@@ -1779,6 +1787,11 @@ public partial class GameEngine : Node
             // Restore market inventory for NPC trading
             if (data.MarketInventory != null && data.MarketInventory.Count > 0)
             {
+                // Ensure MarketInventory is initialized
+                if (npc.MarketInventory == null)
+                {
+                    npc.MarketInventory = new List<Item>();
+                }
                 foreach (var itemData in data.MarketInventory)
                 {
                     var item = new global::Item
@@ -1844,6 +1857,67 @@ public partial class GameEngine : Node
             // Initialize AI systems now that name and archetype are set
             // This will use the restored personality if available, or generate one if not
             npc.EnsureSystemsInitialized();
+
+            // Restore NPC memories, goals, and emotional state from saved data
+            // This must happen AFTER EnsureSystemsInitialized creates the Brain
+            if (npc.Brain != null)
+            {
+                // Restore memories
+                if (data.Memories != null && data.Memories.Count > 0)
+                {
+                    foreach (var memData in data.Memories)
+                    {
+                        if (Enum.TryParse<MemoryType>(memData.Type, out var memType))
+                        {
+                            var memory = new MemoryEvent
+                            {
+                                Type = memType,
+                                Description = memData.Description,
+                                InvolvedCharacter = memData.InvolvedCharacter,
+                                Timestamp = memData.Timestamp,
+                                Importance = memData.Importance,
+                                EmotionalImpact = memData.EmotionalImpact
+                            };
+                            npc.Brain.Memory?.RecordEvent(memory);
+                        }
+                    }
+                    // GD.Print($"[GameEngine] Restored {data.Memories.Count} memories for {npc.Name}");
+                }
+
+                // Restore goals
+                if (data.CurrentGoals != null && data.CurrentGoals.Count > 0)
+                {
+                    foreach (var goalData in data.CurrentGoals)
+                    {
+                        if (Enum.TryParse<GoalType>(goalData.Type, out var goalType))
+                        {
+                            var goal = new Goal(goalData.Name, goalType, goalData.Priority)
+                            {
+                                Progress = goalData.Progress,
+                                IsActive = goalData.IsActive,
+                                TargetValue = goalData.TargetValue,
+                                CurrentValue = goalData.CurrentValue,
+                                CreatedTime = goalData.CreatedTime
+                            };
+                            npc.Brain.Goals?.AddGoal(goal);
+                        }
+                    }
+                    // GD.Print($"[GameEngine] Restored {data.CurrentGoals.Count} goals for {npc.Name}");
+                }
+
+                // Restore emotional state
+                if (data.EmotionalState != null)
+                {
+                    if (data.EmotionalState.Happiness > 0)
+                        npc.Brain.Emotions?.AddEmotion(EmotionType.Joy, data.EmotionalState.Happiness, 120);
+                    if (data.EmotionalState.Anger > 0)
+                        npc.Brain.Emotions?.AddEmotion(EmotionType.Anger, data.EmotionalState.Anger, 120);
+                    if (data.EmotionalState.Fear > 0)
+                        npc.Brain.Emotions?.AddEmotion(EmotionType.Fear, data.EmotionalState.Fear, 120);
+                    if (data.EmotionalState.Trust > 0)
+                        npc.Brain.Emotions?.AddEmotion(EmotionType.Gratitude, data.EmotionalState.Trust, 120);
+                }
+            }
 
             // Fix Experience if it's 0 - legacy saves may not have tracked NPC XP
             // NPCs need proper XP to level up correctly from combat
@@ -1950,6 +2024,10 @@ public partial class GameEngine : Node
 
         // Mark NPCs as initialized so they don't get re-created
         NPCSpawnSystem.Instance.MarkAsInitialized();
+
+        // Process dead NPCs for respawn - this queues them with a faster timer
+        // since they've been dead since the last save
+        worldSimulator?.ProcessDeadNPCsOnLoad();
 
         GD.Print($"Restored {npcData.Count} NPCs from save data");
         await Task.CompletedTask;

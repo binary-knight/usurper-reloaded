@@ -2,7 +2,7 @@
     <PropertyGroup>
         <TargetFramework>net8.0</TargetFramework>
         <RootNamespace>UsurperRemake</RootNamespace>
-        <AssemblyName>UsurperRemake</AssemblyName>
+        <AssemblyName>UsurperReborn</AssemblyName>
         <Nullable>enable</Nullable>
         <OutputType>Exe</OutputType>
         <IsPackable>false</IsPackable>

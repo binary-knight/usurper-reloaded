@@ -57,3 +57,4 @@ CLAUDE.md
 
 # Telemetry config (contains webhook URLs - never commit)
 telemetry_config.txt
+nul

@@ -123,23 +123,31 @@ public partial class RelationshipSystem
             foreach (var relation in relationGroup.Values)
             {
                 if (relation.Deleted) continue;
-                
-                if (relation.Name1 == character.Name && 
+
+                if (relation.Name1 == character.Name &&
                     relation.Relation1 == GameConfig.RelationMarried &&
                     relation.Relation2 == GameConfig.RelationMarried)
                 {
+                    // Check if spouse is dead before returning
+                    var spouse = NPCSpawnSystem.Instance?.GetNPCByName(relation.Name2);
+                    if (spouse != null && spouse.IsDead)
+                        continue; // Skip dead spouse
                     return relation.Name2;
                 }
-                
-                if (relation.Name2 == character.Name && 
+
+                if (relation.Name2 == character.Name &&
                     relation.Relation1 == GameConfig.RelationMarried &&
                     relation.Relation2 == GameConfig.RelationMarried)
                 {
+                    // Check if spouse is dead before returning
+                    var spouse = NPCSpawnSystem.Instance?.GetNPCByName(relation.Name1);
+                    if (spouse != null && spouse.IsDead)
+                        continue; // Skip dead spouse
                     return relation.Name1;
                 }
             }
         }
-        
+
         return "";
     }
     
@@ -150,7 +158,19 @@ public partial class RelationshipSystem
     public static bool PerformMarriage(Character character1, Character character2, out string message)
     {
         message = "";
-        
+
+        // Check if either character is permanently dead (IsDead is on NPC/Player, not base Character)
+        if (character1 is NPC deadCheck1 && deadCheck1.IsDead)
+        {
+            message = $"{character1.Name} has passed away and cannot marry.";
+            return false;
+        }
+        if (character2 is NPC deadCheck2 && deadCheck2.IsDead)
+        {
+            message = $"{character2.Name} has passed away and cannot marry.";
+            return false;
+        }
+
         // Check marriage prerequisites
         if (character1.Age < GameConfig.MinimumAgeToMarry || character2.Age < GameConfig.MinimumAgeToMarry)
         {
@@ -550,9 +570,80 @@ public partial class RelationshipSystem
         relation.Relation1 = GameConfig.RelationNormal;
         relation.Relation2 = GameConfig.RelationHate;
         relation.MarriedDays = 0;
-        
+
         GD.Print($"Automatic divorce: {relation.Name1} and {relation.Name2} divorced after {relation.MarriedDays} days");
     }
-    
+
+    #region Serialization
+
+    /// <summary>
+    /// Export all relationships for saving
+    /// </summary>
+    public static List<UsurperRemake.Systems.RelationshipSaveData> ExportAllRelationships()
+    {
+        var result = new List<UsurperRemake.Systems.RelationshipSaveData>();
+
+        foreach (var outerPair in _relationships)
+        {
+            foreach (var innerPair in outerPair.Value)
+            {
+                var relation = innerPair.Value;
+                // Only save non-trivial relationships (not just "Normal" both ways)
+                if (relation.Relation1 != GameConfig.RelationNormal ||
+                    relation.Relation2 != GameConfig.RelationNormal ||
+                    relation.MarriedDays > 0)
+                {
+                    result.Add(new UsurperRemake.Systems.RelationshipSaveData
+                    {
+                        Name1 = relation.Name1,
+                        Name2 = relation.Name2,
+                        Relation1 = relation.Relation1,
+                        Relation2 = relation.Relation2,
+                        MarriedDays = relation.MarriedDays,
+                        Deleted = relation.Deleted,
+                        LastUpdated = relation.LastUpdated
+                    });
+                }
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Import relationships from save data
+    /// </summary>
+    public static void ImportAllRelationships(List<UsurperRemake.Systems.RelationshipSaveData> savedRelationships)
+    {
+        if (savedRelationships == null) return;
+
+        // Clear existing relationships
+        _relationships.Clear();
+
+        foreach (var saved in savedRelationships)
+        {
+            var key1 = GetRelationshipKey(saved.Name1, saved.Name2);
+            var key2 = GetRelationshipKey(saved.Name2, saved.Name1);
+
+            if (!_relationships.ContainsKey(key1))
+                _relationships[key1] = new Dictionary<string, RelationshipRecord>();
+
+            _relationships[key1][key2] = new RelationshipRecord
+            {
+                Name1 = saved.Name1,
+                Name2 = saved.Name2,
+                Relation1 = saved.Relation1,
+                Relation2 = saved.Relation2,
+                MarriedDays = saved.MarriedDays,
+                Deleted = saved.Deleted,
+                LastUpdated = saved.LastUpdated
+            };
+        }
+
+        GD.Print($"[RelationshipSystem] Imported {savedRelationships.Count} relationships");
+    }
+
+    #endregion
+
     #endregion
 }

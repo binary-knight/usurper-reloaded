@@ -1,6 +1,7 @@
 using System;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using UsurperRemake.BBS;
 
 namespace UsurperConsole
 {
@@ -230,12 +231,33 @@ namespace UsurperConsole
         
         public void Clear()
         {
-            Console.Clear();
+            SafeClearScreen();
         }
 
         public void ClearScreen()
         {
-            Console.Clear();
+            SafeClearScreen();
+        }
+
+        private void SafeClearScreen()
+        {
+            if (DoorMode.IsInDoorMode)
+            {
+                // In BBS door mode with Standard I/O, use ANSI escape codes
+                Console.Write("\x1b[2J\x1b[H");
+            }
+            else
+            {
+                try
+                {
+                    Console.Clear();
+                }
+                catch (System.IO.IOException)
+                {
+                    // Fallback to ANSI if Console.Clear fails
+                    Console.Write("\x1b[2J\x1b[H");
+                }
+            }
         }
 
         public async Task WaitForKey()

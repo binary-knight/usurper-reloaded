@@ -16,10 +16,17 @@ namespace UsurperRemake.Systems
         private static readonly int[] SealFloors = { 15, 30, 45, 60, 80, 99 };
 
         /// <summary>
-        /// Generate a complete dungeon floor with interconnected rooms
+        /// Generate a complete dungeon floor with interconnected rooms.
+        /// Uses deterministic seeding so the same floor level always produces the same layout.
+        /// This is critical for save/restore to work correctly - room IDs must map to the same rooms.
         /// </summary>
         public static DungeonFloor GenerateFloor(int level)
         {
+            // CRITICAL: Use deterministic seed based on floor level
+            // This ensures the same floor layout is generated every time for a given level
+            // Seed combines level with a magic number for variety across levels
+            random = new Random(level * 31337 + 42);
+
             var floor = new DungeonFloor
             {
                 Level = level,

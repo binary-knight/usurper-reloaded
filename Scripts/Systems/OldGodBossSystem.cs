@@ -28,6 +28,9 @@ namespace UsurperRemake.Systems
         private List<BossFightTeammate> activeTeammates = new();
         private List<Character>? dungeonTeammates; // Passed from DungeonLocation
 
+        // Combat modifiers based on dialogue choices
+        private CombatModifiers activeCombatModifiers = new();
+
         /// <summary>
         /// Represents any teammate fighting in the boss battle (companion or NPC)
         /// </summary>
@@ -44,6 +47,50 @@ namespace UsurperRemake.Systems
             public Companion? CompanionRef { get; set; } // Reference if this is a companion
             public Character? CharacterRef { get; set; } // Reference if this is an NPC
             public bool IsAlive => CurrentHP > 0;
+        }
+
+        /// <summary>
+        /// Combat modifiers applied based on dialogue choices before boss fight
+        /// </summary>
+        private class CombatModifiers
+        {
+            // Player bonuses
+            public double DamageMultiplier { get; set; } = 1.0;
+            public double DefenseMultiplier { get; set; } = 1.0;
+            public int BonusDamage { get; set; } = 0;
+            public int BonusDefense { get; set; } = 0;
+            public double CriticalChance { get; set; } = 0.05; // 5% base
+            public double CriticalMultiplier { get; set; } = 1.5;
+            public bool HasRageBoost { get; set; } = false; // Extra attacks
+            public bool HasInsight { get; set; } = false; // See boss patterns
+
+            // Boss penalties/bonuses
+            public double BossDamageMultiplier { get; set; } = 1.0;
+            public double BossDefenseMultiplier { get; set; } = 1.0;
+            public bool BossConfused { get; set; } = false; // May miss attacks
+            public bool BossWeakened { get; set; } = false; // Reduced stats
+
+            // Special effects
+            public string ApproachType { get; set; } = "neutral"; // aggressive, diplomatic, cunning, humble
+            public string? SpecialEffect { get; set; } = null;
+
+            public void Reset()
+            {
+                DamageMultiplier = 1.0;
+                DefenseMultiplier = 1.0;
+                BonusDamage = 0;
+                BonusDefense = 0;
+                CriticalChance = 0.05;
+                CriticalMultiplier = 1.5;
+                HasRageBoost = false;
+                HasInsight = false;
+                BossDamageMultiplier = 1.0;
+                BossDefenseMultiplier = 1.0;
+                BossConfused = false;
+                BossWeakened = false;
+                ApproachType = "neutral";
+                SpecialEffect = null;
+            }
         }
 
         /// <summary>
@@ -254,6 +301,241 @@ namespace UsurperRemake.Systems
         }
 
         /// <summary>
+        /// Apply combat modifiers based on dialogue choices
+        /// </summary>
+        private void ApplyDialogueModifiers(OldGodType godType, TerminalEmulator terminal)
+        {
+            activeCombatModifiers.Reset();
+            var story = StoryProgressionSystem.Instance;
+            var godName = godType.ToString().ToLower();
+
+            // Check for god-specific dialogue flags and apply modifiers
+            switch (godType)
+            {
+                case OldGodType.Maelketh:
+                    ApplyMaelkethModifiers(story, terminal);
+                    break;
+                case OldGodType.Veloura:
+                    ApplyVelouraModifiers(story, terminal);
+                    break;
+                case OldGodType.Thorgrim:
+                    ApplyThorgrimModifiers(story, terminal);
+                    break;
+                case OldGodType.Noctura:
+                    ApplyNocturaModifiers(story, terminal);
+                    break;
+                case OldGodType.Aurelion:
+                    ApplyAurelionModifiers(story, terminal);
+                    break;
+                case OldGodType.Terravok:
+                    ApplyTerravokModifiers(story, terminal);
+                    break;
+                case OldGodType.Manwe:
+                    ApplyManweModifiers(story, terminal);
+                    break;
+            }
+        }
+
+        private void ApplyMaelkethModifiers(StoryProgressionSystem story, TerminalEmulator terminal)
+        {
+            // Option 1: "I am here to destroy you" - Aggressive approach = Rage boost
+            if (story.HasStoryFlag("maelketh_combat_start") && !story.HasStoryFlag("maelketh_teaching"))
+            {
+                activeCombatModifiers.ApproachType = "aggressive";
+                activeCombatModifiers.HasRageBoost = true;
+                activeCombatModifiers.DamageMultiplier = 1.25; // 25% more damage
+                activeCombatModifiers.DefenseMultiplier = 0.85; // 15% less defense (reckless)
+                activeCombatModifiers.CriticalChance = 0.15; // 15% crit chance
+                terminal.WriteLine("  Your fury burns bright! (+25% damage, +15% crit, -15% defense)", "bright_red");
+            }
+            // Option 3: "Teach me" - Humble approach = Learn his patterns
+            else if (story.HasStoryFlag("maelketh_teaching"))
+            {
+                activeCombatModifiers.ApproachType = "humble";
+                activeCombatModifiers.HasInsight = true;
+                activeCombatModifiers.DefenseMultiplier = 1.20; // 20% more defense
+                activeCombatModifiers.BossDamageMultiplier = 0.85; // Boss does 15% less damage
+                terminal.WriteLine("  Maelketh's teachings echo in your mind. (+20% defense, boss -15% damage)", "cyan");
+            }
+            // Option 2: Peace path (fails but shows character) - No modifier, normal fight
+        }
+
+        private void ApplyVelouraModifiers(StoryProgressionSystem story, TerminalEmulator terminal)
+        {
+            // Aggressive approach
+            if (story.HasStoryFlag("veloura_combat_start") && !story.HasStoryFlag("veloura_empathy") && !story.HasStoryFlag("veloura_mercy_kill"))
+            {
+                activeCombatModifiers.ApproachType = "aggressive";
+                activeCombatModifiers.DamageMultiplier = 1.15;
+                activeCombatModifiers.BossDamageMultiplier = 1.10; // She fights harder
+                terminal.WriteLine("  Your hostility fuels her passion. (+15% damage, but she hits 10% harder)", "red");
+            }
+            // Empathy shown
+            else if (story.HasStoryFlag("veloura_empathy"))
+            {
+                activeCombatModifiers.ApproachType = "diplomatic";
+                activeCombatModifiers.BossWeakened = true;
+                activeCombatModifiers.BossDamageMultiplier = 0.80; // She's conflicted
+                terminal.WriteLine("  Your empathy weakens her resolve. (Boss -20% damage)", "bright_magenta");
+            }
+            // Mercy kill - she accepts death
+            else if (story.HasStoryFlag("veloura_mercy_kill"))
+            {
+                activeCombatModifiers.ApproachType = "merciful";
+                activeCombatModifiers.BossWeakened = true;
+                activeCombatModifiers.BossDefenseMultiplier = 0.70; // She doesn't fully resist
+                terminal.WriteLine("  She accepts her fate with grace. (Boss -30% defense)", "bright_cyan");
+            }
+        }
+
+        private void ApplyThorgrimModifiers(StoryProgressionSystem story, TerminalEmulator terminal)
+        {
+            // Defiant approach
+            if (story.HasStoryFlag("thorgrim_combat_start") && !story.HasStoryFlag("thorgrim_honorable_combat") && !story.HasStoryFlag("thorgrim_broken_logic"))
+            {
+                activeCombatModifiers.ApproachType = "defiant";
+                activeCombatModifiers.DamageMultiplier = 1.10;
+                activeCombatModifiers.BossDamageMultiplier = 1.15; // He judges harshly
+                terminal.WriteLine("  Your defiance enrages the lawbringer! (+10% damage, but he hits 15% harder)", "yellow");
+            }
+            // Honorable combat via Right of Challenge
+            else if (story.HasStoryFlag("thorgrim_honorable_combat"))
+            {
+                activeCombatModifiers.ApproachType = "honorable";
+                activeCombatModifiers.DefenseMultiplier = 1.15;
+                activeCombatModifiers.BonusDefense = 20;
+                terminal.WriteLine("  The Right of Challenge grants you legal protection. (+15% defense, +20 armor)", "gray");
+            }
+            // Broken his logic with paradox
+            else if (story.HasStoryFlag("thorgrim_broken_logic"))
+            {
+                activeCombatModifiers.ApproachType = "cunning";
+                activeCombatModifiers.BossConfused = true;
+                activeCombatModifiers.BossDamageMultiplier = 0.75;
+                activeCombatModifiers.BossDefenseMultiplier = 0.85;
+                terminal.WriteLine("  His broken logic makes him erratic! (Boss -25% damage, -15% defense)", "bright_cyan");
+            }
+        }
+
+        private void ApplyNocturaModifiers(StoryProgressionSystem story, TerminalEmulator terminal)
+        {
+            // Aggressive approach
+            if (story.HasStoryFlag("noctura_combat_start") && !story.HasStoryFlag("noctura_ally"))
+            {
+                activeCombatModifiers.ApproachType = "aggressive";
+                activeCombatModifiers.DamageMultiplier = 1.10;
+                // She uses shadows against you
+                activeCombatModifiers.CriticalChance = 0.03; // Harder to land crits
+                terminal.WriteLine("  The shadows hide her movements. (+10% damage, but harder to crit)", "dark_magenta");
+            }
+            // If allied (shouldn't reach combat, but just in case)
+            else if (story.HasStoryFlag("noctura_ally"))
+            {
+                activeCombatModifiers.ApproachType = "allied";
+                // No combat should occur
+            }
+        }
+
+        private void ApplyAurelionModifiers(StoryProgressionSystem story, TerminalEmulator terminal)
+        {
+            var godName = "aurelion";
+            // Check for defiant approach
+            if (story.HasStoryFlag($"{godName}_defiant"))
+            {
+                activeCombatModifiers.ApproachType = "defiant";
+                activeCombatModifiers.DamageMultiplier = 1.20;
+                activeCombatModifiers.DefenseMultiplier = 0.90;
+                terminal.WriteLine("  Your defiance against the light empowers your strikes! (+20% damage, -10% defense)", "bright_yellow");
+            }
+            // Humble approach
+            else if (story.HasStoryFlag($"{godName}_humble"))
+            {
+                activeCombatModifiers.ApproachType = "humble";
+                activeCombatModifiers.BossDamageMultiplier = 0.85;
+                activeCombatModifiers.DefenseMultiplier = 1.15;
+                terminal.WriteLine("  Your humility earns a measure of restraint. (-15% boss damage, +15% defense)", "bright_cyan");
+            }
+            // Default combat
+            else if (story.HasStoryFlag($"{godName}_combat_start"))
+            {
+                activeCombatModifiers.ApproachType = "neutral";
+                terminal.WriteLine("  The God of Light prepares to judge you.", "bright_yellow");
+            }
+        }
+
+        private void ApplyTerravokModifiers(StoryProgressionSystem story, TerminalEmulator terminal)
+        {
+            var godName = "terravok";
+            // Aggressive/destructive approach
+            if (story.HasStoryFlag($"{godName}_destructive"))
+            {
+                activeCombatModifiers.ApproachType = "aggressive";
+                activeCombatModifiers.DamageMultiplier = 1.30;
+                activeCombatModifiers.BossDamageMultiplier = 1.20;
+                terminal.WriteLine("  Your destructive intent awakens his full wrath! (+30% damage, but +20% boss damage)", "dark_green");
+            }
+            // Respect for nature
+            else if (story.HasStoryFlag($"{godName}_respectful"))
+            {
+                activeCombatModifiers.ApproachType = "respectful";
+                activeCombatModifiers.BossWeakened = true;
+                activeCombatModifiers.BossDamageMultiplier = 0.90;
+                terminal.WriteLine("  Your respect for nature tempers his rage. (-10% boss damage)", "green");
+            }
+            // Default
+            else if (story.HasStoryFlag($"{godName}_combat_start"))
+            {
+                activeCombatModifiers.ApproachType = "neutral";
+                terminal.WriteLine("  The God of Earth rises to crush you.", "dark_green");
+            }
+        }
+
+        private void ApplyManweModifiers(StoryProgressionSystem story, TerminalEmulator terminal)
+        {
+            // Final boss - modifiers based on choices with previous gods
+            int godsSaved = story.OldGodStates.Values.Count(s => s.Status == GodStatus.Saved);
+            int godsAllied = story.OldGodStates.Values.Count(s => s.Status == GodStatus.Allied);
+            int godsDestroyed = story.OldGodStates.Values.Count(s => s.Status == GodStatus.Defeated);
+
+            if (godsAllied >= 2)
+            {
+                activeCombatModifiers.ApproachType = "allied";
+                activeCombatModifiers.DamageMultiplier = 1.20;
+                activeCombatModifiers.DefenseMultiplier = 1.20;
+                terminal.WriteLine("  Your allied gods lend you their power! (+20% damage and defense)", "bright_magenta");
+            }
+            else if (godsSaved >= 3)
+            {
+                activeCombatModifiers.ApproachType = "savior";
+                activeCombatModifiers.BossWeakened = true;
+                activeCombatModifiers.BossDamageMultiplier = 0.85;
+                terminal.WriteLine("  The saved gods weaken the Creator's hold. (-15% boss damage)", "bright_cyan");
+            }
+            else if (godsDestroyed >= 5)
+            {
+                activeCombatModifiers.ApproachType = "destroyer";
+                activeCombatModifiers.DamageMultiplier = 1.35;
+                activeCombatModifiers.DefenseMultiplier = 0.85;
+                activeCombatModifiers.CriticalChance = 0.20;
+                terminal.WriteLine("  Consumed divine power surges through you! (+35% damage, +20% crit, -15% defense)", "dark_red");
+            }
+
+            // Defiant to stranger bonus
+            if (story.HasStoryFlag("defiant_to_stranger"))
+            {
+                activeCombatModifiers.BonusDamage += 50;
+                terminal.WriteLine("  Your defiant spirit burns bright! (+50 bonus damage)", "bright_red");
+            }
+
+            // Willing hero bonus
+            if (story.HasStoryFlag("willing_hero"))
+            {
+                activeCombatModifiers.BonusDefense += 30;
+                terminal.WriteLine("  Your willing heart shields you! (+30 bonus defense)", "bright_green");
+            }
+        }
+
+        /// <summary>
         /// Run the boss combat encounter
         /// </summary>
         private async Task<BossEncounterResult> RunBossCombat(
@@ -261,6 +543,11 @@ namespace UsurperRemake.Systems
         {
             var story = StoryProgressionSystem.Instance;
             bool playerDead = false;
+
+            // Apply combat modifiers based on dialogue choices
+            ApplyDialogueModifiers(boss.Type, terminal);
+            terminal.WriteLine("");
+            await Task.Delay(1500);
 
             // Initialize teammates from companions
             InitializeTeammates();
@@ -491,13 +778,46 @@ namespace UsurperRemake.Systems
             // Artifact bonuses
             damage += ArtifactSystem.Instance.GetTotalArtifactPower() / 10;
 
-            // Phase resistance
-            damage = (long)(damage * (1.0 - (currentPhase - 1) * 0.1));
+            // Apply dialogue-based combat modifiers
+            damage = (long)(damage * activeCombatModifiers.DamageMultiplier);
+            damage += activeCombatModifiers.BonusDamage;
 
-            terminal.WriteLine($"  You strike {boss.Name}!", "bright_yellow");
+            // Check for critical hit
+            bool isCritical = random.NextDouble() < activeCombatModifiers.CriticalChance;
+            if (isCritical)
+            {
+                damage = (long)(damage * activeCombatModifiers.CriticalMultiplier);
+            }
+
+            // Phase resistance (reduced by boss defense modifier)
+            // Multiply by BossDefenseMultiplier: lower values = weaker defense = more damage taken
+            double phaseResist = (1.0 - (currentPhase - 1) * 0.1) * activeCombatModifiers.BossDefenseMultiplier;
+            damage = (long)(damage * phaseResist);
+
+            // Rage boost: chance for extra attack
+            bool extraAttack = activeCombatModifiers.HasRageBoost && random.NextDouble() < 0.3;
+
+            if (isCritical)
+            {
+                terminal.WriteLine($"  CRITICAL HIT! You strike {boss.Name} with devastating force!", "bright_yellow");
+            }
+            else
+            {
+                terminal.WriteLine($"  You strike {boss.Name}!", "bright_yellow");
+            }
             terminal.WriteLine($"  Dealt {damage:N0} damage!", "green");
 
             bossCurrentHP -= damage;
+
+            // Extra attack from rage
+            if (extraAttack && bossCurrentHP > 0)
+            {
+                await Task.Delay(400);
+                long bonusDamage = (long)((baseDamage / 2) * activeCombatModifiers.DamageMultiplier);
+                terminal.WriteLine($"  Your fury drives a follow-up strike!", "bright_red");
+                terminal.WriteLine($"  Dealt {bonusDamage:N0} additional damage!", "bright_green");
+                bossCurrentHP -= bonusDamage;
+            }
 
             await Task.Delay(800);
         }
@@ -522,10 +842,30 @@ namespace UsurperRemake.Systems
             long baseDamage = (player.Strength + player.WeapPow) * 2 + player.Wisdom;
             long damage = baseDamage + random.Next((int)Math.Min(baseDamage, int.MaxValue));
 
-            // Special attack ignores some phase resistance
-            damage = (long)(damage * (1.0 - (currentPhase - 1) * 0.05));
+            // Apply dialogue-based combat modifiers
+            damage = (long)(damage * activeCombatModifiers.DamageMultiplier);
+            damage += activeCombatModifiers.BonusDamage;
 
-            terminal.WriteLine($"  You unleash a devastating special attack!", "bright_magenta");
+            // Critical check for special attacks too
+            bool isCritical = random.NextDouble() < (activeCombatModifiers.CriticalChance * 0.75); // Slightly lower crit on special
+            if (isCritical)
+            {
+                damage = (long)(damage * activeCombatModifiers.CriticalMultiplier);
+            }
+
+            // Special attack ignores some phase resistance, further reduced by boss defense modifier
+            // Multiply by BossDefenseMultiplier: lower values = weaker defense = more damage taken
+            double phaseResist = (1.0 - (currentPhase - 1) * 0.05) * activeCombatModifiers.BossDefenseMultiplier;
+            damage = (long)(damage * phaseResist);
+
+            if (isCritical)
+            {
+                terminal.WriteLine($"  CRITICAL! You unleash a devastating special attack!", "bright_magenta");
+            }
+            else
+            {
+                terminal.WriteLine($"  You unleash a devastating special attack!", "bright_magenta");
+            }
             terminal.WriteLine($"  Dealt {damage:N0} damage!", "bright_green");
 
             bossCurrentHP -= damage;
@@ -629,6 +969,15 @@ namespace UsurperRemake.Systems
             {
                 if (player.HP <= 0) break;
 
+                // If boss is confused (from broken logic), 25% chance to miss
+                if (activeCombatModifiers.BossConfused && random.NextDouble() < 0.25)
+                {
+                    terminal.WriteLine("");
+                    terminal.WriteLine($"  {boss.Name} hesitates, confused by internal contradictions!", "cyan");
+                    await Task.Delay(500);
+                    continue;
+                }
+
                 // Select ability based on phase
                 var abilities = boss.Abilities.Where(a => a.Phase <= currentPhase).ToList();
                 var ability = abilities[random.Next(abilities.Count)];
@@ -639,6 +988,15 @@ namespace UsurperRemake.Systems
                 long damage = ability.BaseDamage + random.Next(ability.BaseDamage / 2);
                 damage = (long)(damage * (1.0 + (currentPhase - 1) * 0.15)); // Phase scaling
 
+                // Apply dialogue-based boss damage modifier
+                damage = (long)(damage * activeCombatModifiers.BossDamageMultiplier);
+
+                // If boss is weakened, reduce damage further
+                if (activeCombatModifiers.BossWeakened)
+                {
+                    damage = (long)(damage * 0.90);
+                }
+
                 // Select target: player or a teammate
                 // 60% chance to target player, 40% to target a random alive teammate
                 var aliveTeammates = activeTeammates.Where(t => t.IsAlive).ToList();
@@ -646,11 +1004,21 @@ namespace UsurperRemake.Systems
 
                 if (targetPlayer)
                 {
-                    // Attack player
+                    // Attack player - apply player's defense modifiers
                     long defense = player.Defence + player.ArmPow;
+                    defense = (long)(defense * activeCombatModifiers.DefenseMultiplier);
+                    defense += activeCombatModifiers.BonusDefense;
+
                     double defenseReduction = Math.Min(0.75, defense / (double)(defense + 200));
                     long actualDamage = (long)(damage * (1.0 - defenseReduction));
                     actualDamage = Math.Max(10, actualDamage);
+
+                    // Insight: chance to dodge
+                    if (activeCombatModifiers.HasInsight && random.NextDouble() < 0.15)
+                    {
+                        terminal.WriteLine($"  You read the attack and dodge!", "bright_cyan");
+                        actualDamage = actualDamage / 3;
+                    }
 
                     player.HP -= actualDamage;
 
@@ -777,9 +1145,11 @@ namespace UsurperRemake.Systems
             foreach (var line in boss.DefeatDialogue)
             {
                 terminal.WriteLine($"  \"{line}\"", boss.ThemeColor);
-                await Task.Delay(300);
+                await Task.Delay(1500); // Give players time to read each line
             }
 
+            terminal.WriteLine("");
+            await terminal.GetInputAsync("  Press Enter to continue...");
             terminal.WriteLine("");
             terminal.WriteLine($"  {boss.Name}'s divine essence scatters to the winds.", "white");
             terminal.WriteLine("");

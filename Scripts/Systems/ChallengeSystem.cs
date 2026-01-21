@@ -102,6 +102,53 @@ public class ChallengeSystem
         NewsSystem.Instance?.Newsy(true, $"{challenger.Name} has challenged {king.GetTitle()} {king.Name} for the throne!");
         // GD.Print($"[Challenge] {challenger.Name} challenges for the throne!");
 
+        // Check if there are any human guards who need to be notified
+        bool hasHumanGuards = king.Guards.Any(g => g.AI == CharacterAI.Human);
+
+        if (hasHumanGuards && king.ActiveDefenseEvent == null)
+        {
+            // Create a pending defense event - combat is delayed to give human guards time to respond
+            king.ActiveDefenseEvent = new PendingDefenseEvent
+            {
+                ChallengerName = challenger.Name,
+                ChallengerLevel = challenger.Level,
+                ChallengerTeam = challenger.Team ?? "",
+                EventTime = DateTime.Now,
+                TicksRemaining = 2  // Combat delayed for 2 ticks
+            };
+
+            NewsSystem.Instance?.Newsy(true, $"URGENT: Royal Guards are being summoned to defend the throne!");
+            // GD.Print($"[Challenge] Defense event created - human guards will be notified");
+            return;  // Don't process combat yet
+        }
+
+        // Process any pending defense event
+        if (king.ActiveDefenseEvent != null)
+        {
+            king.ActiveDefenseEvent.TicksRemaining--;
+
+            if (!king.ActiveDefenseEvent.IsExpired)
+            {
+                // Still waiting for human guards
+                NewsSystem.Instance?.Newsy(false, $"{challenger.Name} awaits at the castle gates...");
+                return;
+            }
+
+            // Time's up - process the challenge
+            // Penalize human guards who didn't respond
+            foreach (var guard in king.Guards.Where(g => g.AI == CharacterAI.Human))
+            {
+                if (!king.ActiveDefenseEvent.PlayerResponded)
+                {
+                    guard.Loyalty = Math.Max(0, guard.Loyalty - 15);
+                    NewsSystem.Instance?.Newsy(false, $"Guard {guard.Name}'s loyalty questioned for failing to defend the throne!");
+                }
+            }
+
+            // Clear the event
+            king.ActiveDefenseEvent = null;
+        }
+
         // Fight sequence: Monsters -> NPC Guards -> King
         bool success = SimulateThroneChallenge(challenger, king);
 
@@ -170,15 +217,44 @@ public class ChallengeSystem
 
             // GD.Print($"[Challenge] {challenger.Name} fights guard {guard.Name}");
 
-            // Simulate guard combat (guards are tough)
-            int guardStr = 50 + random.Next(50);
-            int guardHP = 200 + random.Next(200);
+            // Skip human guards who aren't participating (handled separately)
+            if (guard.AI == CharacterAI.Human)
+            {
+                continue;  // Human guards defend interactively, not in simulation
+            }
+
+            // Check for low loyalty desertion/betrayal
+            if (guard.Loyalty < 30 && random.Next(100) < 30)
+            {
+                king.Guards.Remove(guard);
+                NewsSystem.Instance?.Newsy(true, $"Cowardly guard {guard.Name} fled instead of fighting!");
+                continue;
+            }
+
+            // Very low loyalty - betrayal (guard joins challenger)
+            if (guard.Loyalty < 15 && random.Next(100) < 20)
+            {
+                king.Guards.Remove(guard);
+                NewsSystem.Instance?.Newsy(true, $"BETRAYAL! Guard {guard.Name} has joined {challenger.Name}'s cause!");
+                challengerHP += 100;  // Boost from having an ally
+                continue;
+            }
+
+            // Look up actual NPC stats if available, otherwise use scaled defaults
+            var actualNpc = NPCSpawnSystem.Instance?.GetNPCByName(guard.Name);
+            long guardStr = actualNpc?.Strength ?? (50 + random.Next(50));
+            long guardHP = actualNpc?.HP ?? (200 + random.Next(200));
+            long guardDef = actualNpc?.Defence ?? 20;
+
+            // Apply loyalty modifier to guard effectiveness (loyal guards fight harder)
+            float loyaltyMod = guard.Loyalty / 100f;
+            guardStr = (long)(guardStr * (0.5f + loyaltyMod * 0.5f));  // 50-100% effectiveness
 
             while (challengerHP > 0 && guardHP > 0)
             {
                 // Challenger attacks
-                long damage = Math.Max(1, challengerPower - guardStr / 5);
-                guardHP -= (int)damage;
+                long damage = Math.Max(1, challengerPower - guardDef);
+                guardHP -= damage;
 
                 if (guardHP <= 0) break;
 
@@ -208,8 +284,8 @@ public class ChallengeSystem
 
         while (challengerHP > 0 && kingHP > 0)
         {
-            // Challenger attacks
-            long damage = Math.Max(1, challengerPower - kingStr / 4);
+            // Challenger attacks (king uses full defense, not reduced)
+            long damage = Math.Max(1, challengerPower - kingStr);
             damage += random.Next(1, (int)Math.Max(2, challenger.WeapPow / 2));
             kingHP -= (int)damage;
 

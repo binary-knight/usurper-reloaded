@@ -1,6 +1,6 @@
 # Usurper Reborn
 
-## ALPHA v0.10 - Quality of Life Update
+## ALPHA v0.11 - Stability & Bug Fix Update
 
 **FREE AND OPEN SOURCE SOFTWARE - GPL v2 Licensed**
 
@@ -13,8 +13,8 @@ A faithful recreation of the classic 1993 BBS door game "Usurper" by Jakob Danga
 - Or check [Releases](https://github.com/binary-knight/usurper-reloaded/releases) for packaged builds
 
 **Run the game:**
-- **Windows**: Run `UsurperReborn.bat` or `UsurperRemake.exe`
-- **Linux**: Run `./usurper-reborn.sh` or `./UsurperRemake`
+- **Windows**: Run `UsurperReborn.bat` or `UsurperReborn.exe`
+- **Linux**: Run `./usurper-reborn.sh` or `./UsurperReborn`
 - **macOS**: Run `usurper-reborn-mac.command` or the app bundle
 
 **Build from source:**
@@ -22,7 +22,7 @@ A faithful recreation of the classic 1993 BBS door game "Usurper" by Jakob Danga
 git clone https://github.com/binary-knight/usurper-reloaded.git
 cd usurper-reloaded
 dotnet publish usurper-reloaded.csproj -c Release -o publish
-./publish/UsurperRemake.exe  # or ./publish/UsurperRemake on Linux/Mac
+./publish/UsurperReborn.exe  # or ./publish/UsurperReborn on Linux/Mac
 ```
 
 **Report bugs**: https://discord.gg/EZhwgDT6Ta (or GitHub Issues)
@@ -175,7 +175,7 @@ Build a standalone executable that includes the .NET runtime:
 ```bash
 dotnet publish usurper-reloaded.csproj -c Release -r win-x64 -o publish/win-x64 \
   -p:PublishSingleFile=true -p:SelfContained=true
-# Run: publish/win-x64/UsurperRemake.exe
+# Run: publish/win-x64/UsurperReborn.exe
 ```
 
 #### Windows (32-bit)
@@ -188,29 +188,29 @@ dotnet publish usurper-reloaded.csproj -c Release -r win-x86 -o publish/win-x86 
 ```bash
 dotnet publish usurper-reloaded.csproj -c Release -r linux-x64 -o publish/linux-x64 \
   -p:PublishSingleFile=true -p:SelfContained=true
-chmod +x publish/linux-x64/UsurperRemake
-# Run: ./publish/linux-x64/UsurperRemake
+chmod +x publish/linux-x64/UsurperReborn
+# Run: ./publish/linux-x64/UsurperReborn
 ```
 
 #### Linux (ARM64 - Raspberry Pi, etc.)
 ```bash
 dotnet publish usurper-reloaded.csproj -c Release -r linux-arm64 -o publish/linux-arm64 \
   -p:PublishSingleFile=true -p:SelfContained=true
-chmod +x publish/linux-arm64/UsurperRemake
+chmod +x publish/linux-arm64/UsurperReborn
 ```
 
 #### macOS (Intel)
 ```bash
 dotnet publish usurper-reloaded.csproj -c Release -r osx-x64 -o publish/osx-x64 \
   -p:PublishSingleFile=true -p:SelfContained=true
-chmod +x publish/osx-x64/UsurperRemake
+chmod +x publish/osx-x64/UsurperReborn
 ```
 
 #### macOS (Apple Silicon)
 ```bash
 dotnet publish usurper-reloaded.csproj -c Release -r osx-arm64 -o publish/osx-arm64 \
   -p:PublishSingleFile=true -p:SelfContained=true
-chmod +x publish/osx-arm64/UsurperRemake
+chmod +x publish/osx-arm64/UsurperReborn
 ```
 
 ## Technical Details
@@ -331,10 +331,10 @@ Run Usurper Reborn as a door game on modern BBS software:
 **Quick Setup for Sysops:**
 ```bash
 # Command line options
-UsurperRemake --door <dropfile>    # Auto-detect DOOR32.SYS or DOOR.SYS
-UsurperRemake --door32 <path>      # Explicit DOOR32.SYS
-UsurperRemake --doorsys <path>     # Explicit DOOR.SYS
-UsurperRemake --local              # Local testing mode
+UsurperReborn --door <dropfile>    # Auto-detect DOOR32.SYS or DOOR.SYS
+UsurperReborn --door32 <path>      # Explicit DOOR32.SYS
+UsurperReborn --doorsys <path>     # Explicit DOOR.SYS
+UsurperReborn --local              # Local testing mode
 ```
 
 For detailed BBS setup instructions, see [DOCS/BBS_DOOR_SETUP.md](DOCS/BBS_DOOR_SETUP.md).

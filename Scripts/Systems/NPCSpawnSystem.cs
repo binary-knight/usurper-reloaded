@@ -551,11 +551,11 @@ namespace UsurperRemake.Systems
         }
 
         /// <summary>
-        /// Get all NPCs at a specific location
+        /// Get all NPCs at a specific location (excludes dead NPCs)
         /// </summary>
         public List<NPC> GetNPCsAtLocation(string locationId)
         {
-            return spawnedNPCs.Where(npc => npc.CurrentLocation == locationId).ToList();
+            return spawnedNPCs.Where(npc => npc.CurrentLocation == locationId && !npc.IsDead).ToList();
         }
 
         /// <summary>

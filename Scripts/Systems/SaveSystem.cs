@@ -1294,11 +1294,43 @@ namespace UsurperRemake.Systems
             }
             catch { /* System not initialized */ }
 
-            // Grief System - save current stage
+            // Grief System - save full grief state (multiple griefs, memories)
             try
             {
                 var grief = GriefSystem.Instance;
-                data.GriefStage = (int)grief.CurrentStage;
+                data.GriefStage = (int)grief.CurrentStage;  // Legacy field for backwards compatibility
+
+                // Serialize full grief data
+                var griefData = grief.Serialize();
+
+                // Convert companion grief states
+                data.ActiveGriefs = griefData.ActiveGrief?.Select(g => new GriefStateSaveData
+                {
+                    CompanionId = (int)g.CompanionId,
+                    NpcId = g.NpcId,
+                    CompanionName = g.CompanionName,
+                    DeathType = (int)g.DeathType,
+                    CurrentStage = (int)g.CurrentStage,
+                    StageStartDay = g.StageStartDay,
+                    GriefStartDay = g.GriefStartDay,
+                    ResurrectionAttempts = g.ResurrectionAttempts,
+                    IsComplete = g.IsComplete
+                }).ToList() ?? new List<GriefStateSaveData>();
+
+                // Convert memories
+                data.GriefMemories = griefData.Memories?.Select(m => new GriefMemorySaveData
+                {
+                    CompanionId = (int)m.CompanionId,
+                    NpcId = m.NpcId,
+                    CompanionName = m.CompanionName,
+                    MemoryText = m.MemoryText,
+                    CreatedDay = m.CreatedDay
+                }).ToList() ?? new List<GriefMemorySaveData>();
+
+                if (data.ActiveGriefs.Count > 0 || data.GriefMemories.Count > 0)
+                {
+                    GD.Print($"[SaveSystem] Saving grief data: {data.ActiveGriefs.Count} active griefs, {data.GriefMemories.Count} memories");
+                }
             }
             catch { /* System not initialized */ }
 
@@ -1341,7 +1373,17 @@ namespace UsurperRemake.Systems
                     RomanceLevel = c.RomanceLevel,
                     PersonalQuestStarted = c.PersonalQuestStarted,
                     PersonalQuestCompleted = c.PersonalQuestCompleted,
-                    RecruitedDay = c.RecruitedDay
+                    RecruitedDay = c.RecruitedDay,
+                    // Level and experience
+                    Level = c.Level,
+                    Experience = c.Experience,
+                    // Base stats (preserves level-up gains)
+                    BaseStatsHP = c.BaseStatsHP,
+                    BaseStatsAttack = c.BaseStatsAttack,
+                    BaseStatsDefense = c.BaseStatsDefense,
+                    BaseStatsMagicPower = c.BaseStatsMagicPower,
+                    BaseStatsSpeed = c.BaseStatsSpeed,
+                    BaseStatsHealingPower = c.BaseStatsHealingPower
                 }).ToList();
 
                 data.ActiveCompanionIds = companionData.ActiveCompanions.Select(c => (int)c).ToList();
@@ -1392,6 +1434,85 @@ namespace UsurperRemake.Systems
             catch (Exception ex)
             {
                 GD.PrintErr($"[SaveSystem] Failed to save archetype tracker: {ex.Message}");
+            }
+
+            // Royal Court Political Systems - save court members, heirs, spouse, plots
+            try
+            {
+                var king = global::CastleLocation.GetCurrentKing();
+                if (king != null && king.IsActive)
+                {
+                    data.RoyalCourt = new RoyalCourtSaveData
+                    {
+                        KingName = king.Name,
+                        Treasury = king.Treasury,
+                        TaxRate = king.TaxRate,
+                        TotalReign = king.TotalReign,
+
+                        // Court members
+                        CourtMembers = king.CourtMembers.Select(m => new CourtMemberSaveData
+                        {
+                            Name = m.Name,
+                            Faction = (int)m.Faction,
+                            Influence = m.Influence,
+                            LoyaltyToKing = m.LoyaltyToKing,
+                            Role = m.Role,
+                            IsPlotting = m.IsPlotting
+                        }).ToList(),
+
+                        // Heirs
+                        Heirs = king.Heirs.Select(h => new RoyalHeirSaveData
+                        {
+                            Name = h.Name,
+                            Age = h.Age,
+                            ClaimStrength = h.ClaimStrength,
+                            ParentName = h.ParentName,
+                            Sex = (int)h.Sex,
+                            IsDesignated = h.IsDesignated
+                        }).ToList(),
+
+                        // Spouse
+                        Spouse = king.Spouse != null ? new RoyalSpouseSaveData
+                        {
+                            Name = king.Spouse.Name,
+                            Sex = (int)king.Spouse.Sex,
+                            OriginalFaction = (int)king.Spouse.OriginalFaction,
+                            Dowry = king.Spouse.Dowry,
+                            Happiness = king.Spouse.Happiness
+                        } : null,
+
+                        // Active plots
+                        ActivePlots = king.ActivePlots.Select(p => new CourtIntrigueSaveData
+                        {
+                            PlotType = p.PlotType,
+                            Conspirators = p.Conspirators,
+                            Target = p.Target,
+                            Progress = p.Progress,
+                            IsDiscovered = p.IsDiscovered
+                        }).ToList(),
+
+                        DesignatedHeir = king.DesignatedHeir ?? ""
+                    };
+                    GD.Print($"[SaveSystem] Saved royal court: {king.CourtMembers.Count} members, {king.Heirs.Count} heirs, {king.ActivePlots.Count} plots");
+                }
+            }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"[SaveSystem] Failed to save royal court: {ex.Message}");
+            }
+
+            // Relationship System - save all character relationships
+            try
+            {
+                data.Relationships = RelationshipSystem.ExportAllRelationships();
+                if (data.Relationships.Count > 0)
+                {
+                    GD.Print($"[SaveSystem] Saved {data.Relationships.Count} relationships");
+                }
+            }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"[SaveSystem] Failed to save relationships: {ex.Message}");
             }
 
             return data;
@@ -1488,7 +1609,17 @@ namespace UsurperRemake.Systems
                             RomanceLevel = c.RomanceLevel,
                             PersonalQuestStarted = c.PersonalQuestStarted,
                             PersonalQuestCompleted = c.PersonalQuestCompleted,
-                            RecruitedDay = c.RecruitedDay
+                            RecruitedDay = c.RecruitedDay,
+                            // Level and experience
+                            Level = c.Level,
+                            Experience = c.Experience,
+                            // Base stats (preserves level-up gains)
+                            BaseStatsHP = c.BaseStatsHP,
+                            BaseStatsAttack = c.BaseStatsAttack,
+                            BaseStatsDefense = c.BaseStatsDefense,
+                            BaseStatsMagicPower = c.BaseStatsMagicPower,
+                            BaseStatsSpeed = c.BaseStatsSpeed,
+                            BaseStatsHealingPower = c.BaseStatsHealingPower
                         }).ToList() ?? new List<CompanionSaveData>(),
 
                         ActiveCompanions = data.ActiveCompanionIds?.Select(id => (CompanionId)id).ToList() ?? new List<CompanionId>(),
@@ -1546,6 +1677,127 @@ namespace UsurperRemake.Systems
             catch (Exception ex)
             {
                 GD.PrintErr($"[SaveSystem] Failed to restore archetype tracker: {ex.Message}");
+            }
+
+            // Royal Court Political Systems - restore court members, heirs, spouse, plots
+            try
+            {
+                if (data.RoyalCourt != null)
+                {
+                    var king = global::CastleLocation.GetCurrentKing();
+                    if (king != null)
+                    {
+                        // Restore court members
+                        king.CourtMembers = data.RoyalCourt.CourtMembers?.Select(m => new CourtMember
+                        {
+                            Name = m.Name,
+                            Faction = (CourtFaction)m.Faction,
+                            Influence = m.Influence,
+                            LoyaltyToKing = m.LoyaltyToKing,
+                            Role = m.Role,
+                            IsPlotting = m.IsPlotting
+                        }).ToList() ?? new List<CourtMember>();
+
+                        // Restore heirs
+                        king.Heirs = data.RoyalCourt.Heirs?.Select(h => new RoyalHeir
+                        {
+                            Name = h.Name,
+                            Age = h.Age,
+                            ClaimStrength = h.ClaimStrength,
+                            ParentName = h.ParentName,
+                            Sex = (CharacterSex)h.Sex,
+                            IsDesignated = h.IsDesignated
+                        }).ToList() ?? new List<RoyalHeir>();
+
+                        // Restore spouse
+                        if (data.RoyalCourt.Spouse != null)
+                        {
+                            king.Spouse = new RoyalSpouse
+                            {
+                                Name = data.RoyalCourt.Spouse.Name,
+                                Sex = (CharacterSex)data.RoyalCourt.Spouse.Sex,
+                                OriginalFaction = (CourtFaction)data.RoyalCourt.Spouse.OriginalFaction,
+                                Dowry = data.RoyalCourt.Spouse.Dowry,
+                                Happiness = data.RoyalCourt.Spouse.Happiness
+                            };
+                        }
+
+                        // Restore active plots
+                        king.ActivePlots = data.RoyalCourt.ActivePlots?.Select(p => new CourtIntrigue
+                        {
+                            PlotType = p.PlotType,
+                            Conspirators = p.Conspirators ?? new List<string>(),
+                            Target = p.Target,
+                            Progress = p.Progress,
+                            IsDiscovered = p.IsDiscovered
+                        }).ToList() ?? new List<CourtIntrigue>();
+
+                        king.DesignatedHeir = data.RoyalCourt.DesignatedHeir;
+
+                        GD.Print($"[SaveSystem] Restored royal court: {king.CourtMembers.Count} members, {king.Heirs.Count} heirs, {king.ActivePlots.Count} plots");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"[SaveSystem] Failed to restore royal court: {ex.Message}");
+            }
+
+            // Grief System - restore full grief states and memories
+            try
+            {
+                bool hasGriefData = (data.ActiveGriefs != null && data.ActiveGriefs.Count > 0) ||
+                                    (data.GriefMemories != null && data.GriefMemories.Count > 0);
+
+                if (hasGriefData)
+                {
+                    // Convert save data back to GriefSystemData
+                    var griefSystemData = new GriefSystemData
+                    {
+                        ActiveGrief = data.ActiveGriefs?.Select(g => new GriefState
+                        {
+                            CompanionId = (CompanionId)g.CompanionId,
+                            NpcId = g.NpcId,
+                            CompanionName = g.CompanionName,
+                            DeathType = (DeathType)g.DeathType,
+                            CurrentStage = (GriefStage)g.CurrentStage,
+                            StageStartDay = g.StageStartDay,
+                            GriefStartDay = g.GriefStartDay,
+                            ResurrectionAttempts = g.ResurrectionAttempts,
+                            IsComplete = g.IsComplete
+                        }).ToList() ?? new List<GriefState>(),
+
+                        Memories = data.GriefMemories?.Select(m => new CompanionMemory
+                        {
+                            CompanionId = (CompanionId)m.CompanionId,
+                            NpcId = m.NpcId,
+                            CompanionName = m.CompanionName,
+                            MemoryText = m.MemoryText,
+                            CreatedDay = m.CreatedDay
+                        }).ToList() ?? new List<CompanionMemory>()
+                    };
+
+                    GriefSystem.Instance.Deserialize(griefSystemData);
+                    GD.Print($"[SaveSystem] Restored grief data: {griefSystemData.ActiveGrief.Count} active griefs, {griefSystemData.Memories.Count} memories");
+                }
+            }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"[SaveSystem] Failed to restore grief system: {ex.Message}");
+            }
+
+            // Relationship System - restore all character relationships
+            try
+            {
+                if (data.Relationships != null && data.Relationships.Count > 0)
+                {
+                    RelationshipSystem.ImportAllRelationships(data.Relationships);
+                    GD.Print($"[SaveSystem] Restored {data.Relationships.Count} relationships");
+                }
+            }
+            catch (Exception ex)
+            {
+                GD.PrintErr($"[SaveSystem] Failed to restore relationships: {ex.Message}");
             }
         }
     }

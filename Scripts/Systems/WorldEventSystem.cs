@@ -224,10 +224,15 @@ namespace UsurperRemake.Systems
                 possibleEvents.Add(EventType.MonsterInvasion);
             }
 
-            // Plague events if no plague active
+            // Plague events - outbreak if no plague active, end if plague active
             if (!PlaguActive)
             {
                 possibleEvents.Add(EventType.PlagueOutbreak);
+            }
+            else
+            {
+                // Plague can end after it's been active
+                possibleEvents.Add(EventType.PlagueEnds);
             }
 
             // Festival events if no festival active

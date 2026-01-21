@@ -70,10 +70,10 @@ namespace UsurperRemake.Systems
 
             return _children.Where(c =>
                 !c.Deleted &&
-                ((c.MotherID == parent1.ID || c.Mother == parent1.Name) &&
-                 (c.FatherID == parent2.ID || c.Father == parent2.Name)) ||
-                ((c.MotherID == parent2.ID || c.Mother == parent2.Name) &&
-                 (c.FatherID == parent1.ID || c.Father == parent1.Name))
+                (((c.MotherID == parent1.ID || c.Mother == parent1.Name) &&
+                  (c.FatherID == parent2.ID || c.Father == parent2.Name)) ||
+                 ((c.MotherID == parent2.ID || c.Mother == parent2.Name) &&
+                  (c.FatherID == parent1.ID || c.Father == parent1.Name)))
             ).ToList();
         }
 
@@ -205,6 +205,7 @@ namespace UsurperRemake.Systems
             // Create NPC from child
             var npc = new NPC
             {
+                Name1 = child.Name,
                 Name2 = child.Name,
                 Sex = child.Sex,
                 Age = ADULT_AGE,

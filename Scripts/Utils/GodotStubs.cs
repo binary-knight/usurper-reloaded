@@ -1,4 +1,5 @@
 using UsurperRemake.Utils;
+using UsurperRemake.BBS;
 // Godot stub implementations for standalone .NET compilation
 using System;
 using System.Collections.Generic;
@@ -261,8 +262,21 @@ namespace UsurperRemake.Utils
         public void WriteLine(string text, string color) => Console.WriteLine(text);
         public void Write(string text) => Console.Write(text);
         public string ReadLine() => Console.ReadLine() ?? "";
-        public void Clear() => Console.Clear();
-        public void ClearScreen() => Console.Clear();
+        public void Clear() => SafeClearScreen();
+        public void ClearScreen() => SafeClearScreen();
+
+        private void SafeClearScreen()
+        {
+            if (DoorMode.IsInDoorMode)
+            {
+                Console.Write("\x1b[2J\x1b[H");
+            }
+            else
+            {
+                try { Console.Clear(); }
+                catch (System.IO.IOException) { Console.Write("\x1b[2J\x1b[H"); }
+            }
+        }
         public async Task PressAnyKey(string message = "Press Enter to continue...")
         {
             Console.Write(message);

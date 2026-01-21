@@ -270,6 +270,34 @@ public class CastleLocation : BaseLocation
         terminal.SetColor("white");
         terminal.WriteLine("he Royal Orphanage");
 
+        // Row 5 - Political systems
+        terminal.SetColor("darkgray");
+        terminal.Write(" [");
+        terminal.SetColor("bright_magenta");
+        terminal.Write("W");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("edding            ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_cyan");
+        terminal.Write("U");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("Court Politics    ");
+
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_green");
+        terminal.Write("E");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.WriteLine("state (Succession)");
+
         terminal.WriteLine("");
 
         // Navigation
@@ -486,6 +514,18 @@ public class CastleLocation : BaseLocation
 
             case "T":
                 await RoyalOrphanage();
+                return false;
+
+            case "W":
+                await ArrangeRoyalMarriage();
+                return false;
+
+            case "U":
+                await ViewCourtPolitics();
+                return false;
+
+            case "E":
+                await ManageSuccession();
                 return false;
 
             case "R":
@@ -1232,50 +1272,66 @@ public class CastleLocation : BaseLocation
         terminal.WriteLine("");
 
         terminal.SetColor("white");
-        terminal.WriteLine("The Beast Master presents fearsome creatures for your protection.");
+        terminal.WriteLine("The Beast Master presents fearsome creatures for your moat defense.");
+        terminal.WriteLine("Challengers must defeat ALL monster guards before facing your NPC guards!");
+        terminal.WriteLine("");
+        terminal.SetColor("yellow");
         terminal.WriteLine($"Treasury: {currentKing.Treasury:N0} gold");
+        terminal.WriteLine($"Current Monsters: {currentKing.MonsterGuards.Count}/{King.MaxMonsterGuards}");
         terminal.WriteLine("");
 
         terminal.SetColor("cyan");
-        terminal.WriteLine($"{"#",-3} {"Name",-20} {"Level",-8} {"Cost",-12} {"Feeding/Day",-12}");
+        terminal.WriteLine($"{"#",-3} {"Name",-15} {"Lvl",-5} {"HP",-7} {"STR",-6} {"DEF",-6} {"Cost",-10} {"Feed/Day",-10}");
         terminal.SetColor("darkgray");
-        terminal.WriteLine(new string('─', 60));
+        terminal.WriteLine(new string('─', 75));
+
+        // Sort by level for easier selection
+        var sortedMonsters = MonsterGuardTypes.AvailableMonsters.OrderBy(m => m.Level).ToArray();
 
         int i = 1;
-        foreach (var (name, level, cost) in MonsterGuardTypes.AvailableMonsters)
+        foreach (var (name, level, cost) in sortedMonsters)
         {
             long actualCost = cost + (currentKing.MonsterGuards.Count * 500);
             long feedingCost = 50 + (level * 10);
+            // Calculate stats using the same formula as AddMonsterGuard in King.cs
+            long hp = 200 + (level * 50);
+            long str = 30 + (level * 5);
+            long def = 20 + (level * 3);
 
-            terminal.SetColor("white");
-            terminal.WriteLine($"{i,-3} {name,-20} {level,-8} {actualCost:N0,-12} {feedingCost:N0,-12}");
+            bool canAfford = currentKing.Treasury >= actualCost;
+            terminal.SetColor(canAfford ? "white" : "darkgray");
+            terminal.WriteLine($"{i,-3} {name,-15} {level,-5} {hp,-7} {str,-6} {def,-6} {actualCost:N0,-10} {feedingCost:N0,-10}");
             i++;
         }
 
+        terminal.WriteLine("");
+        terminal.SetColor("gray");
+        terminal.WriteLine("Note: Each additional monster costs +500g more than base price.");
         terminal.WriteLine("");
         terminal.SetColor("cyan");
         terminal.Write("Purchase which monster? (0 to cancel): ");
         terminal.SetColor("white");
         string input = await terminal.ReadLineAsync();
 
-        if (int.TryParse(input, out int choice) && choice >= 1 && choice <= MonsterGuardTypes.AvailableMonsters.Length)
+        if (int.TryParse(input, out int choice) && choice >= 1 && choice <= sortedMonsters.Length)
         {
-            var (name, level, cost) = MonsterGuardTypes.AvailableMonsters[choice - 1];
+            var (name, level, cost) = sortedMonsters[choice - 1];
 
             if (currentKing.AddMonsterGuard(name, level, cost))
             {
                 terminal.SetColor("bright_green");
                 terminal.WriteLine($"A {name} has been added to your castle defenses!");
+                terminal.WriteLine($"The beast now lurks in the moat, awaiting intruders...");
                 NewsSystem.Instance.Newsy(true, $"{currentKing.GetTitle()} {currentKing.Name} acquired a fearsome {name} to guard the castle!");
             }
             else
             {
                 terminal.SetColor("red");
-                terminal.WriteLine("Insufficient funds!");
+                terminal.WriteLine("Insufficient funds in the treasury!");
             }
         }
 
-        await Task.Delay(2000);
+        await Task.Delay(2500);
     }
 
     private async Task DismissMonsterGuard()
@@ -2179,6 +2235,558 @@ public class CastleLocation : BaseLocation
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // ROYAL MARRIAGE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task ArrangeRoyalMarriage()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║                         ROYAL MARRIAGE                                       ║");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+
+        // Check if already married
+        if (currentKing.Spouse != null)
+        {
+            terminal.SetColor("cyan");
+            terminal.WriteLine($"You are already married to {currentKing.Spouse.Name}.");
+            terminal.WriteLine($"Married on: {currentKing.Spouse.MarriageDate:d}");
+            terminal.WriteLine($"Spouse's happiness: {currentKing.Spouse.Happiness}%");
+            terminal.WriteLine($"Original faction: {currentKing.Spouse.OriginalFaction}");
+            terminal.WriteLine("");
+
+            terminal.SetColor("yellow");
+            terminal.WriteLine("Options:");
+            terminal.WriteLine(" [G]ift to spouse (improve happiness)");
+            terminal.WriteLine(" [D]ivorce (political consequences)");
+            terminal.WriteLine(" [R]eturn");
+            terminal.WriteLine("");
+
+            terminal.SetColor("cyan");
+            terminal.Write("Your choice: ");
+            terminal.SetColor("white");
+            string input = await terminal.ReadLineAsync();
+
+            switch (input?.ToUpper())
+            {
+                case "G":
+                    await GiftToSpouse();
+                    break;
+                case "D":
+                    await DivorceSpouse();
+                    break;
+            }
+
+            await terminal.PressAnyKey();
+            return;
+        }
+
+        terminal.SetColor("white");
+        terminal.WriteLine("A royal marriage can secure alliances, fill the treasury with dowry,");
+        terminal.WriteLine("and produce heirs to continue your dynasty.");
+        terminal.WriteLine("");
+
+        // Find eligible NPCs for marriage
+        var eligibleNPCs = NPCSpawnSystem.Instance?.ActiveNPCs?
+            .Where(n => n.IsAlive &&
+                   !n.IsDead &&
+                   n.Level >= 10 &&
+                   !n.King &&
+                   !n.IsStoryNPC &&
+                   string.IsNullOrEmpty(n.Team))  // Can't marry team members
+            .OrderByDescending(n => n.Level)
+            .Take(5)
+            .ToList();
+
+        if (eligibleNPCs == null || eligibleNPCs.Count == 0)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("There are no suitable marriage candidates at this time.");
+            terminal.WriteLine("Candidates must be level 10+, not on a team, and not a story NPC.");
+            await terminal.PressAnyKey();
+            return;
+        }
+
+        terminal.SetColor("cyan");
+        terminal.WriteLine("Potential Marriage Candidates:");
+        terminal.WriteLine("");
+
+        terminal.SetColor("white");
+        terminal.WriteLine($"{"#",-3} {"Name",-20} {"Level",-8} {"Dowry",-12} {"Faction Benefit"}");
+        terminal.SetColor("darkgray");
+        terminal.WriteLine(new string('─', 70));
+
+        int i = 1;
+        foreach (var npc in eligibleNPCs)
+        {
+            // Calculate dowry based on level and charisma
+            long dowry = (npc.Level * 1000) + (npc.Charisma * 100);
+            var faction = DetermineFactionForNPC(npc);
+
+            terminal.SetColor("white");
+            terminal.WriteLine($"{i,-3} {npc.Name,-20} {npc.Level,-8} {dowry:N0,-12} +20 {faction} relations");
+            i++;
+        }
+
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        terminal.Write("Propose to which candidate? (0 to cancel): ");
+        terminal.SetColor("white");
+        string choice = await terminal.ReadLineAsync();
+
+        if (int.TryParse(choice, out int selection) && selection >= 1 && selection <= eligibleNPCs.Count)
+        {
+            var candidate = eligibleNPCs[selection - 1];
+            await ProposeMarriage(candidate);
+        }
+
+        await terminal.PressAnyKey();
+    }
+
+    private CourtFaction DetermineFactionForNPC(NPC npc)
+    {
+        // Determine faction based on personality
+        if (npc.Brain?.Personality == null)
+            return CourtFaction.None;
+
+        var p = npc.Brain.Personality;
+        if (p.Aggression > 0.7f) return CourtFaction.Militarists;
+        if (p.Greed > 0.7f) return CourtFaction.Merchants;
+        if (p.Loyalty > 0.7f) return CourtFaction.Loyalists;
+        if (p.Mysticism > 0.5f) return CourtFaction.Faithful;
+        return CourtFaction.Reformists;
+    }
+
+    private async Task ProposeMarriage(NPC candidate)
+    {
+        terminal.WriteLine("");
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine($"You send a royal proposal to {candidate.Name}...");
+        await Task.Delay(1500);
+
+        // Acceptance chance based on player reputation and NPC personality
+        int acceptChance = 50 + (int)(currentPlayer.Chivalry / 10) + (currentPlayer.Level - candidate.Level) * 2;
+
+        if (candidate.Brain?.Personality?.Ambition > 0.5f)
+            acceptChance += 20;  // Ambitious NPCs want royal power
+
+        acceptChance = Math.Clamp(acceptChance, 20, 95);
+
+        if (random.Next(100) < acceptChance)
+        {
+            // Marriage accepted!
+            long dowry = (candidate.Level * 1000) + (candidate.Charisma * 100);
+            var faction = DetermineFactionForNPC(candidate);
+
+            currentKing.Spouse = new RoyalSpouse
+            {
+                Name = candidate.Name,
+                Sex = candidate.Sex,
+                OriginalFaction = faction,
+                Dowry = dowry,
+                MarriageDate = DateTime.Now,
+                Happiness = 70 + random.Next(30)
+            };
+
+            currentKing.Treasury += dowry;
+
+            // Boost loyalty of that faction
+            foreach (var member in currentKing.CourtMembers.Where(m => m.Faction == faction))
+            {
+                member.LoyaltyToKing = Math.Min(100, member.LoyaltyToKing + 20);
+            }
+
+            terminal.SetColor("bright_green");
+            terminal.WriteLine($"{candidate.Name} accepts your proposal!");
+            terminal.WriteLine("");
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"Dowry received: {dowry:N0} gold!");
+            terminal.WriteLine($"The {faction} faction's loyalty has increased!");
+            terminal.WriteLine("");
+
+            NewsSystem.Instance?.Newsy(true,
+                $"ROYAL WEDDING! {currentKing.GetTitle()} {currentKing.Name} has married {candidate.Name}!");
+        }
+        else
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine($"{candidate.Name} politely declines your proposal.");
+            terminal.WriteLine("Perhaps try again when you are more renowned...");
+        }
+    }
+
+    private async Task GiftToSpouse()
+    {
+        terminal.SetColor("cyan");
+        terminal.Write("Gift amount (gold): ");
+        terminal.SetColor("white");
+        string input = await terminal.ReadLineAsync();
+
+        if (long.TryParse(input, out long amount) && amount > 0)
+        {
+            if (amount > currentKing.Treasury)
+            {
+                terminal.SetColor("red");
+                terminal.WriteLine("Insufficient funds!");
+                return;
+            }
+
+            currentKing.Treasury -= amount;
+            int happinessBoost = (int)Math.Min(30, amount / 500);
+            currentKing.Spouse!.Happiness = Math.Min(100, currentKing.Spouse.Happiness + happinessBoost);
+
+            terminal.SetColor("bright_green");
+            terminal.WriteLine($"Your spouse is pleased! Happiness +{happinessBoost}%");
+        }
+    }
+
+    private async Task DivorceSpouse()
+    {
+        terminal.SetColor("bright_red");
+        terminal.WriteLine("WARNING: Divorce will have serious political consequences!");
+        terminal.WriteLine($"The {currentKing.Spouse!.OriginalFaction} faction will turn against you.");
+        terminal.WriteLine("");
+
+        terminal.SetColor("yellow");
+        terminal.Write("Are you sure you want to divorce? (Y/N): ");
+        terminal.SetColor("white");
+        string confirm = await terminal.ReadLineAsync();
+
+        if (confirm?.ToUpper() == "Y")
+        {
+            var faction = currentKing.Spouse.OriginalFaction;
+
+            // Severe loyalty penalty to that faction
+            foreach (var member in currentKing.CourtMembers.Where(m => m.Faction == faction))
+            {
+                member.LoyaltyToKing = Math.Max(0, member.LoyaltyToKing - 40);
+            }
+
+            terminal.SetColor("red");
+            terminal.WriteLine($"You have divorced {currentKing.Spouse.Name}.");
+            terminal.WriteLine($"The {faction} faction is furious!");
+
+            NewsSystem.Instance?.Newsy(true,
+                $"SCANDAL! {currentKing.GetTitle()} {currentKing.Name} has divorced {currentKing.Spouse.Name}!");
+
+            currentKing.Spouse = null;
+        }
+        else
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("Divorce cancelled.");
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // COURT POLITICS
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task ViewCourtPolitics()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║                         ROYAL COURT                                          ║");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+
+        // Show court members
+        terminal.SetColor("yellow");
+        terminal.WriteLine("COURT MEMBERS:");
+        terminal.WriteLine("");
+
+        if (currentKing.CourtMembers.Count == 0)
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("The court has not yet been established.");
+            terminal.WriteLine("(Court members will appear as the kingdom develops)");
+        }
+        else
+        {
+            terminal.SetColor("white");
+            terminal.WriteLine($"{"Role",-18} {"Name",-25} {"Faction",-15} {"Loyalty",-10} {"Influence"}");
+            terminal.SetColor("darkgray");
+            terminal.WriteLine(new string('─', 78));
+
+            foreach (var member in currentKing.CourtMembers)
+            {
+                string loyaltyColor = member.LoyaltyToKing >= 70 ? "bright_green" :
+                                      member.LoyaltyToKing >= 40 ? "yellow" : "red";
+                string plottingMark = member.IsPlotting ? " *" : "";
+
+                terminal.SetColor("white");
+                terminal.Write($"{member.Role,-18} ");
+                terminal.SetColor("cyan");
+                terminal.Write($"{member.Name,-25} ");
+                terminal.SetColor("gray");
+                terminal.Write($"{member.Faction,-15} ");
+                terminal.SetColor(loyaltyColor);
+                terminal.Write($"{member.LoyaltyToKing}%{plottingMark,-7} ");
+                terminal.SetColor("white");
+                terminal.WriteLine($"{member.Influence}");
+            }
+
+            if (currentKing.CourtMembers.Any(m => m.IsPlotting))
+            {
+                terminal.SetColor("red");
+                terminal.WriteLine("");
+                terminal.WriteLine("* Some courtiers seem to be scheming...");
+            }
+        }
+
+        terminal.WriteLine("");
+
+        // Show active plots (if detected)
+        terminal.SetColor("yellow");
+        terminal.WriteLine("INTELLIGENCE REPORTS:");
+        terminal.WriteLine("");
+
+        var discoveredPlots = currentKing.ActivePlots.Where(p => p.IsDiscovered).ToList();
+        if (discoveredPlots.Count > 0)
+        {
+            foreach (var plot in discoveredPlots)
+            {
+                terminal.SetColor("red");
+                terminal.WriteLine($"FOILED: {plot.PlotType} plot by {string.Join(", ", plot.Conspirators)}");
+            }
+        }
+
+        // Hint about undiscovered plots
+        var secretPlots = currentKing.ActivePlots.Where(p => !p.IsDiscovered).ToList();
+        if (secretPlots.Count > 0)
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine($"Your spies report {secretPlots.Count} rumor(s) of intrigue...");
+            terminal.WriteLine("Use the Court Magician's 'Detect Threats' spell to investigate.");
+        }
+        else if (discoveredPlots.Count == 0)
+        {
+            terminal.SetColor("green");
+            terminal.WriteLine("No plots detected. The court appears stable.");
+        }
+
+        terminal.WriteLine("");
+
+        // Show faction standing
+        terminal.SetColor("yellow");
+        terminal.WriteLine("FACTION RELATIONS:");
+        terminal.WriteLine("");
+
+        var factionGroups = currentKing.CourtMembers
+            .GroupBy(m => m.Faction)
+            .Where(g => g.Key != CourtFaction.None);
+
+        foreach (var group in factionGroups)
+        {
+            int avgLoyalty = (int)group.Average(m => m.LoyaltyToKing);
+            string status = avgLoyalty >= 70 ? "Loyal" :
+                           avgLoyalty >= 40 ? "Neutral" : "Hostile";
+            string color = avgLoyalty >= 70 ? "bright_green" :
+                          avgLoyalty >= 40 ? "yellow" : "red";
+
+            terminal.SetColor("white");
+            terminal.Write($"  {group.Key,-15}: ");
+            terminal.SetColor(color);
+            terminal.WriteLine($"{status} ({avgLoyalty}%)");
+        }
+
+        terminal.WriteLine("");
+        await terminal.PressAnyKey();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SUCCESSION MANAGEMENT
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private async Task ManageSuccession()
+    {
+        terminal.ClearScreen();
+        terminal.SetColor("bright_green");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║                         ROYAL SUCCESSION                                     ║");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+
+        // Show current heirs
+        terminal.SetColor("yellow");
+        terminal.WriteLine("HEIRS TO THE THRONE:");
+        terminal.WriteLine("");
+
+        if (currentKing.Heirs.Count == 0)
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("You have no heirs.");
+            if (currentKing.Spouse == null)
+            {
+                terminal.WriteLine("Consider arranging a royal marriage to produce heirs.");
+            }
+            else
+            {
+                terminal.WriteLine("A child may be born to your marriage in time.");
+            }
+        }
+        else
+        {
+            terminal.SetColor("white");
+            terminal.WriteLine($"{"#",-3} {"Name",-20} {"Age",-6} {"Sex",-8} {"Claim",-10} {"Status"}");
+            terminal.SetColor("darkgray");
+            terminal.WriteLine(new string('─', 60));
+
+            int i = 1;
+            foreach (var heir in currentKing.Heirs.OrderByDescending(h => h.ClaimStrength))
+            {
+                string status = heir.IsDesignated ? "DESIGNATED" :
+                               heir.IsAdult ? "Adult" : "Minor";
+                string statusColor = heir.IsDesignated ? "bright_green" :
+                                    heir.IsAdult ? "white" : "gray";
+
+                terminal.SetColor("white");
+                terminal.Write($"{i,-3} {heir.Name,-20} {heir.Age,-6} {heir.Sex,-8} {heir.ClaimStrength}%     ");
+                terminal.SetColor(statusColor);
+                terminal.WriteLine(status);
+                i++;
+            }
+        }
+
+        terminal.WriteLine("");
+
+        // Show designated heir
+        if (!string.IsNullOrEmpty(currentKing.DesignatedHeir))
+        {
+            terminal.SetColor("bright_green");
+            terminal.WriteLine($"Current designated heir: {currentKing.DesignatedHeir}");
+        }
+        else
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine("No heir has been officially designated.");
+        }
+
+        terminal.WriteLine("");
+
+        // Options
+        terminal.SetColor("cyan");
+        terminal.WriteLine("Options:");
+        terminal.WriteLine(" [D]esignate an heir");
+        terminal.WriteLine(" [N]ame a new heir (adopt/legitimize)");
+        terminal.WriteLine(" [R]eturn");
+        terminal.WriteLine("");
+
+        terminal.Write("Your choice: ");
+        terminal.SetColor("white");
+        string choice = await terminal.ReadLineAsync();
+
+        switch (choice?.ToUpper())
+        {
+            case "D":
+                await DesignateHeir();
+                break;
+            case "N":
+                await CreateNewHeir();
+                break;
+        }
+    }
+
+    private async Task DesignateHeir()
+    {
+        if (currentKing.Heirs.Count == 0)
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine("You have no heirs to designate!");
+            await Task.Delay(2000);
+            return;
+        }
+
+        terminal.SetColor("cyan");
+        terminal.Write("Designate which heir? (number): ");
+        terminal.SetColor("white");
+        string input = await terminal.ReadLineAsync();
+
+        var sortedHeirs = currentKing.Heirs.OrderByDescending(h => h.ClaimStrength).ToList();
+
+        if (int.TryParse(input, out int selection) && selection >= 1 && selection <= sortedHeirs.Count)
+        {
+            var heir = sortedHeirs[selection - 1];
+
+            // Clear old designation
+            foreach (var h in currentKing.Heirs)
+            {
+                h.IsDesignated = false;
+            }
+
+            heir.IsDesignated = true;
+            heir.ClaimStrength = Math.Min(100, heir.ClaimStrength + 20);
+            currentKing.DesignatedHeir = heir.Name;
+
+            terminal.SetColor("bright_green");
+            terminal.WriteLine($"{heir.Name} has been officially designated as your heir!");
+            terminal.WriteLine("Their claim to the throne has been strengthened.");
+
+            NewsSystem.Instance?.Newsy(false,
+                $"{currentKing.GetTitle()} {currentKing.Name} has named {heir.Name} as the royal heir!");
+        }
+
+        await Task.Delay(2500);
+    }
+
+    private async Task CreateNewHeir()
+    {
+        terminal.SetColor("yellow");
+        terminal.WriteLine("You may legitimize a bastard child or adopt a ward as heir.");
+        terminal.WriteLine("This costs 5,000 gold and reduces claim strength of existing heirs.");
+        terminal.WriteLine("");
+
+        if (currentKing.Treasury < 5000)
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine("Insufficient funds! (Need 5,000 gold)");
+            await Task.Delay(2000);
+            return;
+        }
+
+        terminal.SetColor("cyan");
+        terminal.Write("Name of the new heir: ");
+        terminal.SetColor("white");
+        string name = await terminal.ReadLineAsync();
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return;
+        }
+
+        // Create new heir
+        var newHeir = new RoyalHeir
+        {
+            Name = name,
+            Age = 12 + random.Next(10),  // 12-21 years old
+            ClaimStrength = 30 + random.Next(20),  // Lower initial claim
+            ParentName = currentKing.Name,
+            Sex = random.Next(2) == 0 ? CharacterSex.Male : CharacterSex.Female,
+            BirthDate = DateTime.Now.AddYears(-12 - random.Next(10))
+        };
+
+        currentKing.Heirs.Add(newHeir);
+        currentKing.Treasury -= 5000;
+
+        // Reduce other heirs' claims slightly (jealousy)
+        foreach (var heir in currentKing.Heirs.Where(h => h.Name != name))
+        {
+            heir.ClaimStrength = Math.Max(10, heir.ClaimStrength - 10);
+        }
+
+        terminal.SetColor("bright_green");
+        terminal.WriteLine($"{name} has been added to the line of succession!");
+
+        NewsSystem.Instance?.Newsy(false,
+            $"{currentKing.GetTitle()} {currentKing.Name} has added {name} to the royal succession!");
+
+        await Task.Delay(2500);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // ROYAL QUESTS
     // ═══════════════════════════════════════════════════════════════════════════
 
@@ -2283,9 +2891,10 @@ public class CastleLocation : BaseLocation
                 return false;
             }
 
-            // Force leave team
+            // Force leave team and clear dungeon party
             string oldTeam = currentPlayer.Team;
             CityControlSystem.Instance.ForceLeaveTeam(currentPlayer);
+            GameEngine.Instance?.ClearDungeonParty(); // Clear NPC teammates from dungeon
             terminal.SetColor("yellow");
             terminal.WriteLine($"You have left '{oldTeam}' to pursue the crown.");
             terminal.WriteLine("");
@@ -2386,27 +2995,65 @@ public class CastleLocation : BaseLocation
         // PHASE 2: Fight through NPC guards
         foreach (var guard in currentKing.Guards.ToList())
         {
+            // Skip if this guard is the player - they don't fight themselves!
+            if (guard.Name.Equals(currentPlayer.DisplayName, StringComparison.OrdinalIgnoreCase) ||
+                guard.Name.Equals(currentPlayer.Name2, StringComparison.OrdinalIgnoreCase))
+            {
+                terminal.SetColor("yellow");
+                terminal.WriteLine($"As a former guard, you slip past your own post...");
+                terminal.WriteLine("Your betrayal of the crown is noted.");
+                currentKing.Guards.Remove(guard);
+                NewsSystem.Instance?.Newsy(true, $"Guard {guard.Name} has betrayed the crown to challenge the throne!");
+                await Task.Delay(1500);
+                continue;
+            }
+
             terminal.ClearScreen();
             terminal.SetColor("bright_red");
             terminal.WriteLine($"=== Fighting Royal Guard: {guard.Name} ===");
             terminal.WriteLine("");
 
-            // Simple guard combat
-            int guardStr = 50 + random.Next(50);
-            int guardHP = 200 + random.Next(200);
+            // Look up actual NPC stats if available, otherwise use scaled defaults
+            var actualNpc = NPCSpawnSystem.Instance?.GetNPCByName(guard.Name);
+            long guardStr = actualNpc?.Strength ?? (50 + random.Next(50));
+            long guardHP = actualNpc?.HP ?? (200 + random.Next(200));
+            long guardDef = actualNpc?.Defence ?? 20;
+            int guardLevel = actualNpc?.Level ?? 10;
+
+            // Apply loyalty modifier to guard effectiveness
+            float loyaltyMod = guard.Loyalty / 100f;
+            guardStr = (long)(guardStr * loyaltyMod);
+
+            // Low loyalty guards might flee before combat
+            if (guard.Loyalty < 30 && random.Next(100) < 30)
+            {
+                terminal.SetColor("yellow");
+                terminal.WriteLine($"{guard.Name} sees your strength and flees from combat!");
+                currentKing.Guards.Remove(guard);
+                NewsSystem.Instance?.Newsy(false, $"Cowardly guard {guard.Name} fled from {currentPlayer.DisplayName}!");
+                await Task.Delay(1500);
+                continue;
+            }
+
+            if (actualNpc != null)
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine($"Level {guardLevel} | STR: {guardStr} | DEF: {guardDef} | Loyalty: {guard.Loyalty}%");
+                terminal.WriteLine("");
+            }
 
             while (guardHP > 0 && runningPlayerHP > 0)
             {
                 // Player attacks
-                long playerDamage = Math.Max(1, currentPlayer.Strength + currentPlayer.WeapPow - guardStr / 5);
-                guardHP -= (int)playerDamage;
+                long playerDamage = Math.Max(1, currentPlayer.Strength + currentPlayer.WeapPow - guardDef);
+                guardHP -= playerDamage;
 
                 terminal.SetColor("bright_green");
                 terminal.WriteLine($"You strike {guard.Name} for {playerDamage} damage! (Guard HP: {Math.Max(0, guardHP)})");
 
                 if (guardHP <= 0) break;
 
-                // Guard attacks
+                // Guard attacks - effectiveness reduced by low loyalty
                 long guardDamage = Math.Max(1, guardStr - currentPlayer.Defence);
                 runningPlayerHP -= guardDamage;
 
@@ -2456,8 +3103,8 @@ public class CastleLocation : BaseLocation
             terminal.SetColor("cyan");
             terminal.WriteLine($"--- Round {round} ---");
 
-            // Player attacks
-            long playerDmg = Math.Max(1, currentPlayer.Strength + currentPlayer.WeapPow - kingStr / 4);
+            // Player attacks (king uses full defense, not reduced)
+            long playerDmg = Math.Max(1, currentPlayer.Strength + currentPlayer.WeapPow - kingStr);
             playerDmg += random.Next((int)currentPlayer.WeapPow / 2);
             kingHP -= (int)playerDmg;
 
@@ -2573,9 +3220,10 @@ public class CastleLocation : BaseLocation
                 return false;
             }
 
-            // Force leave team
+            // Force leave team and clear dungeon party
             string oldTeam = currentPlayer.Team;
             CityControlSystem.Instance.ForceLeaveTeam(currentPlayer);
+            GameEngine.Instance?.ClearDungeonParty(); // Clear NPC teammates from dungeon
             terminal.SetColor("yellow");
             terminal.WriteLine($"You have left '{oldTeam}' to claim the crown.");
             terminal.WriteLine("");

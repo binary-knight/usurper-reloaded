@@ -12,6 +12,7 @@ namespace UsurperRemake.BBS
         private static BBSSessionInfo? _sessionInfo;
         private static SocketTerminal? _socketTerminal;
         private static BBSTerminalAdapter? _terminalAdapter;
+        private static bool _forceStdio = false;
 
         public static BBSSessionInfo? SessionInfo => _sessionInfo;
         public static BBSTerminalAdapter? TerminalAdapter => _terminalAdapter;
@@ -60,6 +61,14 @@ namespace UsurperRemake.BBS
                 {
                     _sessionInfo = DropFileParser.CreateLocalSession();
                     return true;
+                }
+
+                // --stdio forces console I/O even when drop file has socket handle
+                // Use with Standard I/O mode in Synchronet
+                if (arg == "--stdio")
+                {
+                    _forceStdio = true;
+                    continue; // Keep processing other args
                 }
 
                 // --help
@@ -165,6 +174,14 @@ namespace UsurperRemake.BBS
 
             try
             {
+                // If --stdio flag was used, force console I/O mode
+                // This is for Synchronet's "Standard" I/O mode where stdin/stdout are redirected
+                if (_forceStdio)
+                {
+                    Console.Error.WriteLine("Using Standard I/O mode (--stdio flag)");
+                    _sessionInfo.CommType = ConnectionType.Local;
+                }
+
                 _socketTerminal = new SocketTerminal(_sessionInfo);
 
                 if (!_socketTerminal.Initialize())
@@ -179,7 +196,8 @@ namespace UsurperRemake.BBS
                     }
                 }
 
-                _terminalAdapter = new BBSTerminalAdapter(_socketTerminal);
+                // Pass _forceStdio to tell adapter to use ANSI codes instead of Console.ForegroundColor
+                _terminalAdapter = new BBSTerminalAdapter(_socketTerminal, _forceStdio);
                 return _terminalAdapter;
             }
             catch (Exception ex)
@@ -260,7 +278,7 @@ namespace UsurperRemake.BBS
         {
             Console.WriteLine("Usurper Reborn - BBS Door Mode");
             Console.WriteLine("");
-            Console.WriteLine("Usage: UsurperRemake [options]");
+            Console.WriteLine("Usage: UsurperReborn [options]");
             Console.WriteLine("");
             Console.WriteLine("Door Mode Options:");
             Console.WriteLine("  --door, -d <path>    Load drop file (auto-detect DOOR32.SYS or DOOR.SYS)");
@@ -268,20 +286,27 @@ namespace UsurperRemake.BBS
             Console.WriteLine("  --doorsys <path>     Load DOOR.SYS explicitly");
             Console.WriteLine("  --node, -n <dir>     Search node directory for drop files");
             Console.WriteLine("  --local, -l          Run in local mode (no BBS connection)");
+            Console.WriteLine("  --stdio              Use Standard I/O instead of socket (for Synchronet)");
             Console.WriteLine("");
             Console.WriteLine("Examples:");
-            Console.WriteLine("  UsurperRemake --door /sbbs/node1/door32.sys");
-            Console.WriteLine("  UsurperRemake --node /sbbs/node1");
-            Console.WriteLine("  UsurperRemake -d C:\\SBBS\\NODE1\\");
+            Console.WriteLine("  UsurperReborn --door /sbbs/node1/door32.sys");
+            Console.WriteLine("  UsurperReborn --node /sbbs/node1");
+            Console.WriteLine("  UsurperReborn -d C:\\SBBS\\NODE1\\");
             Console.WriteLine("");
             Console.WriteLine("Drop File Support:");
             Console.WriteLine("  DOOR32.SYS - Modern format with socket handle (recommended)");
             Console.WriteLine("  DOOR.SYS   - Legacy format (52 lines, no socket - uses console)");
             Console.WriteLine("");
-            Console.WriteLine("For Synchronet BBS, configure external program with:");
-            Console.WriteLine("  Command: UsurperRemake --door %f");
+            Console.WriteLine("For Synchronet BBS (Socket I/O mode):");
+            Console.WriteLine("  Command: UsurperReborn --door %f");
             Console.WriteLine("  Drop File Type: Door32.sys");
             Console.WriteLine("  I/O Method: Socket");
+            Console.WriteLine("");
+            Console.WriteLine("For Synchronet BBS (Standard I/O mode - recommended):");
+            Console.WriteLine("  Command: UsurperReborn --door32 %f --stdio");
+            Console.WriteLine("  Drop File Type: Door32.sys");
+            Console.WriteLine("  I/O Method: Standard");
+            Console.WriteLine("  Native Executable: Yes");
             Console.WriteLine("");
         }
 

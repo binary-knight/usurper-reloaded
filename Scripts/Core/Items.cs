@@ -105,15 +105,29 @@ public class Item
     /// </summary>
     public void ApplyEffects(Character character)
     {
+        // Track if character was at full HP/Mana before applying bonuses
+        bool wasAtFullHP = character.HP >= character.MaxHP;
+        bool wasAtFullMana = character.Mana >= character.MaxMana;
+
         character.MaxHP += HP;
-        character.HP = Math.Min(character.HP + HP, character.MaxHP);
+        character.MaxMana += Mana;
+
+        // Only increase current HP/Mana if they were at full, or just cap to new max
+        if (wasAtFullHP && HP > 0)
+            character.HP = character.MaxHP;
+        else
+            character.HP = Math.Min(character.HP, character.MaxHP);
+
+        if (wasAtFullMana && Mana > 0)
+            character.Mana = character.MaxMana;
+        else
+            character.Mana = Math.Min(character.Mana, character.MaxMana);
+
         character.Stamina += Stamina;
         character.Agility += Agility;
         character.Charisma += Charisma;
         character.Dexterity += Dexterity;
         character.Wisdom += Wisdom;
-        character.MaxMana += Mana;
-        character.Mana = Math.Min(character.Mana + Mana, character.MaxMana);
         character.Strength += Strength;
         character.Defence += Defence;
         character.ArmPow += Armor;

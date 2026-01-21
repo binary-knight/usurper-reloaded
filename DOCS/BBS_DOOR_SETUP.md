@@ -17,12 +17,12 @@ Legacy 52-line format. Works with console I/O (no direct socket support).
 ## Command Line Options
 
 ```
-UsurperRemake --door <path>      # Auto-detect drop file type
-UsurperRemake --door32 <path>    # Explicitly load DOOR32.SYS
-UsurperRemake --doorsys <path>   # Explicitly load DOOR.SYS
-UsurperRemake --node <directory> # Search directory for drop files
-UsurperRemake --local            # Local testing mode (no BBS)
-UsurperRemake --help             # Show help
+UsurperReborn --door <path>      # Auto-detect drop file type
+UsurperReborn --door32 <path>    # Explicitly load DOOR32.SYS
+UsurperReborn --doorsys <path>   # Explicitly load DOOR.SYS
+UsurperReborn --node <directory> # Search directory for drop files
+UsurperReborn --local            # Local testing mode (no BBS)
+UsurperReborn --help             # Show help
 ```
 
 ## Synchronet BBS Setup
@@ -32,8 +32,8 @@ UsurperRemake --help             # Show help
 Copy the Usurper Reborn files to your Synchronet doors directory:
 ```
 /sbbs/xtrn/usurper/
-├── UsurperRemake.exe (or UsurperRemake on Linux)
-├── UsurperRemake.dll
+├── UsurperReborn.exe (or UsurperReborn on Linux)
+├── UsurperReborn.dll
 ├── Data/
 └── Saves/
 ```
@@ -43,14 +43,16 @@ Copy the Usurper Reborn files to your Synchronet doors directory:
 In SCFG (Synchronet Configuration), navigate to:
 `External Programs` → `Online Programs (Doors)` → `Add`
 
-Configure as follows:
+#### Option A: Standard I/O Mode (Recommended)
+
+This is the recommended configuration for best compatibility:
 
 | Setting | Value |
 |---------|-------|
 | Name | Usurper Reborn |
 | Internal Code | USURPER |
 | Start-up Directory | ../xtrn/usurper |
-| Command Line | UsurperRemake --door %f |
+| Command Line | UsurperReborn --door32 %f --stdio |
 | Clean-up Command | (leave blank) |
 | Execution Cost | 0 |
 | Access Requirements | (your preference) |
@@ -62,10 +64,34 @@ Configure as follows:
 | Pause After Execution | No |
 | BBS Drop File Type | Door32.sys |
 | Place Drop File In | Node Directory |
+| **I/O Method** | **Standard** |
 
-### Step 3: Set I/O Method
+The `--stdio` flag tells the game to use ANSI escape codes for colors instead of Windows Console API calls, which ensures colors work correctly when stdin/stdout are redirected by Synchronet.
 
-For the I/O Method setting, select **Socket** for best compatibility with the DOOR32.SYS socket handle.
+#### Option B: Socket I/O Mode
+
+Alternative configuration using direct socket communication:
+
+| Setting | Value |
+|---------|-------|
+| Name | Usurper Reborn |
+| Internal Code | USURPER |
+| Start-up Directory | ../xtrn/usurper |
+| Command Line | UsurperReborn --door %f |
+| Clean-up Command | (leave blank) |
+| Execution Cost | 0 |
+| Access Requirements | (your preference) |
+| Intercept Standard I/O | No |
+| Native Executable | Yes |
+| Use Shell to Execute | No |
+| Modify User Data | No |
+| Execute on Event | No |
+| Pause After Execution | No |
+| BBS Drop File Type | Door32.sys |
+| Place Drop File In | Node Directory |
+| **I/O Method** | **Socket** |
+
+**Note:** Socket mode may not work on all systems. If you experience connection issues or the game doesn't start, try Standard I/O mode instead.
 
 ## Mystic BBS Setup
 
@@ -83,7 +109,7 @@ In Mystic's configuration, add a new door:
 ```
 Door Name    : Usurper Reborn
 Door Path    : /mystic/doors/usurper/
-Door EXE     : UsurperRemake --door %3
+Door EXE     : UsurperReborn --door %3
 ```
 
 The `%3` parameter passes the path to DOOR32.SYS.
@@ -190,12 +216,12 @@ TestPlayer
 
 ### Run with:
 ```bash
-UsurperRemake --door door32.sys
+UsurperReborn --door door32.sys
 ```
 
 Or use local mode (no drop file needed):
 ```bash
-UsurperRemake --local
+UsurperReborn --local
 ```
 
 ## Troubleshooting
@@ -250,13 +276,13 @@ In BBS mode, the player name from the drop file is used to locate/create save fi
 ## Platform Notes
 
 ### Windows
-- Use `UsurperRemake.exe`
+- Use `UsurperReborn.exe`
 - Ensure .NET 8.0 runtime is installed (or use self-contained build)
 - Socket handle inheritance works natively
 
 ### Linux
-- Use `./UsurperRemake`
-- May need to set executable permission: `chmod +x UsurperRemake`
+- Use `./UsurperReborn`
+- May need to set executable permission: `chmod +x UsurperReborn`
 - Build for Linux: `dotnet publish -c Release -r linux-x64 --self-contained`
 - Socket handle (file descriptor) inheritance is supported
 - If socket mode fails, the game automatically falls back to console I/O
@@ -273,7 +299,7 @@ I/O Method: Socket (for direct socket) or Standard I/O (for console)
 If using Standard I/O mode, the game will use stdin/stdout instead of the socket handle.
 
 ### macOS
-- Use `./UsurperRemake`
+- Use `./UsurperReborn`
 - Build: `dotnet publish -c Release -r osx-x64 --self-contained`
 - Self-contained builds recommended
 

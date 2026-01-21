@@ -1,4 +1,5 @@
 using UsurperRemake.Utils;
+using UsurperRemake.BBS;
 using Godot;
 using System;
 using System.Collections.Generic;
@@ -134,6 +135,25 @@ public partial class TerminalEmulator : Control
         if (string.IsNullOrEmpty(text))
         {
             Console.WriteLine();
+            return;
+        }
+
+        // In door mode, use ANSI escape codes since Console.ForegroundColor doesn't work
+        if (DoorMode.IsInDoorMode)
+        {
+            if (!text.Contains("[") || !text.Contains("[/]"))
+            {
+                Console.Write($"\x1b[{GetAnsiColorCode(baseColor)}m");
+                Console.WriteLine(text);
+                Console.Write("\x1b[0m");
+            }
+            else
+            {
+                Console.Write($"\x1b[{GetAnsiColorCode(baseColor)}m");
+                WriteMarkupToConsoleAnsi(text);
+                Console.WriteLine();
+                Console.Write("\x1b[0m");
+            }
             return;
         }
 
@@ -283,10 +303,17 @@ public partial class TerminalEmulator : Control
         // If the Godot RichTextLabel is available use it, otherwise fall back to plain Console output
         if (display != null)
         {
-        var colorCode = ansiColors.ContainsKey(effectiveColor) ?
-            ansiColors[effectiveColor].ToHtml() : ansiColors["white"].ToHtml();
+            var colorCode = ansiColors.ContainsKey(effectiveColor) ?
+                ansiColors[effectiveColor].ToHtml() : ansiColors["white"].ToHtml();
 
-        display.AppendText($"[color=#{colorCode}]{text}[/color]");
+            display.AppendText($"[color=#{colorCode}]{text}[/color]");
+        }
+        else if (DoorMode.IsInDoorMode)
+        {
+            // In door mode, use ANSI escape codes since Console.ForegroundColor doesn't work
+            Console.Write($"\x1b[{GetAnsiColorCode(effectiveColor)}m");
+            Console.Write(text);
+            // Don't reset here - let next Write/WriteLine handle color
         }
         else
         {
@@ -346,16 +373,131 @@ public partial class TerminalEmulator : Control
             null or _ => ConsoleColor.White
         };
     }
-    
+
+    // ANSI color codes for door mode (when Console.ForegroundColor doesn't work)
+    private static readonly Dictionary<string, string> AnsiColorCodes = new()
+    {
+        { "black", "30" },
+        { "red", "31" }, { "bright_red", "91" },
+        { "green", "32" }, { "bright_green", "92" },
+        { "yellow", "33" }, { "bright_yellow", "93" },
+        { "blue", "34" }, { "bright_blue", "94" },
+        { "magenta", "35" }, { "bright_magenta", "95" },
+        { "cyan", "36" }, { "bright_cyan", "96" },
+        { "white", "37" }, { "bright_white", "97" },
+        { "gray", "90" }, { "grey", "90" },
+        { "darkgray", "90" }, { "dark_gray", "90" },
+        { "darkred", "31" }, { "dark_red", "31" },
+        { "darkgreen", "32" }, { "dark_green", "32" },
+        { "darkyellow", "33" }, { "dark_yellow", "33" }, { "brown", "33" },
+        { "darkblue", "34" }, { "dark_blue", "34" },
+        { "darkmagenta", "35" }, { "dark_magenta", "35" },
+        { "darkcyan", "36" }, { "dark_cyan", "36" }
+    };
+
+    private string GetAnsiColorCode(string color)
+    {
+        if (AnsiColorCodes.TryGetValue(color?.ToLower() ?? "white", out var code))
+            return code;
+        return "37"; // Default white
+    }
+
+    /// <summary>
+    /// Parse inline [colorname]text[/] markup and output to console using ANSI codes (for door mode)
+    /// </summary>
+    private void WriteMarkupToConsoleAnsi(string text)
+    {
+        int pos = 0;
+
+        while (pos < text.Length)
+        {
+            // Look for opening color tag [colorname]
+            var tagMatch = System.Text.RegularExpressions.Regex.Match(
+                text.Substring(pos), @"^\[([a-z_]+)\]", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+            if (tagMatch.Success)
+            {
+                string colorName = tagMatch.Groups[1].Value;
+                pos += tagMatch.Length;
+
+                // Find content and closing tag
+                int depth = 1;
+                int contentStart = pos;
+                int contentEnd = pos;
+
+                while (pos < text.Length && depth > 0)
+                {
+                    // Check for [/]
+                    if (pos + 2 <= text.Length - 1 && text[pos] == '[' && text[pos + 1] == '/' && text[pos + 2] == ']')
+                    {
+                        depth--;
+                        if (depth == 0)
+                        {
+                            contentEnd = pos;
+                            pos += 3;
+                            break;
+                        }
+                        pos += 3;
+                        continue;
+                    }
+
+                    // Check for nested opening tag
+                    var nestedMatch = System.Text.RegularExpressions.Regex.Match(
+                        text.Substring(pos), @"^\[([a-z_]+)\]", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                    if (nestedMatch.Success)
+                    {
+                        depth++;
+                        pos += nestedMatch.Length;
+                        continue;
+                    }
+
+                    pos++;
+                }
+
+                // Render content with ANSI color
+                string content = text.Substring(contentStart, contentEnd - contentStart);
+                Console.Write($"\x1b[{GetAnsiColorCode(colorName)}m");
+                WriteMarkupToConsoleAnsi(content); // Recursive for nested tags
+                Console.Write("\x1b[0m");
+                continue;
+            }
+
+            // Check for stray [/]
+            if (pos + 2 <= text.Length - 1 && text[pos] == '[' && text[pos + 1] == '/' && text[pos + 2] == ']')
+            {
+                pos += 3;
+                continue;
+            }
+
+            // Regular character
+            Console.Write(text[pos]);
+            pos++;
+        }
+    }
+
     public void ClearScreen()
     {
         if (display != null)
-    {
-        display.Clear();
+        {
+            display.Clear();
+        }
+        else if (DoorMode.IsInDoorMode)
+        {
+            // In BBS door mode, use ANSI escape codes instead of Console.Clear()
+            // Console.Clear() throws when stdin/stdout are redirected pipes
+            Console.Write("\x1b[2J\x1b[H"); // Clear screen and move cursor to home
         }
         else
         {
-            Console.Clear();
+            try
+            {
+                Console.Clear();
+            }
+            catch (System.IO.IOException)
+            {
+                // Fallback to ANSI if Console.Clear fails (redirected I/O)
+                Console.Write("\x1b[2J\x1b[H");
+            }
         }
         cursorX = 0;
         cursorY = 0;
@@ -540,13 +682,28 @@ public partial class TerminalEmulator : Control
             var input = await GetInput("");
             return string.IsNullOrEmpty(input) ? "" : input[0].ToString();
         }
+        else if (DoorMode.IsInDoorMode)
+        {
+            // BBS door mode - use line input since ReadKey doesn't work with redirected I/O
+            var input = await GetInput("");
+            return string.IsNullOrEmpty(input) ? "" : input[0].ToString();
+        }
         else
         {
             // Console mode - read single key without Enter
-            var keyInfo = Console.ReadKey(intercept: true);
-            var result = keyInfo.KeyChar.ToString();
-            WriteLine(result, "cyan");
-            return result;
+            try
+            {
+                var keyInfo = Console.ReadKey(intercept: true);
+                var result = keyInfo.KeyChar.ToString();
+                WriteLine(result, "cyan");
+                return result;
+            }
+            catch (System.InvalidOperationException)
+            {
+                // Fallback for redirected I/O
+                var input = await GetInput("");
+                return string.IsNullOrEmpty(input) ? "" : input[0].ToString();
+            }
         }
     }
     

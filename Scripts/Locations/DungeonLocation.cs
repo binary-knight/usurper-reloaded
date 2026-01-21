@@ -542,7 +542,8 @@ public class DungeonLocation : BaseLocation
     }
 
     /// <summary>
-    /// Restore NPC teammates (spouses, team members, lovers) from saved state
+    /// Restore NPC teammates (spouses, team members, lovers) from saved state.
+    /// Respects party cap of 4 - companions are added first and take priority.
     /// </summary>
     private async Task RestoreNPCTeammates(TerminalEmulator term)
     {
@@ -555,8 +556,18 @@ public class DungeonLocation : BaseLocation
             return;
 
         int restoredCount = 0;
+        int skippedCount = 0;
+        const int maxPartySize = 4;
+
         foreach (var npcId in savedNPCIds)
         {
+            // Check party cap before adding
+            if (teammates.Count >= maxPartySize)
+            {
+                skippedCount++;
+                continue;
+            }
+
             var npc = npcSystem.ActiveNPCs?.FirstOrDefault(n => n.ID == npcId && n.IsAlive);
             if (npc != null && !teammates.Any(t => t is NPC existingNpc && existingNpc.ID == npcId))
             {
@@ -573,6 +584,16 @@ public class DungeonLocation : BaseLocation
             term.WriteLine($"═══ PARTY RESTORED ═══");
             term.SetColor("green");
             term.WriteLine($"{restoredCount} ally/allies rejoin your dungeon party from your last session.");
+            term.WriteLine("");
+            await Task.Delay(1500);
+        }
+
+        // Notify if some allies couldn't join due to party cap
+        if (skippedCount > 0)
+        {
+            term.SetColor("yellow");
+            term.WriteLine($"{skippedCount} ally/allies couldn't rejoin - party is full (max {maxPartySize}).");
+            term.WriteLine("Use Party Management to adjust your party composition.");
             term.WriteLine("");
             await Task.Delay(1500);
         }
@@ -1531,7 +1552,7 @@ public class DungeonLocation : BaseLocation
         terminal.SetColor("darkgray");
         terminal.Write("]");
         terminal.SetColor("white");
-        terminal.Write("eam management        ");
+        terminal.Write("Party management      ");
 
         terminal.SetColor("darkgray");
         terminal.Write("[");
@@ -2358,7 +2379,7 @@ public class DungeonLocation : BaseLocation
             }
         }
 
-        // Display what we're fighting
+        // Display what we're fighting - handle mixed encounters properly
         if (monsters.Count == 1)
         {
             var monster = monsters[0];
@@ -2367,8 +2388,37 @@ public class DungeonLocation : BaseLocation
         }
         else
         {
+            // Group monsters by name to handle mixed encounters
+            var monsterGroups = monsters.GroupBy(m => m.Name)
+                .Select(g => new { Name = g.Key, Count = g.Count(), Color = g.First().MonsterColor })
+                .ToList();
+
             terminal.SetColor("yellow");
-            terminal.WriteLine($"You face {monsters.Count} {monsters[0].Name}{(monsters.Count > 1 ? "s" : "")}!");
+            if (monsterGroups.Count == 1)
+            {
+                // All same type
+                var group = monsterGroups[0];
+                string plural = group.Count > 1 ? GetPluralName(group.Name) : group.Name;
+                terminal.WriteLine($"You face {group.Count} {plural}!");
+            }
+            else
+            {
+                // Mixed encounter
+                terminal.Write("You face ");
+                for (int i = 0; i < monsterGroups.Count; i++)
+                {
+                    var group = monsterGroups[i];
+                    string plural = group.Count > 1 ? GetPluralName(group.Name) : group.Name;
+
+                    if (i > 0 && i == monsterGroups.Count - 1)
+                        terminal.Write(" and ");
+                    else if (i > 0)
+                        terminal.Write(", ");
+
+                    terminal.Write($"{group.Count} {plural}");
+                }
+                terminal.WriteLine("!");
+            }
         }
 
         terminal.WriteLine("");
@@ -2763,8 +2813,37 @@ public class DungeonLocation : BaseLocation
     private static readonly int[] SealFloors = { 15, 30, 45, 60, 80, 99 };
     private static readonly int[] SecretBossFloors = { 25, 50, 75, 99 };
 
-    // Combined list of all special floors for easy lookup
-    private static readonly int[] AllSpecialFloors = { 15, 25, 30, 45, 50, 60, 75, 80, 99 };
+    // Old God boss floors
+    private static readonly int[] OldGodFloors = { 25, 40, 55, 70, 85, 95, 100 };
+
+    // Combined list of all special floors for easy lookup (includes Old God floors)
+    private static readonly int[] AllSpecialFloors = { 15, 25, 30, 40, 45, 50, 55, 60, 70, 75, 80, 85, 95, 99, 100 };
+
+    /// <summary>
+    /// Check if a floor has an Old God boss encounter
+    /// </summary>
+    private static bool IsOldGodFloor(int floorLevel)
+    {
+        return OldGodFloors.Contains(floorLevel);
+    }
+
+    /// <summary>
+    /// Get the Old God type for a specific floor level
+    /// </summary>
+    private static OldGodType? GetOldGodForFloor(int floorLevel)
+    {
+        return floorLevel switch
+        {
+            25 => OldGodType.Maelketh,
+            40 => OldGodType.Veloura,
+            55 => OldGodType.Thorgrim,
+            70 => OldGodType.Noctura,
+            85 => OldGodType.Aurelion,
+            95 => OldGodType.Terravok,
+            100 => OldGodType.Manwe,
+            _ => null
+        };
+    }
 
     /// <summary>
     /// Result of floor generation/restoration
@@ -2821,6 +2900,30 @@ public class DungeonLocation : BaseLocation
                     room.InsightGranted = roomState.InsightGranted;
                     room.MemoryTriggered = roomState.MemoryTriggered;
                     room.SecretBossDefeated = roomState.SecretBossDefeated;
+                }
+
+                // CRITICAL: Boss rooms on Old God floors should NEVER be marked cleared
+                // unless the Old God was actually defeated/resolved. This prevents the bug
+                // where save corruption or non-deterministic generation marks boss cleared.
+                if (room.IsBossRoom && IsOldGodFloor(floorLevel))
+                {
+                    var godType = GetOldGodForFloor(floorLevel);
+                    if (godType != null)
+                    {
+                        var story = StoryProgressionSystem.Instance;
+                        bool godResolved = story.OldGodStates.TryGetValue(godType.Value, out var state) &&
+                            (state.Status == GodStatus.Defeated ||
+                             state.Status == GodStatus.Saved ||
+                             state.Status == GodStatus.Allied ||
+                             state.Status == GodStatus.Awakened ||
+                             state.Status == GodStatus.Consumed);
+
+                        if (!godResolved)
+                        {
+                            // Force boss room to be uncleared if Old God wasn't resolved
+                            room.IsCleared = false;
+                        }
+                    }
                 }
             }
 
@@ -2927,14 +3030,34 @@ public class DungeonLocation : BaseLocation
         if (player == null)
             return requestedFloor;
 
+        // Migration: Sync collected seals with ClearedSpecialFloors for saves before this fix
+        // This ensures players who already collected seals can progress
+        SyncCollectedSealsWithClearedFloors(player);
+
         // Find the first uncleared special floor that would block access
         foreach (int specialFloor in AllSpecialFloors.OrderBy(f => f))
         {
             // If player wants to go to or past this special floor
             if (requestedFloor >= specialFloor)
             {
-                // But hasn't cleared it yet
-                if (!player.ClearedSpecialFloors.Contains(specialFloor))
+                // Check if floor is cleared using BOTH methods for robustness:
+                // 1. ClearedSpecialFloors set (explicit tracking)
+                // 2. DungeonFloorStates.EverCleared (persistence backup)
+                bool isCleared = player.ClearedSpecialFloors.Contains(specialFloor);
+
+                // Also check DungeonFloorStates as a backup
+                if (!isCleared && player.DungeonFloorStates.TryGetValue(specialFloor, out var floorState))
+                {
+                    if (floorState.EverCleared)
+                    {
+                        isCleared = true;
+                        // Sync the ClearedSpecialFloors set to match
+                        player.ClearedSpecialFloors.Add(specialFloor);
+                    }
+                }
+
+                // If not cleared by either method, cap access at this floor
+                if (!isCleared)
                 {
                     // They must start at this floor (or below it if they're lower level)
                     return Math.Min(requestedFloor, specialFloor);
@@ -2955,11 +3078,72 @@ public class DungeonLocation : BaseLocation
     }
 
     /// <summary>
-    /// Check if current floor is fully cleared (all monster rooms defeated)
+    /// Migration helper: Sync collected seals with ClearedSpecialFloors
+    /// This fixes saves where seals were collected before the floor tracking fix
+    /// </summary>
+    private void SyncCollectedSealsWithClearedFloors(Character player)
+    {
+        var story = StoryProgressionSystem.Instance;
+        var sealSystem = SevenSealsSystem.Instance;
+
+        // Check each collected seal and ensure its floor is in ClearedSpecialFloors
+        foreach (var sealType in story.CollectedSeals)
+        {
+            var sealData = sealSystem.GetSeal(sealType);
+            if (sealData != null && sealData.DungeonFloor > 0)
+            {
+                if (!player.ClearedSpecialFloors.Contains(sealData.DungeonFloor))
+                {
+                    player.ClearedSpecialFloors.Add(sealData.DungeonFloor);
+                    Godot.GD.Print($"[DungeonLocation] Synced seal floor {sealData.DungeonFloor} to ClearedSpecialFloors");
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Check if current floor is fully cleared
+    /// For Old God floors: check if the god has been defeated/resolved
+    /// For Seal floors: check if seal has been collected
+    /// For other special floors: check if all monster rooms are cleared
     /// </summary>
     private bool IsFloorCleared()
     {
         if (currentFloor == null) return true;
+
+        // Old God boss floors - check if the god has been defeated/resolved
+        if (IsOldGodFloor(currentDungeonLevel))
+        {
+            var godType = GetOldGodForFloor(currentDungeonLevel);
+            if (godType != null)
+            {
+                var story = StoryProgressionSystem.Instance;
+                if (story.OldGodStates.TryGetValue(godType.Value, out var state))
+                {
+                    // God is resolved if defeated, saved, allied, awakened, or consumed
+                    return state.Status == GodStatus.Defeated ||
+                           state.Status == GodStatus.Saved ||
+                           state.Status == GodStatus.Allied ||
+                           state.Status == GodStatus.Awakened ||
+                           state.Status == GodStatus.Consumed;
+                }
+                // God not yet encountered - floor not cleared
+                return false;
+            }
+        }
+
+        // Seal floors - check if the seal has been collected
+        if (SealFloors.Contains(currentDungeonLevel))
+        {
+            var player = GetCurrentPlayer();
+            if (player != null)
+            {
+                // Check if player has collected this seal
+                return player.ClearedSpecialFloors.Contains(currentDungeonLevel);
+            }
+        }
+
+        // Default: all monster rooms must be cleared
         return currentFloor.Rooms.All(r => !r.HasMonsters || r.IsCleared);
     }
 
@@ -2969,6 +3153,24 @@ public class DungeonLocation : BaseLocation
     private string GetRemainingClearInfo()
     {
         if (currentFloor == null) return "";
+
+        // Old God floors - show god status
+        if (IsOldGodFloor(currentDungeonLevel))
+        {
+            var godType = GetOldGodForFloor(currentDungeonLevel);
+            if (godType != null)
+            {
+                return $"The {godType.Value} awaits in the boss chamber";
+            }
+        }
+
+        // Seal floors
+        if (SealFloors.Contains(currentDungeonLevel))
+        {
+            return "The ancient seal must be claimed";
+        }
+
+        // Default: show monster room count
         int remaining = currentFloor.Rooms.Count(r => r.HasMonsters && !r.IsCleared);
         int total = currentFloor.Rooms.Count(r => r.HasMonsters);
         return $"{remaining} of {total} monster rooms remain uncleared";
@@ -3060,15 +3262,20 @@ public class DungeonLocation : BaseLocation
         if (RequiresFloorClear() && !IsFloorCleared())
         {
             terminal.WriteLine("", "red");
-            if (SealFloors.Contains(currentDungeonLevel))
+            if (IsOldGodFloor(currentDungeonLevel))
+            {
+                terminal.WriteLine("A powerful presence blocks your path.", "bright_red");
+                terminal.WriteLine("You must defeat the Old God on this floor before descending.", "yellow");
+            }
+            else if (SealFloors.Contains(currentDungeonLevel))
             {
                 terminal.WriteLine("This floor holds an ancient Seal.", "bright_magenta");
-                terminal.WriteLine("You must clear this floor before you can descend.", "yellow");
+                terminal.WriteLine("You must claim the seal before you can descend.", "yellow");
             }
             else
             {
                 terminal.WriteLine("A powerful presence blocks your path.", "bright_red");
-                terminal.WriteLine("You must defeat the guardian of this floor before descending.", "yellow");
+                terminal.WriteLine("You must defeat all enemies on this floor before descending.", "yellow");
             }
             terminal.WriteLine($"({GetRemainingClearInfo()})", "gray");
             await Task.Delay(2500);
@@ -3264,15 +3471,20 @@ public class DungeonLocation : BaseLocation
         if (targetLevel != currentDungeonLevel && RequiresFloorClear() && !IsFloorCleared())
         {
             terminal.WriteLine("", "red");
-            if (SealFloors.Contains(currentDungeonLevel))
+            if (IsOldGodFloor(currentDungeonLevel))
+            {
+                terminal.WriteLine("A powerful presence blocks your path.", "bright_red");
+                terminal.WriteLine("You must defeat the Old God on this floor before leaving.", "yellow");
+            }
+            else if (SealFloors.Contains(currentDungeonLevel))
             {
                 terminal.WriteLine("This floor holds an ancient Seal.", "bright_magenta");
-                terminal.WriteLine("You must clear this floor before you can leave.", "yellow");
+                terminal.WriteLine("You must claim the seal before you can leave.", "yellow");
             }
             else
             {
                 terminal.WriteLine("A powerful presence blocks your path.", "bright_red");
-                terminal.WriteLine("You must defeat the guardian of this floor before leaving.", "yellow");
+                terminal.WriteLine("You must defeat all enemies on this floor before leaving.", "yellow");
             }
             terminal.WriteLine($"({GetRemainingClearInfo()})", "gray");
             await Task.Delay(2500);
@@ -3387,15 +3599,44 @@ public class DungeonLocation : BaseLocation
         }
         else
         {
+            // Group monsters by name to handle mixed encounters properly
+            var monsterGroups = monsters.GroupBy(m => m.Name)
+                .Select(g => new { Name = g.Key, Count = g.Count(), Color = g.First().MonsterColor })
+                .ToList();
+
             terminal.SetColor("yellow");
-            terminal.Write($"You encounter a group of [{monsters[0].MonsterColor}]{monsters.Count} {monsters[0].Name}");
-            if (monsters[0].FamilyName != "")
+            if (monsterGroups.Count == 1)
             {
-                terminal.Write($"[/] from the {monsters[0].FamilyName} family!");
+                // All monsters are the same type
+                var group = monsterGroups[0];
+                string plural = group.Count > 1 ? GetPluralName(group.Name) : group.Name;
+                terminal.Write($"You encounter [{group.Color}]{group.Count} {plural}[/]");
+                if (monsters[0].FamilyName != "")
+                {
+                    terminal.Write($" from the {monsters[0].FamilyName} family!");
+                }
+                else
+                {
+                    terminal.Write("!");
+                }
             }
             else
             {
-                terminal.Write("[/]!");
+                // Mixed encounter - show all monster types
+                terminal.Write("You encounter ");
+                for (int i = 0; i < monsterGroups.Count; i++)
+                {
+                    var group = monsterGroups[i];
+                    string plural = group.Count > 1 ? GetPluralName(group.Name) : group.Name;
+
+                    if (i > 0 && i == monsterGroups.Count - 1)
+                        terminal.Write(" and ");
+                    else if (i > 0)
+                        terminal.Write(", ");
+
+                    terminal.Write($"[{group.Color}]{group.Count} {plural}[/]");
+                }
+                terminal.Write("!");
             }
             terminal.WriteLine("");
         }
@@ -4931,8 +5172,8 @@ public class DungeonLocation : BaseLocation
         switch (choice.ToUpper())
         {
             case "R":
-                bool success = await companionSystem.RecruitCompanion(
-                    UsurperRemake.Systems.CompanionId.Lyris, player, terminal);
+                bool success = await TryRecruitCompanionInDungeon(
+                    UsurperRemake.Systems.CompanionId.Lyris, player);
                 if (success)
                 {
                     terminal.SetColor("bright_green");
@@ -4970,8 +5211,8 @@ public class DungeonLocation : BaseLocation
                 var followUp = await terminal.GetInput("Ask her to join you? (Y/N): ");
                 if (followUp.ToUpper() == "Y")
                 {
-                    await companionSystem.RecruitCompanion(
-                        UsurperRemake.Systems.CompanionId.Lyris, player, terminal);
+                    await TryRecruitCompanionInDungeon(
+                        UsurperRemake.Systems.CompanionId.Lyris, player);
                 }
                 break;
 
@@ -6065,6 +6306,46 @@ public class DungeonLocation : BaseLocation
     {
         return baseName + " Leader";
     }
+
+    /// <summary>
+    /// Get the plural form of a monster name for display purposes.
+    /// Handles common English pluralization rules.
+    /// </summary>
+    private string GetPluralName(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return name;
+
+        // Handle special cases
+        var lowerName = name.ToLower();
+
+        // Irregular plurals
+        if (lowerName == "wolf") return name.Substring(0, name.Length - 4) + "olves";
+        if (lowerName.EndsWith("wolf")) return name.Substring(0, name.Length - 4) + "olves";
+        if (lowerName == "thief") return name.Substring(0, name.Length - 4) + "ieves";
+        if (lowerName.EndsWith("thief")) return name.Substring(0, name.Length - 4) + "ieves";
+        if (lowerName == "elf") return name.Substring(0, name.Length - 3) + "lves";
+        if (lowerName.EndsWith("elf")) return name.Substring(0, name.Length - 3) + "lves";
+        if (lowerName == "dwarf") return name + "s"; // Dwarfs or Dwarves both acceptable
+        if (lowerName == "man") return name.Substring(0, name.Length - 3) + "en";
+        if (lowerName.EndsWith("man")) return name.Substring(0, name.Length - 3) + "en";
+
+        // Words ending in s, x, z, ch, sh - add "es"
+        if (lowerName.EndsWith("s") || lowerName.EndsWith("x") || lowerName.EndsWith("z") ||
+            lowerName.EndsWith("ch") || lowerName.EndsWith("sh"))
+            return name + "es";
+
+        // Words ending in consonant + y - change y to ies
+        if (lowerName.EndsWith("y") && lowerName.Length > 1)
+        {
+            char beforeY = lowerName[lowerName.Length - 2];
+            if (!"aeiou".Contains(beforeY))
+                return name.Substring(0, name.Length - 1) + "ies";
+        }
+
+        // Default: just add s
+        return name + "s";
+    }
     
     private string GetMonsterPhrase(DungeonTerrain terrain)
     {
@@ -6124,7 +6405,10 @@ public class DungeonLocation : BaseLocation
         }
         else if (currentDungeonLevel < maxDungeonLevel)
         {
-            currentDungeonLevel++;
+            int nextLevel = currentDungeonLevel + 1;
+            var floorResult = GenerateOrRestoreFloor(player, nextLevel);
+            currentFloor = floorResult.Floor;
+            currentDungeonLevel = nextLevel;
             terminal.WriteLine($"You descend to dungeon level {currentDungeonLevel}.", "yellow");
 
             // Update quest progress for reaching this floor
@@ -6162,16 +6446,17 @@ public class DungeonLocation : BaseLocation
         terminal.ClearScreen();
         terminal.SetColor("bright_cyan");
         terminal.WriteLine("╔═══════════════════════════════════════════════════╗");
-        terminal.WriteLine("║               TEAM MANAGEMENT                     ║");
+        terminal.WriteLine("║              PARTY MANAGEMENT                     ║");
         terminal.WriteLine("╚═══════════════════════════════════════════════════╝");
         terminal.WriteLine("");
 
         // Check if player has any potential party members (team, spouse, or companions)
         bool hasTeam = !string.IsNullOrEmpty(player.Team);
         bool hasSpouse = UsurperRemake.Systems.RomanceTracker.Instance?.IsMarried == true;
-        bool hasCompanions = UsurperRemake.Systems.CompanionSystem.Instance?.GetActiveCompanions()?.Any() == true;
+        var companionSystem = UsurperRemake.Systems.CompanionSystem.Instance;
+        bool hasAnyCompanions = companionSystem?.GetRecruitedCompanions()?.Any() == true;
 
-        if (!hasTeam && !hasSpouse && !hasCompanions && teammates.Count == 0)
+        if (!hasTeam && !hasSpouse && !hasAnyCompanions && teammates.Count == 0)
         {
             terminal.SetColor("yellow");
             terminal.WriteLine("You have no one to bring with you.");
@@ -6247,6 +6532,23 @@ public class DungeonLocation : BaseLocation
             }
         }
 
+        // Get inactive companions (recruited but not currently in party)
+        var inactiveCompanions = companionSystem?.GetInactiveCompanions()?.ToList() ?? new List<UsurperRemake.Systems.Companion>();
+
+        // Show available companions section
+        if (inactiveCompanions.Count > 0)
+        {
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine("Available Companions (on standby):");
+            for (int i = 0; i < inactiveCompanions.Count; i++)
+            {
+                var comp = inactiveCompanions[i];
+                terminal.SetColor("cyan");
+                terminal.WriteLine($"  [C{i + 1}] {comp.Name} ({comp.CombatRole}) - Level {comp.Level}");
+            }
+            terminal.WriteLine("");
+        }
+
         if (npcTeammates.Count > 0)
         {
             terminal.SetColor("green");
@@ -6296,6 +6598,10 @@ public class DungeonLocation : BaseLocation
         // Show options
         terminal.SetColor("white");
         terminal.WriteLine("Options:");
+        if (inactiveCompanions.Count > 0 && teammates.Count < 4)
+        {
+            terminal.WriteLine("  [C1-C" + inactiveCompanions.Count + "] Add companion to party");
+        }
         if (npcTeammates.Count > 0 && teammates.Count < 4) // Max 4 teammates + player = 5
         {
             terminal.WriteLine("  [A]dd ally to dungeon party");
@@ -6309,6 +6615,29 @@ public class DungeonLocation : BaseLocation
 
         var choice = await terminal.GetInput("Choice: ");
         choice = choice.ToUpper().Trim();
+
+        // Handle companion add (C1, C2, etc.)
+        if (choice.StartsWith("C") && choice.Length >= 2)
+        {
+            if (int.TryParse(choice.Substring(1), out int compIndex) && compIndex >= 1 && compIndex <= inactiveCompanions.Count)
+            {
+                if (teammates.Count >= 4)
+                {
+                    terminal.WriteLine("Your dungeon party is full (max 4 teammates)!", "yellow");
+                    await Task.Delay(1500);
+                }
+                else
+                {
+                    await AddCompanionToParty(inactiveCompanions[compIndex - 1]);
+                }
+            }
+            else
+            {
+                terminal.WriteLine("Invalid companion selection.", "red");
+                await Task.Delay(1500);
+            }
+            return;
+        }
 
         switch (choice)
         {
@@ -6345,6 +6674,39 @@ public class DungeonLocation : BaseLocation
             default:
                 break;
         }
+    }
+
+    /// <summary>
+    /// Add an inactive companion back to the active party
+    /// </summary>
+    private async Task AddCompanionToParty(UsurperRemake.Systems.Companion companion)
+    {
+        var companionSystem = UsurperRemake.Systems.CompanionSystem.Instance;
+
+        // Activate the companion
+        if (companionSystem.ActivateCompanion(companion.Id))
+        {
+            // Get the companion as a Character and add to teammates
+            var companionCharacters = companionSystem.GetCompanionsAsCharacters();
+            var compChar = companionCharacters.FirstOrDefault(c => c.CompanionId == companion.Id);
+
+            if (compChar != null && !teammates.Any(t => t.CompanionId == companion.Id))
+            {
+                teammates.Add(compChar);
+            }
+
+            terminal.SetColor("bright_green");
+            terminal.WriteLine($"{companion.Name} rejoins your party!");
+            terminal.SetColor("gray");
+            terminal.WriteLine($"Role: {companion.CombatRole}");
+        }
+        else
+        {
+            terminal.SetColor("red");
+            terminal.WriteLine($"Could not add {companion.Name} to the party.");
+        }
+
+        await Task.Delay(1500);
     }
 
     private async Task AddTeammateToParty(List<NPC> available)
@@ -6438,27 +6800,47 @@ public class DungeonLocation : BaseLocation
     {
         terminal.WriteLine("");
         terminal.SetColor("white");
-        terminal.Write("Enter number of teammate to remove (1-");
-        terminal.Write($"{teammates.Count}");
+        // Party list shows player as #1, so teammates are #2 onwards
+        // Ask for 2-N to match the displayed party numbers
+        terminal.Write("Enter party number to remove (2-");
+        terminal.Write($"{teammates.Count + 1}");
         terminal.Write("): ");
         var input = await terminal.GetInput("");
 
-        if (int.TryParse(input, out int index) && index >= 1 && index <= teammates.Count)
+        // Convert from party number (2-based) to teammates index (0-based)
+        // Party #2 = teammates[0], Party #3 = teammates[1], etc.
+        if (int.TryParse(input, out int partyNumber) && partyNumber >= 2 && partyNumber <= teammates.Count + 1)
         {
-            var member = teammates[index - 1];
-            teammates.RemoveAt(index - 1);
+            int index = partyNumber - 2;
+            var member = teammates[index];
+            teammates.RemoveAt(index);
 
-            // Move NPC back to town (cast to NPC if applicable)
-            if (member is NPC npc)
+            // Handle companion removal - put them on standby, not "return to town"
+            if (member.IsCompanion && member.CompanionId.HasValue)
             {
+                var companionSystem = UsurperRemake.Systems.CompanionSystem.Instance;
+                companionSystem.DeactivateCompanion(member.CompanionId.Value);
+
+                terminal.SetColor("yellow");
+                terminal.WriteLine($"{member.DisplayName} steps back from the front lines.");
+                terminal.SetColor("gray");
+                terminal.WriteLine("(They remain available - use Party Management to bring them back)");
+            }
+            else if (member is NPC npc)
+            {
+                // Move NPC back to town
                 npc.UpdateLocation("Main Street");
+                terminal.SetColor("yellow");
+                terminal.WriteLine($"{member.DisplayName} leaves the dungeon party and returns to town.");
+            }
+            else
+            {
+                terminal.SetColor("yellow");
+                terminal.WriteLine($"{member.DisplayName} leaves the dungeon party.");
             }
 
             // Sync to GameEngine for persistence
             SyncNPCTeammatesToGameEngine();
-
-            terminal.SetColor("yellow");
-            terminal.WriteLine($"{member.DisplayName} leaves the dungeon party and returns to town.");
         }
         else
         {
@@ -6466,7 +6848,121 @@ public class DungeonLocation : BaseLocation
         }
         await Task.Delay(1500);
     }
-    
+
+    /// <summary>
+    /// Attempt to recruit a companion in the dungeon. Handles party full scenario.
+    /// </summary>
+    /// <param name="companionId">The companion to recruit</param>
+    /// <param name="player">The player character</param>
+    /// <returns>True if recruitment was successful</returns>
+    private async Task<bool> TryRecruitCompanionInDungeon(UsurperRemake.Systems.CompanionId companionId, Character player)
+    {
+        var companionSystem = UsurperRemake.Systems.CompanionSystem.Instance;
+        var companion = companionSystem.GetCompanion(companionId);
+
+        if (companion == null || companion.IsRecruited || companion.IsDead)
+            return false;
+
+        // Count non-companion teammates (NPCs, spouse, etc.)
+        int nonCompanionCount = teammates.Count(t => !t.IsCompanion);
+
+        // Check if adding this companion would exceed the party cap
+        // Max 4 teammates total. Companions are special but still count toward limit.
+        if (teammates.Count >= 4)
+        {
+            terminal.WriteLine("");
+            terminal.SetColor("yellow");
+            terminal.WriteLine("Your party is full (max 4 allies)!");
+            terminal.WriteLine("");
+            terminal.SetColor("white");
+            terminal.WriteLine($"{companion.Name} would like to join you, but you need to make room first.");
+            terminal.WriteLine("");
+
+            // Show current party members
+            terminal.SetColor("cyan");
+            terminal.WriteLine("Current party members:");
+            for (int i = 0; i < teammates.Count; i++)
+            {
+                var tm = teammates[i];
+                string type = tm.IsCompanion ? "[Companion]" : "[Ally]";
+                terminal.WriteLine($"  {i + 1}. {tm.DisplayName} - Level {tm.Level} {type}");
+            }
+            terminal.WriteLine("");
+
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine("[R] Remove someone to make room");
+            terminal.WriteLine("[C] Cancel recruitment");
+            terminal.WriteLine("");
+
+            var removeChoice = await terminal.GetInput("Your choice: ");
+
+            if (removeChoice.ToUpper() == "R")
+            {
+                terminal.WriteLine("");
+                terminal.SetColor("white");
+                terminal.WriteLine("Who should leave the party?");
+                terminal.WriteLine("(Companions can be re-added anytime from Party Management)");
+                terminal.WriteLine("");
+
+                var removeInput = await terminal.GetInput($"Enter number (1-{teammates.Count}): ");
+
+                if (int.TryParse(removeInput, out int removeIndex) && removeIndex >= 1 && removeIndex <= teammates.Count)
+                {
+                    var memberToRemove = teammates[removeIndex - 1];
+                    teammates.RemoveAt(removeIndex - 1);
+
+                    // Handle removal based on type
+                    if (memberToRemove is NPC npc)
+                    {
+                        npc.UpdateLocation("Main Street");
+                    }
+
+                    // If it was a companion, just deactivate them (they're still recruited)
+                    if (memberToRemove.IsCompanion && memberToRemove.CompanionId.HasValue)
+                    {
+                        companionSystem.DeactivateCompanion(memberToRemove.CompanionId.Value);
+                    }
+
+                    SyncNPCTeammatesToGameEngine();
+
+                    terminal.SetColor("yellow");
+                    terminal.WriteLine($"{memberToRemove.DisplayName} leaves the party.");
+                    await Task.Delay(1000);
+                }
+                else
+                {
+                    terminal.WriteLine("Invalid selection. Recruitment cancelled.", "red");
+                    await Task.Delay(1500);
+                    return false;
+                }
+            }
+            else
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine("Recruitment cancelled.");
+                await Task.Delay(1000);
+                return false;
+            }
+        }
+
+        // Now recruit the companion
+        bool success = await companionSystem.RecruitCompanion(companionId, player, terminal);
+
+        if (success)
+        {
+            // Add the companion to the dungeon party teammates list
+            var companionCharacters = companionSystem.GetCompanionsAsCharacters();
+            var newCompanionChar = companionCharacters.FirstOrDefault(c => c.CompanionId == companionId);
+
+            if (newCompanionChar != null && !teammates.Any(t => t.CompanionId == companionId))
+            {
+                teammates.Add(newCompanionChar);
+            }
+        }
+
+        return success;
+    }
+
     private async Task ShowDungeonStatus()
     {
         await ShowStatus();
@@ -8683,6 +9179,18 @@ public class DungeonLocation : BaseLocation
         // Collect the seal using the SevenSealsSystem
         var sealSystem = SevenSealsSystem.Instance;
         await sealSystem.CollectSeal(player, currentFloor.SealType.Value, terminal);
+
+        // Mark this seal floor as cleared so player can progress to deeper floors
+        // This is required because IsFloorCleared() and GetMaxAccessibleFloor() check ClearedSpecialFloors
+        player.ClearedSpecialFloors.Add(currentDungeonLevel);
+
+        // Also mark the floor as cleared in the persistence system
+        if (player.DungeonFloorStates.TryGetValue(currentDungeonLevel, out var floorState))
+        {
+            floorState.EverCleared = true;
+            floorState.IsPermanentlyClear = true;
+            floorState.LastClearedAt = DateTime.Now;
+        }
 
         return true;
     }

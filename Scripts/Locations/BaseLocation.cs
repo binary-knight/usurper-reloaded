@@ -67,8 +67,101 @@ public abstract class BaseLocation
             await NPCSpawnSystem.Instance.InitializeClassicNPCs();
         }
 
+        // Check for guard defense alert - player may be a royal guard who needs to defend!
+        await CheckGuardDefenseAlert();
+
         // Main location loop
         await LocationLoop();
+    }
+
+    /// <summary>
+    /// Check if player is a royal guard and the throne is under attack
+    /// </summary>
+    protected virtual async Task CheckGuardDefenseAlert()
+    {
+        try
+        {
+            var king = CastleLocation.GetCurrentKing();
+            if (king?.ActiveDefenseEvent == null) return;
+            if (king.ActiveDefenseEvent.PlayerNotified) return;
+
+            // Check if current player is a royal guard
+            var playerGuard = king.Guards.FirstOrDefault(g =>
+                g.Name.Equals(currentPlayer.DisplayName, StringComparison.OrdinalIgnoreCase) ||
+                g.Name.Equals(currentPlayer.Name2, StringComparison.OrdinalIgnoreCase));
+
+            if (playerGuard == null) return;
+
+            // Player is a guard - notify them!
+            king.ActiveDefenseEvent.PlayerNotified = true;
+
+            terminal.ClearScreen();
+            terminal.SetColor("bright_red");
+            terminal.WriteLine("");
+            terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+            terminal.WriteLine("║                    *** URGENT: CASTLE UNDER ATTACK! ***                     ║");
+            terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+            terminal.WriteLine("");
+
+            terminal.SetColor("yellow");
+            terminal.WriteLine($"A messenger rushes to find you with dire news!");
+            terminal.WriteLine("");
+            terminal.SetColor("white");
+            terminal.WriteLine($"{king.ActiveDefenseEvent.ChallengerName} (Level {king.ActiveDefenseEvent.ChallengerLevel})");
+            terminal.WriteLine($"is challenging {king.GetTitle()} {king.Name} for the throne!");
+            terminal.WriteLine("");
+
+            terminal.SetColor("cyan");
+            terminal.WriteLine("As a Royal Guard, you are honor-bound to defend the crown!");
+            terminal.WriteLine("Will you rush to the castle to aid in the defense?");
+            terminal.WriteLine("");
+
+            terminal.SetColor("yellow");
+            terminal.Write("Rush to defend the throne? (Y/N): ");
+            terminal.SetColor("white");
+
+            string response = await terminal.ReadLineAsync();
+
+            if (response?.ToUpper() == "Y")
+            {
+                king.ActiveDefenseEvent.PlayerResponded = true;
+                terminal.SetColor("bright_green");
+                terminal.WriteLine("");
+                terminal.WriteLine("You rush toward the castle, sword drawn!");
+                terminal.WriteLine("Your loyalty to the crown shall not be questioned!");
+                await terminal.PressAnyKey();
+
+                // Transport player to castle for defense
+                // The player will participate in the defense when they arrive
+                await GameEngine.Instance.NavigateToLocation(GameLocation.Castle);
+            }
+            else
+            {
+                // Player refused - severe loyalty penalty
+                playerGuard.Loyalty = Math.Max(0, playerGuard.Loyalty - 25);
+
+                terminal.SetColor("red");
+                terminal.WriteLine("");
+                terminal.WriteLine("You turn away from your duty...");
+                terminal.WriteLine("The crown will remember this betrayal.");
+                terminal.WriteLine($"Your loyalty has dropped to {playerGuard.Loyalty}%!");
+
+                if (playerGuard.Loyalty <= 20)
+                {
+                    terminal.SetColor("bright_red");
+                    terminal.WriteLine("");
+                    terminal.WriteLine("*** You have been STRIPPED of your Royal Guard status! ***");
+                    king.Guards.Remove(playerGuard);
+                    NewsSystem.Instance?.Newsy(true, $"Royal Guard {playerGuard.Name} was dismissed for cowardice!");
+                }
+
+                await terminal.PressAnyKey();
+            }
+        }
+        catch
+        {
+            // King system not available - ignore
+        }
     }
     
     /// <summary>

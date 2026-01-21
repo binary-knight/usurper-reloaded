@@ -571,6 +571,7 @@ public class HealerLocation : BaseLocation
 
         // Cure poison
         player.Gold -= cost;
+        player.Statistics.RecordGoldSpent(cost);
         player.Poison = 0;
 
         terminal.WriteLine("");
@@ -671,6 +672,7 @@ public class HealerLocation : BaseLocation
             }
 
             player.Gold -= totalCost;
+            player.Statistics.RecordGoldSpent(totalCost);
             foreach (var disease in diseases.Values)
             {
                 disease.Cure();
@@ -702,6 +704,7 @@ public class HealerLocation : BaseLocation
             }
 
             player.Gold -= disease.Cost;
+            player.Statistics.RecordGoldSpent(disease.Cost);
             disease.Cure();
             player.Statistics.RecordDiseaseCured();
 
@@ -841,6 +844,7 @@ public class HealerLocation : BaseLocation
                 }
 
                 player.Gold -= cost;
+                player.Statistics.RecordGoldSpent(cost);
 
                 terminal.WriteLine("");
                 terminal.WriteLine($"{Manager} recites some strange spells...", "gray");
