@@ -43,6 +43,12 @@ namespace UsurperRemake.UI
                 "████████████████████████████████████████████████████████████████████████████████",
             };
 
+            // Insert version line dynamically
+            var versionLine = $"███                            Alpha v{GameConfig.Version.Replace("-alpha", "")}                             ███";
+            var linesList = new System.Collections.Generic.List<string>(lines);
+            linesList.Insert(linesList.Count - 3, versionLine);
+            lines = linesList.ToArray();
+
             // Animated reveal with colors
             for (int i = 0; i < lines.Length; i++)
             {
@@ -60,6 +66,10 @@ namespace UsurperRemake.UI
                 else if (line.Contains("Reimagined for 2025"))
                 {
                     terminal.SetColor("bright_cyan");
+                }
+                else if (line.Contains("Alpha v"))
+                {
+                    terminal.SetColor("bright_green");
                 }
                 else if (line.Contains("█"))
                 {
