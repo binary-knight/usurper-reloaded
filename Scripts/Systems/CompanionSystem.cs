@@ -1538,6 +1538,32 @@ namespace UsurperRemake.Systems
         }
 
         /// <summary>
+        /// Level up a companion by applying stat gains for each level gained.
+        /// Call this when a companion gains enough XP to level up (e.g., from shared experience).
+        /// Returns the number of levels gained.
+        /// </summary>
+        public int LevelUpCompanion(CompanionId id, int levelsToGain)
+        {
+            if (!companions.TryGetValue(id, out var companion) || companion.IsDead)
+                return 0;
+
+            int levelsGained = 0;
+            int maxLevel = GameConfig.MaxLevel;
+
+            for (int i = 0; i < levelsToGain && companion.Level < maxLevel; i++)
+            {
+                companion.Level++;
+                ApplyCompanionLevelUpStats(companion);
+                levelsGained++;
+
+                // Update loyalty slightly on level up
+                ModifyLoyalty(companion.Id, 1, "Leveled up through shared training");
+            }
+
+            return levelsGained;
+        }
+
+        /// <summary>
         /// Initialize a companion's level and XP when recruited
         /// </summary>
         private void InitializeCompanionLevel(Companion companion)

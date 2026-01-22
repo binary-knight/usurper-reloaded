@@ -115,14 +115,8 @@ public class DungeonLocation : BaseLocation
         await RestoreNPCTeammates(term);
 
         // Check for dungeon entry fees for overleveled teammates
-        if (!await CheckAndPayEntryFees(player, term))
-        {
-            // Player couldn't afford fees - return to Main Street
-            term.WriteLine("You cannot afford to bring your allies into the dungeon.", "red");
-            term.WriteLine("Return when you have more gold, or dismiss some teammates.", "gray");
-            await Task.Delay(2000);
-            throw new LocationExitException(GameLocation.MainStreet);
-        }
+        // Player can always enter - unaffordable allies simply stay behind
+        await CheckAndPayEntryFees(player, term);
 
         // Call base to enter the location loop
         await base.EnterLocation(player, term);
@@ -636,17 +630,101 @@ public class DungeonLocation : BaseLocation
         // Display fee information
         await balanceSystem.DisplayFeeInfo(term, player, teammates);
 
-        // Check if player can afford
+        // Check if player can afford all fees
         if (player.Gold < totalFee)
         {
-            term.SetColor("red");
+            term.SetColor("yellow");
             term.WriteLine($"You need {totalFee:N0} gold but only have {player.Gold:N0}!");
-            term.SetColor("white");
+            term.WriteLine("");
+
+            // Remove teammates player can't afford, starting with most expensive
+            var breakdown = balanceSystem.GetFeeBreakdown(player, teammates).OrderByDescending(b => b.fee).ToList();
+            long remainingGold = player.Gold;
+            var affordableTeammates = new List<NPC>();
+            var unaffordableTeammates = new List<(NPC npc, long fee)>();
+
+            foreach (var (npc, fee, _) in breakdown)
+            {
+                if (fee == 0)
+                {
+                    // Free teammates always come
+                    affordableTeammates.Add(npc);
+                }
+                else if (remainingGold >= fee)
+                {
+                    // Can afford this one
+                    affordableTeammates.Add(npc);
+                    remainingGold -= fee;
+                }
+                else
+                {
+                    // Can't afford
+                    unaffordableTeammates.Add((npc, fee));
+                }
+            }
+
+            if (unaffordableTeammates.Count > 0)
+            {
+                term.SetColor("gray");
+                term.WriteLine("These allies demand more gold than you have:");
+                foreach (var (npc, fee) in unaffordableTeammates)
+                {
+                    term.WriteLine($"  {npc.Name}: {fee:N0} gold", "darkgray");
+                }
+                term.WriteLine("");
+            }
+
+            // Calculate what player CAN afford
+            long affordableFee = player.Gold - remainingGold;
+
+            if (affordableFee > 0 && affordableTeammates.Any(t => breakdown.Any(b => b.npc == t && b.fee > 0)))
+            {
+                term.SetColor("cyan");
+                var payChoice = await term.GetInput($"Pay {affordableFee:N0} gold for allies you can afford? (Y/N): ");
+
+                if (payChoice.ToUpper().StartsWith("Y"))
+                {
+                    player.Gold -= affordableFee;
+                    term.SetColor("green");
+                    term.WriteLine($"Paid {affordableFee:N0} gold.");
+                }
+                else
+                {
+                    // Don't pay - remove all paid allies
+                    foreach (var (npc, fee, _) in breakdown.Where(b => b.fee > 0))
+                    {
+                        if (affordableTeammates.Contains(npc))
+                        {
+                            affordableTeammates.Remove(npc);
+                            unaffordableTeammates.Add((npc, fee));
+                        }
+                    }
+                }
+            }
+
+            // Update teammates list - keep only affordable ones
+            teammates.Clear();
+            foreach (var npc in affordableTeammates)
+            {
+                teammates.Add(npc);
+            }
+
+            if (unaffordableTeammates.Count > 0)
+            {
+                term.SetColor("gray");
+                term.WriteLine("Staying behind:");
+                foreach (var (npc, _) in unaffordableTeammates)
+                {
+                    term.WriteLine($"  {npc.Name} waits at the entrance.", "darkgray");
+                }
+            }
+
+            SyncNPCTeammatesToGameEngine();
             await Task.Delay(1500);
-            return false;
+            return true; // Allow entry with whoever player can afford
         }
 
-        // Ask for confirmation
+        // Player can afford all fees - ask for confirmation
         term.SetColor("cyan");
         var confirm = await term.GetInput($"Pay {totalFee:N0} gold to bring your allies? (Y/N): ");
 

@@ -809,28 +809,20 @@ public class LevelMasterLocation : BaseLocation
         terminal.ClearScreen();
         terminal.SetColor(currentMaster.Color);
         terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
-        terminal.WriteLine("║                        HELP TEAM MEMBER                                     ║");
+        terminal.WriteLine("║                        HELP ALLY                                            ║");
         terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
         terminal.WriteLine("");
 
-        // Check if player is on a team
-        if (string.IsNullOrEmpty(currentPlayer.Team))
+        // Find NPC teammates (only if player is on a team)
+        var npcTeammates = new System.Collections.Generic.List<NPC>();
+        if (!string.IsNullOrEmpty(currentPlayer.Team))
         {
-            terminal.SetColor("yellow");
-            terminal.WriteLine($"\"{currentMaster.Name}\" shakes their head sadly...");
-            terminal.WriteLine("");
-            terminal.SetColor("white");
-            terminal.WriteLine("\"You have no allies to aid. Join a team first, then return.\"");
-            await terminal.PressAnyKey();
-            return;
+            npcTeammates = NPCSpawnSystem.Instance?.ActiveNPCs?
+                .Where(n => n.Team == currentPlayer.Team && n.IsAlive && n.Name != currentPlayer.Name2)
+                .ToList() ?? new System.Collections.Generic.List<NPC>();
         }
 
-        // Find NPC teammates
-        var npcTeammates = NPCSpawnSystem.Instance?.ActiveNPCs?
-            .Where(n => n.Team == currentPlayer.Team && n.IsAlive && n.Name != currentPlayer.Name2)
-            .ToList() ?? new System.Collections.Generic.List<NPC>();
-
-        // Find active companions
+        // Find active companions (always available if recruited)
         var companions = CompanionSystem.Instance?.GetActiveCompanions()
             .Where(c => !c.IsDead && c.Level < GameConfig.MaxLevel)
             .ToList() ?? new System.Collections.Generic.List<Companion>();
@@ -941,16 +933,27 @@ public class LevelMasterLocation : BaseLocation
             var companion = (Companion)selectedAlly.Data;
             companion.Experience += xpToGive;
 
-            while (companion.Experience >= GetExperienceForLevel(companion.Level + 1) && companion.Level < GameConfig.MaxLevel)
+            // Calculate how many levels should be gained
+            int levelsToGain = 0;
+            long tempXP = companion.Experience;
+            int tempLevel = companion.Level;
+            while (tempXP >= GetExperienceForLevel(tempLevel + 1) && tempLevel < GameConfig.MaxLevel)
             {
-                companion.Level++;
-                levelsGained++;
+                tempLevel++;
+                levelsToGain++;
+            }
+
+            // Apply level-ups with proper stat gains through CompanionSystem
+            if (levelsToGain > 0)
+            {
+                levelsGained = CompanionSystem.Instance?.LevelUpCompanion(companion.Id, levelsToGain) ?? 0;
             }
 
             if (levelsGained > 0)
             {
                 terminal.SetColor("bright_yellow");
                 terminal.WriteLine($"{companion.Name} has grown to level {companion.Level}!");
+                terminal.WriteLine($"HP: {companion.BaseStats.HP} | ATK: {companion.BaseStats.Attack} | DEF: {companion.BaseStats.Defense}");
                 terminal.WriteLine("Their combat effectiveness has increased!");
             }
         }
