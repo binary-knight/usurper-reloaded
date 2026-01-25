@@ -692,63 +692,98 @@ public class LevelMasterLocation : BaseLocation
     /// </summary>
     private async Task UseCrystalBall()
     {
-        terminal.ClearScreen();
-        terminal.SetColor(currentMaster.Color);
-        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
-        terminal.WriteLine("║                          THE CRYSTAL BALL                                   ║");
-        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
-        terminal.WriteLine("");
-
-        terminal.SetColor("cyan");
-        terminal.WriteLine($"\"{currentMaster.Name}\" gestures to a glowing crystal orb...");
-        terminal.WriteLine("");
-        terminal.WriteLine("\"Gaze into the mists, and tell me who you wish to see...\"");
-        terminal.WriteLine("");
-
         // Get list of all characters (NPCs)
-        var npcs = NPCSpawnSystem.Instance?.ActiveNPCs;
+        var npcs = NPCSpawnSystem.Instance?.ActiveNPCs?.ToList();
         if (npcs == null || npcs.Count == 0)
         {
+            terminal.ClearScreen();
             terminal.SetColor("gray");
             terminal.WriteLine("The crystal ball shows only swirling mists... No souls to scry.");
             await terminal.PressAnyKey();
             return;
         }
 
-        terminal.SetColor("white");
-        terminal.WriteLine("Who do you wish to scry?");
-        terminal.WriteLine("");
+        const int pageSize = 15;
+        int currentPage = 0;
+        int totalPages = (npcs.Count + pageSize - 1) / pageSize;
 
-        // Show numbered list of NPCs
-        for (int i = 0; i < Math.Min(npcs.Count, 20); i++)
+        while (true)
         {
-            var npc = npcs[i];
-            string status = npc.IsAlive ? "" : " [DEAD]";
-            terminal.WriteLine($"{i + 1}. {npc.Name} - Level {npc.Level} {npc.Class}{status}");
-        }
+            terminal.ClearScreen();
+            terminal.SetColor(currentMaster.Color);
+            terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+            terminal.WriteLine("║                          THE CRYSTAL BALL                                   ║");
+            terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+            terminal.WriteLine("");
 
-        if (npcs.Count > 20)
-        {
+            terminal.SetColor("cyan");
+            terminal.WriteLine($"\"{currentMaster.Name}\" gestures to a glowing crystal orb...");
+            terminal.WriteLine("");
+
+            terminal.SetColor("white");
+            terminal.WriteLine($"Who do you wish to scry? (Page {currentPage + 1} of {totalPages})");
+            terminal.WriteLine("");
+
+            // Show numbered list of NPCs for current page
+            int startIndex = currentPage * pageSize;
+            int endIndex = Math.Min(startIndex + pageSize, npcs.Count);
+
+            for (int i = startIndex; i < endIndex; i++)
+            {
+                var npc = npcs[i];
+                string status = npc.IsDead ? " [DEAD]" : "";
+                terminal.WriteLine($"{i + 1,3}. {npc.Name} - Level {npc.Level} {npc.Class}{status}");
+            }
+
+            terminal.WriteLine("");
             terminal.SetColor("gray");
-            terminal.WriteLine($"... and {npcs.Count - 20} more souls in the realm.");
+            terminal.WriteLine($"Showing {startIndex + 1}-{endIndex} of {npcs.Count} souls");
+            terminal.WriteLine("");
+
+            terminal.SetColor("cyan");
+            string navOptions = "";
+            if (currentPage > 0) navOptions += "[P]rev  ";
+            if (currentPage < totalPages - 1) navOptions += "[N]ext  ";
+            terminal.WriteLine($"{navOptions}[#] Select by number  [Q]uit");
+            terminal.WriteLine("");
+            terminal.Write("Choice: ");
+            terminal.SetColor("white");
+
+            string input = await terminal.ReadLineAsync();
+            input = input?.Trim().ToUpper() ?? "";
+
+            if (input == "Q" || input == "0" || string.IsNullOrEmpty(input))
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine("The mists close around the ball once more...");
+                await terminal.PressAnyKey();
+                return;
+            }
+
+            if (input == "N" && currentPage < totalPages - 1)
+            {
+                currentPage++;
+                continue;
+            }
+
+            if (input == "P" && currentPage > 0)
+            {
+                currentPage--;
+                continue;
+            }
+
+            // Try to parse as number
+            if (int.TryParse(input, out int choice) && choice >= 1 && choice <= npcs.Count)
+            {
+                var targetNPC = npcs[choice - 1];
+                await DisplayScryingResult(targetNPC);
+                return;
+            }
+
+            terminal.SetColor("red");
+            terminal.WriteLine("Invalid choice. Try again.");
+            await Task.Delay(1000);
         }
-
-        terminal.WriteLine("");
-        terminal.SetColor("cyan");
-        terminal.Write("Enter number (0 to cancel): ");
-        terminal.SetColor("white");
-
-        string input = await terminal.ReadLineAsync();
-        if (!int.TryParse(input, out int choice) || choice < 1 || choice > Math.Min(npcs.Count, 20))
-        {
-            terminal.SetColor("gray");
-            terminal.WriteLine("The mists close around the ball once more...");
-            await terminal.PressAnyKey();
-            return;
-        }
-
-        var targetNPC = npcs[choice - 1];
-        await DisplayScryingResult(targetNPC);
     }
 
     /// <summary>

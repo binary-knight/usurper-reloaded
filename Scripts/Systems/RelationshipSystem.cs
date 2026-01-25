@@ -256,6 +256,9 @@ public partial class RelationshipSystem
             RomanceTracker.Instance?.AddSpouse(npc1.ID);
         }
 
+        // Log the marriage event
+        DebugLogger.Instance.LogMarriage(character1.Name, character2.Name);
+
         return true;
     }
     
@@ -543,6 +546,7 @@ public partial class RelationshipSystem
         // In a full implementation, this would send mail notifications
         // For now, we just log the change
         GD.Print($"Relationship changed: {character1.Name} -> {character2.Name}: {GetRelationshipDescription(newRelation)}");
+        DebugLogger.Instance.LogRelationshipChange(character1.Name, character2.Name, 0, newRelation, "interaction");
     }
     
     private static void HandleChildCustodyAfterDivorce(Character parent1, Character parent2)

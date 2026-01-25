@@ -860,6 +860,8 @@ namespace UsurperRemake.Systems
                     Level = npc.Level,
                     HP = npc.HP,
                     MaxHP = npc.MaxHP,
+                    BaseMaxHP = npc.BaseMaxHP > 0 ? npc.BaseMaxHP : npc.MaxHP,  // Fallback to MaxHP if BaseMaxHP not set
+                    BaseMaxMana = npc.BaseMaxMana > 0 ? npc.BaseMaxMana : npc.MaxMana,  // Fallback to MaxMana if BaseMaxMana not set
                     Location = npc.CurrentLocation ?? npc.Location.ToString(),
 
                     // Character stats

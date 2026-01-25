@@ -157,12 +157,27 @@ public class WorldSimulator
     }
 
     /// <summary>
+    /// Clear the respawn queue - call when loading a different save
+    /// </summary>
+    public void ClearRespawnQueue()
+    {
+        if (deadNPCRespawnTimers.Count > 0)
+        {
+            UsurperRemake.Systems.DebugLogger.Instance.LogDebug("NPC", $"Clearing respawn queue ({deadNPCRespawnTimers.Count} entries)");
+            deadNPCRespawnTimers.Clear();
+        }
+    }
+
+    /// <summary>
     /// Force immediate processing of dead NPCs - call after loading a save
     /// This ensures dead NPCs start their respawn timers immediately and
     /// respawn NPCs that have been dead for a while (based on save data)
     /// </summary>
     public void ProcessDeadNPCsOnLoad()
     {
+        // Clear any stale entries from a previous save
+        ClearRespawnQueue();
+
         if (npcs == null || npcs.Count == 0)
         {
             UsurperRemake.Systems.DebugLogger.Instance.LogWarning("NPC", "ProcessDeadNPCsOnLoad: No NPCs found!");
@@ -210,8 +225,22 @@ public class WorldSimulator
             var npc = npcs.FirstOrDefault(n => n.Name == npcName);
             if (npc != null)
             {
-                // Respawn the NPC - clear permanent death flag and restore HP
-                npc.IsDead = false;  // Clear permanent death flag
+                // Respawn the NPC - clear permanent death flag
+                npc.IsDead = false;
+
+                // Recalculate stats to fix any corrupted MaxHP values
+                npc.RecalculateStats();
+
+                // Ensure MaxHP is at least a reasonable minimum based on level
+                long minHP = 20 + (npc.Level * 10);
+                if (npc.MaxHP < minHP)
+                {
+                    npc.BaseMaxHP = minHP;
+                    npc.MaxHP = minHP;
+                    UsurperRemake.Systems.DebugLogger.Instance.LogWarning("NPC", $"{npc.Name} had invalid MaxHP, reset to {minHP}");
+                }
+
+                // Restore full HP
                 npc.HP = npc.MaxHP;
                 npc.UpdateLocation("Main Street");
 
@@ -219,7 +248,7 @@ public class WorldSimulator
                 npc.Gold = Math.Max(0, npc.Gold / 2);
 
                 NewsSystem.Instance.Newsy(true, $"{npc.Name} has returned from the realm of the dead!");
-                UsurperRemake.Systems.DebugLogger.Instance.LogInfo("NPC", $"RESPAWNED: {npc.Name} (HP restored to {npc.HP}, IsDead={npc.IsDead})");
+                UsurperRemake.Systems.DebugLogger.Instance.LogInfo("NPC", $"RESPAWNED: {npc.Name} (HP restored to {npc.HP}, MaxHP={npc.MaxHP}, IsDead={npc.IsDead})");
             }
             else
             {

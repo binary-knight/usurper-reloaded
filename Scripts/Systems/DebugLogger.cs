@@ -382,5 +382,249 @@ namespace UsurperRemake.Systems
             LogRaw($"{'=',-80}\n");
             Flush();
         }
+
+        // ═══════════════════════════════════════════════════════════════
+        // Romance and Relationship events
+        // ═══════════════════════════════════════════════════════════════
+
+        public void LogRomanceInteraction(string playerName, string npcName, string action, int relationshipChange)
+        {
+            var sign = relationshipChange >= 0 ? "+" : "";
+            LogInfo("ROMANCE", $"{playerName} -> {npcName}: {action} ({sign}{relationshipChange})");
+        }
+
+        public void LogMarriage(string player, string spouse)
+        {
+            LogInfo("ROMANCE", $"MARRIAGE: {player} married {spouse}");
+        }
+
+        public void LogDivorce(string player, string exSpouse, string reason)
+        {
+            LogInfo("ROMANCE", $"DIVORCE: {player} divorced {exSpouse} - Reason: {reason}");
+        }
+
+        public void LogRelationshipChange(string name1, string name2, int oldValue, int newValue, string reason)
+        {
+            var diff = newValue - oldValue;
+            var sign = diff >= 0 ? "+" : "";
+            LogDebug("RELATION", $"{name1} <-> {name2}: {oldValue} -> {newValue} ({sign}{diff}) - {reason}");
+        }
+
+        public void LogChildBorn(string parent1, string parent2, string childName)
+        {
+            LogInfo("FAMILY", $"BIRTH: {childName} born to {parent1} and {parent2}");
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // Spell and Ability events
+        // ═══════════════════════════════════════════════════════════════
+
+        public void LogSpellCast(string casterName, string spellName, string target, long manaCost, long effect)
+        {
+            LogDebug("SPELL", $"{casterName} cast '{spellName}' on {target} (Cost: {manaCost} MP, Effect: {effect})");
+        }
+
+        public void LogSpellLearn(string characterName, string spellName)
+        {
+            LogInfo("SPELL", $"{characterName} learned '{spellName}'");
+        }
+
+        public void LogSkillUse(string characterName, string skillName, string result)
+        {
+            LogDebug("SKILL", $"{characterName} used '{skillName}' - {result}");
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // Item and Inventory events
+        // ═══════════════════════════════════════════════════════════════
+
+        public void LogItemUse(string characterName, string itemName, string effect)
+        {
+            LogInfo("ITEM", $"{characterName} used '{itemName}' - {effect}");
+        }
+
+        public void LogItemDrop(string characterName, string itemName, string location)
+        {
+            LogDebug("ITEM", $"{characterName} dropped '{itemName}' at {location}");
+        }
+
+        public void LogItemPickup(string characterName, string itemName, string location)
+        {
+            LogDebug("ITEM", $"{characterName} picked up '{itemName}' at {location}");
+        }
+
+        public void LogLoot(string source, string[] items, long gold)
+        {
+            var itemList = items.Length > 0 ? string.Join(", ", items) : "none";
+            LogDebug("LOOT", $"From {source}: Items=[{itemList}], Gold={gold}");
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // Temple and Worship events
+        // ═══════════════════════════════════════════════════════════════
+
+        public void LogWorshipChange(string characterName, string newGod, string oldGod)
+        {
+            LogInfo("TEMPLE", $"{characterName} now worships {newGod} (was: {oldGod})");
+        }
+
+        public void LogPrayer(string characterName, string god, string result)
+        {
+            LogDebug("TEMPLE", $"{characterName} prayed to {god} - {result}");
+        }
+
+        public void LogBlessing(string characterName, string blessingType, int duration)
+        {
+            LogInfo("TEMPLE", $"{characterName} received blessing: {blessingType} ({duration} days)");
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // Castle and Politics events
+        // ═══════════════════════════════════════════════════════════════
+
+        public void LogThroneChallenge(string challengerName, string kingName, string outcome)
+        {
+            LogInfo("CASTLE", $"Throne challenge: {challengerName} vs King {kingName} - {outcome}");
+        }
+
+        public void LogKingAction(string kingName, string action, string details)
+        {
+            LogInfo("CASTLE", $"King {kingName}: {action} - {details}");
+        }
+
+        public void LogCourtEvent(string eventType, string involvedParties, string outcome)
+        {
+            LogInfo("COURT", $"{eventType}: {involvedParties} - {outcome}");
+        }
+
+        public void LogGuardAction(string guardName, string action)
+        {
+            LogDebug("CASTLE", $"Guard {guardName}: {action}");
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // Daily and World events
+        // ═══════════════════════════════════════════════════════════════
+
+        public void LogWorldEvent(string eventType, string description)
+        {
+            LogInfo("WORLD", $"{eventType}: {description}");
+        }
+
+        public void LogDailyEvent(string eventName, string effect)
+        {
+            LogDebug("DAILY", $"Event: {eventName} - {effect}");
+        }
+
+        public void LogWeatherChange(string newWeather)
+        {
+            LogDebug("WORLD", $"Weather changed to: {newWeather}");
+        }
+
+        public void LogEconomyChange(string what, long oldValue, long newValue, string reason)
+        {
+            LogDebug("ECONOMY", $"{what}: {oldValue} -> {newValue} ({reason})");
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // Dungeon exploration events
+        // ═══════════════════════════════════════════════════════════════
+
+        public void LogRoomEnter(string playerName, int floor, string roomType, string roomDescription)
+        {
+            LogDebug("DUNGEON", $"{playerName} entered {roomType} on floor {floor}: {roomDescription}");
+        }
+
+        public void LogTrapTriggered(string playerName, string trapType, long damage)
+        {
+            LogInfo("DUNGEON", $"{playerName} triggered {trapType} trap - {damage} damage");
+        }
+
+        public void LogSecretFound(string playerName, string secretType, int floor)
+        {
+            LogInfo("DUNGEON", $"{playerName} found secret: {secretType} on floor {floor}");
+        }
+
+        public void LogChestOpened(string playerName, int floor, string contents)
+        {
+            LogDebug("DUNGEON", $"{playerName} opened chest on floor {floor}: {contents}");
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // Grief and Emotional events
+        // ═══════════════════════════════════════════════════════════════
+
+        public void LogGriefStart(string playerName, string deceasedName, string relationship)
+        {
+            LogInfo("GRIEF", $"{playerName} begins grieving for {deceasedName} ({relationship})");
+        }
+
+        public void LogGriefStageChange(string playerName, string oldStage, string newStage)
+        {
+            LogInfo("GRIEF", $"{playerName} grief stage: {oldStage} -> {newStage}");
+        }
+
+        public void LogGriefEnd(string playerName, string deceasedName)
+        {
+            LogInfo("GRIEF", $"{playerName} finished grieving for {deceasedName}");
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // NPC AI and Behavior events
+        // ═══════════════════════════════════════════════════════════════
+
+        public void LogNPCGoal(string npcName, string goal, string status)
+        {
+            LogDebug("NPC_AI", $"{npcName} goal '{goal}': {status}");
+        }
+
+        public void LogNPCMovement(string npcName, string fromLocation, string toLocation, string reason)
+        {
+            LogDebug("NPC_AI", $"{npcName} moved: {fromLocation} -> {toLocation} ({reason})");
+        }
+
+        public void LogNPCDecision(string npcName, string decision, string reasoning)
+        {
+            LogDebug("NPC_AI", $"{npcName} decided: {decision} - {reasoning}");
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // Combat detail events (for verbose combat logging)
+        // ═══════════════════════════════════════════════════════════════
+
+        public void LogCombatRound(int roundNumber, string attacker, string defender, string action, long result)
+        {
+            LogDebug("COMBAT", $"Round {roundNumber}: {attacker} {action} -> {defender} ({result})");
+        }
+
+        public void LogCombatStatusEffect(string target, string effect, int duration)
+        {
+            LogDebug("COMBAT", $"{target} affected by {effect} for {duration} rounds");
+        }
+
+        public void LogCombatHeal(string healer, string target, long amount)
+        {
+            LogDebug("COMBAT", $"{healer} healed {target} for {amount} HP");
+        }
+
+        public void LogCombatFlee(string characterName, bool success)
+        {
+            var result = success ? "escaped" : "failed to escape";
+            LogDebug("COMBAT", $"{characterName} {result}");
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // Equipment stat details
+        // ═══════════════════════════════════════════════════════════════
+
+        public void LogEquipmentStats(string characterName, string itemName, string statChanges)
+        {
+            LogDebug("EQUIP", $"{characterName} equipped '{itemName}': {statChanges}");
+        }
+
+        public void LogRecalculateStats(string characterName, string before, string after)
+        {
+            LogDebug("STATS", $"{characterName} stats recalculated: {before} -> {after}");
+        }
     }
 }

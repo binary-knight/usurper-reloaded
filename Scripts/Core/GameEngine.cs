@@ -1771,6 +1771,8 @@ public partial class GameEngine : Node
                 Level = data.Level,
                 HP = data.HP,
                 MaxHP = data.MaxHP,
+                BaseMaxHP = data.BaseMaxHP > 0 ? data.BaseMaxHP : data.MaxHP,  // Fallback to MaxHP if not saved
+                BaseMaxMana = data.BaseMaxMana > 0 ? data.BaseMaxMana : data.MaxMana,  // Fallback to MaxMana if not saved
                 CurrentLocation = data.Location,
 
                 // Stats
@@ -2030,6 +2032,19 @@ public partial class GameEngine : Node
                     npc.EquippedItems[slot] = equipmentId;
                 }
                 npc.RecalculateStats();
+            }
+
+            // Sanity check: ensure NPC has valid HP (fix corrupted saves)
+            long minHP = 20 + (npc.Level * 10);
+            if (npc.MaxHP < minHP)
+            {
+                UsurperRemake.Systems.DebugLogger.Instance.LogWarning("NPC", $"Fixing corrupted NPC {npc.Name}: MaxHP={npc.MaxHP}, BaseMaxHP={npc.BaseMaxHP}, resetting to {minHP}");
+                npc.BaseMaxHP = minHP;
+                npc.MaxHP = minHP;
+                if (npc.HP < 0 || npc.HP > npc.MaxHP)
+                {
+                    npc.HP = npc.IsDead ? 0 : npc.MaxHP;
+                }
             }
 
             // Add to spawn system

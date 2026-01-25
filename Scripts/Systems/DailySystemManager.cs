@@ -121,7 +121,10 @@ public class DailySystemManager
         // Increment day counter
         currentDay++;
         lastResetTime = DateTime.Now;
-        
+
+        // Log the daily reset
+        DebugLogger.Instance.LogDailyReset(currentDay);
+
         // Display reset message
         await DisplayDailyResetMessage();
         

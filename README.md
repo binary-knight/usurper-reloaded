@@ -1,6 +1,6 @@
 # Usurper Reborn
 
-## ALPHA v0.11 - Stability & Bug Fix Update
+## ALPHA v0.12 - Debug Logging & Stability Update
 
 **FREE AND OPEN SOURCE SOFTWARE - GPL v2 Licensed**
 

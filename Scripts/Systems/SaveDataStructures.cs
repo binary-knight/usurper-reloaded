@@ -384,6 +384,8 @@ namespace UsurperRemake.Systems
         public int Level { get; set; }
         public long HP { get; set; }
         public long MaxHP { get; set; }
+        public long BaseMaxHP { get; set; }  // Base HP before equipment bonuses
+        public long BaseMaxMana { get; set; }  // Base Mana before equipment bonuses
         public string Location { get; set; } = "";
         public long Gold { get; set; }
         public int[] Items { get; set; } = new int[0];
