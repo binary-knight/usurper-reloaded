@@ -50,6 +50,9 @@ public abstract class BaseLocation
         currentPlayer = player;
         terminal = term;
 
+        // Log location entry
+        UsurperRemake.Systems.DebugLogger.Instance.LogInfo("LOCATION", $"Entered {Name} (ID: {LocationId})");
+
         // Update player location
         player.Location = (int)LocationId;
 

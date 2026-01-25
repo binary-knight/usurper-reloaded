@@ -3580,12 +3580,16 @@ public class DungeonLocation : BaseLocation
             }
 
             // Generate or restore the target floor
+            int previousLevel = currentDungeonLevel;
             var floorResult = GenerateOrRestoreFloor(player, targetLevel);
             currentFloor = floorResult.Floor;
             currentDungeonLevel = targetLevel;
             roomsExploredThisFloor = floorResult.WasRestored ? currentFloor.Rooms.Count(r => r.IsExplored) : 0;
             hasRestThisFloor = false;
             consecutiveMonsterRooms = 0;
+
+            // Log floor change
+            UsurperRemake.Systems.DebugLogger.Instance.LogDungeonFloorChange(player?.Name ?? "Player", previousLevel, currentDungeonLevel);
 
             terminal.WriteLine($"Dungeon level set to {currentDungeonLevel}.", "green");
 

@@ -943,11 +943,15 @@ public partial class GameEngine : Node
             terminal.WriteLine($"Restoring {saveData.Player.Name2 ?? saveData.Player.Name1}...", "green");
             await Task.Delay(500);
 
+            // Log save data before restore
+            DebugLogger.Instance.LogDebug("LOAD", $"Save file data - HP={saveData.Player.HP}/{saveData.Player.MaxHP}, BaseMaxHP={saveData.Player.BaseMaxHP}");
+
             // Restore player from save data
             currentPlayer = RestorePlayerFromSaveData(saveData.Player);
 
             if (currentPlayer == null)
             {
+                DebugLogger.Instance.LogError("LOAD", "Failed to restore player data");
                 terminal.WriteLine("Failed to restore player data!", "red");
                 await Task.Delay(3000);
                 return;
@@ -1135,6 +1139,10 @@ public partial class GameEngine : Node
     private async Task EnterGameWorld()
     {
         if (currentPlayer == null) return;
+
+        // Log game start
+        bool isNewGame = currentPlayer.Statistics?.TotalSessionsPlayed <= 1;
+        DebugLogger.Instance.LogGameStart(currentPlayer.Name, isNewGame);
 
         // Initialize NPCs only if they haven't been initialized yet
         // The NPCSpawnSystem has a guard flag to prevent duplicate spawning
@@ -1584,7 +1592,26 @@ public partial class GameEngine : Node
 
         // CRITICAL: Recalculate stats to apply equipment bonuses from loaded items
         // This ensures WeapPow, ArmPow, and all stat bonuses are correctly applied
+        //
+        // BUG FIX: We must preserve HP/Mana before RecalculateStats because:
+        // 1. RecalculateStats sets MaxHP = BaseMaxHP first (which is lower than final MaxHP)
+        // 2. Equipment's ApplyToCharacter sees HP > MaxHP and clamps it down
+        // 3. Then constitution/equipment bonuses raise MaxHP back up
+        // 4. But HP is already clamped to the intermediate lower value
+        //
+        // Solution: Save HP/Mana, recalculate, then restore and clamp to final MaxHP
+        var savedHP = player.HP;
+        var savedMana = player.Mana;
+
         player.RecalculateStats();
+
+        // Restore the saved HP/Mana, clamped to the newly calculated MaxHP/MaxMana
+        player.HP = Math.Min(savedHP, player.MaxHP);
+        player.Mana = Math.Min(savedMana, player.MaxMana);
+
+        // Log successful restore
+        DebugLogger.Instance.LogLoad(player.Name, player.Level, player.HP, player.MaxHP, player.Gold);
+        DebugLogger.Instance.LogDebug("LOAD", $"Stats: STR={player.Strength} DEF={player.Defence} WeapPow={player.WeapPow} ArmPow={player.ArmPow}");
 
         return player;
     }
@@ -2027,7 +2054,17 @@ public partial class GameEngine : Node
 
         // Process dead NPCs for respawn - this queues them with a faster timer
         // since they've been dead since the last save
-        worldSimulator?.ProcessDeadNPCsOnLoad();
+        var deadCount = npcData.Count(n => n.IsDead);
+        UsurperRemake.Systems.DebugLogger.Instance.LogInfo("NPC", $"Restoring {npcData.Count} NPCs, {deadCount} are dead");
+
+        if (worldSimulator != null)
+        {
+            worldSimulator.ProcessDeadNPCsOnLoad();
+        }
+        else
+        {
+            UsurperRemake.Systems.DebugLogger.Instance.LogWarning("NPC", "worldSimulator is null - cannot process dead NPCs!");
+        }
 
         GD.Print($"Restored {npcData.Count} NPCs from save data");
         await Task.CompletedTask;
@@ -2370,6 +2407,9 @@ public partial class GameEngine : Node
                 (int)currentPlayer.MDefeats,
                 (int)currentPlayer.MKills
             );
+
+            // Log game exit
+            DebugLogger.Instance.LogGameExit(currentPlayer.Name, "QuitGame");
         }
 
         // Ensure save completes before exiting
@@ -2826,6 +2866,12 @@ public partial class GameEngine : Node
             terminal.WriteLine("");
             terminal.WriteLine("Thank you! Your feedback will help make Usurper Reborn better.");
             terminal.WriteLine("");
+
+            // Track session start first
+            TelemetrySystem.Instance.TrackSessionStart(
+                GameConfig.Version,
+                System.Environment.OSVersion.Platform.ToString()
+            );
 
             // Track new character creation with details - this sends immediately
             TelemetrySystem.Instance.TrackNewCharacter(

@@ -66,6 +66,10 @@ namespace UsurperRemake.Systems
                 // Create backup of existing save before overwriting
                 CreateBackup(playerName);
 
+                // Log save event
+                DebugLogger.Instance.LogSave(playerName, player.Level, player.HP, player.MaxHP, player.Gold);
+                DebugLogger.Instance.LogDebug("SAVE", $"BaseMaxHP={player.BaseMaxHP}, BaseMaxMana={player.BaseMaxMana}");
+
                 var saveData = new SaveGameData
                 {
                     Version = GameConfig.SaveVersion,
@@ -80,19 +84,19 @@ namespace UsurperRemake.Systems
                     StorySystems = SerializeStorySystems(),
                     Telemetry = TelemetrySystem.Instance.Serialize()
                 };
-                
+
                 var fileName = GetSaveFileName(playerName);
                 var filePath = Path.Combine(saveDirectory, fileName);
                 var json = JsonSerializer.Serialize(saveData, jsonOptions);
-                
+
                 await File.WriteAllTextAsync(filePath, json);
-                
-                // GD.Print($"Game saved successfully: {fileName}");
+
+                DebugLogger.Instance.LogDebug("SAVE", $"Game saved successfully: {fileName}");
                 return true;
             }
             catch (Exception ex)
             {
-                GD.PrintErr($"Failed to save game: {ex.Message}");
+                DebugLogger.Instance.LogSystemError("SAVE", $"Failed to save game: {ex.Message}", ex.StackTrace);
                 return false;
             }
         }
@@ -106,34 +110,35 @@ namespace UsurperRemake.Systems
             {
                 var fileName = GetSaveFileName(playerName);
                 var filePath = Path.Combine(saveDirectory, fileName);
-                
+
                 if (!File.Exists(filePath))
                 {
+                    DebugLogger.Instance.LogDebug("LOAD", $"No save file found for '{playerName}'");
                     return null;
                 }
-                
+
                 var json = await File.ReadAllTextAsync(filePath);
                 var saveData = JsonSerializer.Deserialize<SaveGameData>(json, jsonOptions);
-                
+
                 if (saveData == null)
                 {
-                    GD.PrintErr("Failed to deserialize save data");
+                    DebugLogger.Instance.LogError("LOAD", "Failed to deserialize save data");
                     return null;
                 }
-                
+
                 // Validate save version compatibility
                 if (saveData.Version < GameConfig.MinSaveVersion)
                 {
-                    GD.PrintErr($"Save file version {saveData.Version} is too old (minimum: {GameConfig.MinSaveVersion})");
+                    DebugLogger.Instance.LogError("LOAD", $"Save file version {saveData.Version} is too old (minimum: {GameConfig.MinSaveVersion})");
                     return null;
                 }
-                
-                // GD.Print($"Game loaded successfully: {fileName}");
+
+                DebugLogger.Instance.LogDebug("LOAD", $"Save file loaded: {fileName} (v{saveData.Version})");
                 return saveData;
             }
             catch (Exception ex)
             {
-                GD.PrintErr($"Failed to load game: {ex.Message}");
+                DebugLogger.Instance.LogSystemError("LOAD", $"Failed to load game: {ex.Message}", ex.StackTrace);
                 return null;
             }
         }

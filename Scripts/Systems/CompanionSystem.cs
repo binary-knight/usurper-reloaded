@@ -25,7 +25,7 @@ namespace UsurperRemake.Systems
         // All available companions
         private Dictionary<CompanionId, Companion> companions = new();
 
-        // Currently active companions (max 2 in dungeon)
+        // Currently active companions (max 4 in dungeon, same as party size)
         private List<CompanionId> activeCompanions = new();
 
         // Fallen companions (permanent death)
@@ -34,7 +34,7 @@ namespace UsurperRemake.Systems
         // Queued notifications for players (displayed next time they check status)
         private Queue<string> pendingNotifications = new();
 
-        public const int MaxActiveCompanions = 2;
+        public const int MaxActiveCompanions = 4;
 
         public event Action<CompanionId>? OnCompanionRecruited;
         public event Action<CompanionId, DeathType>? OnCompanionDeath;
@@ -418,12 +418,14 @@ namespace UsurperRemake.Systems
 
             OnCompanionRecruited?.Invoke(id);
 
+            // Log companion recruitment
+            DebugLogger.Instance.LogCompanionRecruit(companion.Name, player.Level);
+
             // Track for Ocean Philosophy
             OceanPhilosophySystem.Instance.ExperienceMoment(AwakeningMoment.SacrificedForAnother);
 
             // Auto-save after recruiting a companion - this is a major milestone
             await SaveSystem.Instance.AutoSave(player);
-            // GD.Print($"[Companion] Auto-saved after recruiting {companion.Name}");
 
             return true;
         }
@@ -1260,6 +1262,12 @@ namespace UsurperRemake.Systems
         /// </summary>
         public CompanionSystemData Serialize()
         {
+            // Log companion levels being saved for debugging
+            foreach (var c in companions.Values.Where(c => c.IsRecruited))
+            {
+                DebugLogger.Instance.LogDebug("COMPANION", $"Serializing {c.Name}: Level={c.Level}, XP={c.Experience}");
+            }
+
             return new CompanionSystemData
             {
                 CompanionStates = companions.Values.Select(c => new CompanionSaveData
@@ -1335,6 +1343,12 @@ namespace UsurperRemake.Systems
             {
                 if (companions.TryGetValue(save.Id, out var companion))
                 {
+                    // Log incoming data for debugging
+                    if (save.IsRecruited)
+                    {
+                        DebugLogger.Instance.LogDebug("COMPANION", $"Deserializing {companion.Name}: SavedLevel={save.Level}, SavedXP={save.Experience}");
+                    }
+
                     companion.IsRecruited = save.IsRecruited;
                     companion.IsActive = save.IsActive;
                     companion.IsDead = save.IsDead;
@@ -1392,6 +1406,12 @@ namespace UsurperRemake.Systems
                 {
                     fallenCompanions[death.CompanionId] = death;
                 }
+            }
+
+            // Log final companion levels after deserialization for debugging
+            foreach (var c in companions.Values.Where(c => c.IsRecruited))
+            {
+                DebugLogger.Instance.LogDebug("COMPANION", $"After restore: {c.Name} Level={c.Level}, XP={c.Experience}");
             }
         }
 
@@ -1464,7 +1484,11 @@ namespace UsurperRemake.Systems
 
             while (companion.Experience >= xpForNextLevel && companion.Level < 100)
             {
+                int oldLevel = companion.Level;
                 companion.Level++;
+
+                // Log companion level up
+                DebugLogger.Instance.LogCompanionLevelUp(companion.Name, oldLevel, companion.Level);
 
                 // Apply stat gains based on combat role
                 ApplyCompanionLevelUpStats(companion);

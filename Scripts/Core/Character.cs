@@ -591,7 +591,13 @@ public class Character
         UsurperRemake.Systems.FamilySystem.Instance?.ApplyChildBonuses(this);
 
         // Keep current HP/Mana within bounds
+        var hpBefore = HP;
         HP = Math.Min(HP, MaxHP);
+        // Log if HP was clamped (helps debug HP not saving correctly)
+        if (HP != hpBefore)
+        {
+            UsurperRemake.Systems.DebugLogger.Instance.LogDebug("STATS", $"HP clamped: {hpBefore} -> {HP} (MaxHP={MaxHP}, BaseMaxHP={BaseMaxHP})");
+        }
         Mana = Math.Min(Mana, MaxMana);
     }
 

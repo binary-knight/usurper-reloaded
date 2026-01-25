@@ -301,6 +301,8 @@ public class GodSystem
     /// </summary>
     public void SetPlayerGod(string playerName, string godName)
     {
+        string oldGod = playerGods.ContainsKey(playerName) ? playerGods[playerName] : "none";
+
         if (string.IsNullOrEmpty(godName))
         {
             // Remove god
@@ -313,6 +315,7 @@ public class GodSystem
                 }
                 playerGods.Remove(playerName);
             }
+            UsurperRemake.Systems.DebugLogger.Instance.LogInfo("TEMPLE", $"{playerName} abandoned their god (was: {oldGod})");
         }
         else
         {
@@ -325,13 +328,14 @@ public class GodSystem
                     godsByName[oldGodName].RemoveBeliever(playerName);
                 }
             }
-            
+
             // Add to new god
             playerGods[playerName] = godName;
             if (godsByName.ContainsKey(godName))
             {
                 godsByName[godName].AddBeliever(playerName);
             }
+            UsurperRemake.Systems.DebugLogger.Instance.LogInfo("TEMPLE", $"{playerName} now worships {godName} (was: {oldGod})");
         }
     }
     

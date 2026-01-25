@@ -389,6 +389,9 @@ public class LevelMasterLocation : BaseLocation
                 }
             );
 
+            // Log level up
+            UsurperRemake.Systems.DebugLogger.Instance.LogLevelUp(currentPlayer.Name, startLevel, currentPlayer.Level);
+
             // Display level up celebration with training points earned
             await DisplayLevelUpCelebration(levelsRaised, startLevel, totalTrainingPoints);
 

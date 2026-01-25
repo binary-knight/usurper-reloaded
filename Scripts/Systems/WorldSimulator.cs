@@ -8,6 +8,10 @@ using Godot;
 
 public class WorldSimulator
 {
+    // Singleton instance for easy access
+    private static WorldSimulator? _instance;
+    public static WorldSimulator? Instance => _instance;
+
     private bool isRunning = false;
     private Random random = new Random();
 
@@ -15,12 +19,17 @@ public class WorldSimulator
     // This ensures we always use the current list even after save/load
     private List<NPC> npcs => UsurperRemake.Systems.NPCSpawnSystem.Instance?.ActiveNPCs ?? new List<NPC>();
 
-    private const float SIMULATION_INTERVAL = 60.0f; // seconds between simulation steps
+    private const float SIMULATION_INTERVAL = 30.0f; // seconds between simulation steps (reduced for faster respawns)
     private const int MAX_TEAM_SIZE = 5; // Maximum members per team (from Pascal)
-    private const int NPC_RESPAWN_TICKS = 10; // Respawn dead NPCs after 10 simulation ticks (~10 min)
+    private const int NPC_RESPAWN_TICKS = 5; // Respawn dead NPCs after 5 simulation ticks (~2.5 min)
 
     // Track dead NPCs for respawn
     private Dictionary<string, int> deadNPCRespawnTimers = new();
+
+    public WorldSimulator()
+    {
+        _instance = this;
+    }
 
     // Team name generators for NPC-formed teams - Ocean/Manwe themed for lore
     private static readonly string[] TeamNamePrefixes = new[]
@@ -52,11 +61,13 @@ public class WorldSimulator
         // This ensures the simulator sees the correct NPCs even after save/load
         isRunning = true;
 
+        UsurperRemake.Systems.DebugLogger.Instance.LogInfo("WORLD", $"WorldSimulator starting - NPCs available: {npcs?.Count ?? 0}");
+
         // Start a background task to periodically run simulation steps. This works even when
         // running head-less outside the Godot scene tree.
         _ = System.Threading.Tasks.Task.Run(async () =>
         {
-            // GD.Print($"[WorldSim] Background world simulation running – {npcs.Count} NPCs");
+            UsurperRemake.Systems.DebugLogger.Instance.LogInfo("WORLD", "Background simulation task started");
             while (isRunning)
             {
                 try
@@ -65,10 +76,11 @@ public class WorldSimulator
                 }
                 catch (Exception ex)
                 {
-                    GD.PrintErr($"[WorldSim] Simulation error: {ex.Message}");
+                    UsurperRemake.Systems.DebugLogger.Instance.LogError("WORLD", $"Simulation error: {ex.Message}\n{ex.StackTrace}");
                 }
                 await System.Threading.Tasks.Task.Delay(TimeSpan.FromSeconds(SIMULATION_INTERVAL));
             }
+            UsurperRemake.Systems.DebugLogger.Instance.LogInfo("WORLD", "Background simulation task stopped");
         });
     }
     
@@ -81,6 +93,10 @@ public class WorldSimulator
     public void SimulateStep()
     {
         if (!isRunning || npcs == null) return;
+
+        var aliveCount = npcs.Count(n => n.IsAlive && !n.IsDead);
+        var deadCount = npcs.Count(n => !n.IsAlive || n.IsDead);
+        UsurperRemake.Systems.DebugLogger.Instance.LogDebug("WORLD", $"SimulateStep: {aliveCount} alive, {deadCount} dead, {deadNPCRespawnTimers.Count} in respawn queue");
 
         // Handle NPC respawns
         ProcessNPCRespawns();
@@ -103,7 +119,7 @@ public class WorldSimulator
             }
             catch (Exception ex)
             {
-                GD.PrintErr($"[WorldSim] Error processing NPC {npc.Name}: {ex.Message}");
+                UsurperRemake.Systems.DebugLogger.Instance.LogError("WORLD", $"Error processing NPC {npc.Name}: {ex.Message}");
             }
         }
 
@@ -113,7 +129,7 @@ public class WorldSimulator
             if (!deadNPCRespawnTimers.ContainsKey(npc.Name))
             {
                 deadNPCRespawnTimers[npc.Name] = NPC_RESPAWN_TICKS;
-                // GD.Print($"[WorldSim] {npc.Name} added to respawn queue ({NPC_RESPAWN_TICKS} ticks)");
+                UsurperRemake.Systems.DebugLogger.Instance.LogDebug("NPC", $"{npc.Name} added to respawn queue ({NPC_RESPAWN_TICKS} ticks)");
             }
         }
 
@@ -125,13 +141,36 @@ public class WorldSimulator
     }
 
     /// <summary>
+    /// Queue an NPC for respawn immediately (call when NPC dies in combat)
+    /// </summary>
+    public void QueueNPCForRespawn(string npcName, int ticks = -1)
+    {
+        if (string.IsNullOrEmpty(npcName)) return;
+
+        int respawnTicks = ticks > 0 ? ticks : NPC_RESPAWN_TICKS;
+
+        if (!deadNPCRespawnTimers.ContainsKey(npcName))
+        {
+            deadNPCRespawnTimers[npcName] = respawnTicks;
+            UsurperRemake.Systems.DebugLogger.Instance.LogInfo("NPC", $"Queued {npcName} for respawn ({respawnTicks} ticks = ~{respawnTicks * SIMULATION_INTERVAL / 60:F1} min)");
+        }
+    }
+
+    /// <summary>
     /// Force immediate processing of dead NPCs - call after loading a save
     /// This ensures dead NPCs start their respawn timers immediately and
     /// respawn NPCs that have been dead for a while (based on save data)
     /// </summary>
     public void ProcessDeadNPCsOnLoad()
     {
-        if (npcs == null || npcs.Count == 0) return;
+        if (npcs == null || npcs.Count == 0)
+        {
+            UsurperRemake.Systems.DebugLogger.Instance.LogWarning("NPC", "ProcessDeadNPCsOnLoad: No NPCs found!");
+            return;
+        }
+
+        var deadCount = npcs.Count(n => !n.IsAlive || n.IsDead);
+        UsurperRemake.Systems.DebugLogger.Instance.LogInfo("NPC", $"ProcessDeadNPCsOnLoad: Found {deadCount} dead NPCs out of {npcs.Count} total");
 
         // Find all dead NPCs and add them to the respawn queue
         foreach (var npc in npcs.Where(n => !n.IsAlive || n.IsDead))
@@ -140,11 +179,11 @@ public class WorldSimulator
             {
                 // NPCs from saves respawn faster - just 2 ticks (~2 min) instead of 10
                 deadNPCRespawnTimers[npc.Name] = 2;
-                GD.Print($"[WorldSim] Queued {npc.Name} for respawn (loaded from save)");
+                UsurperRemake.Systems.DebugLogger.Instance.LogDebug("NPC", $"Queued {npc.Name} for fast respawn (2 ticks)");
             }
         }
 
-        GD.Print($"[WorldSim] Loaded {deadNPCRespawnTimers.Count} dead NPCs for respawn");
+        UsurperRemake.Systems.DebugLogger.Instance.LogInfo("NPC", $"Respawn queue now has {deadNPCRespawnTimers.Count} NPCs");
     }
 
     /// <summary>
@@ -180,7 +219,11 @@ public class WorldSimulator
                 npc.Gold = Math.Max(0, npc.Gold / 2);
 
                 NewsSystem.Instance.Newsy(true, $"{npc.Name} has returned from the realm of the dead!");
-                // GD.Print($"[WorldSim] {npc.Name} respawned!");
+                UsurperRemake.Systems.DebugLogger.Instance.LogInfo("NPC", $"RESPAWNED: {npc.Name} (HP restored to {npc.HP}, IsDead={npc.IsDead})");
+            }
+            else
+            {
+                UsurperRemake.Systems.DebugLogger.Instance.LogWarning("NPC", $"Could not find NPC to respawn: {npcName}");
             }
 
             deadNPCRespawnTimers.Remove(npcName);

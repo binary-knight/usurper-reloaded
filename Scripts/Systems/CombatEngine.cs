@@ -236,6 +236,11 @@ public partial class CombatEngine
 
         result.CombatLog.Add($"Combat begins against {monsters.Count} monster(s)!");
 
+        // Log combat start (use max monster level as proxy for floor depth)
+        var monsterNames = monsters.Select(m => $"{m.Name}(Lv{m.Level})").ToArray();
+        int floorEstimate = monsters.Max(m => m.Level);
+        DebugLogger.Instance.LogCombatStart(player.Name, player.Level, monsterNames, floorEstimate);
+
         // Main combat loop
         int roundNumber = 0;
         bool autoCombat = false; // Auto-combat toggle
@@ -5391,6 +5396,10 @@ public partial class CombatEngine
         {
             worldNpc.IsDead = true;
             worldNpc.HP = 0; // Ensure HP is also zero
+            DebugLogger.Instance.LogInfo("NPC", $"NPC DIED: {worldNpc.Name} (ID: {npcId}) - marked as permanently dead");
+
+            // Queue for respawn immediately
+            WorldSimulator.Instance?.QueueNPCForRespawn(worldNpc.Name);
         }
 
         // Also mark the combat character reference
@@ -5626,6 +5635,9 @@ public partial class CombatEngine
 
         result.CombatLog.Add($"Victory! Gained {adjustedExp} exp and {adjustedGold} gold from {result.DefeatedMonsters.Count} monsters");
 
+        // Log combat end
+        DebugLogger.Instance.LogCombatEnd("Victory", adjustedExp, adjustedGold, result.CombatLog.Count);
+
         // Auto-save after combat victory
         await SaveSystem.Instance.AutoSave(result.Player);
     }
@@ -5732,6 +5744,9 @@ public partial class CombatEngine
         result.Player.HP = 0;
         result.Player.MDefeats++;
         result.CombatLog.Add($"Player killed by {result.Monster?.Name ?? "opponent"}");
+
+        // Log player death (use monster level as proxy for floor depth)
+        DebugLogger.Instance.LogPlayerDeath(result.Player.Name, result.Monster?.Name ?? "unknown", result.Monster?.Level ?? 0);
 
         // Track statistics - death (not from player)
         result.Player.Statistics.RecordDeath(false);

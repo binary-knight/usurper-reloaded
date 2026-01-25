@@ -42,6 +42,9 @@ namespace UsurperRemake.Systems
         /// </summary>
         public void Reset()
         {
+            // Log reset with stack trace so we can see where it's being called from
+            DebugLogger.Instance.LogWarning("ROMANCE", $"RESET called! Had {Spouses.Count} spouses, {CurrentLovers.Count} lovers");
+
             CurrentLovers.Clear();
             Spouses.Clear();
             FriendsWithBenefits.Clear();
@@ -52,7 +55,6 @@ namespace UsurperRemake.Systems
             AgreedStructures.Clear();
             CuckArrangements.Clear();
             PolyNetworks.Clear();
-            // GD.Print("[Romance] Romance tracker reset");
         }
 
         /// <summary>
@@ -121,13 +123,14 @@ namespace UsurperRemake.Systems
 
             Spouses.Add(spouse);
 
+            // Log marriage event
+            DebugLogger.Instance.LogInfo("ROMANCE", $"MARRIED: {spouse.NPCName} (ID: {npcId}) - Total spouses: {Spouses.Count}");
+
             // Remove from lovers list if present
             CurrentLovers.RemoveAll(l => l.NPCId == npcId);
 
             // Track archetype - Marriage is a major Lover event
             ArchetypeTracker.Instance.RecordMarriage();
-
-            // GD.Print($"[Romance] Married to {npcId}!");
         }
 
         /// <summary>
@@ -514,6 +517,13 @@ namespace UsurperRemake.Systems
         /// </summary>
         public UsurperRemake.Systems.RomanceTrackerData ToSaveData()
         {
+            // Log what we're saving
+            DebugLogger.Instance.LogDebug("ROMANCE", $"Serializing: {Spouses.Count} spouses, {CurrentLovers.Count} lovers");
+            foreach (var spouse in Spouses)
+            {
+                DebugLogger.Instance.LogDebug("ROMANCE", $"  Spouse: {spouse.NPCName} (ID: {spouse.NPCId})");
+            }
+
             var data = new UsurperRemake.Systems.RomanceTrackerData();
 
             // Convert lovers
@@ -629,7 +639,18 @@ namespace UsurperRemake.Systems
         /// </summary>
         public void LoadFromSaveData(UsurperRemake.Systems.RomanceTrackerData data)
         {
-            if (data == null) return;
+            if (data == null)
+            {
+                DebugLogger.Instance.LogWarning("ROMANCE", "LoadFromSaveData called with null data!");
+                return;
+            }
+
+            // Log what we're loading
+            DebugLogger.Instance.LogDebug("ROMANCE", $"Loading: {data.Spouses?.Count ?? 0} spouses, {data.CurrentLovers?.Count ?? 0} lovers");
+            foreach (var spouse in data.Spouses ?? new List<SpouseData>())
+            {
+                DebugLogger.Instance.LogDebug("ROMANCE", $"  Spouse from save: {spouse.NPCName} (ID: {spouse.NPCId})");
+            }
 
             // Clear existing data
             CurrentLovers.Clear();
@@ -753,7 +774,12 @@ namespace UsurperRemake.Systems
                 VisualNovelDialogueSystem.Instance.LoadConversationStates(data.ConversationStates);
             }
 
-            // GD.Print($"[Romance] Loaded romance data: {Spouses.Count} spouses, {CurrentLovers.Count} lovers, {EncounterHistory.Count} encounters");
+            // Log final state after loading
+            DebugLogger.Instance.LogInfo("ROMANCE", $"Loaded: {Spouses.Count} spouses, {CurrentLovers.Count} lovers, {EncounterHistory.Count} encounters");
+            foreach (var spouse in Spouses)
+            {
+                DebugLogger.Instance.LogDebug("ROMANCE", $"  Restored spouse: {spouse.NPCName} (ID: {spouse.NPCId})");
+            }
         }
 
         /// <summary>
