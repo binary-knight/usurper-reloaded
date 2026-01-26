@@ -40,6 +40,35 @@ namespace UsurperRemake.Systems
         public string DownloadError { get; private set; } = "";
         private List<GitHubAsset> releaseAssets = new List<GitHubAsset>();
 
+        /// <summary>
+        /// Detects if the game was launched via Steam.
+        /// Steam handles its own updates, so we skip the GitHub update check.
+        /// </summary>
+        public bool IsSteamBuild
+        {
+            get
+            {
+                var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+
+                // Check for steam_appid.txt (created by Steam or placed for Steamworks)
+                if (File.Exists(Path.Combine(baseDir, "steam_appid.txt")))
+                    return true;
+
+                // Check for Steam API DLLs (indicates Steamworks SDK integration)
+                if (File.Exists(Path.Combine(baseDir, "steam_api64.dll")) ||
+                    File.Exists(Path.Combine(baseDir, "steam_api.dll")) ||
+                    File.Exists(Path.Combine(baseDir, "libsteam_api.so")) ||
+                    File.Exists(Path.Combine(baseDir, "libsteam_api.dylib")))
+                    return true;
+
+                // Check for Steam environment variable (set when launched from Steam)
+                if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("SteamAppId")))
+                    return true;
+
+                return false;
+            }
+        }
+
         public VersionChecker()
         {
             _instance = this;
@@ -51,6 +80,14 @@ namespace UsurperRemake.Systems
         /// </summary>
         public async Task CheckForUpdatesAsync()
         {
+            // Skip update check for Steam builds - Steam handles updates
+            if (IsSteamBuild)
+            {
+                DebugLogger.Instance.LogInfo("UPDATE", "Skipping version check - Steam build detected (Steam handles updates)");
+                CheckCompleted = true;
+                return;
+            }
+
             DebugLogger.Instance.LogInfo("UPDATE", $"Version check started (current: {CurrentVersion})");
 
             try
