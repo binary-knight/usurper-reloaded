@@ -1,6 +1,6 @@
 # Usurper Reborn
 
-## ALPHA v0.13 - Auto-Update System
+## ALPHA v0.14 - BBS Mode Update Fix
 
 **FREE AND OPEN SOURCE SOFTWARE - GPL v2 Licensed**
 
