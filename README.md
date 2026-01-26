@@ -1,6 +1,6 @@
 # Usurper Reborn
 
-## ALPHA v0.14 - BBS Mode Update Fix
+## ALPHA v0.16 - Steam Integration
 
 **FREE AND OPEN SOURCE SOFTWARE - GPL v2 Licensed**
 
