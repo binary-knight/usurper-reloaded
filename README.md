@@ -37,6 +37,7 @@ What began as a faithful port has evolved into something more: a game that explo
 **Source Preservation**: Rick Parrish, Daniel Zingaro
 **Modern Recreation**: Built with C# and .NET 8.0
 **License**: GNU General Public License v2 (GPL v2)
+**Privacy**: See [PRIVACY.md](PRIVACY.md) - Telemetry is opt-in only
 
 ## The Story
 
