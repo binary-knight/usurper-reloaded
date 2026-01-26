@@ -5,5 +5,5 @@ title Usurper Reborn
 mode con: cols=120 lines=50
 
 cd /d "%~dp0"
-UsurperRemake.exe
+UsurperReborn.exe
 pause
