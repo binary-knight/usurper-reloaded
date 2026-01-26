@@ -295,7 +295,7 @@ public partial class TerminalEmulator : Control
         WriteLine(text, "white");
     }
     
-    public void Write(string text, string color = null)
+    public void Write(string text, string? color = null)
     {
         // Use current color if no color specified
         string effectiveColor = color ?? currentColor;

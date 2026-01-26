@@ -601,6 +601,8 @@ public partial class RelationshipSystem
                     {
                         Name1 = relation.Name1,
                         Name2 = relation.Name2,
+                        IdTag1 = relation.IdTag1,  // Critical for identity tracking
+                        IdTag2 = relation.IdTag2,  // Critical for identity tracking
                         Relation1 = relation.Relation1,
                         Relation2 = relation.Relation2,
                         MarriedDays = relation.MarriedDays,
@@ -636,6 +638,8 @@ public partial class RelationshipSystem
             {
                 Name1 = saved.Name1,
                 Name2 = saved.Name2,
+                IdTag1 = saved.IdTag1 ?? "",  // Restore identity tags (critical for tracking)
+                IdTag2 = saved.IdTag2 ?? "",  // Restore identity tags (critical for tracking)
                 Relation1 = saved.Relation1,
                 Relation2 = saved.Relation2,
                 MarriedDays = saved.MarriedDays,

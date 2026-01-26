@@ -99,6 +99,24 @@ public class PlayerStatistics
     [System.Text.Json.Serialization.JsonIgnore]
     public DateTime SessionStart { get; set; } = DateTime.Now;
 
+    // Session snapshot - captures stats at session start for summary calculation
+    [System.Text.Json.Serialization.JsonIgnore]
+    private long _sessionStartMonstersKilled;
+    [System.Text.Json.Serialization.JsonIgnore]
+    private long _sessionStartGoldEarned;
+    [System.Text.Json.Serialization.JsonIgnore]
+    private long _sessionStartExperience;
+    [System.Text.Json.Serialization.JsonIgnore]
+    private long _sessionStartDamageDealt;
+    [System.Text.Json.Serialization.JsonIgnore]
+    private int _sessionStartLevel;
+    [System.Text.Json.Serialization.JsonIgnore]
+    private long _sessionStartRoomsExplored;
+    [System.Text.Json.Serialization.JsonIgnore]
+    private long _sessionStartItemsBought;
+    [System.Text.Json.Serialization.JsonIgnore]
+    private long _sessionStartItemsSold;
+
     /// <summary>
     /// Update session time when saving
     /// </summary>
@@ -122,6 +140,9 @@ public class PlayerStatistics
         TotalSessionsPlayed++;
         SessionStart = DateTime.Now;
 
+        // Capture snapshot of current stats for session summary
+        CaptureSessionSnapshot();
+
         // Check for streak
         var daysSinceLastPlay = (DateTime.Now.Date - LastPlayed.Date).Days;
         if (daysSinceLastPlay == 1)
@@ -137,6 +158,57 @@ public class PlayerStatistics
         // If same day, streak doesn't change
 
         LastPlayed = DateTime.Now;
+    }
+
+    /// <summary>
+    /// Capture current stats as session start snapshot
+    /// </summary>
+    public void CaptureSessionSnapshot()
+    {
+        _sessionStartMonstersKilled = TotalMonstersKilled;
+        _sessionStartGoldEarned = TotalGoldEarned;
+        _sessionStartExperience = TotalExperienceEarned;
+        _sessionStartDamageDealt = TotalDamageDealt;
+        _sessionStartLevel = HighestLevelReached;
+        _sessionStartRoomsExplored = TotalRoomsExplored;
+        _sessionStartItemsBought = TotalItemsBought;
+        _sessionStartItemsSold = TotalItemsSold;
+    }
+
+    /// <summary>
+    /// Get session summary data
+    /// </summary>
+    public SessionSummary GetSessionSummary()
+    {
+        var sessionDuration = DateTime.Now - SessionStart;
+        return new SessionSummary
+        {
+            Duration = sessionDuration,
+            MonstersKilled = TotalMonstersKilled - _sessionStartMonstersKilled,
+            GoldEarned = TotalGoldEarned - _sessionStartGoldEarned,
+            ExperienceGained = TotalExperienceEarned - _sessionStartExperience,
+            DamageDealt = TotalDamageDealt - _sessionStartDamageDealt,
+            LevelsGained = HighestLevelReached - _sessionStartLevel,
+            RoomsExplored = TotalRoomsExplored - _sessionStartRoomsExplored,
+            ItemsBought = TotalItemsBought - _sessionStartItemsBought,
+            ItemsSold = TotalItemsSold - _sessionStartItemsSold
+        };
+    }
+
+    /// <summary>
+    /// Session summary data structure
+    /// </summary>
+    public class SessionSummary
+    {
+        public TimeSpan Duration { get; set; }
+        public long MonstersKilled { get; set; }
+        public long GoldEarned { get; set; }
+        public long ExperienceGained { get; set; }
+        public long DamageDealt { get; set; }
+        public int LevelsGained { get; set; }
+        public long RoomsExplored { get; set; }
+        public long ItemsBought { get; set; }
+        public long ItemsSold { get; set; }
     }
 
     /// <summary>

@@ -755,6 +755,7 @@ public partial class MagicShopLocation : BaseLocation
                 {
                     player.Inventory.RemoveAt(itemIndex - 1);
                     player.Gold += sellPrice;
+                    player.Statistics.RecordSale(sellPrice);  // Track sale in statistics
                     DisplayMessage("Deal!", "green");
                     DisplayMessage($"You sold the {item.Name} for {sellPrice:N0} gold.", "gray");
                 }

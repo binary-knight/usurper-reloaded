@@ -392,13 +392,24 @@ public class AdvancedCombatEngine : Node
         
         while (!result.IsComplete && attacker.IsAlive && defender.IsAlive)
         {
-            // Reset spell flags (Pascal logic)
-            for (int i = 0; i < GameConfig.MaxSpells; i++)
+            // Reset spell flags (Pascal logic) - with null safety checks
+            if (attacker.Spell != null)
             {
-                attacker.Spell[i][1] = false; // Reset mastered spells for this round
-                defender.Spell[i][1] = false;
+                for (int i = 0; i < Math.Min(GameConfig.MaxSpells, attacker.Spell.Count); i++)
+                {
+                    if (attacker.Spell[i] != null && attacker.Spell[i].Count > 1)
+                        attacker.Spell[i][1] = false; // Reset mastered spells for this round
+                }
             }
-            
+            if (defender.Spell != null)
+            {
+                for (int i = 0; i < Math.Min(GameConfig.MaxSpells, defender.Spell.Count); i++)
+                {
+                    if (defender.Spell[i] != null && defender.Spell[i].Count > 1)
+                        defender.Spell[i][1] = false;
+                }
+            }
+
             // Reset item usage flags
             attacker.UsedItem = false;
             defender.UsedItem = false;

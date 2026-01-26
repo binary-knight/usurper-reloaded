@@ -1227,6 +1227,9 @@ public partial class GameEngine : Node
     {
         var player = new Character
         {
+            // Unique player identifier (critical for romance/family systems)
+            ID = !string.IsNullOrEmpty(playerData.Id) ? playerData.Id : (playerData.Name2 ?? playerData.Name1 ?? Guid.NewGuid().ToString()),
+
             Name1 = playerData.Name1,
             Name2 = playerData.Name2,
             Level = playerData.Level,
@@ -1262,6 +1265,7 @@ public partial class GameEngine : Node
             Difficulty = playerData.Difficulty,
             
             // Game state
+            TurnCount = playerData.TurnCount,  // World simulation turn counter
             TurnsRemaining = playerData.TurnsRemaining,
             DaysInPrison = (byte)playerData.DaysInPrison,
             CellDoorOpen = playerData.CellDoorOpen,
@@ -1327,6 +1331,9 @@ public partial class GameEngine : Node
             Eyes = playerData.Eyes,
             Hair = playerData.Hair,
             Skin = playerData.Skin,
+
+            // Ruler status
+            King = playerData.King,
 
             // Social/Team
             Team = playerData.Team,
@@ -1606,6 +1613,12 @@ public partial class GameEngine : Node
         if (playerData.DungeonFloorStates != null)
         {
             player.DungeonFloorStates = RestoreDungeonFloorStates(playerData.DungeonFloorStates);
+        }
+
+        // Restore hint system (which hints have been shown to this player)
+        if (playerData.HintsShown != null)
+        {
+            player.HintsShown = playerData.HintsShown;
         }
 
         // CRITICAL: Recalculate stats to apply equipment bonuses from loaded items

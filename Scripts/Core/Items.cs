@@ -856,24 +856,24 @@ public class Equipment
     {
         if (character == null) return;
 
-        // Combat stats
-        character.WeapPow -= WeaponPower;
-        character.ArmPow -= ArmorClass + ShieldBonus;
+        // Combat stats (guard against underflow)
+        character.WeapPow = Math.Max(0, character.WeapPow - WeaponPower);
+        character.ArmPow = Math.Max(0, character.ArmPow - ArmorClass - ShieldBonus);
 
-        // Primary stats
-        character.Strength -= StrengthBonus;
-        character.Dexterity -= DexterityBonus;
-        character.Constitution -= ConstitutionBonus;
-        character.Intelligence -= IntelligenceBonus;
-        character.Wisdom -= WisdomBonus;
-        character.Charisma -= CharismaBonus;
+        // Primary stats (guard against underflow - stats shouldn't go below 1)
+        character.Strength = Math.Max(1, character.Strength - StrengthBonus);
+        character.Dexterity = Math.Max(1, character.Dexterity - DexterityBonus);
+        character.Constitution = Math.Max(1, character.Constitution - ConstitutionBonus);
+        character.Intelligence = Math.Max(1, character.Intelligence - IntelligenceBonus);
+        character.Wisdom = Math.Max(1, character.Wisdom - WisdomBonus);
+        character.Charisma = Math.Max(1, character.Charisma - CharismaBonus);
 
-        // Secondary stats
-        character.MaxHP -= MaxHPBonus;
-        character.MaxMana -= MaxManaBonus;
-        character.Defence -= DefenceBonus;
-        character.Stamina -= StaminaBonus;
-        character.Agility -= AgilityBonus;
+        // Secondary stats (guard against underflow)
+        character.MaxHP = Math.Max(1, character.MaxHP - MaxHPBonus);
+        character.MaxMana = Math.Max(0, character.MaxMana - MaxManaBonus);
+        character.Defence = Math.Max(0, character.Defence - DefenceBonus);
+        character.Stamina = Math.Max(0, character.Stamina - StaminaBonus);
+        character.Agility = Math.Max(0, character.Agility - AgilityBonus);
 
         // Keep HP/Mana within bounds
         character.HP = Math.Min(character.HP, character.MaxHP);

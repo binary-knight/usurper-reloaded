@@ -63,7 +63,7 @@ public partial class CombatEngine
         };
     }
 
-    public CombatEngine(TerminalEmulator term = null)
+    public CombatEngine(TerminalEmulator? term = null)
     {
         terminal = term;
     }
@@ -92,7 +92,7 @@ public partial class CombatEngine
     /// Redirects to new PlayerVsMonsters method with single-monster list
     /// Based on Player_vs_Monsters procedure from PLVSMON.PAS
     /// </summary>
-    public async Task<CombatResult> PlayerVsMonster(Character player, Monster monster, List<Character> teammates = null, bool offerMonkEncounter = true)
+    public async Task<CombatResult> PlayerVsMonster(Character player, Monster monster, List<Character>? teammates = null, bool offerMonkEncounter = true)
     {
         // Redirect to new multi-monster method with single monster
         return await PlayerVsMonsters(player, new List<Monster> { monster }, teammates, offerMonkEncounter);
@@ -153,7 +153,7 @@ public partial class CombatEngine
     public async Task<CombatResult> PlayerVsMonsters(
         Character player,
         List<Monster> monsters,
-        List<Character> teammates = null,
+        List<Character>? teammates = null,
         bool offerMonkEncounter = true)
     {
         // Store player reference for combat speed setting
@@ -229,9 +229,16 @@ public partial class CombatEngine
                     terminal.WriteLine($"  - {teammate.DisplayName} (Level {teammate.Level})");
                 }
             }
+
+            // Show team combat hint for first time fighting with teammates
+            HintSystem.Instance.TryShowHint(HintSystem.HINT_TEAM_COMBAT, terminal, player.HintsShown);
         }
 
         terminal.WriteLine("");
+
+        // Show first combat hint for new players
+        HintSystem.Instance.TryShowHint(HintSystem.HINT_FIRST_COMBAT, terminal, player.HintsShown);
+
         await Task.Delay(GetCombatDelay(2000));
 
         result.CombatLog.Add($"Combat begins against {monsters.Count} monster(s)!");
@@ -436,7 +443,7 @@ public partial class CombatEngine
     /// Get player action - Pascal-compatible menu
     /// Based on shared_menu from PLCOMP.PAS
     /// </summary>
-    private async Task<CombatAction> GetPlayerAction(Character player, Monster monster, CombatResult result, Character pvpOpponent = null)
+    private async Task<CombatAction> GetPlayerAction(Character player, Monster monster, CombatResult result, Character? pvpOpponent = null)
     {
         // Apply status ticks before player chooses action
         player.ProcessStatusEffects();
@@ -923,7 +930,9 @@ public partial class CombatEngine
 
         if (target.ArmPow > 0)
         {
-            defense += random.Next(0, (int)target.ArmPow + 1);
+            // Guard against integer overflow when ArmPow is very large
+            int armPowMax = (int)Math.Min(target.ArmPow, int.MaxValue - 1);
+            defense += random.Next(0, armPowMax + 1);
         }
 
         long actualDamage = Math.Max(1, attackPower - defense);
@@ -1346,7 +1355,9 @@ public partial class CombatEngine
 
         if (player.ArmPow > 0)
         {
-            playerDefense += random.Next(0, (int)player.ArmPow + 1);
+            // Guard against integer overflow when ArmPow is very large
+            int armPowMax = (int)Math.Min(player.ArmPow, int.MaxValue - 1);
+            playerDefense += random.Next(0, armPowMax + 1);
         }
 
         playerDefense += blockBonus;
@@ -2421,8 +2432,8 @@ public partial class CombatEngine
             if (!monster.IsAlive) continue;
             monsterNum++;
 
-            // Calculate HP bar
-            double hpPercent = Math.Max(0, Math.Min(1.0, (double)monster.HP / monster.MaxHP));
+            // Calculate HP bar (guard against division by zero)
+            double hpPercent = Math.Max(0, Math.Min(1.0, (double)monster.HP / Math.Max(1, monster.MaxHP)));
             int barLength = 12;
             int filledBars = Math.Max(0, Math.Min(barLength, (int)(hpPercent * barLength)));
             int emptyBars = barLength - filledBars;
@@ -2453,8 +2464,8 @@ public partial class CombatEngine
         terminal.SetColor("bright_cyan");
         terminal.WriteLine("╠══════════════════════════════════════════════════════════╣");
 
-        // Show player status with enhanced display
-        double playerHpPercent = Math.Max(0, Math.Min(1.0, (double)player.HP / player.MaxHP));
+        // Show player status with enhanced display (guard against division by zero)
+        double playerHpPercent = Math.Max(0, Math.Min(1.0, (double)player.HP / Math.Max(1, player.MaxHP)));
         double playerMpPercent = player.MaxMana > 0 ? Math.Max(0, Math.Min(1.0, (double)player.Mana / player.MaxMana)) : 0;
 
         int hpBarLen = 15;
@@ -2741,7 +2752,7 @@ public partial class CombatEngine
     /// <summary>
     /// Apply damage to single monster and track if defeated
     /// </summary>
-    private async Task ApplySingleMonsterDamage(Monster target, long damage, CombatResult result, string damageSource = "attack", Character attacker = null)
+    private async Task ApplySingleMonsterDamage(Monster target, long damage, CombatResult result, string damageSource = "attack", Character? attacker = null)
     {
         if (target == null || !target.IsAlive) return;
 
@@ -4406,8 +4417,8 @@ public partial class CombatEngine
         terminal.SetColor("bright_green");
         terminal.WriteLine("Select heal target:");
 
-        // Self option
-        int playerHpPercent = (int)(100 * player.HP / player.MaxHP);
+        // Self option (guard against division by zero)
+        int playerHpPercent = player.MaxHP > 0 ? (int)(100 * player.HP / player.MaxHP) : 100;
         string playerHpColor = playerHpPercent < 25 ? "red" : playerHpPercent < 50 ? "yellow" : "green";
         terminal.SetColor(playerHpColor);
         terminal.WriteLine($"  [0] Self - HP: {player.HP}/{player.MaxHP} ({playerHpPercent}%)");
@@ -4416,7 +4427,7 @@ public partial class CombatEngine
         for (int i = 0; i < injuredAllies.Count; i++)
         {
             var ally = injuredAllies[i];
-            int hpPercent = (int)(100 * ally.HP / ally.MaxHP);
+            int hpPercent = ally.MaxHP > 0 ? (int)(100 * ally.HP / ally.MaxHP) : 100;
             string hpColor = hpPercent < 25 ? "red" : hpPercent < 50 ? "yellow" : "green";
             terminal.SetColor(hpColor);
             terminal.WriteLine($"  [{i + 1}] {ally.DisplayName} - HP: {ally.HP}/{ally.MaxHP} ({hpPercent}%)");
@@ -7043,7 +7054,9 @@ public partial class CombatEngine
         defense = (long)(defense * 1.25); // built-in accuracy penalty
         if (target.ArmPow > 0)
         {
-            defense += random.Next(0, (int)target.ArmPow + 1);
+            // Guard against integer overflow when ArmPow is very large
+            int armPowMax = (int)Math.Min(target.ArmPow, int.MaxValue - 1);
+            defense += random.Next(0, armPowMax + 1);
         }
 
         long damage = Math.Max(1, attackPower - defense);
@@ -7077,7 +7090,9 @@ public partial class CombatEngine
         defense = (long)(defense * 0.75);
         if (target.ArmPow > 0)
         {
-            defense += random.Next(0, (int)target.ArmPow + 1);
+            // Guard against integer overflow when ArmPow is very large
+            int armPowMax = (int)Math.Min(target.ArmPow, int.MaxValue - 1);
+            defense += random.Next(0, armPowMax + 1);
         }
 
         long damage = Math.Max(1, attackPower - defense);

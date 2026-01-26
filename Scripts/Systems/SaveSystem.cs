@@ -456,6 +456,9 @@ namespace UsurperRemake.Systems
         {
             return new PlayerData
             {
+                // Unique player identifier (critical for romance/family systems)
+                Id = player.ID ?? player.Name2 ?? player.Name1 ?? Guid.NewGuid().ToString(),
+
                 // Basic info
                 Name1 = player.Name1,
                 Name2 = player.Name2,
@@ -496,6 +499,7 @@ namespace UsurperRemake.Systems
                 
                 // Game state
                 CurrentLocation = player.Location.ToString(),
+                TurnCount = player.TurnCount,  // World simulation turn counter
                 TurnsRemaining = player.TurnsRemaining,
                 DaysInPrison = player.DaysInPrison,
                 CellDoorOpen = player.CellDoorOpen,
@@ -591,6 +595,9 @@ namespace UsurperRemake.Systems
                 BaseDefence = player.BaseDefence,
                 BaseStamina = player.BaseStamina,
                 BaseAgility = player.BaseAgility,
+
+                // Ruler status
+                King = player.King,
 
                 // Social/Team
                 Team = player.Team,
@@ -739,7 +746,10 @@ namespace UsurperRemake.Systems
                 ClearedSpecialFloors = player.ClearedSpecialFloors ?? new HashSet<int>(),
 
                 // Dungeon floor persistence
-                DungeonFloorStates = SerializeDungeonFloorStates(player)
+                DungeonFloorStates = SerializeDungeonFloorStates(player),
+
+                // Hint system - which hints have been shown
+                HintsShown = player.HintsShown ?? new HashSet<string>()
             };
         }
 

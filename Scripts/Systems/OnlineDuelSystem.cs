@@ -52,7 +52,7 @@ public class OnlineDuelSystem : Node
     /// <summary>
     /// Online duel main procedure - Pascal ONDUEL.PAS Online_Duel
     /// </summary>
-    public async Task<DuelResult> OnlineDuel(Character player, bool isChallenger, Character opponent = null)
+    public async Task<DuelResult> OnlineDuel(Character player, bool isChallenger, Character? opponent = null)
     {
         var result = new DuelResult
         {

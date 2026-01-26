@@ -56,8 +56,8 @@ public class Player : Character
     }
     
     // Add SaveData and LevelUpTracker stubs for compatibility
-    public object SaveData { get; set; } = null;
-    public object LevelUpTracker { get; set; } = null;
+    public object? SaveData { get; set; } = null;
+    public object? LevelUpTracker { get; set; } = null;
     
     public Player() : base()
     {

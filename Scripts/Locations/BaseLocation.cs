@@ -789,7 +789,17 @@ public abstract class BaseLocation
         terminal.SetColor("darkgray");
         terminal.Write("]");
         terminal.SetColor("white");
-        terminal.Write("Prefs");
+        terminal.Write("Prefs  ");
+
+        // Show slash commands hint
+        terminal.SetColor("darkgray");
+        terminal.Write("[");
+        terminal.SetColor("bright_magenta");
+        terminal.Write("/");
+        terminal.SetColor("darkgray");
+        terminal.Write("]");
+        terminal.SetColor("white");
+        terminal.Write("Cmds");
 
         terminal.WriteLine("");
         terminal.WriteLine("");
@@ -815,6 +825,12 @@ public abstract class BaseLocation
 
         var upperChoice = choice.ToUpper().Trim();
 
+        // Handle slash commands (works from any location)
+        if (choice.StartsWith("/"))
+        {
+            return await ProcessSlashCommand(choice.Substring(1).ToLower().Trim());
+        }
+
         switch (upperChoice)
         {
             case "*":
@@ -829,9 +845,271 @@ public abstract class BaseLocation
             case "TALK":
                 await TalkToNPC();
                 return (true, false);
+            case "?":
+            case "HELP":
+                await ShowQuickCommandsHelp();
+                return (true, false);
             default:
                 return (false, false);
         }
+    }
+
+    /// <summary>
+    /// Process slash commands like /stats, /quests, /time, etc.
+    /// </summary>
+    protected async Task<(bool handled, bool shouldExit)> ProcessSlashCommand(string command)
+    {
+        switch (command)
+        {
+            case "":
+            case "?":
+            case "help":
+            case "commands":
+                await ShowQuickCommandsHelp();
+                return (true, false);
+
+            case "s":
+            case "st":
+            case "stats":
+            case "status":
+                await ShowStatus();
+                return (true, false);
+
+            case "i":
+            case "inv":
+            case "inventory":
+                await ShowInventory();
+                return (true, false);
+
+            case "q":
+            case "quest":
+            case "quests":
+                await ShowActiveQuests();
+                return (true, false);
+
+            case "g":
+            case "gold":
+                await ShowGoldStatus();
+                return (true, false);
+
+            case "h":
+            case "hp":
+            case "health":
+                await ShowHealthStatus();
+                return (true, false);
+
+            case "p":
+            case "pref":
+            case "prefs":
+            case "preferences":
+                await ShowPreferencesMenu();
+                return (true, false);
+
+            default:
+                terminal.WriteLine("");
+                terminal.SetColor("red");
+                terminal.WriteLine($"  Unknown command: /{command}");
+                terminal.SetColor("gray");
+                terminal.WriteLine("  Type /help or just / for a list of commands.");
+                terminal.WriteLine("");
+                await terminal.PressAnyKey();
+                return (true, false);
+        }
+    }
+
+    /// <summary>
+    /// Show quick commands help
+    /// </summary>
+    protected async Task ShowQuickCommandsHelp()
+    {
+        terminal.WriteLine("");
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║                           QUICK COMMANDS                                     ║");
+        terminal.WriteLine("╠══════════════════════════════════════════════════════════════════════════════╣");
+        terminal.SetColor("white");
+        terminal.WriteLine("║  These commands work from any location:                                      ║");
+        terminal.WriteLine("║                                                                              ║");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("║  ");
+        terminal.SetColor("cyan");
+        terminal.Write("/stats    ");
+        terminal.SetColor("gray");
+        terminal.Write("or ");
+        terminal.SetColor("cyan");
+        terminal.Write("/s  ");
+        terminal.SetColor("white");
+        terminal.WriteLine(" - View your character stats                              ║");
+
+        terminal.SetColor("bright_yellow");
+        terminal.Write("║  ");
+        terminal.SetColor("cyan");
+        terminal.Write("/inventory");
+        terminal.SetColor("gray");
+        terminal.Write(" or ");
+        terminal.SetColor("cyan");
+        terminal.Write("/i  ");
+        terminal.SetColor("white");
+        terminal.WriteLine("- View your inventory                                    ║");
+
+        terminal.SetColor("bright_yellow");
+        terminal.Write("║  ");
+        terminal.SetColor("cyan");
+        terminal.Write("/quests   ");
+        terminal.SetColor("gray");
+        terminal.Write("or ");
+        terminal.SetColor("cyan");
+        terminal.Write("/q  ");
+        terminal.SetColor("white");
+        terminal.WriteLine("- View active quests                                     ║");
+
+        terminal.SetColor("bright_yellow");
+        terminal.Write("║  ");
+        terminal.SetColor("cyan");
+        terminal.Write("/gold     ");
+        terminal.SetColor("gray");
+        terminal.Write("or ");
+        terminal.SetColor("cyan");
+        terminal.Write("/g  ");
+        terminal.SetColor("white");
+        terminal.WriteLine("- Show gold and bank balance                             ║");
+
+        terminal.SetColor("bright_yellow");
+        terminal.Write("║  ");
+        terminal.SetColor("cyan");
+        terminal.Write("/health   ");
+        terminal.SetColor("gray");
+        terminal.Write("or ");
+        terminal.SetColor("cyan");
+        terminal.Write("/hp ");
+        terminal.SetColor("white");
+        terminal.WriteLine("- Show health and mana status                            ║");
+
+        terminal.SetColor("bright_yellow");
+        terminal.Write("║  ");
+        terminal.SetColor("cyan");
+        terminal.Write("/prefs    ");
+        terminal.SetColor("gray");
+        terminal.Write("or ");
+        terminal.SetColor("cyan");
+        terminal.Write("/p  ");
+        terminal.SetColor("white");
+        terminal.WriteLine("- Open preferences menu                                  ║");
+
+        terminal.SetColor("white");
+        terminal.WriteLine("║                                                                              ║");
+        terminal.WriteLine("║  Quick keys (single character):                                              ║");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("║  ");
+        terminal.SetColor("cyan");
+        terminal.Write("*  ");
+        terminal.SetColor("white");
+        terminal.WriteLine("- Inventory    ");
+        terminal.SetColor("cyan");
+        terminal.Write("~  ");
+        terminal.SetColor("white");
+        terminal.WriteLine("- Preferences    ");
+        terminal.SetColor("cyan");
+        terminal.Write("S  ");
+        terminal.SetColor("white");
+        terminal.WriteLine("- Status    ");
+        terminal.SetColor("cyan");
+        terminal.Write("?  ");
+        terminal.SetColor("white");
+        terminal.WriteLine("- This help          ║");
+
+        terminal.SetColor("bright_cyan");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+        terminal.WriteLine("");
+
+        await terminal.PressAnyKey();
+    }
+
+    /// <summary>
+    /// Show active quests summary
+    /// </summary>
+    protected virtual async Task ShowActiveQuests()
+    {
+        terminal.WriteLine("");
+        terminal.SetColor("bright_magenta");
+        terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+        terminal.WriteLine("║                           ACTIVE QUESTS                                      ║");
+        terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+
+        var playerName = currentPlayer?.Name2 ?? currentPlayer?.DisplayName ?? "";
+        var activeQuests = QuestSystem.GetActiveQuestsForPlayer(playerName);
+
+        if (activeQuests == null || activeQuests.Count == 0)
+        {
+            terminal.SetColor("gray");
+            terminal.WriteLine("  No active quests. Visit the Castle or talk to NPCs to find quests.");
+        }
+        else
+        {
+            foreach (var quest in activeQuests.Take(5)) // Show up to 5 quests
+            {
+                terminal.SetColor("bright_yellow");
+                terminal.Write($"  • {quest.Title ?? "Unknown Quest"}");
+                terminal.SetColor("gray");
+                terminal.WriteLine($" - {quest.GetTargetDescription()}");
+            }
+
+            if (activeQuests.Count > 5)
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine($"  ... and {activeQuests.Count - 5} more quests.");
+            }
+        }
+
+        terminal.WriteLine("");
+        await terminal.PressAnyKey();
+    }
+
+    /// <summary>
+    /// Show gold status
+    /// </summary>
+    protected async Task ShowGoldStatus()
+    {
+        terminal.WriteLine("");
+        terminal.SetColor("bright_yellow");
+        terminal.Write("  Gold on Hand: ");
+        terminal.SetColor("white");
+        terminal.WriteLine($"{currentPlayer?.Gold:N0}");
+
+        var bankBalance = currentPlayer?.BankGold ?? 0;
+        terminal.SetColor("bright_cyan");
+        terminal.Write("  Bank Balance: ");
+        terminal.SetColor("white");
+        terminal.WriteLine($"{bankBalance:N0}");
+
+        terminal.SetColor("gray");
+        terminal.Write("  Total Wealth: ");
+        terminal.SetColor("bright_green");
+        terminal.WriteLine($"{(currentPlayer?.Gold ?? 0) + bankBalance:N0}");
+        terminal.WriteLine("");
+        await terminal.PressAnyKey();
+    }
+
+    /// <summary>
+    /// Show health status
+    /// </summary>
+    protected async Task ShowHealthStatus()
+    {
+        terminal.WriteLine("");
+        int hpPercent = currentPlayer?.MaxHP > 0 ? (int)(100.0 * currentPlayer.CurrentHP / currentPlayer.MaxHP) : 0;
+        int mpPercent = currentPlayer?.MaxMana > 0 ? (int)(100.0 * currentPlayer.CurrentMana / currentPlayer.MaxMana) : 0;
+
+        terminal.SetColor("bright_red");
+        terminal.Write("  HP: ");
+        terminal.SetColor(hpPercent > 50 ? "bright_green" : hpPercent > 25 ? "yellow" : "red");
+        terminal.WriteLine($"{currentPlayer?.CurrentHP}/{currentPlayer?.MaxHP} ({hpPercent}%)");
+
+        terminal.SetColor("bright_blue");
+        terminal.Write("  MP: ");
+        terminal.SetColor(mpPercent > 50 ? "bright_cyan" : mpPercent > 25 ? "cyan" : "gray");
+        terminal.WriteLine($"{currentPlayer?.CurrentMana}/{currentPlayer?.MaxMana} ({mpPercent}%)");
+        terminal.WriteLine("");
+        await terminal.PressAnyKey();
     }
 
     /// <summary>

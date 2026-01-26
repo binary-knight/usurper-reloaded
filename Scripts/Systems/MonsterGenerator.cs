@@ -13,7 +13,7 @@ public static class MonsterGenerator
     /// Generate a monster for a specific dungeon level
     /// Uses monster families and balanced stat scaling
     /// </summary>
-    public static Monster GenerateMonster(int dungeonLevel, bool isBoss = false, Random random = null)
+    public static Monster GenerateMonster(int dungeonLevel, bool isBoss = false, Random? random = null)
     {
         random ??= new Random();
 
@@ -280,7 +280,7 @@ public static class MonsterGenerator
     /// Generate a group of monsters for an encounter
     /// Group size and composition based on dungeon level
     /// </summary>
-    public static List<Monster> GenerateMonsterGroup(int dungeonLevel, Random random = null)
+    public static List<Monster> GenerateMonsterGroup(int dungeonLevel, Random? random = null)
     {
         random ??= new Random();
         var monsters = new List<Monster>();

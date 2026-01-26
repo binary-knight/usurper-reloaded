@@ -92,7 +92,7 @@ public static class CombatMessages
     /// <summary>
     /// Generate player attack message
     /// </summary>
-    public static string GetPlayerAttackMessage(string targetName, long damage, long targetMaxHP, Random random = null)
+    public static string GetPlayerAttackMessage(string targetName, long damage, long targetMaxHP, Random? random = null)
     {
         random ??= new Random();
         var tier = GetDamageTier(damage, targetMaxHP);
@@ -112,7 +112,7 @@ public static class CombatMessages
     /// <summary>
     /// Generate ally/teammate/companion attack message
     /// </summary>
-    public static string GetAllyAttackMessage(string allyName, string targetName, long damage, long targetMaxHP, Random random = null)
+    public static string GetAllyAttackMessage(string allyName, string targetName, long damage, long targetMaxHP, Random? random = null)
     {
         random ??= new Random();
         var tier = GetDamageTier(damage, targetMaxHP);
@@ -144,7 +144,7 @@ public static class CombatMessages
     /// <summary>
     /// Generate monster attack message
     /// </summary>
-    public static string GetMonsterAttackMessage(string monsterName, string monsterColor, long damage, long playerMaxHP, Random random = null)
+    public static string GetMonsterAttackMessage(string monsterName, string monsterColor, long damage, long playerMaxHP, Random? random = null)
     {
         random ??= new Random();
         var tier = GetDamageTier(damage, playerMaxHP);

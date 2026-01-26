@@ -152,6 +152,9 @@ public class Character
     // Achievement tracking
     public PlayerAchievements Achievements { get; set; } = new PlayerAchievements();
 
+    // Hint system - tracks which contextual hints have been shown to this player
+    public HashSet<string> HintsShown { get; set; } = new HashSet<string>();
+
     // Battle temporary flags
     public bool Casted { get; set; }                // used in battles
     public long Punch { get; set; }                 // player punch, temporary

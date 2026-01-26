@@ -118,6 +118,9 @@ public class DungeonLocation : BaseLocation
         // Player can always enter - unaffordable allies simply stay behind
         await CheckAndPayEntryFees(player, term);
 
+        // Show contextual hint for new players on their first dungeon entry
+        HintSystem.Instance.TryShowHint(HintSystem.HINT_FIRST_DUNGEON, term, player.HintsShown);
+
         // Call base to enter the location loop
         await base.EnterLocation(player, term);
     }

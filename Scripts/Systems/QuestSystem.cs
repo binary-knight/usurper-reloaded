@@ -1120,7 +1120,7 @@ public partial class QuestSystem : Node
     /// </summary>
     private static void CreateStarterQuest(string title, string description, QuestTarget target,
         byte difficulty, int minLevel, int maxLevel,
-        (string name, int count)[] monsters = null, int floorTarget = 0)
+        (string name, int count)[]? monsters = null, int floorTarget = 0)
     {
         var quest = new Quest
         {

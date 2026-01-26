@@ -127,7 +127,7 @@ public partial class MemorySystem
             .ToList();
     }
     
-    public bool HasMemoryOfEvent(MemoryType type, string characterId = null, int hoursAgo = 24)
+    public bool HasMemoryOfEvent(MemoryType type, string? characterId = null, int hoursAgo = 24)
     {
         var cutoff = DateTime.Now.AddHours(-hoursAgo);
         

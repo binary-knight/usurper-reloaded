@@ -576,9 +576,10 @@ public class AdvancedMagicShopLocation : BaseLocation
         {
             // Complete sale
             player.Gold += sellPrice;
+            player.Statistics.RecordSale(sellPrice);  // Track sale in statistics
             player.Item[itemIndex] = 0;
             player.ItemType[itemIndex] = ObjType.Head; // Reset to default
-            
+
             terminal.WriteLine($"\n{GameConfig.SuccessColor}You sold the {itemDetails.Name}!{GameConfig.TextColor}");
             terminal.WriteLine($"You now have {GameConfig.GoldColor}{player.Gold:N0}{GameConfig.TextColor} gold.");
         }

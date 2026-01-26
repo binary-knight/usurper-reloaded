@@ -115,6 +115,9 @@ namespace UsurperRemake.Systems
     /// </summary>
     public class PlayerData
     {
+        // Unique player identifier (critical for romance/family systems)
+        public string Id { get; set; } = "";
+
         // Basic info
         public string Name1 { get; set; } = "";
         public string Name2 { get; set; } = "";
@@ -155,7 +158,8 @@ namespace UsurperRemake.Systems
         
         // Game state
         public string CurrentLocation { get; set; } = "";
-        public int TurnsRemaining { get; set; }
+        public int TurnCount { get; set; }  // World simulation turn counter (counts up from 0)
+        public int TurnsRemaining { get; set; }  // Legacy: now just stores manual override
         public int DaysInPrison { get; set; }
         public bool CellDoorOpen { get; set; }  // Has been rescued
         public string RescuedBy { get; set; } = "";  // Name of rescuer
@@ -201,6 +205,9 @@ namespace UsurperRemake.Systems
         public long BaseDefence { get; set; }
         public long BaseStamina { get; set; }
         public long BaseAgility { get; set; }
+
+        // Ruler status
+        public bool King { get; set; }  // Is the player the current ruler?
 
         // Social/Team
         public string Team { get; set; } = "";
@@ -346,6 +353,9 @@ namespace UsurperRemake.Systems
 
         // Dungeon floor persistence - tracks room state, respawn timers, etc.
         public Dictionary<int, DungeonFloorStateData> DungeonFloorStates { get; set; } = new();
+
+        // Hint system - tracks which contextual hints have been shown to the player
+        public HashSet<string> HintsShown { get; set; } = new();
     }
 
     /// <summary>
@@ -1140,6 +1150,8 @@ namespace UsurperRemake.Systems
     {
         public string Name1 { get; set; } = "";  // First character name
         public string Name2 { get; set; } = "";  // Second character name
+        public string IdTag1 { get; set; } = ""; // First character unique ID
+        public string IdTag2 { get; set; } = ""; // Second character unique ID
         public int Relation1 { get; set; }       // Character 1's relation to Character 2
         public int Relation2 { get; set; }       // Character 2's relation to Character 1
         public int MarriedDays { get; set; }     // Days married (0 if not married)

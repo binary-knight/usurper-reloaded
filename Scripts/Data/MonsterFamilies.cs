@@ -305,7 +305,7 @@ public static class MonsterFamilies
     /// <summary>
     /// Get appropriate monster tier for a given level
     /// </summary>
-    public static (MonsterFamily family, MonsterTier tier) GetMonsterForLevel(int level, Random random = null)
+    public static (MonsterFamily family, MonsterTier tier) GetMonsterForLevel(int level, Random? random = null)
     {
         random ??= new Random();
 

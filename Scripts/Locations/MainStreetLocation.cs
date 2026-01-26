@@ -83,6 +83,15 @@ public class MainStreetLocation : BaseLocation
 
         // Status line
         ShowStatusLine();
+
+        // Show contextual hints for new players
+        HintSystem.Instance.TryShowHint(HintSystem.HINT_MAIN_STREET_NAVIGATION, terminal, currentPlayer.HintsShown);
+
+        // Show low HP hint if player is below 25% health
+        if (currentPlayer.HP < currentPlayer.MaxHP * 0.25)
+        {
+            HintSystem.Instance.TryShowHint(HintSystem.HINT_LOW_HP, terminal, currentPlayer.HintsShown);
+        }
     }
 
     /// <summary>
@@ -290,16 +299,7 @@ public class MainStreetLocation : BaseLocation
         terminal.SetColor("darkgray");
         terminal.Write("]");
         terminal.SetColor("white");
-        terminal.Write("hallenges   ");
-
-        terminal.SetColor("darkgray");
-        terminal.Write("[");
-        terminal.SetColor("magenta");
-        terminal.Write("Z");
-        terminal.SetColor("darkgray");
-        terminal.Write("]");
-        terminal.SetColor("white");
-        terminal.WriteLine("Team Area");
+        terminal.WriteLine("hallenges");
 
         terminal.WriteLine("");
 
@@ -555,10 +555,8 @@ public class MainStreetLocation : BaseLocation
                 await ShowWorldEvents();
                 return false;
                 
-            case "Z":
-                await NavigateToTeamCorner();
-                return true;
-                
+            // Team Area removed from Main Street - access via Inn only
+
             // List Citizens removed - merged into Fame (F) which now shows locations
             // case "L":
             //     await ListCharacters();
@@ -1357,8 +1355,89 @@ public class MainStreetLocation : BaseLocation
 
     private async Task QuitGame()
     {
+        terminal.ClearScreen();
+
+        // Display session summary
+        if (currentPlayer?.Statistics != null)
+        {
+            var summary = currentPlayer.Statistics.GetSessionSummary();
+
+            terminal.SetColor("bright_cyan");
+            terminal.WriteLine("╔══════════════════════════════════════════════════════════════════════════════╗");
+            terminal.WriteLine("║                           SESSION SUMMARY                                    ║");
+            terminal.WriteLine("╚══════════════════════════════════════════════════════════════════════════════╝");
+            terminal.WriteLine("");
+
+            // Session duration
+            terminal.SetColor("white");
+            terminal.Write("  Session Duration: ");
+            terminal.SetColor("bright_yellow");
+            if (summary.Duration.TotalHours >= 1)
+                terminal.WriteLine($"{(int)summary.Duration.TotalHours}h {summary.Duration.Minutes}m");
+            else
+                terminal.WriteLine($"{summary.Duration.Minutes}m {summary.Duration.Seconds}s");
+
+            terminal.WriteLine("");
+            terminal.SetColor("gray");
+            terminal.WriteLine("  ─────────────────────────────────────────────────────────");
+            terminal.WriteLine("");
+
+            // Combat stats
+            terminal.SetColor("bright_red");
+            terminal.Write("  Monsters Slain: ");
+            terminal.SetColor("white");
+            terminal.WriteLine($"{summary.MonstersKilled:N0}");
+
+            terminal.SetColor("bright_red");
+            terminal.Write("  Damage Dealt:   ");
+            terminal.SetColor("white");
+            terminal.WriteLine($"{summary.DamageDealt:N0}");
+
+            // Progress stats
+            if (summary.LevelsGained > 0)
+            {
+                terminal.SetColor("bright_green");
+                terminal.Write("  Levels Gained:  ");
+                terminal.SetColor("white");
+                terminal.WriteLine($"+{summary.LevelsGained}");
+            }
+
+            terminal.SetColor("bright_magenta");
+            terminal.Write("  XP Earned:      ");
+            terminal.SetColor("white");
+            terminal.WriteLine($"{summary.ExperienceGained:N0}");
+
+            // Economy stats
+            terminal.SetColor("bright_yellow");
+            terminal.Write("  Gold Earned:    ");
+            terminal.SetColor("white");
+            terminal.WriteLine($"{summary.GoldEarned:N0}");
+
+            if (summary.ItemsBought > 0 || summary.ItemsSold > 0)
+            {
+                terminal.SetColor("cyan");
+                terminal.Write("  Items Traded:   ");
+                terminal.SetColor("white");
+                terminal.WriteLine($"{summary.ItemsBought} bought, {summary.ItemsSold} sold");
+            }
+
+            // Exploration
+            if (summary.RoomsExplored > 0)
+            {
+                terminal.SetColor("bright_blue");
+                terminal.Write("  Rooms Explored: ");
+                terminal.SetColor("white");
+                terminal.WriteLine($"{summary.RoomsExplored:N0}");
+            }
+
+            terminal.WriteLine("");
+            terminal.SetColor("gray");
+            terminal.WriteLine("  ─────────────────────────────────────────────────────────");
+            terminal.WriteLine("");
+        }
+
         terminal.SetColor("yellow");
-        terminal.WriteLine("Saving your progress...");
+        terminal.WriteLine("  Saving your progress...");
 
         // Track session end telemetry
         if (currentPlayer != null)
@@ -1376,8 +1455,12 @@ public class MainStreetLocation : BaseLocation
         await GameEngine.Instance.SaveCurrentGame();
 
         terminal.WriteLine("");
-        terminal.WriteLine("Thanks for playing Usurper Reborn!");
-        await Task.Delay(2000);
+        terminal.SetColor("bright_green");
+        terminal.WriteLine("  Thanks for playing Usurper Reborn!");
+        terminal.SetColor("gray");
+        terminal.WriteLine("");
+        terminal.WriteLine("  Press any key to exit...");
+        await terminal.PressAnyKey();
 
         // Signal game should quit
         throw new LocationExitException(GameLocation.NoWhere);

@@ -205,6 +205,8 @@ namespace UsurperRemake.Systems
             // Create NPC from child
             var npc = new NPC
             {
+                // Assign unique ID (critical for relationship/family tracking)
+                ID = $"npc_{child.Name.ToLower().Replace(" ", "_")}_{Guid.NewGuid().ToString("N").Substring(0, 8)}",
                 Name1 = child.Name,
                 Name2 = child.Name,
                 Sex = child.Sex,

@@ -771,7 +771,7 @@ public class NPCBrain
         return null;
     }
     
-    public void RecordInteraction(Character other, InteractionType type, Dictionary<string, object> details = null)
+    public void RecordInteraction(Character other, InteractionType type, Dictionary<string, object>? details = null)
     {
         // Record the interaction in memory
         var importance = CalculateInteractionImportance(type);
@@ -949,7 +949,7 @@ public partial class WorldState
     public bool InCombat { get; set; }
     public Character[] NearbyCharacters { get; set; }
     
-    public WorldState(List<NPC> worldNPCs = null)
+    public WorldState(List<NPC>? worldNPCs = null)
     {
         npcs = worldNPCs ?? new List<NPC>();
     }

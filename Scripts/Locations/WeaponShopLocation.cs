@@ -203,6 +203,9 @@ public class WeaponShopLocation : BaseLocation
         terminal.SetColor("red");
         terminal.WriteLine("eturn to street");
         terminal.WriteLine("");
+
+        // Show first shop hint for new players
+        HintSystem.Instance.TryShowHint(HintSystem.HINT_FIRST_SHOP, terminal, currentPlayer.HintsShown);
     }
 
     private void ShowCurrentWeapons()
@@ -923,6 +926,7 @@ public class WeaponShopLocation : BaseLocation
             }
 
             currentPlayer.Gold += price;
+            currentPlayer.Statistics.RecordSale(price);  // Track sale in statistics
             currentPlayer.RecalculateStats();
 
             // Track shop sale telemetry
