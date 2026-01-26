@@ -143,8 +143,26 @@ public partial class GameEngine : Node
     {
         InitializeGame();
 
+        // Start version check in background while splash screen shows
+        var versionCheckTask = UsurperRemake.Systems.VersionChecker.Instance.CheckForUpdatesAsync();
+
         // Show splash screen (the colorful USURPER REBORN title)
         await UsurperRemake.UI.SplashScreen.Show(terminal);
+
+        // Wait for version check to complete (should be done by now)
+        await versionCheckTask;
+
+        // Show update notification if new version available
+        if (UsurperRemake.Systems.VersionChecker.Instance.NewVersionAvailable)
+        {
+            await UsurperRemake.Systems.VersionChecker.Instance.DisplayUpdateNotification(terminal);
+            var shouldExit = await UsurperRemake.Systems.VersionChecker.Instance.PromptAndInstallUpdate(terminal);
+            if (shouldExit)
+            {
+                // Exit the game so the updater can replace files
+                Environment.Exit(0);
+            }
+        }
 
         // Go directly to main menu (skip the redundant title screen)
         await MainMenu();

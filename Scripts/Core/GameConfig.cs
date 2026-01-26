@@ -10,8 +10,8 @@ using System.Collections.Generic;
 public static partial class GameConfig
 {
     // Version information
-    public const string Version = "0.12.0-alpha";
-    public const string VersionName = "Debug Logging & Stability";
+    public const string Version = "0.13.0-alpha";
+    public const string VersionName = "Auto-Update System";
 
     // From Pascal global_maxXX constants
     public const int MaxPlayers = 400;           // global_maxplayers

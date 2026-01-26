@@ -1,6 +1,6 @@
 # Usurper Reborn
 
-## ALPHA v0.12 - Debug Logging & Stability Update
+## ALPHA v0.13 - Auto-Update System
 
 **FREE AND OPEN SOURCE SOFTWARE - GPL v2 Licensed**
 
