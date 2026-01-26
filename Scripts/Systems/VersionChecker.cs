@@ -180,7 +180,14 @@ namespace UsurperRemake.Systems
                 if (cache == null)
                     return false;
 
-                // Check if cache is still valid
+                // Invalidate cache if our version changed (e.g., user updated the game)
+                if (cache.CurrentVersion != CurrentVersion)
+                {
+                    DebugLogger.Instance.LogDebug("UPDATE", $"Cache invalidated - version changed from {cache.CurrentVersion} to {CurrentVersion}");
+                    return false;
+                }
+
+                // Check if cache is still valid (within time window)
                 if (DateTime.Now - cache.LastCheck < TimeSpan.FromHours(CacheHours))
                 {
                     // Restore cached results
@@ -208,6 +215,7 @@ namespace UsurperRemake.Systems
                 var cache = new VersionCache
                 {
                     LastCheck = DateTime.Now,
+                    CurrentVersion = CurrentVersion,  // Store our version to detect upgrades/downgrades
                     LatestVersion = LatestVersion,
                     NewVersionAvailable = NewVersionAvailable,
                     ReleaseUrl = ReleaseUrl
@@ -230,6 +238,9 @@ namespace UsurperRemake.Systems
             if (!NewVersionAvailable)
                 return;
 
+            // Check if running in BBS door mode
+            bool isBBSMode = UsurperRemake.BBS.DoorMode.IsInDoorMode;
+
             terminal.WriteLine("");
             terminal.SetColor("bright_yellow");
             terminal.WriteLine("╔════════════════════════════════════════════════════════════════════════════╗");
@@ -242,32 +253,50 @@ namespace UsurperRemake.Systems
             terminal.WriteLine($"  Latest version:  {LatestVersion}");
             terminal.SetColor("white");
             terminal.WriteLine("");
-            terminal.WriteLine("  Download the latest version at:");
-            terminal.SetColor("cyan");
-            terminal.WriteLine($"  {ReleaseUrl}");
-            terminal.SetColor("white");
-            terminal.WriteLine("");
 
-            // Show brief release notes if available
-            if (!string.IsNullOrEmpty(ReleaseNotes))
+            if (isBBSMode)
             {
+                // In BBS mode, tell the player to notify their sysop
+                terminal.SetColor("cyan");
+                terminal.WriteLine("  A newer version of Usurper Reborn is available!");
+                terminal.WriteLine("  Please notify your SysOp to update the game.");
                 terminal.SetColor("gray");
-                var notes = ReleaseNotes.Length > 200
-                    ? ReleaseNotes.Substring(0, 200) + "..."
-                    : ReleaseNotes;
-                // Clean up markdown and show first few lines
-                notes = notes.Replace("#", "").Replace("*", "").Replace("\r", "");
-                var lines = notes.Split('\n');
-                terminal.WriteLine("  Release notes:");
-                for (int i = 0; i < Math.Min(lines.Length, 3); i++)
-                {
-                    if (!string.IsNullOrWhiteSpace(lines[i]))
-                        terminal.WriteLine($"    {lines[i].Trim()}");
-                }
+                terminal.WriteLine("");
+                terminal.WriteLine("  SysOp: Download the latest version at:");
+                terminal.SetColor("cyan");
+                terminal.WriteLine($"  {ReleaseUrl}");
+                terminal.SetColor("white");
+            }
+            else
+            {
+                terminal.WriteLine("  Download the latest version at:");
+                terminal.SetColor("cyan");
+                terminal.WriteLine($"  {ReleaseUrl}");
                 terminal.SetColor("white");
                 terminal.WriteLine("");
+
+                // Show brief release notes if available (only for non-BBS mode)
+                if (!string.IsNullOrEmpty(ReleaseNotes))
+                {
+                    terminal.SetColor("gray");
+                    var notes = ReleaseNotes.Length > 200
+                        ? ReleaseNotes.Substring(0, 200) + "..."
+                        : ReleaseNotes;
+                    // Clean up markdown and show first few lines
+                    notes = notes.Replace("#", "").Replace("*", "").Replace("\r", "");
+                    var lines = notes.Split('\n');
+                    terminal.WriteLine("  Release notes:");
+                    for (int i = 0; i < Math.Min(lines.Length, 3); i++)
+                    {
+                        if (!string.IsNullOrWhiteSpace(lines[i]))
+                            terminal.WriteLine($"    {lines[i].Trim()}");
+                    }
+                    terminal.SetColor("white");
+                    terminal.WriteLine("");
+                }
             }
 
+            terminal.WriteLine("");
             terminal.SetColor("yellow");
             terminal.Write("  Press any key to continue...");
             terminal.SetColor("white");
@@ -623,6 +652,13 @@ rm -rf ""{tempDir}""
         /// </summary>
         public async Task<bool> PromptAndInstallUpdate(TerminalEmulator terminal)
         {
+            // In BBS mode, never offer auto-update - sysop must update manually
+            if (UsurperRemake.BBS.DoorMode.IsInDoorMode)
+            {
+                DebugLogger.Instance.LogDebug("UPDATE", "Auto-update skipped - running in BBS door mode");
+                return false;
+            }
+
             if (!CanAutoUpdate())
             {
                 // Fall back to browser-based update
@@ -724,6 +760,7 @@ rm -rf ""{tempDir}""
         private class VersionCache
         {
             public DateTime LastCheck { get; set; }
+            public string? CurrentVersion { get; set; }  // The version we were running when we cached
             public string? LatestVersion { get; set; }
             public bool NewVersionAvailable { get; set; }
             public string? ReleaseUrl { get; set; }
