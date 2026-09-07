@@ -1440,9 +1440,16 @@ public class BankLocation : BaseLocation
             // deposit-rob-redeposit exploit (player was stealing their own money back endlessly)
             // v1.2: the take is decided inside the vault's atomic update, so a second robber
             // gets the reduced remainder and the robber is credited exactly what was removed.
-            long stolenGold = await BankVaultSystem.Rob(currentPlayer.BankGold);
+            var (stolenGold, vaultLanded) = await BankVaultSystem.Rob(currentPlayer.BankGold);
 
-            if (stolenGold <= 0)
+            if (!vaultLanded)
+            {
+                // The shared vault was being emptied by someone else at the same moment.
+                terminal.WriteLine("");
+                terminal.SetColor("red");
+                terminal.WriteLine(Loc.Get("bank.rob_vault_disturbed"));
+            }
+            else if (stolenGold <= 0)
             {
                 // Nothing to steal — vault only contains the robber's own gold
                 terminal.WriteLine("");

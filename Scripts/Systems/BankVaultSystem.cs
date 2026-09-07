@@ -78,15 +78,17 @@ public static class BankVaultSystem
     /// deposits, capped. Returns the amount actually removed, which is what the robber is
     /// credited; a second robber arriving first gets the reduced remainder, never a stale copy.
     /// </summary>
-    public static async Task<long> Rob(long robberOwnBankGold)
+    public static async Task<(long Stolen, bool Landed)> Rob(long robberOwnBankGold)
     {
         long stolen = 0;
-        await Mutate(v =>
+        bool landed = await Mutate(v =>
         {
             stolen = RobberyTake(v, robberOwnBankGold);
             return Math.Max(0, v - stolen);
-        });
-        return stolen;
+        }, fallbackToCache: false);
+        // A robber who has not been paid is not short: if the shared row lost the race three
+        // times, nothing was removed from it, so nothing is credited.
+        return landed ? (stolen, true) : (0, false);
     }
 
     public static long RobberyTake(long reserve, long robberOwnBankGold)
@@ -102,13 +104,20 @@ public static class BankVaultSystem
         return Math.Min(grown, GameConfig.BankVaultCap);
     });
 
-    private static async Task Mutate(Func<long, long> f)
+    /// <summary>
+    /// Apply <paramref name="f"/> to the reserve. Returns true when the shared row (or the
+    /// single-player value) took the change. With <paramref name="fallbackToCache"/>, a change
+    /// that lost the race three times is applied to the cached copy instead and true is
+    /// returned: right for deposits, withdrawals and the refill, where the player's own gold
+    /// has already moved and the reserve is an aggregate that is re-read on the next entry.
+    /// </summary>
+    private static async Task<bool> Mutate(Func<long, long> f, bool fallbackToCache = true)
     {
         var store = Store;
         if (store == null)
         {
             _reserve = f(_reserve);
-            return;
+            return true;
         }
         for (int attempt = 0; attempt < 3; attempt++)
         {
@@ -130,14 +139,17 @@ public static class BankVaultSystem
             if (ok)
             {
                 _reserve = written;
-                return;
+                return true;
             }
         }
-        // Contention three times running: the gold has already moved for the player, so apply
-        // the change to the cached copy rather than leave the player short; the next refresh
-        // re-reads the shared row.
+        if (!fallbackToCache)
+        {
+            DebugLogger.Instance.LogWarning("BANK", "Vault update lost the race three times; the change was not applied");
+            return false;
+        }
         DebugLogger.Instance.LogWarning("BANK", "Vault update lost the race three times; applied to the cached reserve only");
         _reserve = f(_reserve);
+        return true;
     }
 
     private static long Parse(string? json) =>

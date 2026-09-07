@@ -21,13 +21,14 @@ public class BankVaultTests : IDisposable
     {
         public string? Value;
         public int FailFirst;
+        public bool FailAlways;
         public int Attempts;
         public Task<string?> Load(string key) => Task.FromResult(Value);
         public Task<bool> TryAtomicUpdate(string key, Func<string, string> transform)
         {
             Attempts++;
             var next = transform(Value ?? "");
-            if (FailFirst-- > 0) return Task.FromResult(false);
+            if (FailAlways || FailFirst-- > 0) return Task.FromResult(false);
             Value = next;
             return Task.FromResult(true);
         }
@@ -74,8 +75,9 @@ public class BankVaultTests : IDisposable
     {
         var store = new FakeStore { Value = "150000" };
         BankVaultSystem.StoreOverride = store;
-        long first = await BankVaultSystem.Rob(0);
-        long second = await BankVaultSystem.Rob(0);
+        var (first, firstLanded) = await BankVaultSystem.Rob(0);
+        var (second, secondLanded) = await BankVaultSystem.Rob(0);
+        firstLanded.Should().BeTrue(); secondLanded.Should().BeTrue();
         first.Should().Be(37_500);
         second.Should().Be(28_125, "the second robber sees the reduced reserve, not a stale copy");
         store.Value.Should().Be("84375");
@@ -90,6 +92,29 @@ public class BankVaultTests : IDisposable
         await BankVaultSystem.Deposit(1);
         store.Attempts.Should().Be(2);
         store.Value.Should().Be("500001", "one deposit lands once");
+    }
+
+    [Fact]
+    public async Task Online_RobberyThatNeverLands_PaysNothing()
+    {
+        var store = new FakeStore { Value = "1000000", FailAlways = true };
+        BankVaultSystem.StoreOverride = store;
+        var (stolen, landed) = await BankVaultSystem.Rob(0);
+        landed.Should().BeFalse();
+        stolen.Should().Be(0, "a robber who was not paid is not short, and the vault paid nobody");
+        store.Value.Should().Be("1000000", "the row is untouched");
+        store.Attempts.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task Online_DepositThatNeverLands_AppliesToTheCache()
+    {
+        var store = new FakeStore { Value = "500000", FailAlways = true };
+        BankVaultSystem.StoreOverride = store;
+        await BankVaultSystem.Refresh();
+        await BankVaultSystem.Deposit(10);
+        store.Value.Should().Be("500000", "the row could not be written");
+        BankVaultSystem.Current.Should().Be(500_010, "the player's gold already moved, so the cached aggregate follows");
     }
 
     [Fact]
