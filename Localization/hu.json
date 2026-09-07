@@ -9849,7 +9849,7 @@
   "intimacy.afterglow.amazing_l1": "\"Ez csodálatos volt,\" - mondod, megcsókolva a feje tetejét.",
   "intimacy.afterglow.amazing_l2": "{0} vigyorogva néz fel rád.",
   "intimacy.afterglow.amazing_l3": "\"Hízelgő. De engedem.\"",
-  "intimacy.afterglow.silent_l1": "Nincs szükség szavakra. Közel ölelve tartod őt,",
+  "intimacy.afterglow.silent_l1": "Nincs szükség szavakra. {0}, közel ölelve tartod őt,",
   "intimacy.afterglow.silent_l2": "hagyod, hogy a szívverésed mindent elmondjon.",
   "intimacy.afterglow.silent_l3": "Elégedetten felsóhajt, és mindketten megpihentek.",
   "_comment_stranger_encounters": "=== Idegen találkozások párbeszéde (v0.61.2 lokalizáció) ===",

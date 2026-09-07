@@ -79,6 +79,95 @@ namespace UsurperRemake.Tests
             }
         }
 
+        // v1.2 (issue E of DOCS/DESIGN_1.2_OPEN_ISSUES.md): placeholders a translation may
+        // omit. IntimacySystem fills these positions with pronoun helpers (gender, genderCap,
+        // their, theirCap, them, babyPronoun) that resolve to the deliberately empty
+        // ui.pronoun_* keys in the four pro-drop languages, so dropping them is correct. A
+        // position that carries a name is never listed. The love_street entry is the
+        // English plural suffix, which Hungarian forms inside the word. Add here ONLY after
+        // reading the caller and naming the argument in a comment.
+        private static readonly Dictionary<string, HashSet<string>> OptionalPlaceholders = new()
+        {
+            { "intimacy.afterglow.amazing_l1", new HashSet<string> { "{0}" } },
+            { "intimacy.afterglow.casual_l1", new HashSet<string> { "{0}", "{1}" } },
+            { "intimacy.afterglow.casual_l2", new HashSet<string> { "{0}" } },
+            { "intimacy.afterglow.lover_l1", new HashSet<string> { "{0}" } },
+            { "intimacy.afterglow.silent_l3", new HashSet<string> { "{0}" } },
+            { "intimacy.afterglow.spouse_l1", new HashSet<string> { "{0}" } },
+            { "intimacy.afterglow.stay_l1", new HashSet<string> { "{0}" } },
+            { "intimacy.anticipation.passive_l2", new HashSet<string> { "{0}" } },
+            { "intimacy.anticipation.passive_l3", new HashSet<string> { "{0}" } },
+            { "intimacy.anticipation.passive_l4", new HashSet<string> { "{0}" } },
+            { "intimacy.anticipation.slow_l1", new HashSet<string> { "{0}" } },
+            { "intimacy.anticipation.slow_l2", new HashSet<string> { "{0}" } },
+            { "intimacy.anticipation.slow_l4", new HashSet<string> { "{0}" } },
+            { "intimacy.anticipation.slow_l5", new HashSet<string> { "{0}" } },
+            { "intimacy.anticipation.urgent_l2", new HashSet<string> { "{0}" } },
+            { "intimacy.anticipation.urgent_l3", new HashSet<string> { "{0}", "{1}" } },
+            { "intimacy.anticipation.urgent_l5", new HashSet<string> { "{0}" } },
+            { "intimacy.climax.crest_l2", new HashSet<string> { "{0}" } },
+            { "intimacy.climax.loud_l2", new HashSet<string> { "{0}" } },
+            { "intimacy.climax.soft_l2", new HashSet<string> { "{0}", "{1}" } },
+            { "intimacy.escalation.neutral_l1", new HashSet<string> { "{0}" } },
+            { "intimacy.escalation.passion_l1", new HashSet<string> { "{0}" } },
+            { "intimacy.escalation.passion_l3", new HashSet<string> { "{0}" } },
+            { "intimacy.escalation.tender_l1", new HashSet<string> { "{0}" } },
+            { "intimacy.escalation.tender_l2", new HashSet<string> { "{0}" } },
+            { "intimacy.escalation.tender_l3", new HashSet<string> { "{0}" } },
+            { "intimacy.escalation.whisper_beautiful_l1", new HashSet<string> { "{0}" } },
+            { "intimacy.escalation.whisper_beautiful_l3", new HashSet<string> { "{0}" } },
+            { "intimacy.escalation.whisper_need_l3", new HashSet<string> { "{0}" } },
+            { "intimacy.escalation.whisper_tell_l1", new HashSet<string> { "{0}" } },
+            { "intimacy.escalation.whisper_tell_l3", new HashSet<string> { "{0}" } },
+            { "intimacy.exploration.body_default", new HashSet<string> { "{0}" } },
+            { "intimacy.exploration.body_dwarf", new HashSet<string> { "{0}" } },
+            { "intimacy.exploration.body_elf", new HashSet<string> { "{0}" } },
+            { "intimacy.exploration.body_hobbit", new HashSet<string> { "{0}" } },
+            { "intimacy.exploration.body_orc", new HashSet<string> { "{0}" } },
+            { "intimacy.exploration.kiss_first_l2", new HashSet<string> { "{0}" } },
+            { "intimacy.exploration.undress_shy_l1", new HashSet<string> { "{0}", "{1}" } },
+            { "intimacy.anticipation.slow_l3", new HashSet<string> { "{1}" } },
+            { "intimacy.escalation.explore_intro", new HashSet<string> { "{1}" } },
+            { "intimacy.escalation.whisper_need_l2", new HashSet<string> { "{1}" } },
+            { "intimacy.name_prompt", new HashSet<string> { "{0}" } },
+            { "love_street.potion_forget_effect", new HashSet<string> { "{1}" } },
+        };
+
+        [Fact]
+        public void Translations_KeepEveryMandatoryPlaceholder()
+        {
+            // The silent direction: a translation that drops {0} where English carries a
+            // name renders the scene without the partner (es/hu afterglow.silent_l1, fixed
+            // 2026-09-07). Pronoun positions are exempt through OptionalPlaceholders.
+            var en = Load("en");
+            foreach (var lang in TargetLangs)
+            {
+                var d = Load(lang);
+                var bad = new List<string>();
+                foreach (var (k, v) in en)
+                {
+                    if (!IsRealKey(k) || !d.TryGetValue(k, out var t)) continue;
+                    var optional = OptionalPlaceholders.TryGetValue(k, out var o) ? o : new HashSet<string>();
+                    var missing = Args(v).Except(Args(t)).Except(optional).ToList();
+                    if (missing.Count > 0) bad.Add($"{k} ({string.Join(",", missing)})");
+                }
+                Assert.True(bad.Count == 0,
+                    $"{lang}.json drops placeholders English carries: {string.Join("; ", bad.Take(8))}");
+            }
+        }
+
+        [Fact]
+        public void OptionalPlaceholders_OnlyNameLiveKeysAndPositions()
+        {
+            var en = Load("en");
+            foreach (var (k, positions) in OptionalPlaceholders)
+            {
+                Assert.True(en.ContainsKey(k), $"OptionalPlaceholders lists a key en.json no longer has: {k}");
+                var stale = positions.Except(Args(en[k])).ToList();
+                Assert.True(stale.Count == 0, $"OptionalPlaceholders lists positions {k} no longer carries: {string.Join(",", stale)}");
+            }
+        }
+
         [Fact]
         public void Translations_NeverReferenceArgsEnglishLacks()
         {
