@@ -1,0 +1,39 @@
+[h1]Usurper Reborn 1.1.2 - The Open Issues[/h1]
+
+After the bug pass I had a short list of things that needed a design, not a patch, plus the oldest requests on the tracker. Each one got designed twice, by two different reviewers, and checked against the code before I built it. Seven of the eight are in. The eighth, the Player District, is big enough to be its own release and is designed.
+
+[h2]Groups[/h2]
+
+[list]
+[*]A grouped player who dies now dies properly: the same resurrection and permadeath rules as a solo death, then the Temple. Before, they were only pulled out of the fight and hit with the wrong penalty at their next login.
+[*]Followers get their own ability cooldowns instead of sharing the leader's.
+[/list]
+
+[h2]Town[/h2]
+
+[list]
+[*]Haggling has a way in. The weapon and armor shops offer [H]aggle on the buy prompt. Offer at least 80 percent of the price, within your Charisma tier, three tries per shop per day. Push your luck with none left and you may be thrown out until tomorrow. Tax is charged on the agreed price.
+[*]The bank vault is real. It used to be one number for the whole server that reset to 500,000 every restart. It is now one reserve per world that persists, two robbers cannot both take the same gold, and your own deposits are insured against everyone else's robberies.
+[/list]
+
+[h2]Relationships[/h2]
+
+[list]
+[*]Neglect matters, but only the days you actually played count. Every seven days you were here without talking to someone who likes you, they cool a step, down to neutral and never further. A spouse stays married but their love wanes after a week's grace, and they will say so at the door. A month away costs nothing. Any contact resets the clock.
+[*]NPCs remember being left to die. If a teammate falls while you had a potion or a heal you could have used and chose not to, they think less of you afterward and they remember. Burst kills are not your fault.
+[/list]
+
+[h2]Modding[/h2]
+
+[list]
+[*]Every class ability and spell can be tuned from GameData/abilities.json and spells.json. Change only the numbers you want; a file with a mistake in it is refused rather than half-applied. The editor exports templates.
+[/list]
+
+[h2]Also[/h2]
+
+[list]
+[*]The 1.1.1 note about forty-four intimacy translations was wrong; it was two lines, now fixed, and a test guards it.
+[*]Docker self-hosting was verified end to end and refreshed.
+[/list]
+
+If something here feels wrong at the table, /bug in game with what you were doing.
