@@ -1479,7 +1479,13 @@ namespace UsurperRemake.Systems
                 // v1.0.4: names ever used by NPCs. Online keeps this in world_state instead.
                 UsedNPCNames = UsurperRemake.BBS.DoorMode.IsOnlineMode
                     ? new List<string>()
-                    : UsurperRemake.Systems.NPCNameRegistry.Export()
+                    : UsurperRemake.Systems.NPCNameRegistry.Export(),
+
+                // v1.2: the bank's robbery reserve. Online keeps it in world_state; a per-player
+                // copy would be stale, so write the initial value there and never read it back.
+                BankVaultReserve = UsurperRemake.BBS.DoorMode.IsOnlineMode
+                    ? GameConfig.BankVaultInitial
+                    : UsurperRemake.Systems.BankVaultSystem.Current
             };
         }
         

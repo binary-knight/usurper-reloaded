@@ -815,6 +815,9 @@ public class DailySystemManager
 
         // Process Quest System daily maintenance
         QuestSystem.ProcessDailyQuestMaintenance();
+        // v1.2: the bank's robbery reserve grows once per day (online: WorldSimService)
+        if (!UsurperRemake.BBS.DoorMode.IsOnlineMode)
+            await BankVaultSystem.DailyRefill();
         if (player != null)
             QuestSystem.RefreshBountyBoard(player.Level, player.Statistics?.DeepestDungeonLevel ?? 0);
 

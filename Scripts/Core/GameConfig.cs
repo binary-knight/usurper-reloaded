@@ -639,6 +639,12 @@ public static partial class GameConfig
 
     // Bank system constants
     public const int DefaultBankRobberyAttempts = 3;
+    // v1.2 (design item D): the persisted robbery reserve, see BankVaultSystem
+    public const long BankVaultInitial = 500_000L;
+    public const long BankRobberyMaxTake = 250_000L;
+    public const long BankVaultDailyRefill = 25_000L;
+    public const int BankVaultRefillRatePercent = 1;
+    public const long BankVaultCap = 5_000_000L;
     public const long MaxBankBalance = 2000000000L; // 2 billion gold limit
     public const int GuardSalaryPerLevel = 150;  // Increased from 50 to make guard job worthwhile at higher levels
                                                   // Level 100: 1000 + (100 * 150) = 16,000 gold/day (about 1.5 monster kills)

@@ -1244,6 +1244,7 @@ namespace UsurperRemake.Systems
     {
         // Economic state
         public int BankInterestRate { get; set; }
+        public long BankVaultReserve { get; set; } = GameConfig.BankVaultInitial; // v1.2: single-player robbery reserve; online lives in world_state
         public int TownPotValue { get; set; }
 
         // Political state

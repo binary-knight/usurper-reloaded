@@ -6358,6 +6358,10 @@ public partial class GameEngine
         if (!UsurperRemake.BBS.DoorMode.IsOnlineMode)
             UsurperRemake.Systems.NPCNameRegistry.ReserveAll(worldState.UsedNPCNames);
 
+        // v1.2: the bank's robbery reserve (single-player only; online reads world_state)
+        if (!UsurperRemake.BBS.DoorMode.IsOnlineMode)
+            UsurperRemake.Systems.BankVaultSystem.Load(worldState.BankVaultReserve);
+
         // Restore active world events from save data
         var currentDay = dailyManager?.CurrentDay ?? 1;
         WorldEventSystem.Instance.RestoreFromSaveData(worldState.ActiveEvents, currentDay);
