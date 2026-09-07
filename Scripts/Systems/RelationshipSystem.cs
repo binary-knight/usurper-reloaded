@@ -110,10 +110,12 @@ public partial class RelationshipSystem
 
         // v1.2 (design item F): any positive contact from the player resets neglect, whether or
         // not the daily gain cap lets the relation move.
+        // The player is whichever side has Human AI: a freshly created character is a plain
+        // Character until its first reload, so a type test would miss the whole first session.
         if (direction > 0)
         {
-            if (character1 is Player p1) StampPlayerContact(relation, p1, character2);
-            else if (character2 is Player p2) StampPlayerContact(relation, p2, character1);
+            if (character1.IsPlayer) StampPlayerContact(relation, character1, character2);
+            else if (character2.IsPlayer) StampPlayerContact(relation, character2, character1);
         }
 
         // Determine which side of the record represents character1's feeling
@@ -1175,7 +1177,7 @@ public partial class RelationshipSystem
         return Math.Max(0, player.PresentDays - record.LastPlayerContactDay);
     }
 
-    private static void StampPlayerContact(RelationshipRecord relation, Player player, Character other)
+    private static void StampPlayerContact(RelationshipRecord relation, Character player, Character other)
     {
         int neglect = Math.Max(0, player.PresentDays - relation.LastPlayerContactDay);
         relation.LastPlayerContactDay = player.PresentDays;
@@ -1212,7 +1214,9 @@ public partial class RelationshipSystem
             {
                 if (onStep && neglect > GameConfig.SpouseNeglectGraceDays)
                 {
-                    var spouse = RomanceTracker.Instance.Spouses.FirstOrDefault(s => s.NPCName == otherName);
+                    string otherId = playerIsFirst ? record.IdTag2 : record.IdTag1;
+                    var spouse = RomanceTracker.Instance.Spouses.FirstOrDefault(s => !string.IsNullOrEmpty(otherId) && s.NPCId == otherId)
+                        ?? RomanceTracker.Instance.Spouses.FirstOrDefault(s => s.NPCName == otherName);
                     if (spouse != null && spouse.LoveLevel < 100)
                     {
                         spouse.LoveLevel = Math.Min(100, spouse.LoveLevel + GameConfig.SpouseNeglectLovePenalty);

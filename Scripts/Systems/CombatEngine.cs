@@ -75,8 +75,11 @@ public partial class CombatEngine
         if (owner.IsExhibitionCombat || owner.IsArrestCombat) return false;
         if (!_lowAlliesAtTurnStart.Contains(ally) || _ownerAidedThisTurn) return false;
         bool potion = owner.Healing > 0 && owner.PotionCooldownRounds <= 0;
-        bool spell = ClassAbilitySystem.IsSpellcaster(owner.Class) && owner.Mana > 0;
-        return potion || spell;
+        if (potion) return true;
+        // A caster is blamed only for a heal they could actually have cast.
+        if (!ClassAbilitySystem.IsSpellcaster(owner.Class) || owner.Mana <= 0) return false;
+        return SpellSystem.GetAvailableSpells(owner)
+            .Any(s => s.SpellType == "Heal" && SpellSystem.CalculateManaCost(s, owner) <= owner.Mana);
     }
     internal Dictionary<string, int> CooldownsFor(Character actor)
     {

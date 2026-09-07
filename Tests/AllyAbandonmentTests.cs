@@ -55,10 +55,19 @@ public class AllyAbandonmentTests
     [Fact]
     public void ACastableHeal_CountsLikeAPotion()
     {
-        var owner = Owner(potions: 0, mana: 20, cls: CharacterClass.Cleric); var ally = Ally(40);
+        var owner = Owner(potions: 0, mana: 20, cls: CharacterClass.Cleric); owner.Level = 1; var ally = Ally(40);
         var engine = EngineFor(owner);
         engine.NoteOwnerTurn(owner, new List<Character> { ally }, Attack());
-        engine.CouldHaveHelped(ally, owner).Should().BeTrue();
+        engine.CouldHaveHelped(ally, owner).Should().BeTrue("a level-1 Cleric knows Cure Light");
+    }
+
+    [Fact]
+    public void ACasterWithManaButNoHealSpell_IsNotBlamed()
+    {
+        var owner = Owner(potions: 0, mana: 50, cls: CharacterClass.Magician); owner.Level = 1; var ally = Ally(40);
+        var engine = EngineFor(owner);
+        engine.NoteOwnerTurn(owner, new List<Character> { ally }, Attack());
+        engine.CouldHaveHelped(ally, owner).Should().BeFalse("no heal spell was castable, whatever the mana");
     }
 
     [Fact]

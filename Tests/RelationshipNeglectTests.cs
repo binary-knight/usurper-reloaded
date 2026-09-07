@@ -73,6 +73,15 @@ public class RelationshipNeglectTests : IDisposable
     }
 
     [Fact]
+    public void AFreshlyCreatedCharacter_WithHumanAI_StampsContactToo()
+    {
+        // Character creation builds a plain Character (not a Player) until the first reload.
+        var fresh = new Character { Name2 = "Newborn", ID = "player-new", AI = CharacterAI.Human, Class = CharacterClass.Warrior, Race = CharacterRace.Human, PresentDays = 4 };
+        RelationshipSystem.UpdateRelationship(fresh, _npc, +1);
+        RelationshipSystem.GetOrCreateRelationship(fresh, _npc).LastPlayerContactDay.Should().Be(4);
+    }
+
+    [Fact]
     public void ContactAtTheDailyCap_StillCounts()
     {
         SetNpcFeeling(GameConfig.RelationFriendship);
