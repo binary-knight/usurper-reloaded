@@ -100,8 +100,8 @@ its half-typed text once and submitted the full line on Enter.
 
 **New**
 
-- `DOCS/RELEASE_NOTES_1.0.6.md`
-- `DOCS/STEAM_RELEASE_NOTES_1.0.6.txt`
+- `DOCS/release-notes/RELEASE_NOTES_1.0.6.md`
+- `DOCS/release-notes/steam/STEAM_RELEASE_NOTES_1.0.6.txt`
 - `Scripts/Server/TerminalRawMode.cs`
 - `Scripts/UI/OutputLineTracker.cs`
 - `Tests/Harness/input-stomping/` (README, five scripts)

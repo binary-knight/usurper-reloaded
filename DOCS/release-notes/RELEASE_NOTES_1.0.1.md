@@ -113,7 +113,7 @@ having to update.
 ## Note on the version number
 
 The `v1.0.1` tag was already used by a documentation-only commit that added
-`DOCS/STEAM_RELEASE_NOTES_1.0.0.txt` (its commit message describes code changes
+`DOCS/release-notes/steam/STEAM_RELEASE_NOTES_1.0.0.txt` (its commit message describes code changes
 that were not in the diff). This release is the first 1.0.1 containing actual
 code.
 

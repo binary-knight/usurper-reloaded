@@ -1214,7 +1214,7 @@ public class TeamCornerLocation : BaseLocation
     /// v0.57.11: relationship-aware NPC recruitment UI. Replaces the old
     /// "top 10 by level" flat list with a paginated, social-standing-sorted
     /// list plus a partial-name search and a role filter. See
-    /// <c>DOCS/RELEASE_NOTES_0.57.11.md</c> for the design rationale.
+    /// <c>DOCS/release-notes/RELEASE_NOTES_0.57.11.md</c> for the design rationale.
     ///
     /// Recruitment flow:
     ///   1. Check team-exists and team-not-full gates (unchanged from v0.57.10).
