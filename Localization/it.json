@@ -725,6 +725,7 @@
   "combat.companion_attacks": "{0} attacca {1}!",
   "combat.companion_hits": "{0} colpisce {1} per {2} danni!",
   "combat.companion_dodges": "{0} schiva agilmente l'attacco di {1}!",
+  "combat.teammate_defends": "{0} si prepara a incassare il prossimo attacco.",
   "combat.monster_attacks_companion": "{0} attacca {1}!",
   "combat.monster_hits_companion": "{2} danni oltrepassano le difese di {1}!",
   "combat.victory": "VITTORIA!",

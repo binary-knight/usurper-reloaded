@@ -1966,6 +1966,11 @@ public static partial class GameConfig
     // v1.2 (design item G): an NPC left to die while the player could have helped
     public const int AbandonPenaltySteps = 2;
     public const int AbandonCompanionLoyaltyPenalty = 15;
+    // v1.2: teammate self-preservation. Below the first, a companion or NPC teammate with no
+    // heal left prefers a defensive or evasive ability; below the second it braces (Defend,
+    // half damage) instead of attacking.
+    public const double TeammateDefensivePriorityHpPercent = 0.40;
+    public const double TeammateDefendHpPercent = 0.35;
     public const int RelationSuspicious = 80;
     public const int RelationAnger = 90;
     public const int RelationEnemy = 100;

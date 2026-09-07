@@ -54,6 +54,31 @@ public partial class CombatEngine
     private readonly HashSet<Character> _lowAlliesAtTurnStart = new();
     private bool _ownerAidedThisTurn;
 
+    /// <summary>v1.2: abilities that keep a wounded teammate alive: Defense-type, evasive
+    /// sidesteps and smoke, and buffs that raise defense or reduce damage.</summary>
+    internal static List<ClassAbilitySystem.ClassAbility> SelectDefensiveAbilities(IEnumerable<ClassAbilitySystem.ClassAbility> abilities)
+    {
+        var evasive = new HashSet<string> { "dodge_next", "evasion", "smoke", "party_smoke_screen" };
+        return abilities.Where(a =>
+                a.Type == ClassAbilitySystem.AbilityType.Defense
+                || evasive.Contains(a.SpecialEffect)
+                || (a.Type == ClassAbilitySystem.AbilityType.Buff && a.DefenseBonus > 0))
+            .ToList();
+    }
+
+    /// <summary>v1.2: a teammate below TeammateDefendHpPercent with no heal or defensive ability
+    /// left braces for the round (half incoming damage) instead of swinging. Cleared at round end
+    /// like the player's Defend.</summary>
+    internal bool TryTeammateDefend(Character teammate)
+    {
+        if (teammate.IsDefending || teammate.MaxHP <= 0) return false;
+        if ((double)teammate.HP / teammate.MaxHP >= GameConfig.TeammateDefendHpPercent) return false;
+        teammate.IsDefending = true;
+        if (!teammate.ActiveStatuses.ContainsKey(StatusEffect.Defending))
+            teammate.ActiveStatuses[StatusEffect.Defending] = 1;
+        return true;
+    }
+
     /// <summary>Called as the combat owner's chosen action starts: which allies were below half
     /// HP, and whether the action was aid to an ally.</summary>
     internal void NoteOwnerTurn(Character actor, IEnumerable<Character>? teammates, CombatAction action)
@@ -6637,6 +6662,15 @@ public partial class CombatEngine
         // Check if teammate should use a class ability
         var abilityAction = await TryTeammateClassAbility(teammate, monsterList, result);
         if (abilityAction) return;
+        // v1.2: nothing left to heal or shield with and badly hurt: brace instead of swinging
+        if (TryTeammateDefend(teammate))
+        {
+            terminal.SetColor("cyan");
+            terminal.WriteLine(Loc.Get("combat.teammate_defends", teammate.DisplayName));
+            result.CombatLog.Add($"{teammate.DisplayName} braces for the next attack.");
+            await Task.Delay(GetCombatDelay(600));
+            return;
+        }
 
         // Otherwise, basic attack
         var (swings, windfuryProc) = GetAttackCount(teammate);
@@ -18019,6 +18053,15 @@ public partial class CombatEngine
         {
             return; // Ability was used
         }
+        // v1.2: nothing left to heal or shield with and badly hurt: brace instead of swinging
+        if (TryTeammateDefend(teammate))
+        {
+            terminal.SetColor("cyan");
+            terminal.WriteLine(Loc.Get("combat.teammate_defends", teammate.DisplayName));
+            result.CombatLog.Add($"{teammate.DisplayName} braces for the next attack.");
+            await Task.Delay(GetCombatDelay(600));
+            return;
+        }
 
         // Otherwise, attack the weakest monster
         var weakestMonster = monsters
@@ -18776,6 +18819,14 @@ public partial class CombatEngine
         }
 
         // Ability use chance: default 50%, overridden by spec
+        // v1.2: a wounded teammate reaches for a shield or a sidestep before anything else,
+        // and does not leave it to the use-chance roll.
+        if (chosenAbility == null && teammateHpPercent < GameConfig.TeammateDefensivePriorityHpPercent)
+        {
+            var lifeSavers = SelectDefensiveAbilities(affordableAbilities);
+            if (lifeSavers.Count > 0)
+                chosenAbility = lifeSavers.OrderByDescending(a => a.LevelRequired).First();
+        }
         int abilityUsePercent = 50;
         if (activeSpec != null)
             abilityUsePercent = (int)(activeSpec.AbilityUseChance * 100);
@@ -24434,6 +24485,16 @@ public partial class CombatEngine
             player.DelugeCooldown--;
 
         // Decrement teammate ability cooldowns
+        // v1.2: a teammate's Defend lasts one round, like the player's
+        if (currentTeammates != null)
+        {
+            foreach (var tm in currentTeammates)
+            {
+                if (!tm.IsDefending) continue;
+                tm.IsDefending = false;
+                tm.ActiveStatuses.Remove(StatusEffect.Defending);
+            }
+        }
         foreach (var tcEntry in teammateCooldowns.Values)
         {
             var tcKeys = tcEntry.Keys.ToList();

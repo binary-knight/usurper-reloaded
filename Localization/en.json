@@ -725,6 +725,7 @@
   "combat.companion_attacks": "{0} attacks {1}!",
   "combat.companion_hits": "{0} hits {1} for {2} damage!",
   "combat.companion_dodges": "{0} deftly dodges {1}'s attack!",
+  "combat.teammate_defends": "{0} braces for the next attack.",
   "combat.monster_attacks_companion": "{0} attacks {1}!",
   "combat.monster_hits_companion": "{2} damage gets through {1}'s defenses!",
   "combat.victory": "VICTORY!",
