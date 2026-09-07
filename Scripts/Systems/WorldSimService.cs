@@ -2115,6 +2115,9 @@ namespace UsurperRemake.Systems
                 // Process quest maintenance
                 QuestSystem.ProcessDailyQuestMaintenance();
 
+                // v1.2: the bank's robbery reserve grows once per server day
+                BankVaultSystem.DailyRefill().GetAwaiter().GetResult();
+
                 // Prune npc_decision_log rows older than 30 days so the
                 // telemetry table doesn't grow unboundedly. The helper was
                 // shipped in v0.61.2 but no caller was wired; this runs once

@@ -383,6 +383,35 @@ public static class SpellSystem
     /// <summary>
     /// Get spell information for character class and spell level
     /// </summary>
+    /// <summary>v1.2 (design item H2): is there a built-in spell at this class and level.</summary>
+    public static bool HasSpell(CharacterClass characterClass, int level) =>
+        SpellBook.TryGetValue(characterClass, out var spells) && spells.ContainsKey(level);
+
+    /// <summary>v1.2 (design item H2): apply validated overrides; returns how many changed.</summary>
+    public static int ApplyOverrides(IEnumerable<UsurperRemake.Data.SpellOverride> overrides)
+    {
+        int applied = 0;
+        foreach (var o in overrides)
+        {
+            if (!SpellBook.TryGetValue(o.Class, out var spells) || !spells.TryGetValue(o.Level, out var s)) continue;
+            if (o.Name != null) s.Name = o.Name;
+            if (o.Description != null) s.Description = o.Description;
+            if (o.ManaCost.HasValue) s.ManaCost = o.ManaCost.Value;
+            if (o.LevelRequired.HasValue) s.LevelRequired = o.LevelRequired.Value;
+            if (o.MagicWords != null) s.MagicWords = o.MagicWords;
+            applied++;
+        }
+        return applied;
+    }
+
+    /// <summary>v1.2 (design item H2): every built-in spell with its current values.</summary>
+    public static List<UsurperRemake.Data.SpellOverride> ExportOverrideTemplate() =>
+        SpellBook.OrderBy(kv => kv.Key).SelectMany(kv => kv.Value.OrderBy(x => x.Key).Select(x => new UsurperRemake.Data.SpellOverride
+        {
+            Class = kv.Key, Level = x.Key, Name = x.Value.Name, Description = x.Value.Description,
+            ManaCost = x.Value.ManaCost, LevelRequired = x.Value.LevelRequired, MagicWords = x.Value.MagicWords,
+        })).ToList();
+
     public static SpellInfo GetSpellInfo(CharacterClass characterClass, int spellLevel)
     {
         if (SpellBook.TryGetValue(characterClass, out var classSpells) &&

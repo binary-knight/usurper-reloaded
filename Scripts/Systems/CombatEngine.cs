@@ -42,6 +42,56 @@ public partial class CombatEngine
     private Dictionary<string, int> pvpDefenderCooldowns = new();
     // Per-teammate ability cooldowns (keyed by teammate DisplayName)
     private Dictionary<string, Dictionary<string, int>> teammateCooldowns = new();
+    // v1.2 (design item A): the combat owner. A grouped follower acts through the same
+    // action paths as the owner, so every ability path asks CooldownsFor(actor) instead of
+    // touching abilityCooldowns directly; otherwise a follower of the owner's class shared
+    // the owner's cooldowns within the fight.
+    private Character? _combatOwner;
+    private static string TeammateCooldownKey(Character c) => c.GroupPlayerUsername ?? c.DisplayName;
+
+    // v1.2 (design item G): what the combat owner saw and did on their most recent turn, so a
+    // teammate's death can be judged against a real opportunity rather than potion possession.
+    private readonly HashSet<Character> _lowAlliesAtTurnStart = new();
+    private bool _ownerAidedThisTurn;
+
+    /// <summary>Called as the combat owner's chosen action starts: which allies were below half
+    /// HP, and whether the action was aid to an ally.</summary>
+    internal void NoteOwnerTurn(Character actor, IEnumerable<Character>? teammates, CombatAction action)
+    {
+        if (_combatOwner != null && !ReferenceEquals(actor, _combatOwner)) return;
+        _lowAlliesAtTurnStart.Clear();
+        if (teammates != null)
+            foreach (var t in teammates)
+                if (t.IsAlive && t.MaxHP > 0 && t.HP * 2 < t.MaxHP) _lowAlliesAtTurnStart.Add(t);
+        _ownerAidedThisTurn = action.Type == CombatActionType.HealAlly;
+    }
+
+    /// <summary>Could <paramref name="owner"/> have saved <paramref name="ally"/>: the ally was
+    /// below half HP when the owner last chose an action, the owner held a usable healing
+    /// potion or castable heal, and chose something other than aid.</summary>
+    internal bool CouldHaveHelped(Character ally, Character owner)
+    {
+        if (ally.IsEcho || ally.IsMercenary || ally.IsGroupedPlayer) return false;
+        if (owner.IsExhibitionCombat || owner.IsArrestCombat) return false;
+        if (!_lowAlliesAtTurnStart.Contains(ally) || _ownerAidedThisTurn) return false;
+        bool potion = owner.Healing > 0 && owner.PotionCooldownRounds <= 0;
+        if (potion) return true;
+        // A caster is blamed only for a heal they could actually have cast.
+        if (!ClassAbilitySystem.IsSpellcaster(owner.Class) || owner.Mana <= 0) return false;
+        return SpellSystem.GetAvailableSpells(owner)
+            .Any(s => s.SpellType == "Heal" && SpellSystem.CalculateManaCost(s, owner) <= owner.Mana);
+    }
+    internal Dictionary<string, int> CooldownsFor(Character actor)
+    {
+        if (_combatOwner == null || ReferenceEquals(actor, _combatOwner)) return abilityCooldowns;
+        var key = TeammateCooldownKey(actor);
+        if (!teammateCooldowns.TryGetValue(key, out var own))
+        {
+            own = new Dictionary<string, int>();
+            teammateCooldowns[key] = own;
+        }
+        return own;
+    }
 
     // Current player reference for combat speed setting
     private Character currentPlayer;
@@ -428,6 +478,7 @@ public partial class CombatEngine
             Opponent = defender,
             CombatLog = new List<string>()
         };
+        _combatOwner = attacker;
         // v1.1.1: EndPvPCombat (buff consumption, disarm restore, scrub) runs in the finally
         // so a thrown disconnect mid-duel cannot leave either side with stale combat state.
         try
@@ -708,6 +759,8 @@ public partial class CombatEngine
         player.DelugeCooldown = 0;
         abilityCooldowns.Clear();
         teammateCooldowns.Clear();
+        _lowAlliesAtTurnStart.Clear();
+        _ownerAidedThisTurn = false;
 
         // Ensure equipment stat bonuses are current before combat begins.
         // Equipment changes (equip/unequip, loot pickup, NPC sync) can leave
@@ -759,6 +812,7 @@ public partial class CombatEngine
             Teammates = currentTeammates,
             CombatLog = new List<string>()
         };
+        _combatOwner = player;
         // v1.1.1: per-combat buffs are consumed in the finally below so that every exit
         // (victory, defeat, retreat, rescue, and a thrown disconnect) counts the fight.
         // The body is deliberately not re-indented to keep the diff reviewable.
@@ -13166,6 +13220,7 @@ public partial class CombatEngine
     /// </summary>
     private async Task ProcessPlayerActionMultiMonster(CombatAction action, Character player, List<Monster> monsters, CombatResult result)
     {
+        NoteOwnerTurn(player, result.Teammates, action); // v1.2 (design item G)
         switch (action.Type)
         {
             case CombatActionType.Attack:
@@ -13800,7 +13855,7 @@ public partial class CombatEngine
             }
 
             // Check cooldown
-            if (abilityCooldowns.TryGetValue(action.AbilityId, out int cd) && cd > 0)
+            if (CooldownsFor(player).TryGetValue(action.AbilityId, out int cd) && cd > 0)
             {
                 terminal.WriteLine(Loc.Get("combat.ability_cooldown", ability.Name, cd), "red");
                 await Task.Delay(GetCombatDelay(1000));
@@ -13864,7 +13919,7 @@ public partial class CombatEngine
             // Set cooldown
             if (abilityResult.CooldownApplied > 0)
             {
-                abilityCooldowns[action.AbilityId] = abilityResult.CooldownApplied;
+                CooldownsFor(player)[action.AbilityId] = abilityResult.CooldownApplied;
                 terminal.SetColor("gray");
                 terminal.WriteLine(Loc.Get("combat.ability_cooldown_set", ability.Name, abilityResult.CooldownApplied));
             }
@@ -15715,11 +15770,11 @@ public partial class CombatEngine
             {
                 // Time manipulation: reduce all ability cooldowns by 2 rounds + Haste for 1 round
                 int cdReduced = 0;
-                foreach (var key in abilityCooldowns.Keys.ToList())
+                foreach (var key in CooldownsFor(player).Keys.ToList())
                 {
-                    if (abilityCooldowns[key] > 0)
+                    if (CooldownsFor(player)[key] > 0)
                     {
-                        abilityCooldowns[key] = Math.Max(0, abilityCooldowns[key] - 2);
+                        CooldownsFor(player)[key] = Math.Max(0, CooldownsFor(player)[key] - 2);
                         cdReduced++;
                     }
                 }
@@ -16072,9 +16127,9 @@ public partial class CombatEngine
                         if (!result.DefeatedMonsters.Contains(target))
                             result.DefeatedMonsters.Add(target);
                         // Kill resets Reap cooldown
-                        if (abilityCooldowns.ContainsKey("reap"))
+                        if (CooldownsFor(player).ContainsKey("reap"))
                         {
-                            abilityCooldowns["reap"] = 0;
+                            CooldownsFor(player)["reap"] = 0;
                             terminal.WriteLine(Loc.Get("combat.reap_cooldown_reset"), "bright_red");
                         }
                     }
@@ -16428,9 +16483,9 @@ public partial class CombatEngine
 
         foreach (var ability in availableAbilities)
         {
-            bool canUse = ClassAbilitySystem.CanUseAbility(player, ability.Id, abilityCooldowns);
+            bool canUse = ClassAbilitySystem.CanUseAbility(player, ability.Id, CooldownsFor(player));
             bool hasStamina = player.HasEnoughStamina(ClassAbilitySystem.GetEffectiveStaminaCost(ability));
-            bool onCooldown = abilityCooldowns.TryGetValue(ability.Id, out int cooldownLeft) && cooldownLeft > 0;
+            bool onCooldown = CooldownsFor(player).TryGetValue(ability.Id, out int cooldownLeft) && cooldownLeft > 0;
 
             string statusText = "";
             string color = ColorRole.Action;
@@ -18596,10 +18651,10 @@ public partial class CombatEngine
         }
 
         // Get or create this teammate's cooldown tracker
-        if (!teammateCooldowns.TryGetValue(teammate.DisplayName, out var myCooldowns))
+        if (!teammateCooldowns.TryGetValue(TeammateCooldownKey(teammate), out var myCooldowns))
         {
             myCooldowns = new Dictionary<string, int>();
-            teammateCooldowns[teammate.DisplayName] = myCooldowns;
+            teammateCooldowns[TeammateCooldownKey(teammate)] = myCooldowns;
         }
 
         // Filter to abilities the teammate can afford (stamina AND mana), off cooldown,
@@ -19581,6 +19636,7 @@ public partial class CombatEngine
                     companion.CombatInputChannel.Writer.TryComplete();
                     companion.CombatInputChannel = null;
                 }
+                UsurperRemake.Server.GroupFollowerDeath.Mark(companion, monster.Name); // v1.2: their own session resolves the death
                 companion.IsAwaitingCombatInput = false;
             }
             else
@@ -19648,6 +19704,7 @@ public partial class CombatEngine
                 tm.CombatInputChannel = null;
             }
             tm.IsAwaitingCombatInput = false;
+            UsurperRemake.Server.GroupFollowerDeath.Mark(tm, killerName); // v1.2: their own session resolves the death
         }
         else
         {
@@ -19682,6 +19739,14 @@ public partial class CombatEngine
         // Sync equipment from combat charWrapper back to companion object
         // so KillCompanion returns the correct (current) equipment to player
         companionSystem.SyncCompanionEquipment(companion);
+
+        // v1.2 (design item G, issue #41): left to die while the player could have helped
+        if (result.Player != null && CouldHaveHelped(companion, result.Player))
+        {
+            companionSystem.ModifyLoyalty(companion.CompanionId.Value, -GameConfig.AbandonCompanionLoyaltyPenalty, "left to die with potions in hand");
+            terminal.WriteLine($"  {Loc.Get("combat.ally_death_could_have_helped", companion.DisplayName)}", "yellow");
+            terminal.WriteLine($"  {Loc.Get("combat.companion_loyalty_drop", companion.DisplayName)}", "yellow");
+        }
 
         // Kill the companion permanently
         await companionSystem.KillCompanion(
@@ -19722,6 +19787,17 @@ public partial class CombatEngine
             // for background NPC-vs-NPC violence, not real combat deaths.
             var savedEngaged = worldNpc.IsInConversation;
             worldNpc.IsInConversation = false;
+            // v1.2 (design item G, issue #41): left to die while the player could have helped
+            if (result.Player != null && CouldHaveHelped(npc, result.Player))
+            {
+                RelationshipSystem.UpdateRelationship(worldNpc, result.Player, -1, GameConfig.AbandonPenaltySteps);
+                worldNpc.Memory?.RecordEvent(new MemoryEvent
+                {
+                    Type = MemoryType.Abandoned, Description = $"{result.Player.Name2} had potions and let me fall to {killerName}",
+                    InvolvedCharacter = result.Player.Name2, Importance = 0.8f, EmotionalImpact = -0.6f
+                });
+                terminal.WriteLine($"  {Loc.Get("combat.ally_death_could_have_helped", npc.DisplayName)}", "yellow");
+            }
             wasPermadeath = WorldSimulator.Instance?.MarkNPCDead(worldNpc, GameConfig.PermadeathChancePlayerKill,
                 killerName, deathLocation) ?? false;
             worldNpc.IsInConversation = savedEngaged;
@@ -22056,9 +22132,9 @@ public partial class CombatEngine
 
         foreach (var ability in availableAbilities)
         {
-            bool canUse = ClassAbilitySystem.CanUseAbility(player, ability.Id, abilityCooldowns);
+            bool canUse = ClassAbilitySystem.CanUseAbility(player, ability.Id, CooldownsFor(player));
             bool hasStamina = player.HasEnoughStamina(ClassAbilitySystem.GetEffectiveStaminaCost(ability));
-            bool onCooldown = abilityCooldowns.TryGetValue(ability.Id, out int cooldownLeft) && cooldownLeft > 0;
+            bool onCooldown = CooldownsFor(player).TryGetValue(ability.Id, out int cooldownLeft) && cooldownLeft > 0;
 
             string statusText = "";
             string color = ColorRole.Action;
@@ -22106,9 +22182,9 @@ public partial class CombatEngine
         var selectedAbility = selectableAbilities[choice - 1];
 
         // Verify we can actually use it
-        if (!ClassAbilitySystem.CanUseAbility(player, selectedAbility.Id, abilityCooldowns))
+        if (!ClassAbilitySystem.CanUseAbility(player, selectedAbility.Id, CooldownsFor(player)))
         {
-            if (abilityCooldowns.TryGetValue(selectedAbility.Id, out int cd) && cd > 0)
+            if (CooldownsFor(player).TryGetValue(selectedAbility.Id, out int cd) && cd > 0)
             {
                 terminal.WriteLine(Loc.Get("combat.ability_cooldown", selectedAbility.Name, cd), "red");
             }
@@ -22168,7 +22244,7 @@ public partial class CombatEngine
         // Set cooldown
         if (abilityResult.CooldownApplied > 0)
         {
-            abilityCooldowns[selectedAbility.Id] = abilityResult.CooldownApplied;
+            CooldownsFor(player)[selectedAbility.Id] = abilityResult.CooldownApplied;
         }
 
         // Display training improvement message if ability proficiency increased
@@ -23702,11 +23778,11 @@ public partial class CombatEngine
             {
                 // Time manipulation: reduce all ability cooldowns by 2 rounds + Haste for 1 round
                 int mmCdReduced = 0;
-                foreach (var key in abilityCooldowns.Keys.ToList())
+                foreach (var key in CooldownsFor(player).Keys.ToList())
                 {
-                    if (abilityCooldowns[key] > 0)
+                    if (CooldownsFor(player)[key] > 0)
                     {
-                        abilityCooldowns[key] = Math.Max(0, abilityCooldowns[key] - 2);
+                        CooldownsFor(player)[key] = Math.Max(0, CooldownsFor(player)[key] - 2);
                         mmCdReduced++;
                     }
                 }
@@ -24014,9 +24090,9 @@ public partial class CombatEngine
                         if (!result.DefeatedMonsters.Contains(monster))
                             result.DefeatedMonsters.Add(monster);
                         // Kill resets Reap cooldown
-                        if (abilityCooldowns.ContainsKey("reap"))
+                        if (CooldownsFor(player).ContainsKey("reap"))
                         {
-                            abilityCooldowns["reap"] = 0;
+                            CooldownsFor(player)["reap"] = 0;
                             terminal.WriteLine(Loc.Get("combat.reap_cooldown_reset"), "bright_red");
                         }
                     }
@@ -27772,12 +27848,12 @@ public partial class CombatEngine
                 // Ability slot
                 var ability = ClassAbilitySystem.GetAbility(slotId);
                 if (ability == null) continue;
-                bool canUse = ClassAbilitySystem.CanUseAbility(player, slotId, abilityCooldowns);
+                bool canUse = ClassAbilitySystem.CanUseAbility(player, slotId, CooldownsFor(player));
                 string displayName;
                 var weaponReason = ClassAbilitySystem.GetWeaponRequirementReason(player, ability);
                 if (weaponReason != null)
                     displayName = $"{ability.Name} ({weaponReason})";
-                else if (abilityCooldowns.TryGetValue(slotId, out int cd) && cd > 0)
+                else if (CooldownsFor(player).TryGetValue(slotId, out int cd) && cd > 0)
                     displayName = $"{ability.Name} (CD:{cd})";
                 else if (ability.ManaCost > 0)
                     displayName = $"{ability.Name} ({ability.StaminaCost} ST, {ability.ManaCost} MP)";
@@ -27947,7 +28023,7 @@ public partial class CombatEngine
                         terminal.WriteLine(Loc.Get("combat.ability_weapon_reason", ability.Name, weaponReason), "red");
                     else if (player.CurrentCombatStamina < ability.StaminaCost)
                         terminal.WriteLine(Loc.Get("combat.not_enough_stamina", ability.StaminaCost, player.CurrentCombatStamina), "red");
-                    else if (abilityCooldowns.TryGetValue(matched.slotId, out int cd) && cd > 0)
+                    else if (CooldownsFor(player).TryGetValue(matched.slotId, out int cd) && cd > 0)
                         terminal.WriteLine(Loc.Get("combat.ability_cooldown", ability.Name, cd), "red");
                 }
             }
@@ -28071,7 +28147,7 @@ public partial class CombatEngine
                         terminal.WriteLine(Loc.Get("combat.ability_weapon_reason", ability.Name, weaponReason), "red");
                     else if (player.CurrentCombatStamina < ability.StaminaCost)
                         terminal.WriteLine(Loc.Get("combat.not_enough_stamina", ability.StaminaCost, player.CurrentCombatStamina), "red");
-                    else if (abilityCooldowns.TryGetValue(matched.slotId, out int cd) && cd > 0)
+                    else if (CooldownsFor(player).TryGetValue(matched.slotId, out int cd) && cd > 0)
                         terminal.WriteLine(Loc.Get("combat.ability_cooldown", ability.Name, cd), "red");
                 }
             }
@@ -28181,7 +28257,7 @@ public partial class CombatEngine
         // Set cooldown
         if (abilityResult.CooldownApplied > 0)
         {
-            abilityCooldowns[abilityId] = abilityResult.CooldownApplied;
+            CooldownsFor(player)[abilityId] = abilityResult.CooldownApplied;
         }
 
         // Display training improvement message if ability proficiency increased
@@ -28922,6 +28998,7 @@ public partial class CombatEngine
                         tm.CombatInputChannel = null;
                     }
                     tm.IsAwaitingCombatInput = false;
+                    UsurperRemake.Server.GroupFollowerDeath.Mark(tm, killerName); // v1.2: their own session resolves the death
                 }
                 else
                 {

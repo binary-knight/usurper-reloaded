@@ -117,8 +117,10 @@ new to learn. Some things you were used to living with are gone.
 - Haggling has no entry point anywhere in the game.
 - The bank's safe contents are shared across all players on a server and reset
   on restart.
-- Forty-four intimacy lines in Spanish, French, Italian and Hungarian omit the
-  partner's name the English carries.
+- Correction (2026-09-07): this note originally claimed forty-four intimacy lines
+  in Spanish, French, Italian and Hungarian omitted the partner's name. Thirty-eight
+  of those omit a pronoun that is deliberately empty in those languages. Two lines
+  drop the name; they are fixed in the next release.
 
 ## Tests
 

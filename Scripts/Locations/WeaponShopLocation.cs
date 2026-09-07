@@ -50,12 +50,12 @@ public class WeaponShopLocation : BaseLocation
 
     protected override void DisplayLocation()
     {
-        if (IsScreenReader && currentPlayer != null && currentPlayer.WeapHag >= 1)
+        if (IsScreenReader && currentPlayer != null && !currentPlayer.IsBarredFromWeaponShop(GameEngine.Instance.SessionCurrentDay))
         {
             if (currentCategory == null) { DisplayLocationSR(); return; }
         }
 
-        if (IsBBSSession && currentPlayer != null && currentPlayer.WeapHag >= 1)
+        if (IsBBSSession && currentPlayer != null && !currentPlayer.IsBarredFromWeaponShop(GameEngine.Instance.SessionCurrentDay))
         {
             if (currentCategory == null) { DisplayLocationBBS(); return; }
         }
@@ -65,7 +65,7 @@ public class WeaponShopLocation : BaseLocation
         if (currentPlayer == null) return;
 
         // Check if player has been kicked out for bad haggling
-        if (currentPlayer.WeapHag < 1)
+        if (currentPlayer.IsBarredFromWeaponShop(GameEngine.Instance.SessionCurrentDay))
         {
             terminal.SetColor("bright_red");
             terminal.WriteLine(Loc.Get("weapon_shop.kicked_out1"));
@@ -603,7 +603,7 @@ public class WeaponShopLocation : BaseLocation
 
         if (currentPlayer == null) return true;
 
-        if (currentPlayer.WeapHag < 1)
+        if (currentPlayer.IsBarredFromWeaponShop(GameEngine.Instance.SessionCurrentDay))
         {
             await NavigateToLocation(GameLocation.MainStreet);
             return true;
@@ -748,7 +748,11 @@ public class WeaponShopLocation : BaseLocation
         // Calculate total with tax
         var (kingTax, cityTax, totalWithTax) = CityControlSystem.CalculateTaxedPrice(adjustedPrice);
 
-        if (currentPlayer.Gold < totalWithTax)
+        // v1.2 (design item C): a player who can afford only a haggled price may still try;
+        // the real check runs after negotiation.
+        bool mayHaggle = HagglingEngine.CanHaggle(currentPlayer, HagglingEngine.ShopType.Weapon) && currentPlayer.Race != CharacterRace.Troll;
+        long bestCaseTotal = mayHaggle ? CityControlSystem.CalculateTaxedPrice(adjustedPrice - adjustedPrice / 5).Item3 : totalWithTax;
+        if (currentPlayer.Gold < bestCaseTotal)
         {
             terminal.WriteLine("");
             terminal.SetColor("red");
@@ -826,11 +830,47 @@ public class WeaponShopLocation : BaseLocation
                 terminal.SetColor("white");
             }
         }
-        terminal.Write(Loc.Get("weapon_shop.gold_prompt"));
+        terminal.WriteLine("");
 
-        var confirm = await terminal.GetInput("");
-        if (!GameConfig.IsAffirmative(confirm))
+        // v1.2 (design item C): [H]aggle over the pre-tax price; tax is recomputed on the agreed amount
+        while (true)
         {
+            int attemptsLeft = HagglingEngine.GetHagglingAttemptsLeft(currentPlayer, HagglingEngine.ShopType.Weapon);
+            terminal.SetColor("white");
+            terminal.Write(attemptsLeft > 0
+                ? Loc.Get("shop.buy_prompt_haggle", FormatNumber(totalWithTax), attemptsLeft)
+                : Loc.Get("shop.buy_prompt_no_haggle", FormatNumber(totalWithTax)));
+            var confirm = (await terminal.GetInput("")).Trim().ToUpperInvariant();
+            if (confirm == "H")
+            {
+                var haggle = await HagglingEngine.Haggle(currentPlayer, HagglingEngine.ShopType.Weapon, adjustedPrice, Loc.Get("weapon_shop.keeper_name"), terminal);
+                if (haggle.Kicked)
+                {
+                    currentPlayer.WeaponShopBarredUntilDay = GameEngine.Instance.SessionCurrentDay + 1;
+                    await NavigateToLocation(GameLocation.MainStreet);
+                    return;
+                }
+                if (haggle.Price < adjustedPrice)
+                {
+                    adjustedPrice = haggle.Price;
+                    (kingTax, cityTax, totalWithTax) = CityControlSystem.CalculateTaxedPrice(adjustedPrice);
+                    terminal.WriteLine(Loc.Get("shop.haggle_price_agreed", FormatNumber(adjustedPrice), FormatNumber(kingTax + cityTax)), "bright_green");
+                }
+                continue;
+            }
+            if (!GameConfig.IsAffirmative(confirm))
+            {
+                return;
+            }
+            break;
+        }
+
+        if (currentPlayer.Gold < totalWithTax)
+        {
+            terminal.WriteLine("");
+            terminal.SetColor("red");
+            terminal.WriteLine(Loc.Get("shop.insufficient_gold", FormatNumber(totalWithTax), FormatNumber(currentPlayer.Gold)));
+            await Pause();
             return;
         }
 

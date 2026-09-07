@@ -17,8 +17,8 @@ public class BankLocation : BaseLocation
     private const string BankerName = "Groggo";
     private const string BankerTitle = "Master of Coin";
 
-    // Bank safe information (shared across all instances)
-    private static long _safeContents = 500000L; // Starting safe contents
+    // Bank safe information (shared across all instances). v1.2: the reserve itself lives in
+    // BankVaultSystem (persisted per world; atomic online); only the nuisance counters stay here.
     private static List<string> _activeGuardNames = new();
     private static int _robberyAttemptsToday = 0;
     private static DateTime _lastResetDate = DateTime.MinValue;
@@ -54,6 +54,12 @@ public class BankLocation : BaseLocation
         {
             GameLocation.MainStreet
         };
+    }
+
+    public override async Task EnterLocation(Character player, TerminalEmulator term)
+    {
+        await BankVaultSystem.Refresh(); // v1.2: online, read the shared reserve before showing it
+        await base.EnterLocation(player, term);
     }
 
     protected override void DisplayLocation()
@@ -223,7 +229,7 @@ public class BankLocation : BaseLocation
         if (currentPlayer.Intelligence > 50 || currentPlayer.Class == CharacterClass.Assassin)
         {
             terminal.SetColor("darkgray");
-            terminal.WriteLine(Loc.Get("bank.desc_vault_estimate", _safeContents.ToString("N0")));
+            terminal.WriteLine(Loc.Get("bank.desc_vault_estimate", BankVaultSystem.Current.ToString("N0")));
             terminal.WriteLine("");
         }
     }
@@ -543,7 +549,7 @@ public class BankLocation : BaseLocation
         long bankBefore = currentPlayer.BankGold;
         currentPlayer.Gold -= amount;
         currentPlayer.BankGold = SafeAddGold(currentPlayer.BankGold, amount);
-        _safeContents = SafeAddGold(_safeContents, amount);
+        await BankVaultSystem.Deposit(amount);
         DebugLogger.Instance.LogInfo("GOLD", $"BANK DEPOSIT: {currentPlayer.DisplayName} deposited {amount:N0}g (gold {goldBefore:N0}->{currentPlayer.Gold:N0}, bank {bankBefore:N0}->{currentPlayer.BankGold:N0})");
 
         terminal.SetColor("bright_green");
@@ -643,7 +649,7 @@ public class BankLocation : BaseLocation
         long bankBeforeW = currentPlayer.BankGold;
         currentPlayer.BankGold -= amount;
         currentPlayer.Gold += amount;
-        _safeContents = Math.Max(0, _safeContents - amount);
+        await BankVaultSystem.Withdraw(amount);
         DebugLogger.Instance.LogInfo("GOLD", $"BANK WITHDRAW: {currentPlayer.DisplayName} withdrew {amount:N0}g (gold {goldBeforeW:N0}->{currentPlayer.Gold:N0}, bank {bankBeforeW:N0}->{currentPlayer.BankGold:N0})");
 
         terminal.SetColor("bright_yellow");
@@ -1217,7 +1223,8 @@ public class BankLocation : BaseLocation
 
         int guardCount = CalculateGuardCount();
         terminal.SetColor("yellow");
-        terminal.WriteLine(Loc.Get("bank.rob_safe_contents", _safeContents.ToString("N0")));
+        terminal.WriteLine(Loc.Get("bank.rob_safe_contents", BankVaultSystem.Current.ToString("N0")));
+        terminal.WriteLine(Loc.Get("bank.rob_insured_note"), "gray");
         terminal.WriteLine(Loc.Get("bank.rob_bank_guards", guardCount));
         terminal.WriteLine(Loc.Get("bank.rob_player_guards", _activeGuardNames.Count));
         terminal.WriteLine(Loc.Get("bank.rob_alarm"));
@@ -1431,10 +1438,18 @@ public class BankLocation : BaseLocation
         {
             // Calculate loot (25% of safe) — exclude the robber's own deposits to prevent
             // deposit-rob-redeposit exploit (player was stealing their own money back endlessly)
-            long otherPeoplesGold = Math.Max(0, _safeContents - currentPlayer.BankGold);
-            long stolenGold = otherPeoplesGold / 4;
+            // v1.2: the take is decided inside the vault's atomic update, so a second robber
+            // gets the reduced remainder and the robber is credited exactly what was removed.
+            var (stolenGold, vaultLanded) = await BankVaultSystem.Rob(currentPlayer.BankGold);
 
-            if (stolenGold <= 0)
+            if (!vaultLanded)
+            {
+                // The shared vault was being emptied by someone else at the same moment.
+                terminal.WriteLine("");
+                terminal.SetColor("red");
+                terminal.WriteLine(Loc.Get("bank.rob_vault_disturbed"));
+            }
+            else if (stolenGold <= 0)
             {
                 // Nothing to steal — vault only contains the robber's own gold
                 terminal.WriteLine("");
@@ -1447,17 +1462,17 @@ public class BankLocation : BaseLocation
             {
                 long goldBeforeRob = currentPlayer.Gold;
                 currentPlayer.Gold = SafeAddGold(currentPlayer.Gold, stolenGold);
-                _safeContents = Math.Max(0, _safeContents - stolenGold);
                 DebugLogger.Instance.LogInfo("GOLD", $"BANK ROBBERY: {currentPlayer.DisplayName} stole {stolenGold:N0}g (gold {goldBeforeRob:N0}->{currentPlayer.Gold:N0})");
 
                 terminal.WriteLine("");
                 WriteBoxHeader(Loc.Get("bank.rob_success", stolenGold.ToString("N0")), "bright_green");
+                terminal.WriteLine(Loc.Get("bank.rob_realm_heard"), "gray");
                 terminal.WriteLine("");
 
                 terminal.SetColor("yellow");
                 terminal.WriteLine(Loc.Get("bank.rob_flee"));
                 terminal.WriteLine(Loc.Get("bank.rob_authorities"));
-                long vaultRemaining = Math.Max(0, _safeContents - currentPlayer.BankGold);
+                long vaultRemaining = Math.Max(0, BankVaultSystem.Current - currentPlayer.BankGold);
                 terminal.WriteLine(Loc.Get("bank.rob_vault_remaining", vaultRemaining.ToString("N0")));
 
                 NewsSystem.Instance.Newsy(true, $"BANK ROBBERY! {currentPlayer.DisplayName} robbed the Ironvault Bank of {stolenGold:N0} gold!");
@@ -1509,10 +1524,10 @@ public class BankLocation : BaseLocation
         int guards = 4; // Base guards (increased from 2)
 
         // More guards for richer banks
-        if (_safeContents > 100000) guards++;
-        if (_safeContents > 250000) guards++;
-        if (_safeContents > 500000) guards += 2;
-        if (_safeContents > 1000000) guards += 3;
+        if (BankVaultSystem.Current > 100000) guards++;
+        if (BankVaultSystem.Current > 250000) guards++;
+        if (BankVaultSystem.Current > 500000) guards += 2;
+        if (BankVaultSystem.Current > 1000000) guards += 3;
 
         // More guards after recent robbery attempts
         guards += _robberyAttemptsToday * 2;
@@ -1652,7 +1667,7 @@ public class BankLocation : BaseLocation
     /// <summary>
     /// Get current safe contents
     /// </summary>
-    public static long GetSafeContents() => _safeContents;
+    public static long GetSafeContents() => BankVaultSystem.Current;
 
     /// <summary>
     /// Get active guard count

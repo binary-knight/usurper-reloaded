@@ -36,6 +36,11 @@ namespace UsurperRemake.Systems
         /// </summary>
         public static List<Equipment>? CustomEquipment { get; private set; }
 
+        /// <summary>v1.2 (design item H2): scalar tuning of built-in abilities and spells,
+        /// replace-by-key, applied at startup. A file with any invalid entry is rejected whole.</summary>
+        public static List<AbilityOverride>? AbilityOverrides { get; private set; }
+        public static List<SpellOverride>? SpellOverrides { get; private set; }
+
         /// <summary>ID range reserved for modder-added equipment. Below this = game-managed.</summary>
         public const int ModdedEquipmentIdStart = 200000;
 
@@ -84,9 +89,19 @@ namespace UsurperRemake.Systems
                 DebugLogger.Instance.LogInfo("GAMEDATA", "Balance config applied to GameConfig");
             }
 
-            int loaded = new object?[] { NPCs, MonsterFamilies, Dreams, Achievements, DialogueLines, Balance, CustomEquipment }
+            // v1.2 (design item H2): abilities.json and spells.json, validated then applied
+            AbilityOverrides = LoadValidated("abilities.json", TryLoadFile<List<AbilityOverride>>("abilities.json"),
+                list => OverrideValidation.ValidateAbilities(list, ClassAbilitySystem.HasAbility));
+            if (AbilityOverrides != null)
+                DebugLogger.Instance.LogInfo("GAMEDATA", $"abilities.json: {ClassAbilitySystem.ApplyOverrides(AbilityOverrides)} abilities tuned");
+            SpellOverrides = LoadValidated("spells.json", TryLoadFile<List<SpellOverride>>("spells.json"),
+                list => OverrideValidation.ValidateSpells(list, SpellSystem.HasSpell));
+            if (SpellOverrides != null)
+                DebugLogger.Instance.LogInfo("GAMEDATA", $"spells.json: {SpellSystem.ApplyOverrides(SpellOverrides)} spells tuned");
+
+            int loaded = new object?[] { NPCs, MonsterFamilies, Dreams, Achievements, DialogueLines, Balance, CustomEquipment, AbilityOverrides, SpellOverrides }
                 .Count(x => x != null);
-            DebugLogger.Instance.LogInfo("GAMEDATA", $"Loaded {loaded}/7 moddable data files");
+            DebugLogger.Instance.LogInfo("GAMEDATA", $"Loaded {loaded}/9 moddable data files");
             } // lock
         }
 
@@ -109,7 +124,23 @@ namespace UsurperRemake.Systems
             // stay read-only for save compatibility.
             ExportFile(outputDir, "equipment.json", GetExampleCustomEquipment());
 
-            DebugLogger.Instance.LogInfo("GAMEDATA", $"Exported 7 default data files to: {outputDir}");
+            // v1.2 (design item H2): every built-in ability and spell with its current numbers,
+            // as a template: delete what you do not change, edit what you do.
+            ExportFile(outputDir, "abilities.json", ClassAbilitySystem.ExportOverrideTemplate());
+            ExportFile(outputDir, "spells.json", SpellSystem.ExportOverrideTemplate());
+
+            DebugLogger.Instance.LogInfo("GAMEDATA", $"Exported 9 default data files to: {outputDir}");
+        }
+
+        /// <summary>A loaded override file is kept only when its validator finds nothing wrong.</summary>
+        private static List<T>? LoadValidated<T>(string fileName, List<T>? loaded, Func<List<T>, List<string>> validate) where T : class
+        {
+            if (loaded == null) return null;
+            var errors = validate(loaded);
+            if (errors.Count == 0) return loaded;
+            DebugLogger.Instance.LogError("GAMEDATA", $"{fileName} rejected, built-in values kept: {errors.Count} problem(s)");
+            foreach (var e in errors.Take(20)) DebugLogger.Instance.LogError("GAMEDATA", $"  {e}");
+            return null;
         }
 
         private static string? FindGameDataDirectory()

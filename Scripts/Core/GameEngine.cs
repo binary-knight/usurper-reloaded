@@ -3198,8 +3198,17 @@ public partial class GameEngine
             {
                 startLocation = GameLocation.MainStreet;
             }
+            // v1.2 (design item B): a grouped follower who died in the leader's fight and
+            // dropped before their own session resolved it. Resolve here, on their own session,
+            // before the saved-dead check below can apply the wrong penalty.
+            if (!string.IsNullOrEmpty(currentPlayer!.PendingGroupDeath))
+            {
+                bool alive = await UsurperRemake.Server.GroupFollowerDeath.Resolve(currentPlayer, terminal, currentPlayer.PendingGroupDeath);
+                if (!alive) throw new GameExitException();
+                startLocation = GameLocation.Temple;
+            }
             // If player was saved dead (HP <= 0), they closed during the death screen — re-present Veil
-            if (currentPlayer!.HP <= 0)
+            else if (currentPlayer.HP <= 0)
             {
                 terminal.SetColor("red");
                 terminal.WriteLine("  You awaken at the threshold between life and death...");
@@ -5265,6 +5274,11 @@ public partial class GameEngine
             WolfFeed = playerData.WolfFeed,
             RoyalAdoptions = playerData.RoyalAdoptions,
             Wrestlings = (byte)playerData.Wrestlings,
+            WeapHag = playerData.WeapHag,
+            ArmHag = playerData.ArmHag,
+            WeaponShopBarredUntilDay = playerData.WeaponShopBarredUntilDay,
+            ArmorShopBarredUntilDay = playerData.ArmorShopBarredUntilDay,
+            PendingGroupDeath = playerData.PendingGroupDeath,
             GymSessions = (byte)playerData.GymSessions,
             PickPocketAttempts = playerData.PickPocketAttempts,
             Massage = (byte)playerData.Massage,
@@ -5276,6 +5290,7 @@ public partial class GameEngine
             ResurrectionsUsed = playerData.ResurrectionsUsed,
             MaxResurrections = playerData.MaxResurrections > 0 ? playerData.MaxResurrections : 3,
             PlaythroughDeaths = playerData.PlaythroughDeaths,
+            PresentDays = playerData.PresentDays,
             BannedFromChurch = playerData.BannedFromChurch,
             BlessingsReceived = playerData.BlessingsReceived,
             ChurchDonations = playerData.ChurchDonations,
@@ -6353,6 +6368,10 @@ public partial class GameEngine
         // this runs before or after RestoreNPCs. Online keeps the registry in world_state.
         if (!UsurperRemake.BBS.DoorMode.IsOnlineMode)
             UsurperRemake.Systems.NPCNameRegistry.ReserveAll(worldState.UsedNPCNames);
+
+        // v1.2: the bank's robbery reserve (single-player only; online reads world_state)
+        if (!UsurperRemake.BBS.DoorMode.IsOnlineMode)
+            UsurperRemake.Systems.BankVaultSystem.Load(worldState.BankVaultReserve);
 
         // Restore active world events from save data
         var currentDay = dailyManager?.CurrentDay ?? 1;

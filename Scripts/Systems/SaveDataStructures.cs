@@ -229,6 +229,12 @@ namespace UsurperRemake.Systems
         public int WolfFeed { get; set; }
         public int RoyalAdoptions { get; set; }
         public int Wrestlings { get; set; }
+        // v1.2 (design item C): haggling attempts and shop bars were memory-only (refilled by relog)
+        public byte WeapHag { get; set; } = 3;
+        public byte ArmHag { get; set; } = 3;
+        public int WeaponShopBarredUntilDay { get; set; }
+        public int ArmorShopBarredUntilDay { get; set; }
+        public string? PendingGroupDeath { get; set; } // v1.2 (design item B)
         public int GymSessions { get; set; }
         public int PickPocketAttempts { get; set; }
         public int Massage { get; set; }
@@ -241,6 +247,7 @@ namespace UsurperRemake.Systems
         public int MaxResurrections { get; set; } = 3;
         // v0.60.0 beta: total deaths this playthrough (resets on NG+).
         public int PlaythroughDeaths { get; set; }
+        public int PresentDays { get; set; } // v1.2 (design item F)
         public bool BannedFromChurch { get; set; }
         public int BlessingsReceived { get; set; }
         public long ChurchDonations { get; set; }
@@ -1239,6 +1246,7 @@ namespace UsurperRemake.Systems
     {
         // Economic state
         public int BankInterestRate { get; set; }
+        public long BankVaultReserve { get; set; } = GameConfig.BankVaultInitial; // v1.2: single-player robbery reserve; online lives in world_state
         public int TownPotValue { get; set; }
 
         // Political state
@@ -2035,6 +2043,7 @@ namespace UsurperRemake.Systems
         public bool Deleted { get; set; }
         public DateTime LastUpdated { get; set; }
         public int CreatedOnGameDay { get; set; } // In-game day when relationship started (v0.26)
+        public int LastPlayerContactDay { get; set; } // v1.2 (design item F)
         public bool BannedMarry { get; set; }    // Banned from marriage by King
         public int MarriedTimes { get; set; }    // Times married
         public int Kids { get; set; }            // Children produced

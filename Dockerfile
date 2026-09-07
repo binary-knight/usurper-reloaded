@@ -6,7 +6,6 @@ WORKDIR /src
 COPY usurper-reloaded.csproj runtimeconfig.template.json GlobalUsings.cs ./
 COPY Scripts/ Scripts/
 COPY Console/ Console/
-COPY Data/ Data/
 COPY Assets/ Assets/
 COPY Localization/ Localization/
 COPY app.ico ./

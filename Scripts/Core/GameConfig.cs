@@ -639,6 +639,12 @@ public static partial class GameConfig
 
     // Bank system constants
     public const int DefaultBankRobberyAttempts = 3;
+    // v1.2 (design item D): the persisted robbery reserve, see BankVaultSystem
+    public const long BankVaultInitial = 500_000L;
+    public const long BankRobberyMaxTake = 250_000L;
+    public const long BankVaultDailyRefill = 25_000L;
+    public const int BankVaultRefillRatePercent = 1;
+    public const long BankVaultCap = 5_000_000L;
     public const long MaxBankBalance = 2000000000L; // 2 billion gold limit
     public const int GuardSalaryPerLevel = 150;  // Increased from 50 to make guard job worthwhile at higher levels
                                                   // Level 100: 1000 + (100 * 150) = 16,000 gold/day (about 1.5 monster kills)
@@ -1953,6 +1959,13 @@ public static partial class GameConfig
     public const int RelationRespect = 60;
     public const int RelationNone = 1;       // returned by social_relation function
     public const int RelationNormal = 70;    // default relation value
+    // v1.2 (design item F): relationship neglect, measured in days the player was present
+    public const int NeglectStepDays = 7;
+    public const int SpouseNeglectGraceDays = 7;
+    public const int SpouseNeglectLovePenalty = 5;
+    // v1.2 (design item G): an NPC left to die while the player could have helped
+    public const int AbandonPenaltySteps = 2;
+    public const int AbandonCompanionLoyaltyPenalty = 15;
     public const int RelationSuspicious = 80;
     public const int RelationAnger = 90;
     public const int RelationEnemy = 100;

@@ -699,6 +699,7 @@ public class DungeonLocation : BaseLocation
         // Run full combat using the same pattern as room combat
         var combatEngine = new CombatEngine(terminal);
         var combatResult = await combatEngine.PlayerVsMonsters(player, new List<Monster> { guardian }, teammates);
+        DropFallenGroupedPlayers(); // v1.2 (design item B)
 
         if (combatResult.Outcome == CombatOutcome.Victory)
         {
@@ -5407,6 +5408,7 @@ public class DungeonLocation : BaseLocation
         // Combat
         var combatEngine = new CombatEngine(terminal);
         var combatResult = await combatEngine.PlayerVsMonsters(player, monsters, teammates, offerMonkEncounter: true, isAmbush: isAmbush);
+        DropFallenGroupedPlayers(); // v1.2 (design item B)
 
         // Restore original temp bonuses after combat
         if (punishmentApplied)
@@ -7213,6 +7215,7 @@ public class DungeonLocation : BaseLocation
         // Use new PlayerVsMonsters method - ALL monsters fight at once!
         // Monk will appear after ALL monsters are defeated
         var combatResult = await combatEngine.PlayerVsMonsters(currentPlayer, monsters, teammates, offerMonkEncounter: true);
+        DropFallenGroupedPlayers(); // v1.2 (design item B)
 
         // Restore original temp bonuses after combat
         if (punishmentApplied)
@@ -8412,6 +8415,7 @@ public class DungeonLocation : BaseLocation
 
             var combatEngine = new CombatEngine(terminal);
             var combatResult = await combatEngine.PlayerVsMonsters(currentPlayer, monsters, teammates, offerMonkEncounter: false);
+            DropFallenGroupedPlayers(); // v1.2 (design item B)
 
             // Check if player should return to temple after resurrection
             if (combatResult.ShouldReturnToTemple)
@@ -8518,6 +8522,7 @@ public class DungeonLocation : BaseLocation
 
             var combatEngine = new CombatEngine(terminal);
             var combatResult = await combatEngine.PlayerVsMonsters(currentPlayer, monsters, teammates, offerMonkEncounter: false);
+            DropFallenGroupedPlayers(); // v1.2 (design item B)
 
             // Check if player should return to temple after resurrection
             if (combatResult.ShouldReturnToTemple)
@@ -17932,6 +17937,15 @@ public class DungeonLocation : BaseLocation
             // Clean up: remove from leader's party
             CleanupGroupFollower(player, term, mySession, leaderSession, leaderDungeon);
         }
+
+        // v1.2 (design item B): the follower died in the leader's fight. Now that this is the
+        // follower's own session and context, run their death and send them to the Temple.
+        if (player.PendingGroupDeath is string killer)
+        {
+            bool alive = await UsurperRemake.Server.GroupFollowerDeath.Resolve(player, term, killer);
+            if (!alive) throw new GameExitException();
+            throw new LocationExitException(GameLocation.Temple);
+        }
     }
 
     /// <summary>
@@ -17953,6 +17967,7 @@ public class DungeonLocation : BaseLocation
                 // Active read from follower's own terminal — message pump is active,
                 // so EnqueueMessage broadcasts appear at the prompt
                 string? input;
+                if (player.PendingGroupDeath != null) break; // v1.2: died in the leader's fight
                 try
                 {
                     input = await term.GetInput("");
@@ -17977,6 +17992,7 @@ public class DungeonLocation : BaseLocation
                 }
 
                 if (input == null) break; // disconnect
+                if (player.PendingGroupDeath != null) break; // v1.2: died while this read was pending
 
                 var trimmed = input.Trim();
 
@@ -18592,6 +18608,19 @@ public class DungeonLocation : BaseLocation
     /// <summary>
     /// Clean up when a group follower exits the dungeon (voluntarily, disconnect, or group disband).
     /// </summary>
+    /// <summary>
+    /// v1.2 (design item B): a grouped follower who died is removed from the leader's fight by
+    /// CombatEngine, but the dungeon roster only loses them when their own session exits its
+    /// follower loop, which needs a keypress. Drop them here so the next fight does not list them.
+    /// </summary>
+    private void DropFallenGroupedPlayers()
+    {
+        lock (teammates)
+        {
+            teammates.RemoveAll(t => t.IsGroupedPlayer && !t.IsAlive);
+        }
+    }
+
     private void CleanupGroupFollower(
         Character player, TerminalEmulator term,
         PlayerSession mySession, PlayerSession leaderSession,
@@ -18615,8 +18644,9 @@ public class DungeonLocation : BaseLocation
         mySession.GroupLeaderSession = null;
 
         // Notify leader (follower left the dungeon, not necessarily the group)
-        leaderSession.EnqueueMessage(
-            $"\u001b[1;33m  * {player.DisplayName} has left the dungeon.\u001b[0m");
+        leaderSession.EnqueueMessage(player.PendingGroupDeath != null
+            ? $"\u001b[1;31m  {Loc.Get("group.follower_left_dead", player.DisplayName)}\u001b[0m"
+            : $"\u001b[1;33m  * {player.DisplayName} has left the dungeon.\u001b[0m");
     }
 
     /// <summary>

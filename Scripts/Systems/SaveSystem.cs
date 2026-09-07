@@ -428,6 +428,11 @@ namespace UsurperRemake.Systems
                 WolfFeed = player.WolfFeed,
                 RoyalAdoptions = player.RoyalAdoptions,
                 Wrestlings = player.Wrestlings,
+                WeapHag = player.WeapHag,
+                ArmHag = player.ArmHag,
+                WeaponShopBarredUntilDay = player.WeaponShopBarredUntilDay,
+                ArmorShopBarredUntilDay = player.ArmorShopBarredUntilDay,
+                PendingGroupDeath = player.PendingGroupDeath,
                 GymSessions = player.GymSessions,
                 PickPocketAttempts = player.PickPocketAttempts,
                 Massage = player.Massage,
@@ -439,6 +444,7 @@ namespace UsurperRemake.Systems
                 ResurrectionsUsed = player.ResurrectionsUsed,
                 MaxResurrections = player.MaxResurrections,
                 PlaythroughDeaths = player.PlaythroughDeaths,
+                PresentDays = player.PresentDays,
                 BannedFromChurch = player.BannedFromChurch,
                 BlessingsReceived = player.BlessingsReceived,
                 ChurchDonations = player.ChurchDonations,
@@ -1475,7 +1481,13 @@ namespace UsurperRemake.Systems
                 // v1.0.4: names ever used by NPCs. Online keeps this in world_state instead.
                 UsedNPCNames = UsurperRemake.BBS.DoorMode.IsOnlineMode
                     ? new List<string>()
-                    : UsurperRemake.Systems.NPCNameRegistry.Export()
+                    : UsurperRemake.Systems.NPCNameRegistry.Export(),
+
+                // v1.2: the bank's robbery reserve. Online keeps it in world_state; a per-player
+                // copy would be stale, so write the initial value there and never read it back.
+                BankVaultReserve = UsurperRemake.BBS.DoorMode.IsOnlineMode
+                    ? GameConfig.BankVaultInitial
+                    : UsurperRemake.Systems.BankVaultSystem.Current
             };
         }
         

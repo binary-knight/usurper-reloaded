@@ -2485,6 +2485,38 @@ public static class ClassAbilitySystem
     /// <summary>
     /// Get ability by ID
     /// </summary>
+    /// <summary>v1.2 (design item H2): is this a built-in ability id.</summary>
+    public static bool HasAbility(string abilityId) => AllAbilities.ContainsKey(abilityId);
+
+    /// <summary>v1.2 (design item H2): apply validated scalar overrides; returns how many changed.</summary>
+    public static int ApplyOverrides(IEnumerable<UsurperRemake.Data.AbilityOverride> overrides)
+    {
+        int applied = 0;
+        foreach (var o in overrides)
+        {
+            if (!AllAbilities.TryGetValue(o.Id, out var a)) continue;
+            if (o.Cooldown.HasValue) a.Cooldown = o.Cooldown.Value;
+            if (o.StaminaCost.HasValue) a.StaminaCost = o.StaminaCost.Value;
+            if (o.ManaCost.HasValue) a.ManaCost = o.ManaCost.Value;
+            if (o.LevelRequired.HasValue) a.LevelRequired = o.LevelRequired.Value;
+            if (o.BaseDamage.HasValue) a.BaseDamage = o.BaseDamage.Value;
+            if (o.BaseHealing.HasValue) a.BaseHealing = o.BaseHealing.Value;
+            if (o.DefenseBonus.HasValue) a.DefenseBonus = o.DefenseBonus.Value;
+            if (o.AttackBonus.HasValue) a.AttackBonus = o.AttackBonus.Value;
+            if (o.Duration.HasValue) a.Duration = o.Duration.Value;
+            applied++;
+        }
+        return applied;
+    }
+
+    /// <summary>v1.2 (design item H2): every built-in ability with its current numbers.</summary>
+    public static List<UsurperRemake.Data.AbilityOverride> ExportOverrideTemplate() =>
+        AllAbilities.Values.OrderBy(a => a.Id).Select(a => new UsurperRemake.Data.AbilityOverride
+        {
+            Id = a.Id, Cooldown = a.Cooldown, StaminaCost = a.StaminaCost, ManaCost = a.ManaCost, LevelRequired = a.LevelRequired,
+            BaseDamage = a.BaseDamage, BaseHealing = a.BaseHealing, DefenseBonus = a.DefenseBonus, AttackBonus = a.AttackBonus, Duration = a.Duration,
+        }).ToList();
+
     public static ClassAbility? GetAbility(string abilityId)
     {
         return AllAbilities.TryGetValue(abilityId, out var ability) ? ability : null;

@@ -54,12 +54,12 @@ public class ArmorShopLocation : BaseLocation
 
     protected override void DisplayLocation()
     {
-        if (IsScreenReader && currentPlayer != null && currentPlayer.ArmHag >= 1)
+        if (IsScreenReader && currentPlayer != null && !currentPlayer.IsBarredFromArmorShop(GameEngine.Instance.SessionCurrentDay))
         {
             if (currentSlotCategory == null) { DisplayLocationSR(); return; }
         }
 
-        if (IsBBSSession && currentPlayer != null && currentPlayer.ArmHag >= 1)
+        if (IsBBSSession && currentPlayer != null && !currentPlayer.IsBarredFromArmorShop(GameEngine.Instance.SessionCurrentDay))
         {
             if (currentSlotCategory == null) { DisplayLocationBBS(); return; }
         }
@@ -69,7 +69,7 @@ public class ArmorShopLocation : BaseLocation
         if (currentPlayer == null) return;
 
         // Check if player has been kicked out for bad haggling
-        if (currentPlayer.ArmHag < 1)
+        if (currentPlayer.IsBarredFromArmorShop(GameEngine.Instance.SessionCurrentDay))
         {
             terminal.SetColor("bright_red");
             terminal.WriteLine(Loc.Get("armor_shop.kicked_out_1"));
@@ -540,7 +540,7 @@ public class ArmorShopLocation : BaseLocation
 
         if (currentPlayer == null) return true;
 
-        if (currentPlayer.ArmHag < 1)
+        if (currentPlayer.IsBarredFromArmorShop(GameEngine.Instance.SessionCurrentDay))
         {
             await NavigateToLocation(GameLocation.MainStreet);
             return true;
@@ -667,7 +667,11 @@ public class ArmorShopLocation : BaseLocation
         // Calculate total with tax
         var (armorKingTax, armorCityTax, armorTotalWithTax) = CityControlSystem.CalculateTaxedPrice(adjustedPrice);
 
-        if (currentPlayer.Gold < armorTotalWithTax)
+        // v1.2 (design item C): a player who can afford only a haggled price may still try;
+        // the real check runs after negotiation.
+        bool mayHaggle = HagglingEngine.CanHaggle(currentPlayer, HagglingEngine.ShopType.Armor);
+        long bestCaseTotal = mayHaggle ? CityControlSystem.CalculateTaxedPrice(adjustedPrice - adjustedPrice / 5).Item3 : armorTotalWithTax;
+        if (currentPlayer.Gold < bestCaseTotal)
         {
             terminal.WriteLine("");
             terminal.SetColor("red");
@@ -732,11 +736,47 @@ public class ArmorShopLocation : BaseLocation
             terminal.Write(Loc.Get("armor_shop.was_price", FormatNumber(item.Value)));
             terminal.SetColor("white");
         }
-        terminal.Write(Loc.Get("armor_shop.gold_yn"));
+        terminal.WriteLine("");
 
-        var confirm = await terminal.GetInput("");
-        if (!GameConfig.IsAffirmative(confirm))
+        // v1.2 (design item C): [H]aggle over the pre-tax price; tax is recomputed on the agreed amount
+        while (true)
         {
+            int attemptsLeft = HagglingEngine.GetHagglingAttemptsLeft(currentPlayer, HagglingEngine.ShopType.Armor);
+            terminal.SetColor("white");
+            terminal.Write(attemptsLeft > 0
+                ? Loc.Get("shop.buy_prompt_haggle", FormatNumber(armorTotalWithTax), attemptsLeft)
+                : Loc.Get("shop.buy_prompt_no_haggle", FormatNumber(armorTotalWithTax)));
+            var confirm = (await terminal.GetInput("")).Trim().ToUpperInvariant();
+            if (confirm == "H")
+            {
+                var haggle = await HagglingEngine.Haggle(currentPlayer, HagglingEngine.ShopType.Armor, adjustedPrice, shopkeeperName, terminal);
+                if (haggle.Kicked)
+                {
+                    currentPlayer.ArmorShopBarredUntilDay = GameEngine.Instance.SessionCurrentDay + 1;
+                    await NavigateToLocation(GameLocation.MainStreet);
+                    return;
+                }
+                if (haggle.Price < adjustedPrice)
+                {
+                    adjustedPrice = haggle.Price;
+                    (armorKingTax, armorCityTax, armorTotalWithTax) = CityControlSystem.CalculateTaxedPrice(adjustedPrice);
+                    terminal.WriteLine(Loc.Get("shop.haggle_price_agreed", FormatNumber(adjustedPrice), FormatNumber(armorKingTax + armorCityTax)), "bright_green");
+                }
+                continue;
+            }
+            if (!GameConfig.IsAffirmative(confirm))
+            {
+                return;
+            }
+            break;
+        }
+
+        if (currentPlayer.Gold < armorTotalWithTax)
+        {
+            terminal.WriteLine("");
+            terminal.SetColor("red");
+            terminal.WriteLine(Loc.Get("shop.insufficient_gold", FormatNumber(armorTotalWithTax), FormatNumber(currentPlayer.Gold)));
+            await Pause();
             return;
         }
 
