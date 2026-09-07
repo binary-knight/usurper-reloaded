@@ -120,9 +120,9 @@ sites. As a backstop, the counts of `GameEngine.Instance`, `SaveSystem`, and
 `PermadeathHelper` references in `CombatEngine.cs` (8, 16, and 4 on main at
 `0138c31`) must be unchanged after the PR.
 
-**Slice.** Flag, loop exit, `HandleOnlineDeath`, bookkeeping, save, Temple.
-Deferred: persisted pending death, spectating at 0 HP, a no-keypress loop
-cancel.
+**Slice.** Persisted flag, loop exit, `HandleOnlineDeath`, bookkeeping, save,
+Temple. Deferred: the phased pending-death record, spectating at 0 HP, a
+no-keypress loop cancel.
 
 ---
 

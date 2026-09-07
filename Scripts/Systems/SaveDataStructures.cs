@@ -229,6 +229,11 @@ namespace UsurperRemake.Systems
         public int WolfFeed { get; set; }
         public int RoyalAdoptions { get; set; }
         public int Wrestlings { get; set; }
+        // v1.2 (design item C): haggling attempts and shop bars were memory-only (refilled by relog)
+        public byte WeapHag { get; set; } = 3;
+        public byte ArmHag { get; set; } = 3;
+        public int WeaponShopBarredUntilDay { get; set; }
+        public int ArmorShopBarredUntilDay { get; set; }
         public int GymSessions { get; set; }
         public int PickPocketAttempts { get; set; }
         public int Massage { get; set; }

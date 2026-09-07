@@ -16,11 +16,16 @@ public static class HagglingEngine
         Armor = 'A'
     }
     
+    /// <summary>The outcome of one haggle: the agreed pre-tax price (the original if nothing
+    /// was agreed) and whether the shopkeeper threw the player out.</summary>
+    public readonly record struct HaggleResult(long Price, bool Kicked);
+
     /// <summary>
-    /// Attempt to haggle for a better price
-    /// Returns the final agreed price (original price if haggling failed)
+    /// Attempt to haggle for a better price. One call spends one attempt whatever the
+    /// outcome; with no attempts left the shopkeeper's temper decides whether the player
+    /// is thrown out (the caller applies the bar and leaves the shop).
     /// </summary>
-    public static async Task<long> Haggle(Character player, ShopType shopType, long originalCost, 
+    public static async Task<HaggleResult> Haggle(Character player, ShopType shopType, long originalCost, 
                                          string shopkeeperName, TerminalEmulator terminal)
     {
         terminal.SetColor("bright_yellow");
@@ -33,8 +38,8 @@ public static class HagglingEngine
         // Check if player has haggling attempts left
         if (!CanHaggle(player, shopType))
         {
-            await HandleNoHagglingAttemptsLeft(player, shopType, shopkeeperName, terminal);
-            return originalCost;
+            bool kicked = await HandleNoHagglingAttemptsLeft(player, shopType, shopkeeperName, terminal);
+            return new HaggleResult(originalCost, kicked);
         }
         
         // Special case: Trolls can't haggle at weapon shop if they already got race discount
@@ -44,7 +49,7 @@ public static class HagglingEngine
             terminal.WriteLine(Loc.Get("haggle.troll_already_discount"));
             terminal.WriteLine(Loc.Get("haggle.troll_get_out"));
             await Task.Delay(2000);
-            return originalCost;
+            return new HaggleResult(originalCost, false);
         }
         
         // Deduct haggling attempt
@@ -59,7 +64,7 @@ public static class HagglingEngine
         {
             terminal.WriteLine(Loc.Get("haggle.not_serious"), "red");
             await Task.Delay(1500);
-            return originalCost;
+            return new HaggleResult(originalCost, false);
         }
         
         // Calculate if haggling succeeds
@@ -68,7 +73,7 @@ public static class HagglingEngine
         if (!success)
         {
             await HandleHagglingFailure(shopType, terminal);
-            return originalCost;
+            return new HaggleResult(originalCost, false);
         }
         
         // Haggling succeeded!
@@ -78,10 +83,10 @@ public static class HagglingEngine
         var confirm = await terminal.GetInput(Loc.Get("haggle.accept_price"));
         if (GameConfig.IsAffirmative(confirm))
         {
-            return offer;
+            return new HaggleResult(offer, false);
         }
         
-        return originalCost;
+        return new HaggleResult(originalCost, false);
     }
     
     /// <summary>
@@ -117,17 +122,13 @@ public static class HagglingEngine
     /// Calculate haggling success based on charisma and discount percentage
     /// Pascal formula: max 20% discount, success based on charisma levels
     /// </summary>
-    private static bool CalculateHagglingSuccess(Character player, long originalCost, long offer)
+    internal static bool CalculateHagglingSuccess(Character player, long originalCost, long offer)
     {
-        // Calculate discount percentage
-        double discountRatio = (double)(originalCost - offer) / originalCost;
-        int discountPercentage = (int)(discountRatio * 100);
-        
+        if (originalCost <= 0 || offer <= 0 || offer >= originalCost) return false;
+        // Discount in whole percent, exact: the old (int)(ratio * 100) truncated, so a 10.9%
+        // discount passed a 10% tier. Compare in integer arithmetic to avoid overflow too.
         // Maximum 20% discount allowed
-        double maxDiscountAmount = originalCost * 0.20;
-        long minimumAcceptableOffer = originalCost - (long)maxDiscountAmount;
-        
-        if (offer < minimumAcceptableOffer)
+        if ((originalCost - offer) * 5 > originalCost)
         {
             return false; // Discount too high
         }
@@ -143,13 +144,13 @@ public static class HagglingEngine
             _ => 4           // 1-25 charisma: up to 4% discount
         };
         
-        return discountPercentage <= maxAllowedDiscount;
+        return (originalCost - offer) * 100 <= (long)maxAllowedDiscount * originalCost;
     }
     
     /// <summary>
     /// Handle the case when player has no haggling attempts left
     /// </summary>
-    private static async Task HandleNoHagglingAttemptsLeft(Character player, ShopType shopType, 
+    private static async Task<bool> HandleNoHagglingAttemptsLeft(Character player, ShopType shopType, 
                                                           string shopkeeperName, TerminalEmulator terminal)
     {
         terminal.SetColor("red");
@@ -187,12 +188,14 @@ public static class HagglingEngine
             terminal.WriteLine(Loc.Get("haggle.kicked_news", player.DisplayName, shopName));
             
             await Task.Delay(3000);
+            return true;
         }
         else
         {
             terminal.SetColor("gray");
             terminal.WriteLine(Loc.Get("haggle.end_discussion"));
             await Task.Delay(1500);
+            return false;
         }
     }
     
@@ -226,6 +229,8 @@ public static class HagglingEngine
     {
         player.WeapHag = 3;  // Reset to 3 attempts per day
         player.ArmHag = 3;   // Reset to 3 attempts per day
+        player.WeaponShopBarredUntilDay = 0; // v1.2: a kick-out lasts until the next day
+        player.ArmorShopBarredUntilDay = 0;
     }
     
     /// <summary>

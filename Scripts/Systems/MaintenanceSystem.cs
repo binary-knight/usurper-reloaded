@@ -404,6 +404,8 @@ public class MaintenanceSystem
         // Reset shop haggling attempts (Pascal: daily haggling reset)
         player.WeapHag = 3;
         player.ArmHag = 3;
+        player.WeaponShopBarredUntilDay = 0;
+        player.ArmorShopBarredUntilDay = 0;
 
         // Reset real-world-date daily tracking (online mode persistence)
         player.SethFightsToday = 0;
