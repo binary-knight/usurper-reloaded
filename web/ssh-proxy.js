@@ -4032,7 +4032,8 @@ httpServer.listen(WS_PORT, () => {
   console.log(`[usurper-web] Dashboard API: http://127.0.0.1:${WS_PORT}/api/dash/*`);
   console.log(`[usurper-web] Balance API: http://127.0.0.1:${WS_PORT}/api/balance/*`);
   console.log(`[usurper-web] Admin API: http://127.0.0.1:${WS_PORT}/api/admin/*`);
-  console.log(`[usurper-web] Proxying SSH to ${SSH_HOST}:${SSH_PORT}`);
+  if (MUD_MODE) console.log(`[usurper-web] Bridging browser sessions to MUD server ${MUD_HOST}:${MUD_PORT}`);
+  else console.log(`[usurper-web] Proxying SSH to ${SSH_HOST}:${SSH_PORT}`);
 
   // Pre-warm stats cache on startup so first visitor doesn't wait 20s
   setTimeout(() => {

@@ -37,6 +37,14 @@ services:
       - "30"
       - "--admin"
       - "YourAdminName"
+    # The web proxy opens the database once at startup and never reconnects, so
+    # it must not start before the game server has created the file.
+    healthcheck:
+      test: ["CMD", "test", "-f", "/var/usurper/usurper_online.db"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 10s
     restart: unless-stopped
 
   usurper-web:
@@ -48,7 +56,7 @@ services:
     environment:
       - MUD_MODE=1
       - MUD_HOST=usurper-game
-      - MUD_PORT=4000
+      - MUD_PORT=4000                 # must match --mud-port above (the proxy's own default is 4001)
       - DB_PATH=/var/usurper/usurper_online.db
       - BALANCE_USER=admin
       # Set a real password here before exposing this deploy. Leaving it unset
@@ -58,8 +66,16 @@ services:
       # SSH gateway account used only when MUD_MODE=0 (legacy SSH hop).
       # - SSH_USER=usurper
       # - SSH_PASS=set-a-real-one
+      # Optional integrations (all off when unset); see DOCS/DOCKER.md.
+      # - WS_MAX_CONN_PER_IP=8         # browser sessions allowed per client IP
+      # - BUG_REPORT_WEBHOOK_URL=      # Discord webhook that receives in-game /bug reports
+      # - DISCORD_BOT_TOKEN=           # with DISCORD_GOSSIP_CHANNEL_ID: mirror world news to Discord
+      # - DISCORD_GOSSIP_CHANNEL_ID=
+      # - DISCORD_STATS_CHANNEL_ID=    # optional live stats embed
+      # - GITHUB_PAT=                  # read-only token for the sponsors list on the landing page
     depends_on:
-      - usurper-game
+      usurper-game:
+        condition: service_healthy
     restart: unless-stopped
 
   usurper-nginx:
