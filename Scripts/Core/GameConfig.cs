@@ -1971,6 +1971,7 @@ public static partial class GameConfig
     // half damage) instead of attacking.
     public const double TeammateDefensivePriorityHpPercent = 0.40;
     public const double TeammateDefendHpPercent = 0.35;
+    public const double TeammateEmergencySelfHealHpPercent = 0.30; // drink your own potion before triaging others
     public const int RelationSuspicious = 80;
     public const int RelationAnger = 90;
     public const int RelationEnemy = 100;

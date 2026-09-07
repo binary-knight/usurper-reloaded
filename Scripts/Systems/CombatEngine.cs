@@ -66,6 +66,9 @@ public partial class CombatEngine
             .ToList();
     }
 
+    internal static bool IsWoundedForDefense(Character c) =>
+        c.MaxHP > 0 && (double)c.HP / c.MaxHP < GameConfig.TeammateDefensivePriorityHpPercent;
+
     /// <summary>v1.2: a teammate below TeammateDefendHpPercent with no heal or defensive ability
     /// left braces for the round (half incoming damage) instead of swinging. Cleared at round end
     /// like the player's Defend.</summary>
@@ -6659,6 +6662,8 @@ public partial class CombatEngine
         var healAction = await TryTeammateHealAction(teammate, allPartyMembers, result);
         if (healAction) return;
 
+        // v1.2: wounded, a teammate looks for a shield before it casts an attack spell
+        if (IsWoundedForDefense(teammate) && await TryTeammateClassAbility(teammate, monsterList, result)) return;
         // Check if teammate should cast an offensive spell
         var spellAction = await TryTeammateOffensiveSpell(teammate, monsterList, result);
         if (spellAction) return;
@@ -18044,6 +18049,11 @@ public partial class CombatEngine
             return; // Healing action was taken
         }
 
+        // v1.2: wounded, a teammate looks for a shield before it casts an attack spell
+        if (IsWoundedForDefense(teammate) && await TryTeammateClassAbility(teammate, monsters, result))
+        {
+            return;
+        }
         // Check if teammate should cast an offensive spell
         var spellAction = await TryTeammateOffensiveSpell(teammate, monsters, result);
         if (spellAction)
@@ -18144,6 +18154,15 @@ public partial class CombatEngine
         // Check if teammate can heal with spells (any class with mana and healing spells)
         bool canHealWithSpells = teammate.Mana > 10 && GetBestHealSpell(teammate) != null;
         bool hasPotion = teammate.Healing > 0;
+
+        // v1.2: about to die, a teammate drinks its own potion first; the old order potioned the
+        // most injured party member and returned, so a teammate at 20 percent handed its last
+        // potion to an ally at 45 and kept fighting.
+        double ownPercent = (double)teammate.HP / Math.Max(1, teammate.MaxHP);
+        if (hasPotion && ownPercent < GameConfig.TeammateEmergencySelfHealHpPercent)
+        {
+            return await TeammateHealWithPotion(teammate, teammate, result);
+        }
 
         // Classes that prioritize healing
         bool isHealerClass = teammate.Class == CharacterClass.Cleric ||
@@ -18770,6 +18789,14 @@ public partial class CombatEngine
 
         // PRIORITY 1: Tank role — taunt immediately if no monsters are taunted
         // Tanks should establish aggro before anything else. This skips the 50% gate.
+        // v1.2: a wounded teammate reaches for a shield or a sidestep before anything else,
+        // ahead of the tank's taunt and of the use-chance roll.
+        if (teammateHpPercent < GameConfig.TeammateDefensivePriorityHpPercent)
+        {
+            var lifeSavers = SelectDefensiveAbilities(affordableAbilities);
+            if (lifeSavers.Count > 0)
+                chosenAbility = lifeSavers.OrderByDescending(a => a.LevelRequired).First();
+        }
         bool isTankClass = teammate.Class == CharacterClass.Warrior || teammate.Class == CharacterClass.Paladin
             || teammate.Class == CharacterClass.Barbarian;
         bool isTankCompanion = teammate.IsCompanion && teammate.CompanionId.HasValue &&
@@ -18823,14 +18850,6 @@ public partial class CombatEngine
         }
 
         // Ability use chance: default 50%, overridden by spec
-        // v1.2: a wounded teammate reaches for a shield or a sidestep before anything else,
-        // and does not leave it to the use-chance roll.
-        if (chosenAbility == null && teammateHpPercent < GameConfig.TeammateDefensivePriorityHpPercent)
-        {
-            var lifeSavers = SelectDefensiveAbilities(affordableAbilities);
-            if (lifeSavers.Count > 0)
-                chosenAbility = lifeSavers.OrderByDescending(a => a.LevelRequired).First();
-        }
         int abilityUsePercent = 50;
         if (activeSpec != null)
             abilityUsePercent = (int)(activeSpec.AbilityUseChance * 100);
@@ -19325,6 +19344,7 @@ public partial class CombatEngine
                         if (monster.IsBoss)
                             actualDmg = Math.Max(actualDmg, (long)(monster.Level * 1.5));
                         actualDmg = CapTeammateDamageInOldGodFight(companion, actualDmg);
+                        if (companion.IsDefending) actualDmg = Math.Max(1, actualDmg / 2); // v1.2: brace covers specials too
                         companion.HP = Math.Max(0, companion.HP - actualDmg);
                         terminal.WriteLine($"{companion.DisplayName} takes {actualDmg} damage!", "red");
                         result.CombatLog.Add($"{monster.Name} uses {abilityName} on {companion.DisplayName} for {actualDmg}");
@@ -19356,6 +19376,7 @@ public partial class CombatEngine
                         if (monster.IsBoss)
                             dmg = Math.Max(dmg, (long)(monster.Level * 1.5));
                         dmg = CapTeammateDamageInOldGodFight(companion, dmg);
+                        if (companion.IsDefending) dmg = Math.Max(1, dmg / 2); // v1.2: brace covers life drain too
                         companion.HP = Math.Max(0, companion.HP - dmg);
                         if (abilityResult.LifeStealPercent > 0)
                         {
@@ -19853,7 +19874,9 @@ public partial class CombatEngine
                 });
                 terminal.WriteLine($"  {Loc.Get("combat.ally_death_could_have_helped", npc.DisplayName)}", "yellow");
             }
-            wasPermadeath = WorldSimulator.Instance?.MarkNPCDead(worldNpc, GameConfig.PermadeathChancePlayerKill,
+            // v1.2: an ally who dies in the player's party rolls the team rate (2 percent), not
+            // the "player killed an NPC" rate (8 percent) this passed since v0.42.
+            wasPermadeath = WorldSimulator.Instance?.MarkNPCDead(worldNpc, GameConfig.PermadeathChanceDungeonTeam,
                 killerName, deathLocation) ?? false;
             worldNpc.IsInConversation = savedEngaged;
             worldNpc.Team = savedTeam;

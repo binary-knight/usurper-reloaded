@@ -100,3 +100,36 @@ public class TeammateDefenseTests
         tm.ActiveStatuses.Should().NotContainKey(StatusEffect.Defending);
     }
 }
+
+public class TeammateDefensePriorityTests
+{
+    [Fact]
+    public void WoundedForDefense_IsStrictlyBelowForty()
+    {
+        var c = new Character { HP = 40, MaxHP = 100 };
+        CombatEngine.IsWoundedForDefense(c).Should().BeFalse();
+        c.HP = 39;
+        CombatEngine.IsWoundedForDefense(c).Should().BeTrue();
+        c.MaxHP = 0;
+        CombatEngine.IsWoundedForDefense(c).Should().BeFalse("a zero max HP is not a wound");
+    }
+
+    [Fact]
+    public void AllyPermadeath_UsesTheTeamRate()
+    {
+        // An ally who dies beside the player is priced as "died with team", not "player killed an NPC".
+        string src = System.IO.File.ReadAllText(System.IO.Path.Combine(RepoRoot(), "Scripts", "Systems", "CombatEngine.cs"));
+        int i = src.IndexOf("private async Task HandleNpcTeammateDeath(", System.StringComparison.Ordinal);
+        string body = src.Substring(i, 4000);
+        body.Should().Contain("GameConfig.PermadeathChanceDungeonTeam");
+        body.Should().NotContain("GameConfig.PermadeathChancePlayerKill");
+        GameConfig.PermadeathChanceDungeonTeam.Should().BeLessThan(GameConfig.PermadeathChancePlayerKill);
+    }
+
+    private static string RepoRoot()
+    {
+        var dir = new System.IO.DirectoryInfo(System.AppContext.BaseDirectory);
+        while (dir != null && !System.IO.File.Exists(System.IO.Path.Combine(dir.FullName, "usurper-reloaded.csproj"))) dir = dir.Parent;
+        return dir?.FullName ?? throw new System.IO.DirectoryNotFoundException("repo root");
+    }
+}
