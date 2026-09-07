@@ -55,10 +55,14 @@ public class AllyAbandonmentTests
     [Fact]
     public void ACastableHeal_CountsLikeAPotion()
     {
-        var owner = Owner(potions: 0, mana: 20, cls: CharacterClass.Cleric); owner.Level = 1; var ally = Ally(40);
+        var owner = Owner(potions: 0, mana: 20, cls: CharacterClass.Cleric); owner.Level = 1;
+        owner.Spell = new List<List<bool>> { new() { true } }; // Cure Light (level 1) learned; base cost 15
+        var ally = Ally(40);
         var engine = EngineFor(owner);
         engine.NoteOwnerTurn(owner, new List<Character> { ally }, Attack());
-        engine.CouldHaveHelped(ally, owner).Should().BeTrue("a level-1 Cleric knows Cure Light");
+        engine.CouldHaveHelped(ally, owner).Should().BeTrue("a Cleric who has learned Cure Light and has the mana for it could have cast it");
+        owner.Mana = 5;
+        engine.CouldHaveHelped(ally, owner).Should().BeFalse("not enough mana for the cheapest heal");
     }
 
     [Fact]
