@@ -3494,11 +3494,17 @@ function handleHttpRequest(req, res) {
     let filePath = req.url.split('?')[0];
     if (filePath === '/') filePath = '/index.html';
     if (!path.extname(filePath)) filePath += '.html';
-    // Resolve path safely — allow lang/ subdirectory but prevent directory traversal
+    // Resolve path safely — allow lang/ subdirectory but prevent directory traversal.
+    // The trailing separator keeps a sibling directory (web2/) from passing the prefix check.
     const resolved = path.resolve(__dirname, '.' + filePath);
-    if (!resolved.startsWith(path.resolve(__dirname))) {
-      res.writeHead(403);
-      res.end('{"error":"forbidden"}');
+    const webRoot = path.resolve(__dirname) + path.sep;
+    // This directory also holds the server itself; never serve its source or manifest.
+    const PRIVATE_FILES = new Set(['ssh-proxy.js', 'package.json', 'package-lock.json']);
+    const rel = path.relative(__dirname, resolved);
+    const isPrivate = PRIVATE_FILES.has(rel) || rel === 'node_modules' || rel.startsWith('node_modules' + path.sep);
+    if (!resolved.startsWith(webRoot) || isPrivate) {
+      res.writeHead(isPrivate ? 404 : 403);
+      res.end(isPrivate ? '{"error":"not found"}' : '{"error":"forbidden"}');
     } else if (fs.existsSync(resolved) && fs.statSync(resolved).isFile()) {
       const ext = path.extname(resolved);
       res.setHeader('Content-Type', MIME_TYPES[ext] || 'application/octet-stream');
