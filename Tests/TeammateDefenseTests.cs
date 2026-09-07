@@ -61,6 +61,31 @@ public class TeammateDefenseTests
     }
 
     [Fact]
+    public async System.Threading.Tasks.Task Defend_DoesNotLeakIntoTheNextFight_WhenVictorySkipsTheRoundEnd()
+    {
+        // A brace on the round the last monster falls never sees the round-end clear (victory
+        // breaks the round loop). The next fight's per-combat teammate scrub must clear it, or the
+        // teammate enters every later fight already defending and never braces again.
+        var owner = new Character
+        {
+            Name2 = "Hero", Class = CharacterClass.Warrior, Race = CharacterRace.Human, Level = 10,
+            HP = 500, MaxHP = 500, BaseMaxHP = 500, Strength = 80, BaseStrength = 80, Defence = 40, BaseDefence = 40,
+            Dexterity = 30, BaseDexterity = 30, Agility = 25, BaseAgility = 25, Constitution = 30, BaseConstitution = 30,
+            CombatSpeed = CombatSpeed.Instant,
+        };
+        var tm = Teammate(100); tm.Level = 10; tm.Strength = 50; tm.BaseStrength = 50; tm.BaseMaxHP = 100;
+        tm.IsDefending = true; tm.ActiveStatuses[StatusEffect.Defending] = 1; // left over from the previous fight
+        var script = new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(string.Concat(Enumerable.Repeat("A\n", 12)) + string.Concat(Enumerable.Repeat("P\n", 6))));
+        var term = new TerminalEmulator(script, new System.IO.MemoryStream());
+        var engine = new CombatEngine(term);
+        var rat = new Monster { Name = "Sewer Rat", Level = 1, HP = 1, MaxHP = 1, Strength = 1, Defence = 0, Experience = 5, Gold = 3 };
+        var result = await engine.PlayerVsMonsters(owner, new List<Monster> { rat }, new List<Character> { tm }, offerMonkEncounter: false);
+        result.Outcome.Should().Be(CombatOutcome.Victory);
+        tm.IsDefending.Should().BeFalse("the per-combat scrub must clear a brace left over from the last fight");
+        tm.ActiveStatuses.Should().NotContainKey(StatusEffect.Defending);
+    }
+
+    [Fact]
     public void Defend_ClearsAtRoundEnd()
     {
         var engine = new CombatEngine();

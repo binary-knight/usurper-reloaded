@@ -927,6 +927,10 @@ public partial class CombatEngine
                     teammate.MagicACBonus = 0;
                     teammate.DodgeNextAttack = false;
                     teammate.HasBloodlust = false;
+                    // v1.2: a brace on the round the last monster fell skips the round-end clear
+                    // (victory breaks the round loop), same leak the player's IsDefending had.
+                    teammate.IsDefending = false;
+                    teammate.ActiveStatuses.Remove(StatusEffect.Defending);
                     teammate.HasStatusImmunity = false;
                     teammate.StatusImmunityDuration = 0;
                     teammate.DeathsEmbraceActive = false;
