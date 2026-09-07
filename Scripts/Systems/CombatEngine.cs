@@ -42,6 +42,23 @@ public partial class CombatEngine
     private Dictionary<string, int> pvpDefenderCooldowns = new();
     // Per-teammate ability cooldowns (keyed by teammate DisplayName)
     private Dictionary<string, Dictionary<string, int>> teammateCooldowns = new();
+    // v1.2 (design item A): the combat owner. A grouped follower acts through the same
+    // action paths as the owner, so every ability path asks CooldownsFor(actor) instead of
+    // touching abilityCooldowns directly; otherwise a follower of the owner's class shared
+    // the owner's cooldowns within the fight.
+    private Character? _combatOwner;
+    private static string TeammateCooldownKey(Character c) => c.GroupPlayerUsername ?? c.DisplayName;
+    internal Dictionary<string, int> CooldownsFor(Character actor)
+    {
+        if (_combatOwner == null || ReferenceEquals(actor, _combatOwner)) return abilityCooldowns;
+        var key = TeammateCooldownKey(actor);
+        if (!teammateCooldowns.TryGetValue(key, out var own))
+        {
+            own = new Dictionary<string, int>();
+            teammateCooldowns[key] = own;
+        }
+        return own;
+    }
 
     // Current player reference for combat speed setting
     private Character currentPlayer;
@@ -428,6 +445,7 @@ public partial class CombatEngine
             Opponent = defender,
             CombatLog = new List<string>()
         };
+        _combatOwner = attacker;
         // v1.1.1: EndPvPCombat (buff consumption, disarm restore, scrub) runs in the finally
         // so a thrown disconnect mid-duel cannot leave either side with stale combat state.
         try
@@ -759,6 +777,7 @@ public partial class CombatEngine
             Teammates = currentTeammates,
             CombatLog = new List<string>()
         };
+        _combatOwner = player;
         // v1.1.1: per-combat buffs are consumed in the finally below so that every exit
         // (victory, defeat, retreat, rescue, and a thrown disconnect) counts the fight.
         // The body is deliberately not re-indented to keep the diff reviewable.
@@ -13800,7 +13819,7 @@ public partial class CombatEngine
             }
 
             // Check cooldown
-            if (abilityCooldowns.TryGetValue(action.AbilityId, out int cd) && cd > 0)
+            if (CooldownsFor(player).TryGetValue(action.AbilityId, out int cd) && cd > 0)
             {
                 terminal.WriteLine(Loc.Get("combat.ability_cooldown", ability.Name, cd), "red");
                 await Task.Delay(GetCombatDelay(1000));
@@ -13864,7 +13883,7 @@ public partial class CombatEngine
             // Set cooldown
             if (abilityResult.CooldownApplied > 0)
             {
-                abilityCooldowns[action.AbilityId] = abilityResult.CooldownApplied;
+                CooldownsFor(player)[action.AbilityId] = abilityResult.CooldownApplied;
                 terminal.SetColor("gray");
                 terminal.WriteLine(Loc.Get("combat.ability_cooldown_set", ability.Name, abilityResult.CooldownApplied));
             }
@@ -15715,11 +15734,11 @@ public partial class CombatEngine
             {
                 // Time manipulation: reduce all ability cooldowns by 2 rounds + Haste for 1 round
                 int cdReduced = 0;
-                foreach (var key in abilityCooldowns.Keys.ToList())
+                foreach (var key in CooldownsFor(player).Keys.ToList())
                 {
-                    if (abilityCooldowns[key] > 0)
+                    if (CooldownsFor(player)[key] > 0)
                     {
-                        abilityCooldowns[key] = Math.Max(0, abilityCooldowns[key] - 2);
+                        CooldownsFor(player)[key] = Math.Max(0, CooldownsFor(player)[key] - 2);
                         cdReduced++;
                     }
                 }
@@ -16072,9 +16091,9 @@ public partial class CombatEngine
                         if (!result.DefeatedMonsters.Contains(target))
                             result.DefeatedMonsters.Add(target);
                         // Kill resets Reap cooldown
-                        if (abilityCooldowns.ContainsKey("reap"))
+                        if (CooldownsFor(player).ContainsKey("reap"))
                         {
-                            abilityCooldowns["reap"] = 0;
+                            CooldownsFor(player)["reap"] = 0;
                             terminal.WriteLine(Loc.Get("combat.reap_cooldown_reset"), "bright_red");
                         }
                     }
@@ -16428,9 +16447,9 @@ public partial class CombatEngine
 
         foreach (var ability in availableAbilities)
         {
-            bool canUse = ClassAbilitySystem.CanUseAbility(player, ability.Id, abilityCooldowns);
+            bool canUse = ClassAbilitySystem.CanUseAbility(player, ability.Id, CooldownsFor(player));
             bool hasStamina = player.HasEnoughStamina(ClassAbilitySystem.GetEffectiveStaminaCost(ability));
-            bool onCooldown = abilityCooldowns.TryGetValue(ability.Id, out int cooldownLeft) && cooldownLeft > 0;
+            bool onCooldown = CooldownsFor(player).TryGetValue(ability.Id, out int cooldownLeft) && cooldownLeft > 0;
 
             string statusText = "";
             string color = ColorRole.Action;
@@ -18596,10 +18615,10 @@ public partial class CombatEngine
         }
 
         // Get or create this teammate's cooldown tracker
-        if (!teammateCooldowns.TryGetValue(teammate.DisplayName, out var myCooldowns))
+        if (!teammateCooldowns.TryGetValue(TeammateCooldownKey(teammate), out var myCooldowns))
         {
             myCooldowns = new Dictionary<string, int>();
-            teammateCooldowns[teammate.DisplayName] = myCooldowns;
+            teammateCooldowns[TeammateCooldownKey(teammate)] = myCooldowns;
         }
 
         // Filter to abilities the teammate can afford (stamina AND mana), off cooldown,
@@ -22056,9 +22075,9 @@ public partial class CombatEngine
 
         foreach (var ability in availableAbilities)
         {
-            bool canUse = ClassAbilitySystem.CanUseAbility(player, ability.Id, abilityCooldowns);
+            bool canUse = ClassAbilitySystem.CanUseAbility(player, ability.Id, CooldownsFor(player));
             bool hasStamina = player.HasEnoughStamina(ClassAbilitySystem.GetEffectiveStaminaCost(ability));
-            bool onCooldown = abilityCooldowns.TryGetValue(ability.Id, out int cooldownLeft) && cooldownLeft > 0;
+            bool onCooldown = CooldownsFor(player).TryGetValue(ability.Id, out int cooldownLeft) && cooldownLeft > 0;
 
             string statusText = "";
             string color = ColorRole.Action;
@@ -22106,9 +22125,9 @@ public partial class CombatEngine
         var selectedAbility = selectableAbilities[choice - 1];
 
         // Verify we can actually use it
-        if (!ClassAbilitySystem.CanUseAbility(player, selectedAbility.Id, abilityCooldowns))
+        if (!ClassAbilitySystem.CanUseAbility(player, selectedAbility.Id, CooldownsFor(player)))
         {
-            if (abilityCooldowns.TryGetValue(selectedAbility.Id, out int cd) && cd > 0)
+            if (CooldownsFor(player).TryGetValue(selectedAbility.Id, out int cd) && cd > 0)
             {
                 terminal.WriteLine(Loc.Get("combat.ability_cooldown", selectedAbility.Name, cd), "red");
             }
@@ -22168,7 +22187,7 @@ public partial class CombatEngine
         // Set cooldown
         if (abilityResult.CooldownApplied > 0)
         {
-            abilityCooldowns[selectedAbility.Id] = abilityResult.CooldownApplied;
+            CooldownsFor(player)[selectedAbility.Id] = abilityResult.CooldownApplied;
         }
 
         // Display training improvement message if ability proficiency increased
@@ -23702,11 +23721,11 @@ public partial class CombatEngine
             {
                 // Time manipulation: reduce all ability cooldowns by 2 rounds + Haste for 1 round
                 int mmCdReduced = 0;
-                foreach (var key in abilityCooldowns.Keys.ToList())
+                foreach (var key in CooldownsFor(player).Keys.ToList())
                 {
-                    if (abilityCooldowns[key] > 0)
+                    if (CooldownsFor(player)[key] > 0)
                     {
-                        abilityCooldowns[key] = Math.Max(0, abilityCooldowns[key] - 2);
+                        CooldownsFor(player)[key] = Math.Max(0, CooldownsFor(player)[key] - 2);
                         mmCdReduced++;
                     }
                 }
@@ -24014,9 +24033,9 @@ public partial class CombatEngine
                         if (!result.DefeatedMonsters.Contains(monster))
                             result.DefeatedMonsters.Add(monster);
                         // Kill resets Reap cooldown
-                        if (abilityCooldowns.ContainsKey("reap"))
+                        if (CooldownsFor(player).ContainsKey("reap"))
                         {
-                            abilityCooldowns["reap"] = 0;
+                            CooldownsFor(player)["reap"] = 0;
                             terminal.WriteLine(Loc.Get("combat.reap_cooldown_reset"), "bright_red");
                         }
                     }
@@ -27772,12 +27791,12 @@ public partial class CombatEngine
                 // Ability slot
                 var ability = ClassAbilitySystem.GetAbility(slotId);
                 if (ability == null) continue;
-                bool canUse = ClassAbilitySystem.CanUseAbility(player, slotId, abilityCooldowns);
+                bool canUse = ClassAbilitySystem.CanUseAbility(player, slotId, CooldownsFor(player));
                 string displayName;
                 var weaponReason = ClassAbilitySystem.GetWeaponRequirementReason(player, ability);
                 if (weaponReason != null)
                     displayName = $"{ability.Name} ({weaponReason})";
-                else if (abilityCooldowns.TryGetValue(slotId, out int cd) && cd > 0)
+                else if (CooldownsFor(player).TryGetValue(slotId, out int cd) && cd > 0)
                     displayName = $"{ability.Name} (CD:{cd})";
                 else if (ability.ManaCost > 0)
                     displayName = $"{ability.Name} ({ability.StaminaCost} ST, {ability.ManaCost} MP)";
@@ -27947,7 +27966,7 @@ public partial class CombatEngine
                         terminal.WriteLine(Loc.Get("combat.ability_weapon_reason", ability.Name, weaponReason), "red");
                     else if (player.CurrentCombatStamina < ability.StaminaCost)
                         terminal.WriteLine(Loc.Get("combat.not_enough_stamina", ability.StaminaCost, player.CurrentCombatStamina), "red");
-                    else if (abilityCooldowns.TryGetValue(matched.slotId, out int cd) && cd > 0)
+                    else if (CooldownsFor(player).TryGetValue(matched.slotId, out int cd) && cd > 0)
                         terminal.WriteLine(Loc.Get("combat.ability_cooldown", ability.Name, cd), "red");
                 }
             }
@@ -28071,7 +28090,7 @@ public partial class CombatEngine
                         terminal.WriteLine(Loc.Get("combat.ability_weapon_reason", ability.Name, weaponReason), "red");
                     else if (player.CurrentCombatStamina < ability.StaminaCost)
                         terminal.WriteLine(Loc.Get("combat.not_enough_stamina", ability.StaminaCost, player.CurrentCombatStamina), "red");
-                    else if (abilityCooldowns.TryGetValue(matched.slotId, out int cd) && cd > 0)
+                    else if (CooldownsFor(player).TryGetValue(matched.slotId, out int cd) && cd > 0)
                         terminal.WriteLine(Loc.Get("combat.ability_cooldown", ability.Name, cd), "red");
                 }
             }
@@ -28181,7 +28200,7 @@ public partial class CombatEngine
         // Set cooldown
         if (abilityResult.CooldownApplied > 0)
         {
-            abilityCooldowns[abilityId] = abilityResult.CooldownApplied;
+            CooldownsFor(player)[abilityId] = abilityResult.CooldownApplied;
         }
 
         // Display training improvement message if ability proficiency increased
