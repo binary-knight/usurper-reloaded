@@ -277,6 +277,11 @@ public class DailySystemManager
     {
         var player = GameEngine.Instance?.CurrentPlayer;
         if (player == null) return;
+
+        // v1.2 (design item F): a day the player was here for. This belongs in RunBasicDailyReset
+        // and in no helper the catch-up path (RunCatchUpDailyReset) shares: absence must add nothing.
+        player.PresentDays++;
+        RelationshipSystem.ProcessNeglect(player);
         
         // Turn-based resets only apply in non-Endless modes
         if (currentMode != DailyCycleMode.Endless)

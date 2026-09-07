@@ -5290,6 +5290,7 @@ public partial class GameEngine
             ResurrectionsUsed = playerData.ResurrectionsUsed,
             MaxResurrections = playerData.MaxResurrections > 0 ? playerData.MaxResurrections : 3,
             PlaythroughDeaths = playerData.PlaythroughDeaths,
+            PresentDays = playerData.PresentDays,
             BannedFromChurch = playerData.BannedFromChurch,
             BlessingsReceived = playerData.BlessingsReceived,
             ChurchDonations = playerData.ChurchDonations,

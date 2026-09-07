@@ -6665,6 +6665,8 @@
   "home.unequip_header": "UNEQUIP FROM {0}",
   "home.return_label": "Return",
   "home.partner_no_spouse": "\nYou have no spouse or lover to spend time with.",
+  "home.spouse_missed_you": "{0} looks up. \"I was starting to wonder if you remembered the way home.\"",
+  "home.spouse_cold": "{0} barely glances at you.",
   "home.partner_go_meet_msg": "Perhaps you should get out there and meet someone?",
   "home.partner_who_spend": "Who would you like to spend time with?",
   "home.partner_cancel_label": " Cancel",

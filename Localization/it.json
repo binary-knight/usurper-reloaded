@@ -6474,6 +6474,8 @@
   "home.unequip_header": "RIMUOVI DA {0}",
   "home.return_label": "Torna",
   "home.partner_no_spouse": "\nNon hai un coniuge o amante con cui passare del tempo.",
+  "home.spouse_missed_you": "{0} alza lo sguardo. \"Cominciavo a chiedermi se ricordassi la strada di casa.\"",
+  "home.spouse_cold": "{0} ti degna appena di uno sguardo.",
   "home.partner_go_meet_msg": "Forse dovresti uscire e conoscere qualcuno?",
   "home.partner_who_spend": "Con chi vorresti passare del tempo?",
   "home.partner_cancel_label": " Annulla",

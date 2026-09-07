@@ -247,6 +247,7 @@ namespace UsurperRemake.Systems
         public int MaxResurrections { get; set; } = 3;
         // v0.60.0 beta: total deaths this playthrough (resets on NG+).
         public int PlaythroughDeaths { get; set; }
+        public int PresentDays { get; set; } // v1.2 (design item F)
         public bool BannedFromChurch { get; set; }
         public int BlessingsReceived { get; set; }
         public long ChurchDonations { get; set; }
@@ -2042,6 +2043,7 @@ namespace UsurperRemake.Systems
         public bool Deleted { get; set; }
         public DateTime LastUpdated { get; set; }
         public int CreatedOnGameDay { get; set; } // In-game day when relationship started (v0.26)
+        public int LastPlayerContactDay { get; set; } // v1.2 (design item F)
         public bool BannedMarry { get; set; }    // Banned from marriage by King
         public int MarriedTimes { get; set; }    // Times married
         public int Kids { get; set; }            // Children produced

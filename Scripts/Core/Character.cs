@@ -1950,6 +1950,9 @@ public class Character
     // and you're erased" -- harsh by design to make late-game decisions
     // matter and to discourage hit-and-run cheese against bosses.
     public int PlaythroughDeaths { get; set; }
+    // v1.2 (design item F): days this player experienced a daily reset while logged in. Absence
+    // adds nothing, so neglect is measured in time the player could have spent.
+    public int PresentDays { get; set; }
 
     // v0.60.0 beta: transient flag set by ApplyMurderConsequences before the
     // Royal Guard arrest-combat. When true, CombatEngine.HandlePlayerDeath

@@ -82,6 +82,7 @@ public partial class RelationshipSystem
         public DateTime CreatedDate { get; set; }       // when relationship started (real time)
         public DateTime LastUpdated { get; set; }       // last update time
         public int CreatedOnGameDay { get; set; }       // in-game day when relationship started (v0.26)
+        public int LastPlayerContactDay { get; set; }   // v1.2: player's PresentDays at the last positive contact
     }
     
     /// <summary>
@@ -106,6 +107,14 @@ public partial class RelationshipSystem
     public static void UpdateRelationship(Character character1, Character character2, int direction, int steps = 1, bool _unused = false, bool overrideMaxFeeling = false)
     {
         var relation = GetOrCreateRelationship(character1, character2);
+
+        // v1.2 (design item F): any positive contact from the player resets neglect, whether or
+        // not the daily gain cap lets the relation move.
+        if (direction > 0)
+        {
+            if (character1 is Player p1) StampPlayerContact(relation, p1, character2);
+            else if (character2 is Player p2) StampPlayerContact(relation, p2, character1);
+        }
 
         // Determine which side of the record represents character1's feeling
         // If record was created as (char1, char2), use Relation1
@@ -1096,6 +1105,7 @@ public partial class RelationshipSystem
                         Deleted = relation.Deleted,
                         LastUpdated = relation.LastUpdated,
                         CreatedOnGameDay = relation.CreatedOnGameDay,  // In-game day tracking (v0.26)
+                        LastPlayerContactDay = relation.LastPlayerContactDay,
                         BannedMarry = relation.BannedMarry,
                         MarriedTimes = relation.MarriedTimes,
                         Kids = relation.Kids,
@@ -1139,6 +1149,7 @@ public partial class RelationshipSystem
                 Deleted = saved.Deleted,
                 LastUpdated = saved.LastUpdated,
                 CreatedOnGameDay = saved.CreatedOnGameDay,  // Restore in-game day tracking (v0.26)
+                LastPlayerContactDay = saved.LastPlayerContactDay,
                 BannedMarry = saved.BannedMarry,
                 MarriedTimes = saved.MarriedTimes,
                 Kids = saved.Kids,
@@ -1147,6 +1158,83 @@ public partial class RelationshipSystem
             };
         }
 
+    }
+
+    #endregion
+
+    #region Neglect (v1.2, design item F)
+
+    /// <summary>One relationship the daily neglect pass looked at.</summary>
+    public readonly record struct NeglectEvent(string OtherName, int NeglectDays, bool IsSpouse, bool Changed);
+
+    /// <summary>Days of the player's presence since the last positive contact with <paramref name="other"/>; 0 without a record.</summary>
+    public static int GetNeglectDays(Character player, Character other)
+    {
+        var record = FindRecord(player, other, out _);
+        if (record == null || record.Deleted) return 0;
+        return Math.Max(0, player.PresentDays - record.LastPlayerContactDay);
+    }
+
+    private static void StampPlayerContact(RelationshipRecord relation, Player player, Character other)
+    {
+        int neglect = Math.Max(0, player.PresentDays - relation.LastPlayerContactDay);
+        relation.LastPlayerContactDay = player.PresentDays;
+        // Making up after a long silence: one step back toward a good marriage.
+        if (neglect > GameConfig.SpouseNeglectGraceDays
+            && relation.Relation1 == GameConfig.RelationMarried && relation.Relation2 == GameConfig.RelationMarried)
+        {
+            var spouse = RomanceTracker.Instance.Spouses.FirstOrDefault(s => s.NPCName == other.Name || (!string.IsNullOrEmpty(other.ID) && s.NPCId == other.ID));
+            if (spouse != null) spouse.LoveLevel = Math.Max(1, spouse.LoveLevel - GameConfig.SpouseNeglectLovePenalty);
+        }
+    }
+
+    /// <summary>
+    /// Runs once per present day (from RunBasicDailyReset only; the catch-up path must never call
+    /// it). Every NeglectStepDays of silence, an NPC who liked the player better than Normal
+    /// cools one step, never below Normal and never to hostility; a spouse stays married but
+    /// LoveLevel worsens by SpouseNeglectLovePenalty after the grace period.
+    /// </summary>
+    public static List<NeglectEvent> ProcessNeglect(Character player)
+    {
+        var events = new List<NeglectEvent>();
+        if (player == null) return events;
+        var records = _relationships.Values.SelectMany(g => g.Values)
+            .Where(r => !r.Deleted && (r.Name1 == player.Name || r.Name2 == player.Name)).ToList();
+        foreach (var record in records)
+        {
+            bool playerIsFirst = record.Name1 == player.Name;
+            string otherName = playerIsFirst ? record.Name2 : record.Name1;
+            int neglect = Math.Max(0, player.PresentDays - record.LastPlayerContactDay);
+            bool onStep = neglect > 0 && neglect % GameConfig.NeglectStepDays == 0;
+            bool isSpouse = record.Relation1 == GameConfig.RelationMarried && record.Relation2 == GameConfig.RelationMarried;
+            bool changed = false;
+            if (isSpouse)
+            {
+                if (onStep && neglect > GameConfig.SpouseNeglectGraceDays)
+                {
+                    var spouse = RomanceTracker.Instance.Spouses.FirstOrDefault(s => s.NPCName == otherName);
+                    if (spouse != null && spouse.LoveLevel < 100)
+                    {
+                        spouse.LoveLevel = Math.Min(100, spouse.LoveLevel + GameConfig.SpouseNeglectLovePenalty);
+                        changed = true;
+                    }
+                }
+            }
+            else if (onStep)
+            {
+                int theirFeeling = playerIsFirst ? record.Relation2 : record.Relation1;
+                if (theirFeeling < GameConfig.RelationNormal)
+                {
+                    int cooled = DecreaseRelation(theirFeeling);
+                    if (playerIsFirst) record.Relation2 = cooled; else record.Relation1 = cooled;
+                    record.LastUpdated = DateTime.Now;
+                    SaveRelationship(record);
+                    changed = true;
+                }
+            }
+            events.Add(new NeglectEvent(otherName, neglect, isSpouse, changed));
+        }
+        return events;
     }
 
     #endregion

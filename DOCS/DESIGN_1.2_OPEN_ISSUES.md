@@ -120,6 +120,13 @@ sites. As a backstop, the counts of `GameEngine.Instance`, `SaveSystem`, and
 `PermadeathHelper` references in `CombatEngine.cs` (8, 16, and 4 on main at
 `0138c31`) must be unchanged after the PR.
 
+Why the one-keypress loop is an acceptable first slice rather than a hole:
+`PlayerSession` runs an emergency save in its finally block on disconnect for
+the session's current player unless the character was deleted, so a follower
+who drops before pressing a key carries the persisted mark into their save,
+and the login branch resolves the death at next login. (Verified in review,
+2026-09-07.)
+
 **Slice.** Persisted flag, loop exit, `HandleOnlineDeath`, bookkeeping, save,
 Temple. Deferred: the phased pending-death record, spectating at 0 HP, a
 no-keypress loop cancel.

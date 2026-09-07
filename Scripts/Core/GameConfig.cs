@@ -1959,6 +1959,10 @@ public static partial class GameConfig
     public const int RelationRespect = 60;
     public const int RelationNone = 1;       // returned by social_relation function
     public const int RelationNormal = 70;    // default relation value
+    // v1.2 (design item F): relationship neglect, measured in days the player was present
+    public const int NeglectStepDays = 7;
+    public const int SpouseNeglectGraceDays = 7;
+    public const int SpouseNeglectLovePenalty = 5;
     public const int RelationSuspicious = 80;
     public const int RelationAnger = 90;
     public const int RelationEnemy = 100;

@@ -6474,6 +6474,8 @@
   "home.unequip_header": "DÉSÉQUIPER DE {0}",
   "home.return_label": "Retour",
   "home.partner_no_spouse": "\nVous n’avez aucun conjoint ou amoureux avec qui passer du temps.",
+  "home.spouse_missed_you": "{0} lève les yeux. \"Je commençais à me demander si tu te souvenais du chemin de la maison.\"",
+  "home.spouse_cold": "{0} vous jette à peine un regard.",
   "home.partner_go_meet_msg": "Peut-être devriez-vous sortir et rencontrer quelqu’un?",
   "home.partner_who_spend": "Avec qui souhaitez-vous passer du temps?",
   "home.partner_cancel_label": " Annuler",

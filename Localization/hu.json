@@ -6482,6 +6482,8 @@
   "home.unequip_header": "TÁRGY LEVÉTELE ERRŐL: {0}",
   "home.return_label": "Vissza",
   "home.partner_no_spouse": "\nNincs házastársad vagy szerelmed, akivel időt tölthetnél.",
+  "home.spouse_missed_you": "{0} felnéz. \"Már kezdtem azon tűnődni, emlékszel-e még a hazavezető útra.\"",
+  "home.spouse_cold": "{0} alig pillant rád.",
   "home.partner_go_meet_msg": "Talán ki kellene menned és ismerkedned valakivel?",
   "home.partner_who_spend": "Kivel szeretnél időt tölteni?",
   "home.partner_cancel_label": " Mégse",

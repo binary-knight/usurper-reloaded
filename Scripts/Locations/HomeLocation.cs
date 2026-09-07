@@ -212,6 +212,18 @@ public class HomeLocation : BaseLocation
             }
         }
 
+        // v1.2 (design item F): a neglected spouse says so at the door
+        foreach (var spouse in romance.Spouses)
+        {
+            var npc = NPCSpawnSystem.Instance?.ResolvePartnerNpc(spouse.NPCId, spouse.NPCName);
+            if (npc == null || npc.IsAlive != true) continue;
+            int neglect = RelationshipSystem.GetNeglectDays(currentPlayer, npc);
+            if (neglect >= GameConfig.NeglectStepDays * 2)
+                terminal.WriteLine($"  {Loc.Get("home.spouse_cold", npc.Name)}", "gray");
+            else if (neglect >= GameConfig.NeglectStepDays)
+                terminal.WriteLine($"  {Loc.Get("home.spouse_missed_you", npc.Name)}", "yellow");
+        }
+
         foreach (var lover in romance.CurrentLovers)
         {
             var npc = NPCSpawnSystem.Instance?.ResolvePartnerNpc(lover.NPCId, lover.NPCName);

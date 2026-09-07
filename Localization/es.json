@@ -6474,6 +6474,8 @@
   "home.unequip_header": "DESEQUIPAR DE {0}",
   "home.return_label": "Volver",
   "home.partner_no_spouse": "\nNo tienes esposo/a ni amante con quien pasar tiempo.",
+  "home.spouse_missed_you": "{0} levanta la vista. \"Empezaba a preguntarme si recordabas el camino a casa.\"",
+  "home.spouse_cold": "{0} apenas te mira.",
   "home.partner_go_meet_msg": "¿Quizás deberías salir a conocer a alguien?",
   "home.partner_who_spend": "¿Con quién te gustaría pasar tiempo?",
   "home.partner_cancel_label": " Cancelar",
