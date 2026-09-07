@@ -78,13 +78,18 @@ which on the leader's combat thread is the leader. Any part of the follower's
 death pipeline run inline in the leader's fight would erase or save the wrong
 character. The pipeline therefore runs on the follower's own session.
 
-**Design.** A transient `Character.PendingGroupDeath` (killer name, not
-persisted). The death sites set it, remove the follower, complete the channel,
-and flip the follower session's `IsGroupFollower` off so `GroupFollowerLoop`
-exits on its next read (first slice accepts one keypress; there is no cancel
-hook on `TerminalEmulator.GetInput`). `EnterAsGroupFollower`, after
-`CleanupGroupFollower`, sees the flag and runs the follower's death on the
-follower's context: the same bookkeeping as a solo death (`PlaythroughDeaths`,
+**Design.** A persisted `PendingGroupDeath` (the killer's name; null when
+none) on the character, saved with the player at the three persistence sites.
+Persisting it is what closes the hole for a follower who disconnects before
+pressing a key: without it the pending death is lost, the follower walks back
+in at 0 HP, and the saved-dead check at `GameEngine.cs:3202` applies the wrong
+penalty, the exact case this item exists to fix. The death sites set it,
+remove the follower, complete the channel, and flip the follower session's
+`IsGroupFollower` off so `GroupFollowerLoop` exits on its next read (first
+slice accepts one keypress; there is no cancel hook on
+`TerminalEmulator.GetInput`). `EnterAsGroupFollower`, after
+`CleanupGroupFollower`, and the login path when the flag is set on load, run
+the follower's death on the follower's own context: the same bookkeeping as a solo death (`PlaythroughDeaths`,
 `MDefeats`, fame, statistics), then `PermadeathHelper.HandleOnlineDeath`, which
 already implements resurrection consumption, permadeath, and the admin's
 permadeath-disabled case; save; exit to the Temple instead of Main Street.
@@ -98,15 +103,22 @@ crash between death and resolution cannot lose the death) is the right full
 design; it is deferred because the first slice already closes the punishment
 gap and the persisted record needs a schema and a reconnect path.
 
-**Persistence.** None in the first slice. **Localization.** 3 keys
+**Persistence.** `PendingGroupDeath` at the three player sites (`PlayerData`,
+`SaveSystem`, `GameEngine` restore); the saved-dead check must run after it so
+a pending group death is consumed by the pipeline, not by the wrong penalty.
+**Localization.** 3 keys
 (`group.follower_death_header`, `group.follower_death_left`,
 `group.follower_left_dead`).
 
 **Tests.** `Tests/GroupFollowerDeathTests.cs`: the mark sets the flag, removes
 the follower, completes the channel, leaves HP at 0; the extracted penalty
 routine matches the instance one on a fixed seed; the companion path is
-unchanged. Review rule for the PR: nothing added to `CombatEngine` may call
-`PermadeathHelper`, `SaveSystem`, or `GameEngine.Instance`.
+unchanged. Review rule for the PR, in a form a reviewer can check with a grep:
+the follower death pipeline lives in a new class (`GroupFollowerDeath` in
+`Scripts/Server/`), and `CombatEngine`'s diff touches only the three death
+sites. As a backstop, the counts of `GameEngine.Instance`, `SaveSystem`, and
+`PermadeathHelper` references in `CombatEngine.cs` (8, 16, and 4 on main at
+`0138c31`) must be unchanged after the PR.
 
 **Slice.** Flag, loop exit, `HandleOnlineDeath`, bookkeeping, save, Temple.
 Deferred: persisted pending death, spectating at 0 HP, a no-keypress loop
@@ -227,8 +239,12 @@ own.
 
 **Design.** Time is measured in days the player was present: a persisted
 `Character.PresentDays` incremented only in `RunBasicDailyReset`, which runs
-once per reset while the player is logged in and is not called from the
-single-player catch-up loop. A month away therefore contributes zero, which is
+once per reset while the player is logged in. Implementation constraint:
+`RunBasicDailyReset` is called only from the two branches of
+`PerformDailyReset`; the world-sim catch-up path calls `RunCatchUpDailyReset`,
+a separate method that syncs the day counter and companion flags and never
+enters `RunBasicDailyReset`. `PresentDays` goes in `RunBasicDailyReset` and in
+no helper the catch-up path shares, so absence stays free. A month away therefore contributes zero, which is
 the requirement. Each relationship record gains `LastPlayerContactDay`,
 stamped by any positive `UpdateRelationship` from the player, by marriage, by
 intimacy, and at the end of a fight for every surviving NPC teammate. Neglect
@@ -265,7 +281,9 @@ Home greeting tiers. Second slice after live data: the 21-day letter, the
 
 **What is actually true.** Teammate death handling never asks whether the
 player could have helped. `MemoryType.Abandoned` exists in the NPC memory
-system and is used nowhere. There is no mechanic to resurrect an NPC:
+system with weights in `MemorySystem.cs:92` and `RelationshipManager.cs:66`,
+and `NPCPetitionSystem.cs:1183` already records one when the king dismisses a
+plea for protection; the combat penalty reuses that recording convention. There is no mechanic to resurrect an NPC:
 non-permadeath NPCs respawn after about ten minutes of simulation, companions
 never return. So the issue's "resurrect them quickly" has nothing to hook to
 today.
@@ -386,11 +404,35 @@ reload is identical.
 Suggested grouping: E, A, C, D, B as a "1.1.2 or 1.2 groundwork" pass; F, G,
 H2 as the 1.2 feature set alongside the promised gear sets; H1 as 1.3.
 
-## Decisions needed
+## Decisions (taken 2026-09-07)
 
-1. H1: ship the first slice as its own release after 1.2, or defer entirely.
-2. F: ship the 28-day leaving scene in the first slice or hold it for a second
-   slice after live data.
-3. G: include the Temple restore service in the first slice or defer it.
-4. E: correct the 1.1.1 release notes in place (the "44 translations" line) or
-   leave the historical note and fix forward.
+1. H1: its own release after the other seven (1.3).
+2. F: warnings only in the first slice; the 21-day letter and the 28-day
+   leaving scene wait for live data.
+3. G: penalty first; the Temple restore service is a follow-up.
+4. E: the 1.1.1 notes and the GitHub release body were corrected in place.
+
+## Constants for the maintainer to set
+
+These are design numbers, not derived from anything; they are collected here
+so they can be changed in one place before or after release.
+
+| Constant | Proposed | Item |
+|---|---|---|
+| `BankVaultInitial` | 500,000 | D (today's value) |
+| `BankRobberyMaxTake` | 250,000 | D |
+| `BankVaultDailyRefill` | 25,000 | D |
+| `BankVaultRefillRate` | 1 percent per day | D |
+| `BankVaultCap` | 5,000,000 | D |
+| Haggling attempts per shop per day | 3 (today's value) | C |
+| `NeglectStepDays` | 7 | F |
+| `SpouseNeglectGraceDays` | 7 | F |
+| `SpouseNeglectLovePenalty` | 5 per step | F |
+| `SpouseNeglectDivorceDays` | 28 (second slice) | F |
+| `AbandonPenaltySteps` | 2 | G |
+| `AbandonCompanionLoyaltyPenalty` | 15 | G |
+| `AbandonRestoreWindowDays` | 3 (follow-up) | G |
+| `PrayForAllyCostPerLevel` | 500 gold (follow-up) | G |
+| `PlayerShopBuildCost` | 1,000,000 (1.3) | H1 |
+| `PlayerDistrictMaxShops` | 20 (1.3) | H1 |
+| `PlayerShopSlots` | 10 (1.3) | H1 |
