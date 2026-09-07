@@ -3198,8 +3198,17 @@ public partial class GameEngine
             {
                 startLocation = GameLocation.MainStreet;
             }
+            // v1.2 (design item B): a grouped follower who died in the leader's fight and
+            // dropped before their own session resolved it. Resolve here, on their own session,
+            // before the saved-dead check below can apply the wrong penalty.
+            if (!string.IsNullOrEmpty(currentPlayer!.PendingGroupDeath))
+            {
+                bool alive = await UsurperRemake.Server.GroupFollowerDeath.Resolve(currentPlayer, terminal, currentPlayer.PendingGroupDeath);
+                if (!alive) throw new GameExitException();
+                startLocation = GameLocation.Temple;
+            }
             // If player was saved dead (HP <= 0), they closed during the death screen — re-present Veil
-            if (currentPlayer!.HP <= 0)
+            else if (currentPlayer.HP <= 0)
             {
                 terminal.SetColor("red");
                 terminal.WriteLine("  You awaken at the threshold between life and death...");
@@ -5269,6 +5278,7 @@ public partial class GameEngine
             ArmHag = playerData.ArmHag,
             WeaponShopBarredUntilDay = playerData.WeaponShopBarredUntilDay,
             ArmorShopBarredUntilDay = playerData.ArmorShopBarredUntilDay,
+            PendingGroupDeath = playerData.PendingGroupDeath,
             GymSessions = (byte)playerData.GymSessions,
             PickPocketAttempts = playerData.PickPocketAttempts,
             Massage = (byte)playerData.Massage,

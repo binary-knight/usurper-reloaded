@@ -19600,6 +19600,7 @@ public partial class CombatEngine
                     companion.CombatInputChannel.Writer.TryComplete();
                     companion.CombatInputChannel = null;
                 }
+                UsurperRemake.Server.GroupFollowerDeath.Mark(companion, monster.Name); // v1.2: their own session resolves the death
                 companion.IsAwaitingCombatInput = false;
             }
             else
@@ -19667,6 +19668,7 @@ public partial class CombatEngine
                 tm.CombatInputChannel = null;
             }
             tm.IsAwaitingCombatInput = false;
+            UsurperRemake.Server.GroupFollowerDeath.Mark(tm, killerName); // v1.2: their own session resolves the death
         }
         else
         {
@@ -28941,6 +28943,7 @@ public partial class CombatEngine
                         tm.CombatInputChannel = null;
                     }
                     tm.IsAwaitingCombatInput = false;
+                    UsurperRemake.Server.GroupFollowerDeath.Mark(tm, killerName); // v1.2: their own session resolves the death
                 }
                 else
                 {

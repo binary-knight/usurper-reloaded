@@ -81,6 +81,9 @@ public class Character
     /// <summary>True when the combat engine is waiting for this grouped player's input.</summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public bool IsAwaitingCombatInput { get; set; }
+    // v1.2 (design item B): killer's name when this grouped follower died in the leader's fight
+    // and their own session has not yet resolved the death. Persisted so a disconnect cannot lose it.
+    public string? PendingGroupDeath { get; set; }
 
     public int GnollP { get; set; }                 // gnoll poison, temporary
     public int Mental { get; set; }                 // mental health

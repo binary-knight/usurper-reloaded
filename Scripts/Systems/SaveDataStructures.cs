@@ -234,6 +234,7 @@ namespace UsurperRemake.Systems
         public byte ArmHag { get; set; } = 3;
         public int WeaponShopBarredUntilDay { get; set; }
         public int ArmorShopBarredUntilDay { get; set; }
+        public string? PendingGroupDeath { get; set; } // v1.2 (design item B)
         public int GymSessions { get; set; }
         public int PickPocketAttempts { get; set; }
         public int Massage { get; set; }
