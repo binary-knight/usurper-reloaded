@@ -2,6 +2,10 @@
 
 Host your own Usurper Reborn MUD server using Docker.
 
+Verified against v1.1.1 (2026-09-07): `docker compose up -d` builds all three
+images, serves the login menu on port 4000, and browser play, the dashboards,
+the stats API, and the language files all answer through nginx on port 80.
+
 ---
 
 ## Quick Start
@@ -10,7 +14,8 @@ Host your own Usurper Reborn MUD server using Docker.
 git clone https://github.com/binary-knight/usurper-reborn.git
 cd usurper-reborn
 
-# Edit docker-compose.yml — change "YourAdminName" and "changeme"
+# Edit docker-compose.yml first: replace "YourAdminName" with your username and
+# set BALANCE_PASS to a real password (the admin dashboard stays locked until you do)
 docker compose up -d
 ```
 
@@ -29,7 +34,9 @@ docker-compose.yml
 └── volume: usurper-data  Shared SQLite database (/var/usurper/)
 ```
 
-All three containers share the `/var/usurper/` volume where the SQLite database lives. The game server writes game state; the web proxy reads it for stats and dashboards.
+All three containers share the `/var/usurper/` volume where the SQLite database lives. The game server writes game state; the web proxy reads it for stats and dashboards and opens a second, writable handle for the admin panel (bans, player edits, config changes).
+
+The web proxy opens the database once at startup and never reconnects, so it must not start before the game server has created the file. The compose file handles this: the game service has a healthcheck that passes once `usurper_online.db` exists, and the web service waits for it. On a brand new deploy the first `docker compose up` therefore takes a few seconds longer before the web container starts.
 
 ---
 
@@ -56,7 +63,8 @@ services:
   usurper-web:
     environment:
       - BALANCE_USER=admin       # Dashboard login username
-      - BALANCE_PASS=changeme    # Dashboard login password — CHANGE THIS
+      - BALANCE_PASS=...         # Dashboard login password. Unset or "changeme" keeps
+                                 # /balance and /admin locked to the change-password flow.
 ```
 
 ### Game Server Flags
@@ -68,11 +76,15 @@ services:
 | `--db <path>` | (next to exe) | SQLite database path |
 | `--auto-provision` | off | Auto-create accounts for trusted auth connections |
 | `--log-stdout` | off | Route logs to stdout instead of files |
-| `--sim-interval <sec>` | 60 | World simulation tick interval |
+| `--sim-interval <sec>` | 60 | World simulation tick interval (compose sets 30) |
 | `--npc-xp <mult>` | 0.25 | NPC XP gain multiplier (0.01–10.0) |
 | `--save-interval <min>` | 5 | How often NPC state is saved to database |
 | `--admin <user>` | — | Bootstrap admin user (repeatable) |
-| `--no-worldsim` | off | Disable embedded world simulator |
+| `--no-worldsim` | off | Disable the embedded world simulator (run `--worldsim` as a separate process instead) |
+| `--worldsim` | — | Headless 24/7 world simulator with no players (only with `--no-worldsim` on the server) |
+| `--idle-timeout <min>` | 15 | Idle disconnect for BBS door sessions (1–60) |
+
+Run `UsurperReborn --help` for the full list, including the single-player and BBS door flags.
 
 ### Web Proxy Environment Variables
 
@@ -80,11 +92,20 @@ services:
 |----------|---------|-------------|
 | `MUD_MODE` | `1` | `1` = direct TCP to game server, `0` = legacy SSH relay |
 | `MUD_HOST` | `127.0.0.1` | Game server hostname (use container name in Docker) |
-| `MUD_PORT` | `4000` | Game server TCP port |
+| `MUD_PORT` | `4001` | Game server TCP port; compose sets `4000` to match `--mud-port` |
 | `DB_PATH` | `/var/usurper/usurper_online.db` | SQLite database path |
 | `BALANCE_USER` | `admin` | Dashboard login username |
-| `BALANCE_PASS` | `changeme` | Dashboard login password |
+| `BALANCE_PASS` | `changeme` | Dashboard login password; the shipped default keeps `/balance` and `/admin` locked |
 | `BALANCE_SECRET` | (random) | JWT signing secret (auto-generated if not set) |
+| `WS_MAX_CONN_PER_IP` | `8` | Browser sessions allowed per client IP |
+| `BUG_REPORT_WEBHOOK_URL` | (unset) | Discord webhook that receives in-game `/bug` reports; reports are dropped when unset |
+| `DISCORD_BOT_TOKEN` | (unset) | With `DISCORD_GOSSIP_CHANNEL_ID`, mirrors world news to a Discord channel (`discord.js` is installed in the image) |
+| `DISCORD_GOSSIP_CHANNEL_ID` | (unset) | Channel for the news bridge |
+| `DISCORD_STATS_CHANNEL_ID` | (unset) | Optional channel for a live stats embed |
+| `GITHUB_PAT` | (unset) | Read-only token for the sponsors list on the landing page |
+| `USURPER_NUKE_SCRIPT` | (unset) | Script the admin panel's world-wipe runs; leave unset unless you have written one |
+
+The admin panel shows the game version from `/opt/usurper/version.txt`, which the web image writes from `GameConfig.Version` at build time. Rebuild the web image when you update.
 
 ---
 
@@ -94,7 +115,7 @@ services:
 Open `http://your-server` in a browser. Click "Play Now" for the embedded terminal.
 
 ### SSH (requires additional sshd setup)
-The Docker setup doesn't include an SSH server. Players connect via the browser terminal or raw TCP. If you want SSH access, you can add an sshd container or configure your host's sshd with a ForceCommand that relays to the game server.
+The Docker setup doesn't include an SSH server. Players connect via the browser terminal or raw TCP. For SSH access, run sshd on the host (or in a container that has the game binary) with a `ForceCommand` of `UsurperReborn --mud-relay --mud-port 4000`; the relay puts the terminal in raw mode and forwards to the game server with the player's login. `DOCS/SERVER_DEPLOYMENT.md` has the full sshd setup used on the public server.
 
 ### BBS Passthrough
 BBS software connects via raw TCP to port 4000 and sends an AUTH header:
@@ -135,8 +156,9 @@ All dashboards are accessible via the web interface:
 |-----|-------------|---------------|
 | `/` | Landing page with embedded terminal + live stats | No |
 | `/dashboard` | NPC analytics (activities, relationships, timeline) | No |
+| `/steam` | Steam client download and setup page | No |
 | `/balance` | Combat balance analytics (win rates, damage stats) | Yes |
-| `/admin` | Server admin panel (database, service status) | Yes |
+| `/admin` | Server admin panel (bans, player edits, config, world wipe) | Yes |
 
 Dashboard credentials are set via `BALANCE_USER` and `BALANCE_PASS` environment variables.
 
@@ -155,7 +177,7 @@ services:
       - ./my-landing-page.html:/opt/usurper/web/index.html
 ```
 
-The page should include xterm.js for the embedded terminal. See `docker/web/index.html` for the reference implementation.
+The page should include xterm.js for the embedded terminal. See `docker/web/index.html` for the reference implementation (the smaller page Docker ships) or `web/index.html` for the full usurper-reborn.net page. Both talk to the proxy over `/ws` and send terminal resizes as a `{"type":"resize"}` control message. The proxy serves any file under `/opt/usurper/web/`, including `lang/*.json` for the landing page's language switcher.
 
 ### SSL/HTTPS
 The nginx container listens on port 80 (HTTP). To add SSL:
@@ -254,7 +276,10 @@ The web proxy connects to `usurper-game:4000` (Docker internal networking). If y
 - Check game server logs for auth failures: `docker compose logs usurper-game | grep AUTH`
 
 ### Database is locked
-SQLite doesn't handle high concurrency well. If you see "database is locked" errors, the game server and web proxy may be contending. The web proxy opens the database in read-only mode by default, so this should be rare. Restart the web proxy if it persists.
+SQLite doesn't handle high concurrency well. If you see "database is locked" errors, the game server and web proxy may be contending. The proxy's reads use a read-only handle and its writes are limited to admin actions, so this should be rare. Restart the web proxy if it persists.
+
+### Stats and dashboards are empty but the game works
+The proxy logs `Database not available` when it started before the database existed and it does not retry. `docker compose restart usurper-web` fixes it. This happens only if the game service's healthcheck was removed or the proxy was started on its own.
 
 ---
 
@@ -263,4 +288,4 @@ SQLite doesn't handle high concurrency well. If you see "database is locked" err
 - Docker Engine 20.10+ and Docker Compose v2
 - 512MB RAM minimum (game server uses ~256MB, web proxy ~64MB, nginx ~16MB)
 - 1GB disk for the Docker images + database
-- Linux host recommended (the game server binary is compiled for linux-x64)
+- Linux host recommended (the game server binary is compiled for linux-x64; the web image is Node 22 on Alpine)
