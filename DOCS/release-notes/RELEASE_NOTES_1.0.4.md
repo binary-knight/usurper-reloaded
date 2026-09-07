@@ -157,8 +157,8 @@ input seam; they were verified by inspection and the full suite.
 
 **New**
 
-- `DOCS/RELEASE_NOTES_1.0.4.md`
-- `DOCS/STEAM_RELEASE_NOTES_1.0.4.txt`
+- `DOCS/release-notes/RELEASE_NOTES_1.0.4.md`
+- `DOCS/release-notes/steam/STEAM_RELEASE_NOTES_1.0.4.txt`
 - `Scripts/Systems/NPCNameRegistry.cs`
 - `Tests/NPCNameRegistryTests.cs`
 - `Tests/RelationshipNamesakeTests.cs`

@@ -119,8 +119,8 @@ inspection and verified against the full suite.
 
 **New**
 
-- `DOCS/RELEASE_NOTES_1.0.5.md`
-- `DOCS/STEAM_RELEASE_NOTES_1.0.5.txt`
+- `DOCS/release-notes/RELEASE_NOTES_1.0.5.md`
+- `DOCS/release-notes/steam/STEAM_RELEASE_NOTES_1.0.5.txt`
 
 **Modified**
 

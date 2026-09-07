@@ -115,14 +115,14 @@ and the Runed, Plate, Titan's, Dragon, and Holy sets are the next slice.
 
 **New**
 
-- `DOCS/RELEASE_NOTES_1.1.0.md`
+- `DOCS/release-notes/RELEASE_NOTES_1.1.0.md`
 - `Scripts/Systems/GearSetSystem.cs`
 - `Tests/BlackMarketFloorTests.cs`
 - `Tests/GearSetTests.cs`
 - `Tests/MarketItemDataTests.cs`
 - `Tests/NPCSetOutfittingTests.cs`
 - `Tests/RarityPlumbingTests.cs`
-- `DOCS/STEAM_RELEASE_NOTES_1.1.0.txt`
+- `DOCS/release-notes/steam/STEAM_RELEASE_NOTES_1.1.0.txt`
 
 **Modified**
 

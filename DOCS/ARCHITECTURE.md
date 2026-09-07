@@ -2030,8 +2030,7 @@ DOCS/
 ├── DOCKER.md                       Docker self-hosting
 ├── MODDING.md                      JSON modding guide
 ├── SERVER_DEPLOYMENT.md            Server ops
-├── RELEASE_NOTES_*.md              Per-version changelogs
-└── STEAM_RELEASE_NOTES_*.txt       Steam-formatted release notes (BBCode)
+└── release-notes/                  Per-version changelogs (RELEASE_NOTES_*.md) and steam/ (BBCode copies)
 
 launchers/
 ├── Play.bat / play.sh              WezTerm launcher
