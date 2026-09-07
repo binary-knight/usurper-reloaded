@@ -6154,6 +6154,8 @@
   "combat.echo_unharmed": "  Il suo vero sé è illeso.",
   "combat.companion_falls": "{0} cade!",
   "combat.npc_fallen": "  {0} è caduto in battaglia!",
+  "combat.ally_death_could_have_helped": "Gli occhi di {0} trovano le pozioni alla tua cintura prima di chiudersi.",
+  "combat.companion_loyalty_drop": "La fiducia di {0} in te vacilla.",
   "combat.grief_onset": "  Un'ondata di dolore ti pervade. (Fase: Negazione)",
   "combat.grief_combat_effect": "  Il tuo dolore influenzerà le tue prestazioni in combattimento.",
   "combat.spouse_fallen": "Il tuo amato coniuge {0} è caduto...",

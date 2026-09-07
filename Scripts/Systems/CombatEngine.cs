@@ -48,6 +48,36 @@ public partial class CombatEngine
     // the owner's cooldowns within the fight.
     private Character? _combatOwner;
     private static string TeammateCooldownKey(Character c) => c.GroupPlayerUsername ?? c.DisplayName;
+
+    // v1.2 (design item G): what the combat owner saw and did on their most recent turn, so a
+    // teammate's death can be judged against a real opportunity rather than potion possession.
+    private readonly HashSet<Character> _lowAlliesAtTurnStart = new();
+    private bool _ownerAidedThisTurn;
+
+    /// <summary>Called as the combat owner's chosen action starts: which allies were below half
+    /// HP, and whether the action was aid to an ally.</summary>
+    internal void NoteOwnerTurn(Character actor, IEnumerable<Character>? teammates, CombatAction action)
+    {
+        if (_combatOwner != null && !ReferenceEquals(actor, _combatOwner)) return;
+        _lowAlliesAtTurnStart.Clear();
+        if (teammates != null)
+            foreach (var t in teammates)
+                if (t.IsAlive && t.MaxHP > 0 && t.HP * 2 < t.MaxHP) _lowAlliesAtTurnStart.Add(t);
+        _ownerAidedThisTurn = action.Type == CombatActionType.HealAlly;
+    }
+
+    /// <summary>Could <paramref name="owner"/> have saved <paramref name="ally"/>: the ally was
+    /// below half HP when the owner last chose an action, the owner held a usable healing
+    /// potion or castable heal, and chose something other than aid.</summary>
+    internal bool CouldHaveHelped(Character ally, Character owner)
+    {
+        if (ally.IsEcho || ally.IsMercenary || ally.IsGroupedPlayer) return false;
+        if (owner.IsExhibitionCombat || owner.IsArrestCombat) return false;
+        if (!_lowAlliesAtTurnStart.Contains(ally) || _ownerAidedThisTurn) return false;
+        bool potion = owner.Healing > 0 && owner.PotionCooldownRounds <= 0;
+        bool spell = ClassAbilitySystem.IsSpellcaster(owner.Class) && owner.Mana > 0;
+        return potion || spell;
+    }
     internal Dictionary<string, int> CooldownsFor(Character actor)
     {
         if (_combatOwner == null || ReferenceEquals(actor, _combatOwner)) return abilityCooldowns;
@@ -726,6 +756,8 @@ public partial class CombatEngine
         player.DelugeCooldown = 0;
         abilityCooldowns.Clear();
         teammateCooldowns.Clear();
+        _lowAlliesAtTurnStart.Clear();
+        _ownerAidedThisTurn = false;
 
         // Ensure equipment stat bonuses are current before combat begins.
         // Equipment changes (equip/unequip, loot pickup, NPC sync) can leave
@@ -13185,6 +13217,7 @@ public partial class CombatEngine
     /// </summary>
     private async Task ProcessPlayerActionMultiMonster(CombatAction action, Character player, List<Monster> monsters, CombatResult result)
     {
+        NoteOwnerTurn(player, result.Teammates, action); // v1.2 (design item G)
         switch (action.Type)
         {
             case CombatActionType.Attack:
@@ -19704,6 +19737,14 @@ public partial class CombatEngine
         // so KillCompanion returns the correct (current) equipment to player
         companionSystem.SyncCompanionEquipment(companion);
 
+        // v1.2 (design item G, issue #41): left to die while the player could have helped
+        if (result.Player != null && CouldHaveHelped(companion, result.Player))
+        {
+            companionSystem.ModifyLoyalty(companion.CompanionId.Value, -GameConfig.AbandonCompanionLoyaltyPenalty, "left to die with potions in hand");
+            terminal.WriteLine($"  {Loc.Get("combat.ally_death_could_have_helped", companion.DisplayName)}", "yellow");
+            terminal.WriteLine($"  {Loc.Get("combat.companion_loyalty_drop", companion.DisplayName)}", "yellow");
+        }
+
         // Kill the companion permanently
         await companionSystem.KillCompanion(
             companion.CompanionId.Value,
@@ -19743,6 +19784,17 @@ public partial class CombatEngine
             // for background NPC-vs-NPC violence, not real combat deaths.
             var savedEngaged = worldNpc.IsInConversation;
             worldNpc.IsInConversation = false;
+            // v1.2 (design item G, issue #41): left to die while the player could have helped
+            if (result.Player != null && CouldHaveHelped(npc, result.Player))
+            {
+                RelationshipSystem.UpdateRelationship(worldNpc, result.Player, -1, GameConfig.AbandonPenaltySteps);
+                worldNpc.Memory?.RecordEvent(new MemoryEvent
+                {
+                    Type = MemoryType.Abandoned, Description = $"{result.Player.Name2} had potions and let me fall to {killerName}",
+                    InvolvedCharacter = result.Player.Name2, Importance = 0.8f, EmotionalImpact = -0.6f
+                });
+                terminal.WriteLine($"  {Loc.Get("combat.ally_death_could_have_helped", npc.DisplayName)}", "yellow");
+            }
             wasPermadeath = WorldSimulator.Instance?.MarkNPCDead(worldNpc, GameConfig.PermadeathChancePlayerKill,
                 killerName, deathLocation) ?? false;
             worldNpc.IsInConversation = savedEngaged;

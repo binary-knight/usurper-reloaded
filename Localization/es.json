@@ -6154,6 +6154,8 @@
   "combat.echo_unharmed": "  Su verdadero ser está ileso.",
   "combat.companion_falls": "¡{0} cae!",
   "combat.npc_fallen": "  ¡{0} ha caído en batalla!",
+  "combat.ally_death_could_have_helped": "Los ojos de {0} encuentran las pociones de tu cinturón antes de cerrarse.",
+  "combat.companion_loyalty_drop": "La confianza de {0} en ti se tambalea.",
   "combat.grief_onset": "  Una ola de dolor te invade. (Etapa: Negación)",
   "combat.grief_combat_effect": "  Tu dolor afectará tu rendimiento en combate.",
   "combat.spouse_fallen": "Tu querido/a esposo/a {0} ha caído...",

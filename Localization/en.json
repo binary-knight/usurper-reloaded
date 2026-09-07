@@ -6345,6 +6345,8 @@
   "combat.echo_unharmed": "  Their real self is unharmed.",
   "combat.companion_falls": "{0} falls!",
   "combat.npc_fallen": "  {0} has fallen in battle!",
+  "combat.ally_death_could_have_helped": "{0}'s eyes find the potions at your belt before they close.",
+  "combat.companion_loyalty_drop": "{0}'s trust in you falters.",
   "combat.grief_onset": "  A wave of grief washes over you. (Stage: Denial)",
   "combat.grief_combat_effect": "  Your grief will affect your combat performance.",
   "combat.spouse_fallen": "Your beloved spouse {0} has fallen...",

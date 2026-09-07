@@ -6154,6 +6154,8 @@
   "combat.echo_unharmed": "  Leur véritable soi est indemne.",
   "combat.companion_falls": "{0} tombe!",
   "combat.npc_fallen": "  {0} est tombé au combat!",
+  "combat.ally_death_could_have_helped": "Les yeux de {0} trouvent les potions à votre ceinture avant de se fermer.",
+  "combat.companion_loyalty_drop": "La confiance de {0} en vous vacille.",
   "combat.grief_onset": "  Une vague de chagrin vous envahit. (Phase : Déni)",
   "combat.grief_combat_effect": "  Votre chagrin affectera vos performances en combat.",
   "combat.spouse_fallen": "Votre époux/épouse {0} est tombé(e)...",

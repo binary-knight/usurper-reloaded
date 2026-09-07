@@ -6162,6 +6162,8 @@
   "combat.echo_unharmed": "  A valódi énje sértetlen.",
   "combat.companion_falls": "{0} elesett!",
   "combat.npc_fallen": "  {0} elesett a csatában!",
+  "combat.ally_death_could_have_helped": "{0} szeme még megtalálja az öveden a bájitalokat, mielőtt lecsukódna.",
+  "combat.companion_loyalty_drop": "{0} bizalma megrendül benned.",
   "combat.grief_onset": "  A gyász hulláma csap át rajtad. (Szakasz: Tagadás)",
   "combat.grief_combat_effect": "  A gyászod kihat a harci teljesítményedre.",
   "combat.spouse_fallen": "Szeretett házastársad, {0} elesett...",

@@ -1963,6 +1963,9 @@ public static partial class GameConfig
     public const int NeglectStepDays = 7;
     public const int SpouseNeglectGraceDays = 7;
     public const int SpouseNeglectLovePenalty = 5;
+    // v1.2 (design item G): an NPC left to die while the player could have helped
+    public const int AbandonPenaltySteps = 2;
+    public const int AbandonCompanionLoyaltyPenalty = 15;
     public const int RelationSuspicious = 80;
     public const int RelationAnger = 90;
     public const int RelationEnemy = 100;
