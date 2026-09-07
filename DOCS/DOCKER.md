@@ -105,7 +105,7 @@ Run `UsurperReborn --help` for the full list, including the single-player and BB
 | `GITHUB_PAT` | (unset) | Read-only token for the sponsors list on the landing page |
 | `USURPER_NUKE_SCRIPT` | (unset) | Script the admin panel's world-wipe runs; leave unset unless you have written one |
 
-The admin panel shows the game version from `/opt/usurper/version.txt`, which the web image writes from `GameConfig.Version` at build time. Rebuild the web image when you update.
+The admin panel shows the game version from `/opt/usurper/version.txt`, which the web image writes from `GameConfig.Version` at build time. Rebuild both images when you update (`docker compose build`); rebuilding only `usurper-game` leaves the version shown by the admin panel stale.
 
 ---
 
