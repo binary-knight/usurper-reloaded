@@ -45,9 +45,12 @@ the repo, so clear it if the machine changes hands.
   and check `metadata.sandbox` in the results: it is false when the raw
   stream carries Codex's "needs access to create user namespaces" warning,
   which means the sandbox never started and the seat answered from the
-  inlined brief alone, with no tree access. On this machine that has been
-  every run so far (AppArmor restricts unprivileged user namespaces); fixing
-  it is a system decision for the maintainer, not something a run changes.
+  inlined brief alone, with no tree access. On this machine that was every
+  run before 2026-09-08: AppArmor restricted unprivileged user namespaces.
+  The maintainer fixed it that day with a per-binary profile,
+  `/etc/apparmor.d/bwrap`, granting `userns` to `/usr/bin/bwrap`; since then
+  the flag reads true and the Codex seat, run from this directory, reads the
+  repository read-only. Receipts before that date are prompt-only.
 - `providers/claude.js`: `claude -p --model claude-fable-5-1` with the brief
   on stdin, raw stream teed the same way, and Bash, Edit, Write and
   NotebookEdit disallowed so the seat reads only, like the Codex seat's
