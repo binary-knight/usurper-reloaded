@@ -22,6 +22,8 @@ namespace UsurperRemake.Systems
             "telegraph_id TEXT", "telegraph_seq INTEGER DEFAULT 0", "telegraph_lands_at TEXT",
             "interrupts_needed INTEGER DEFAULT 0", "interrupts_done INTEGER DEFAULT 0", "stagger_until TEXT",
             "focus_player TEXT", "focus_until TEXT", "window_started_at TEXT",
+            // v1.1.5
+            "last_resolved_seq INTEGER DEFAULT 0", "last_resolved_outcome TEXT DEFAULT ''",
         };
 
         private static readonly string[] WorldBossDamageColumns =
@@ -30,6 +32,8 @@ namespace UsurperRemake.Systems
             "night_damage INTEGER DEFAULT 0", "window_damage INTEGER DEFAULT 0", "paid_nights INTEGER DEFAULT 0",
             "cooldown_until TEXT", "engaged_since_seq INTEGER DEFAULT 0", "last_resolved_seq INTEGER DEFAULT 0",
             "answers INTEGER DEFAULT 0", "is_npc INTEGER DEFAULT 0", "display_name TEXT DEFAULT ''",
+            // v1.1.5
+            "answered_seq INTEGER DEFAULT 0", "answer_kind TEXT DEFAULT ''", "engaged_until_seq INTEGER DEFAULT 0",
         };
 
         private static void MigrateWorldBossTables(SqliteConnection connection)
@@ -82,8 +86,14 @@ namespace UsurperRemake.Systems
         }
 
         private const string WorldBossSelect = @"SELECT id, boss_name, boss_level, max_hp, current_hp, started_at, expires_at, boss_data_json,
-                   status, COALESCE(phase, 1), COALESCE(nights, 1), COALESCE(def_id, ''), last_damaged_at, COALESCE(settled, 0), COALESCE(median_level, 0)
+                   status, COALESCE(phase, 1), COALESCE(nights, 1), COALESCE(def_id, ''), last_damaged_at, COALESCE(settled, 0), COALESCE(median_level, 0),
+                   COALESCE(telegraph_id, ''), COALESCE(telegraph_seq, 0), telegraph_lands_at, COALESCE(interrupts_needed, 0), COALESCE(interrupts_done, 0),
+                   stagger_until, COALESCE(focus_player, ''), focus_until, COALESCE(last_resolved_seq, 0), COALESCE(last_resolved_outcome, '')
             FROM world_bosses ";
+
+        private static DateTime? ReadUtc(SqliteDataReader reader, int i) =>
+            reader.IsDBNull(i) ? null
+            : DateTime.TryParse(reader.GetString(i), null, System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal, out var d) ? d : null;
 
         private static WorldBossInfo ReadWorldBoss(SqliteDataReader reader) => new WorldBossInfo
         {
@@ -102,6 +112,16 @@ namespace UsurperRemake.Systems
             LastDamagedAt = reader.IsDBNull(12) ? null : (DateTime.TryParse(reader.GetString(12), null, System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal, out var ld) ? ld : null),
             Settled = reader.GetInt32(13) != 0,
             MedianLevel = reader.GetInt32(14),
+            TelegraphId = reader.GetString(15),
+            TelegraphSeq = reader.GetInt64(16),
+            TelegraphLandsAt = ReadUtc(reader, 17),
+            InterruptsNeeded = reader.GetInt32(18),
+            InterruptsDone = reader.GetInt32(19),
+            StaggerUntil = ReadUtc(reader, 20),
+            FocusPlayer = reader.GetString(21),
+            FocusUntil = ReadUtc(reader, 22),
+            LastResolvedSeq = reader.GetInt64(23),
+            LastResolvedOutcome = reader.GetString(24),
         };
 
         private async Task<WorldBossInfo?> QueryOneWorldBoss(string where, params (string name, object value)[] args)
@@ -242,17 +262,18 @@ namespace UsurperRemake.Systems
         }
 
         /// <summary>One session ended: counts and the re-entry cooldown on the player's own row.</summary>
-        public async Task RecordWorldBossSession(int bossId, string playerName, int playerLevel, int rounds, bool fell, int cooldownSeconds, string displayName = "")
+        public async Task RecordWorldBossSession(int bossId, string playerName, int playerLevel, int rounds, bool fell, int cooldownSeconds, string displayName = "", long exitSeq = 0)
         {
             try
             {
                 using var connection = OpenConnection();
                 using var cmd = connection.CreateCommand();
                 // last_hit_at is NULL here on purpose: a session without a hit is not "engaged"
-                cmd.CommandText = @"INSERT INTO world_boss_damage (boss_id, player_name, damage_dealt, hits, player_level, sessions, rounds, deaths, cooldown_until, last_hit_at, display_name)
-                                    VALUES (@bossId, LOWER(@player), 0, 0, @level, 1, @rounds, @deaths, datetime('now', '+' || @secs || ' seconds'), NULL, @display)
+                cmd.CommandText = @"INSERT INTO world_boss_damage (boss_id, player_name, damage_dealt, hits, player_level, sessions, rounds, deaths, cooldown_until, last_hit_at, display_name, engaged_until_seq)
+                                    VALUES (@bossId, LOWER(@player), 0, 0, @level, 1, @rounds, @deaths, datetime('now', '+' || @secs || ' seconds'), NULL, @display, @exit)
                                     ON CONFLICT(boss_id, player_name) DO UPDATE SET
                                         sessions = COALESCE(sessions, 0) + 1,
+                                        engaged_until_seq = @exit,
                                         display_name = CASE WHEN @display <> '' THEN @display ELSE display_name END,
                                         rounds = COALESCE(rounds, 0) + @rounds,
                                         deaths = COALESCE(deaths, 0) + @deaths,
@@ -264,6 +285,7 @@ namespace UsurperRemake.Systems
                 cmd.Parameters.AddWithValue("@rounds", rounds);
                 cmd.Parameters.AddWithValue("@deaths", fell ? 1 : 0);
                 cmd.Parameters.AddWithValue("@secs", cooldownSeconds);
+                cmd.Parameters.AddWithValue("@exit", exitSeq);
                 cmd.Parameters.AddWithValue("@display", displayName ?? "");
                 await cmd.ExecuteNonQueryAsync();
             }
@@ -479,6 +501,195 @@ namespace UsurperRemake.Systems
                 cmd.ExecuteNonQuery();
             }
             catch (Exception ex) { DebugLogger.Instance.LogError("SQL", $"Failed to log world boss event: {ex.Message}"); }
+        }
+
+        // ───────────────────────────── v1.1.5 (milestone B): telegraphs, interrupts, focus ─────────────────────────────
+
+        /// <summary>The tick issues the next telegraph; only from the previous seq, only on an active row.</summary>
+        public Task<bool> IssueWorldBossTelegraph(int bossId, string telegraphId, long seq, int landSeconds, int interruptsNeeded) => GuardedWorldBossUpdate(
+            @"UPDATE world_bosses SET telegraph_id = @tid, telegraph_seq = @seq, telegraph_lands_at = datetime('now', '+' || @land || ' seconds'),
+                  interrupts_needed = @needed, interrupts_done = 0
+              WHERE id = @id AND status = 'active' AND COALESCE(telegraph_seq, 0) = @seq - 1 AND COALESCE(last_resolved_seq, 0) = COALESCE(telegraph_seq, 0);",
+            ("@id", bossId), ("@tid", telegraphId), ("@seq", seq), ("@land", landSeconds), ("@needed", interruptsNeeded));
+
+        /// <summary>The tick resolves a landed telegraph once; a broken channel staggers the boss.</summary>
+        public Task<bool> ResolveWorldBossTelegraph(int bossId, long seq, string outcome, int staggerSeconds) => GuardedWorldBossUpdate(
+            @"UPDATE world_bosses SET last_resolved_seq = @seq, last_resolved_outcome = @outcome,
+                  stagger_until = CASE WHEN @outcome = 'broken' THEN datetime('now', '+' || @stagger || ' seconds') ELSE stagger_until END
+              WHERE id = @id AND telegraph_seq = @seq AND COALESCE(last_resolved_seq, 0) < @seq;",
+            ("@id", bossId), ("@seq", seq), ("@outcome", outcome), ("@stagger", staggerSeconds));
+
+        /// <summary>A player's interrupt: counts only while the channel is live and short of its need.</summary>
+        public Task<bool> TryInterruptWorldBoss(int bossId, long seq) => GuardedWorldBossUpdate(
+            @"UPDATE world_bosses SET interrupts_done = COALESCE(interrupts_done, 0) + 1
+              WHERE id = @id AND status = 'active' AND telegraph_seq = @seq AND COALESCE(last_resolved_seq, 0) < @seq
+                AND COALESCE(interrupts_done, 0) < COALESCE(interrupts_needed, 0) AND telegraph_lands_at > datetime('now');",
+            ("@id", bossId), ("@seq", seq));
+
+        /// <summary>The player's answer on their own row, once per seq; survives a retreat.</summary>
+        public Task<bool> RecordWorldBossAnswer(int bossId, string playerName, long seq, string kind) => GuardedWorldBossUpdate(
+            @"UPDATE world_boss_damage SET answered_seq = @seq, answer_kind = @kind, answers = COALESCE(answers, 0) + 1
+              WHERE boss_id = @id AND player_name = LOWER(@player) AND COALESCE(answered_seq, 0) < @seq;",
+            ("@id", bossId), ("@player", playerName), ("@seq", seq), ("@kind", kind));
+
+        /// <summary>
+        /// Entry: the row exists, and the player is in from this seq. Telegraphs issued while they
+        /// were away are not theirs (the loop carries the one that was live when they left, read
+        /// before this write, into its first round).
+        /// </summary>
+        public async Task EnsureWorldBossPlayerRow(int bossId, string playerName, int playerLevel, string displayName, long engagedSinceSeq)
+        {
+            try
+            {
+                using var connection = OpenConnection();
+                using var cmd = connection.CreateCommand();
+                cmd.CommandText = @"INSERT INTO world_boss_damage (boss_id, player_name, damage_dealt, hits, player_level, display_name, last_hit_at, engaged_since_seq, last_resolved_seq)
+                                    VALUES (@id, LOWER(@player), 0, 0, @level, @display, NULL, @seq, @seq - 1)
+                                    ON CONFLICT(boss_id, player_name) DO UPDATE SET
+                                        engaged_since_seq = @seq,
+                                        last_resolved_seq = MAX(COALESCE(last_resolved_seq, 0), @seq - 1),
+                                        player_level = CASE WHEN @level > 0 THEN @level ELSE player_level END,
+                                        display_name = CASE WHEN @display <> '' THEN @display ELSE display_name END;";
+                cmd.Parameters.AddWithValue("@id", bossId);
+                cmd.Parameters.AddWithValue("@player", playerName);
+                cmd.Parameters.AddWithValue("@level", playerLevel);
+                cmd.Parameters.AddWithValue("@display", displayName ?? "");
+                cmd.Parameters.AddWithValue("@seq", engagedSinceSeq);
+                await cmd.ExecuteNonQueryAsync();
+            }
+            catch (Exception ex) { DebugLogger.Instance.LogError("SQL", $"Failed to ensure world boss row: {ex.Message}"); }
+        }
+
+        /// <summary>The loop applied a landed telegraph to this player; once per seq.</summary>
+        public Task<bool> AdvanceWorldBossPlayerResolved(int bossId, string playerName, long seq) => GuardedWorldBossUpdate(
+            @"UPDATE world_boss_damage SET last_resolved_seq = @seq WHERE boss_id = @id AND player_name = LOWER(@player) AND COALESCE(last_resolved_seq, 0) < @seq;",
+            ("@id", bossId), ("@player", playerName), ("@seq", seq));
+
+        public WorldBossPlayerTelegraphState GetWorldBossPlayerTelegraphState(int bossId, string playerName)
+        {
+            try
+            {
+                using var connection = OpenConnection();
+                using var cmd = connection.CreateCommand();
+                cmd.CommandText = @"SELECT COALESCE(engaged_since_seq, 0), COALESCE(last_resolved_seq, 0), COALESCE(answered_seq, 0), COALESCE(answer_kind, ''), COALESCE(engaged_until_seq, 0)
+                                    FROM world_boss_damage WHERE boss_id = @id AND player_name = LOWER(@player);";
+                cmd.Parameters.AddWithValue("@id", bossId);
+                cmd.Parameters.AddWithValue("@player", playerName);
+                using var reader = cmd.ExecuteReader();
+                if (reader.Read()) return new WorldBossPlayerTelegraphState(reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(2), reader.GetString(3), reader.GetInt64(4));
+            }
+            catch (Exception ex) { DebugLogger.Instance.LogError("SQL", $"Failed to read player telegraph state: {ex.Message}"); }
+            return new WorldBossPlayerTelegraphState(0, 0, 0, "", 0);
+        }
+
+        /// <summary>Resolved telegraphs after a seq, from the events table (kind telegraph_resolved, detail id|kind|outcome).</summary>
+        public List<WorldBossTelegraphOutcome> GetResolvedWorldBossTelegraphs(int bossId, long afterSeq, int limit = 20)
+        {
+            var list = new List<WorldBossTelegraphOutcome>();
+            try
+            {
+                using var connection = OpenConnection();
+                using var cmd = connection.CreateCommand();
+                cmd.CommandText = @"SELECT seq, detail FROM world_boss_events WHERE boss_id = @id AND kind = 'telegraph_resolved' AND seq > @after ORDER BY seq LIMIT @limit;";
+                cmd.Parameters.AddWithValue("@id", bossId);
+                cmd.Parameters.AddWithValue("@after", afterSeq);
+                cmd.Parameters.AddWithValue("@limit", limit);
+                using var reader = cmd.ExecuteReader();
+                while (reader.Read())
+                {
+                    var parts = (reader.IsDBNull(1) ? "" : reader.GetString(1)).Split('|');
+                    if (parts.Length >= 3) list.Add(new WorldBossTelegraphOutcome(reader.GetInt64(0), parts[0], parts[1], parts[2]));
+                }
+            }
+            catch (Exception ex) { DebugLogger.Instance.LogError("SQL", $"Failed to read resolved telegraphs: {ex.Message}"); }
+            return list;
+        }
+
+        /// <summary>Challenge: take the boss's focus for a while, if nobody holds it.</summary>
+        public Task<bool> TryChallengeWorldBoss(int bossId, string playerName, int holdSeconds) => GuardedWorldBossUpdate(
+            @"UPDATE world_bosses SET focus_player = LOWER(@player), focus_until = datetime('now', '+' || @hold || ' seconds')
+              WHERE id = @id AND status = 'active' AND (focus_until IS NULL OR focus_until < datetime('now'));",
+            ("@id", bossId), ("@player", playerName), ("@hold", holdSeconds));
+
+        /// <summary>
+        /// The tick's focus window: when the window is older than N seconds, the top window damage among
+        /// engaged humans takes focus unless a Challenge holds it; then the window starts over. Focus is
+        /// last-writer-wins by design (the tick and Challenge both write it under their own guards).
+        /// Returns the focus player after the refresh, or null when the window had not closed.
+        /// </summary>
+        public async Task<string?> RefreshWorldBossFocus(int bossId, int windowSeconds, int engagedMinutes)
+        {
+            try
+            {
+                using var connection = OpenConnection();
+                using var transaction = connection.BeginTransaction();
+                using (var check = connection.CreateCommand())
+                {
+                    check.Transaction = transaction;
+                    check.CommandText = @"SELECT COUNT(*) FROM world_bosses WHERE id = @id AND status = 'active'
+                                          AND (window_started_at IS NULL OR window_started_at <= datetime('now', '-' || @w || ' seconds'));";
+                    check.Parameters.AddWithValue("@id", bossId);
+                    check.Parameters.AddWithValue("@w", windowSeconds);
+                    if (Convert.ToInt32(check.ExecuteScalar()) == 0) { transaction.Commit(); return null; }
+                }
+                string? top = null;
+                using (var pick = connection.CreateCommand())
+                {
+                    pick.Transaction = transaction;
+                    pick.CommandText = @"SELECT player_name FROM world_boss_damage WHERE boss_id = @id AND COALESCE(is_npc, 0) = 0
+                                         AND last_hit_at > datetime('now', '-' || @m || ' minutes') ORDER BY COALESCE(window_damage, 0) DESC, last_hit_at DESC LIMIT 1;";
+                    pick.Parameters.AddWithValue("@id", bossId);
+                    pick.Parameters.AddWithValue("@m", engagedMinutes);
+                    top = pick.ExecuteScalar() as string;
+                }
+                using (var set = connection.CreateCommand())
+                {
+                    set.Transaction = transaction;
+                    set.CommandText = @"UPDATE world_bosses SET focus_player = CASE WHEN (focus_until IS NULL OR focus_until < datetime('now')) THEN @top ELSE focus_player END,
+                                            window_started_at = datetime('now') WHERE id = @id;";
+                    set.Parameters.AddWithValue("@id", bossId);
+                    set.Parameters.AddWithValue("@top", (object?)top ?? DBNull.Value);
+                    set.ExecuteNonQuery();
+                }
+                using (var zero = connection.CreateCommand())
+                {
+                    zero.Transaction = transaction;
+                    zero.CommandText = "UPDATE world_boss_damage SET window_damage = 0 WHERE boss_id = @id;";
+                    zero.Parameters.AddWithValue("@id", bossId);
+                    zero.ExecuteNonQuery();
+                }
+                string? focus;
+                using (var read = connection.CreateCommand())
+                {
+                    read.Transaction = transaction;
+                    read.CommandText = "SELECT COALESCE(focus_player, '') FROM world_bosses WHERE id = @id;";
+                    read.Parameters.AddWithValue("@id", bossId);
+                    focus = read.ExecuteScalar() as string;
+                }
+                transaction.Commit();
+                return focus ?? "";
+            }
+            catch (Exception ex) { DebugLogger.Instance.LogError("SQL", $"Focus refresh failed: {ex.Message}"); return null; }
+        }
+
+        /// <summary>Engaged humans, most recent hit first: key and display name.</summary>
+        public List<(string key, string display)> GetWorldBossEngagedNames(int bossId, int minutes, int limit = 50)
+        {
+            var list = new List<(string, string)>();
+            try
+            {
+                using var connection = OpenConnection();
+                using var cmd = connection.CreateCommand();
+                cmd.CommandText = @"SELECT player_name, COALESCE(display_name, '') FROM world_boss_damage WHERE boss_id = @id AND COALESCE(is_npc, 0) = 0
+                                    AND last_hit_at > datetime('now', '-' || @m || ' minutes') ORDER BY last_hit_at DESC LIMIT @limit;";
+                cmd.Parameters.AddWithValue("@id", bossId);
+                cmd.Parameters.AddWithValue("@m", minutes);
+                cmd.Parameters.AddWithValue("@limit", limit);
+                using var reader = cmd.ExecuteReader();
+                while (reader.Read()) list.Add((reader.GetString(0), reader.GetString(1)));
+            }
+            catch (Exception ex) { DebugLogger.Instance.LogError("SQL", $"Failed to list engaged players: {ex.Message}"); }
+            return list;
         }
 
         /// <summary>Median level of players who logged in during the last N days; the fallback when nobody has.</summary>
