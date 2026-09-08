@@ -1,0 +1,40 @@
+[h1]Usurper Reborn 1.1.3 - Keep Them Alive[/h1]
+
+Someone told me their companion took nine of ten hits in a fight. That is the targeting doing what it is meant to (a fighter beside an Assassin draws the attacks), but it showed me that allies had no way to look after themselves once their potions were gone, and that you had no say in how they fought. This release is about keeping the people you bring into the dungeon alive.
+
+[h2]Allies look after themselves[/h2]
+
+[list]
+[*]Below 40 percent health an ally reaches for a defensive or evasive ability before anything else.
+[*]With nothing left, they brace: half damage from ordinary hits, monster specials, and life drain alike, instead of swinging.
+[*]They drink their own potion before playing medic for someone slightly less hurt.
+[*]An NPC who dies in your party now rolls the 2 percent team permadeath rate, not the 8 percent rate for NPCs you killed yourself. That one had been wrong since v0.42.
+[/list]
+
+[h2]Tactics[/h2]
+
+[list]
+[*][T] in the dungeon party menu or at the Inn sets a stance per ally: Aggressive, Balanced, or Cautious. Balanced is the default and is exactly the behaviour above. Cautious allies protect themselves earlier, never taunt, and weigh 70 percent of normal when monsters pick a target. Aggressive allies hold on longer and their brace pulls hits the way your own Defend does.
+[*]Monsters no longer prefer a wounded target, so an ally is not singled out the moment it starts protecting itself.
+[*]When a stance changes what an ally does, they say so once per fight, not every round.
+[/list]
+
+[h2]Supply[/h2]
+
+[list]
+[*]Shared potion belt, off by default, [B] in the party menu. When on, an ally with no potions left may drink one of yours for its own emergency: two per fight at most, never your last three, and it costs their action, not yours.
+[*]The issue-potion prompt now takes a number as well as one or fill.
+[*]An ally down to a single potion keeps it for itself unless you are the one about to die.
+[/list]
+
+[h2]Information[/h2]
+
+[list]
+[*]A fight summary after every victory with allies: final HP, how often the monsters picked them, hits taken, HP lost, potions drunk and whose.
+[*]A warning before you start a fight with an ally below 30 percent, with the choice to go anyway. Ambushes are still ambushes.
+[*]Going down a floor with an ally eleven or more levels below you warns you and offers to set them Cautious. Nothing changes without asking.
+[/list]
+
+The downed state, where a fallen ally can be rescued instead of dying, is designed and is the next release. It changes what death means, so it gets its own.
+
+If something here feels wrong at the table, /bug in game with what you were doing.
