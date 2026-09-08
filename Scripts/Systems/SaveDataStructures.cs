@@ -414,6 +414,8 @@ namespace UsurperRemake.Systems
 
         // v0.65.1: per-teammate AI combat-skill toggles (non-companion dungeon teammates)
         public Dictionary<string, List<string>> TeammateDisabledAbilities { get; set; } = new();
+        public Dictionary<string, int> TeammateStances { get; set; } = new(); // v1.1.3
+        public bool SharedPotionBelt { get; set; } // v1.1.3
         public Dictionary<string, List<string>> TeammateDisabledSpells { get; set; } = new();
 
         // v0.60.11: Anchor Road Gauntlet champion tier (0=None .. 5=GrandChampion).

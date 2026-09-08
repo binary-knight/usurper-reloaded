@@ -106,6 +106,7 @@ public class DungeonLocation : BaseLocation
         // Set base class fields so WriteSectionHeader/WriteDivider etc. work
         currentPlayer = player;
         terminal = term;
+        _declinedCautious.Clear(); // v1.1.3: a new visit; the location object lives for the whole session
 
         // Block entry if player is imprisoned
         if (player.DaysInPrison > 0)
@@ -5206,9 +5207,34 @@ public class DungeonLocation : BaseLocation
     /// <summary>
     /// Fight the monsters in a room
     /// </summary>
+    // v1.1.3: allies whose Cautious offer the player declined this dungeon visit; the warning still
+    // prints. Cleared in EnterLocation: one DungeonLocation serves every visit of the session.
+    private readonly HashSet<string> _declinedCautious = new();
+
+    /// <summary>v1.1.3 (council ruling 5): eleven or more levels below the player.</summary>
+    internal static bool IsOutleveled(Character player, Character ally) => player.Level - ally.Level >= 11;
+
+    /// <summary>v1.1.3 (council ruling 5): allies below thirty percent, for the pre-fight warning.</summary>
+    internal static List<Character> LowHealthAllies(IEnumerable<Character> party) =>
+        party.Where(t => t != null && t.IsAlive && !t.IsGroupedPlayer && t.MaxHP > 0 && t.HP * 10 < t.MaxHP * 3).ToList();
+
     private async Task FightRoomMonsters(DungeonRoom room, bool isAmbush = false)
     {
         var player = GetCurrentPlayer();
+        // v1.1.3 (council ruling 5): a voluntary fight with a badly hurt ally asks first. Ambushes stay ambushes.
+        if (!isAmbush)
+        {
+            List<Character> low;
+            lock (teammates) { low = LowHealthAllies(teammates); }
+            if (low.Count > 0)
+            {
+                terminal.WriteLine("");
+                foreach (var t in low)
+                    terminal.WriteLine($"  {Loc.Get("dungeon.ally_low_hp_warning", t.DisplayName, (int)(100.0 * t.HP / t.MaxHP))}", "yellow");
+                var go = await terminal.GetInput(Loc.Get("dungeon.fight_anyway_prompt"));
+                if (!GameConfig.IsAffirmative(go)) return;
+            }
+        }
 
         if (!GameConfig.ScreenReaderMode)
             terminal.ClearScreen();
@@ -6678,6 +6704,26 @@ public class DungeonLocation : BaseLocation
             terminal.WriteLine(Loc.Get("dungeon.nowhere_descend"), "yellow");
             await Task.Delay(2000);
             return;
+        }
+
+        // v1.1.3 (council ruling 5): the floor guard. An ally eleven or more levels below the
+        // player gets a warning and the offer of Cautious; nothing is switched silently.
+        if (player != null)
+        {
+            List<Character> behind;
+            lock (teammates) { behind = teammates.Where(t => t != null && t.IsAlive && TeammateStances.TakesOrders(t) && IsOutleveled(player, t)).ToList(); }
+            foreach (var t in behind)
+            {
+                if (TeammateStances.Get(player, t) == TeammateStance.Cautious) continue;
+                terminal.WriteLine("");
+                terminal.WriteLine($"  {Loc.Get("dungeon.ally_outleveled_warning", t.DisplayName, player.Level - t.Level)}", "yellow");
+                if (_declinedCautious.Contains(TeammateStances.KeyFor(t))) continue; // warned, asked once this visit
+                var answer = await terminal.GetInput(Loc.Get("dungeon.offer_cautious_prompt", t.DisplayName));
+                if (!GameConfig.IsAffirmative(answer)) { _declinedCautious.Add(TeammateStances.KeyFor(t)); continue; }
+                TeammateStances.Set(player, TeammateStances.KeyFor(t), TeammateStance.Cautious);
+                terminal.WriteLine(Loc.Get("dungeon.stance_set", t.DisplayName, Loc.Get(TeammateStances.NameKey(TeammateStance.Cautious))), "bright_green");
+                try { await SaveSystem.Instance.AutoSave(player); } catch { /* best-effort */ }
+            }
         }
 
         // Award floor completion bonus if fully cleared (optional for non-boss floors)
@@ -10503,6 +10549,11 @@ public class DungeonLocation : BaseLocation
                     terminal.SetColor("cyan");
                     terminal.Write($"  {Loc.Get("dungeon.mp_label")}:{tm.Mana}/{tm.MaxMana}");
                 }
+                if (TeammateStances.TakesOrders(tm))
+                {
+                    terminal.SetColor("gray");
+                    terminal.Write($"  {Loc.Get("dungeon.stance_label", Loc.Get(TeammateStances.NameKey(TeammateStances.Get(GetCurrentPlayer(), tm))))}");
+                }
                 terminal.WriteLine("");
 
                 // Show equipped weapon and body armor on one line
@@ -10528,7 +10579,8 @@ public class DungeonLocation : BaseLocation
 
             terminal.WriteLine("");
             terminal.SetColor("cyan");
-            terminal.WriteLine($"  [#] {Loc.Get("dungeon.view_equip_member")}  [S] {Loc.Get("dungeon.skills_member_option")}  [I] {Loc.Get("party_inv.menu_dungeon")}  [Q] {Loc.Get("dungeon.back")}");
+            terminal.WriteLine($"  [B] {Loc.Get("dungeon.belt_option", Loc.Get(GetCurrentPlayer().SharedPotionBelt ? "ui.on" : "ui.off"))}");
+            terminal.WriteLine($"  [#] {Loc.Get("dungeon.view_equip_member")}  [S] {Loc.Get("dungeon.skills_member_option")}  [T] {Loc.Get("dungeon.tactics_member_option")}  [I] {Loc.Get("party_inv.menu_dungeon")}  [Q] {Loc.Get("dungeon.back")}");
             terminal.WriteLine("");
             terminal.SetColor("cyan");
             terminal.Write(Loc.Get("ui.choice"));
@@ -10548,6 +10600,21 @@ public class DungeonLocation : BaseLocation
             if (choice == "S")
             {
                 await PromptManageTeammateSkills();
+                continue;
+            }
+            if (choice == "T")
+            {
+                await PromptManageTeammateStance(); // v1.1.3
+                continue;
+            }
+            if (choice == "B")
+            {
+                var owner = GetCurrentPlayer();
+                owner.SharedPotionBelt = !owner.SharedPotionBelt; // v1.1.3 (council ruling 4)
+                terminal.SetColor("bright_green");
+                terminal.WriteLine(Loc.Get("dungeon.belt_set", Loc.Get(owner.SharedPotionBelt ? "ui.on" : "ui.off")));
+                try { await SaveSystem.Instance.AutoSave(owner); } catch { /* best-effort */ }
+                await Task.Delay(1500);
                 continue;
             }
 
@@ -10589,6 +10656,60 @@ public class DungeonLocation : BaseLocation
     /// spouses, and echoes (edits the player's per-teammate toggles). Grouped live players
     /// are excluded -- they control their own skills.
     /// </summary>
+    /// <summary>v1.1.3 (council ruling 1): pick a party member and set their tactics.</summary>
+    private async Task PromptManageTeammateStance()
+    {
+        var owner = GetCurrentPlayer();
+        var eligible = teammates.Where(t => t != null && TeammateStances.TakesOrders(t)).ToList();
+        if (eligible.Count == 0)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine(Loc.Get("dungeon.skills_no_members"));
+            await Task.Delay(1500);
+            return;
+        }
+        terminal.ClearScreen();
+        WriteBoxHeader(Loc.Get("dungeon.tactics_pick_header"), "bright_cyan", 51);
+        terminal.WriteLine("");
+        for (int i = 0; i < eligible.Count; i++)
+        {
+            var t = eligible[i];
+            terminal.SetColor("bright_yellow"); terminal.Write($"  [{i + 1}] ");
+            terminal.SetColor("white");
+            terminal.WriteLine($"{t.DisplayName} - {Loc.Get(TeammateStances.NameKey(TeammateStances.Get(owner, t)))}");
+        }
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        var input = (await terminal.GetInput(Loc.Get("ui.choice"))).Trim();
+        if (!int.TryParse(input, out int idx) || idx < 1 || idx > eligible.Count) return;
+        var member = eligible[idx - 1];
+        var chosen = await PromptStanceChoice(member.DisplayName);
+        if (chosen == null) return;
+        TeammateStances.Set(owner, TeammateStances.KeyFor(member), chosen.Value);
+        terminal.SetColor("bright_green");
+        terminal.WriteLine(Loc.Get("dungeon.stance_set", member.DisplayName, Loc.Get(TeammateStances.NameKey(chosen.Value))));
+        try { await SaveSystem.Instance.AutoSave(owner); } catch { /* best-effort */ }
+        await Task.Delay(1200);
+    }
+
+    /// <summary>The three presets with one line each; null when the player backs out.</summary>
+    internal async Task<TeammateStance?> PromptStanceChoice(string memberName)
+    {
+        terminal.WriteLine("");
+        terminal.SetColor("white");
+        terminal.WriteLine(Loc.Get("dungeon.stance_prompt", memberName));
+        foreach (var (key, stance) in new[] { ("1", TeammateStance.Aggressive), ("2", TeammateStance.Balanced), ("3", TeammateStance.Cautious) })
+        {
+            terminal.SetColor("bright_yellow"); terminal.Write($"  [{key}] ");
+            terminal.SetColor("white"); terminal.Write(Loc.Get(TeammateStances.NameKey(stance)));
+            terminal.SetColor("gray"); terminal.WriteLine($"  {Loc.Get(TeammateStances.NameKey(stance) + ".desc")}");
+        }
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        var pick = (await terminal.GetInput(Loc.Get("ui.choice"))).Trim();
+        return pick switch { "1" => TeammateStance.Aggressive, "2" => TeammateStance.Balanced, "3" => TeammateStance.Cautious, _ => null };
+    }
+
     private async Task PromptManageTeammateSkills()
     {
         // Grouped LIVE players control their own skills; non-companions need a stable
@@ -12170,7 +12291,10 @@ public class DungeonLocation : BaseLocation
         terminal.SetColor("white");
         terminal.WriteLine($"  [1] {Loc.Get("dungeon.issue_give_one")}");
         if (maxGiveable > 1)
+        {
             terminal.WriteLine($"  [F] {Loc.Get("dungeon.issue_give_full", maxGiveable)}");
+            terminal.WriteLine($"  [N] {Loc.Get("dungeon.issue_give_n", maxGiveable, playerHas)}"); // v1.1.3: bulk give
+        }
         terminal.SetColor("gray");
         terminal.WriteLine($"  [0] {Loc.Get("dungeon.cancel")}");
         terminal.WriteLine("");
@@ -12181,6 +12305,13 @@ public class DungeonLocation : BaseLocation
 
         int give = 1;
         if (countChoice == "F" && maxGiveable > 1) give = maxGiveable;
+        else if (countChoice == "N" && maxGiveable > 1)
+        {
+            // v1.1.3 (council ruling 4): a deliberate gift of N; the belt's reserve does not apply here
+            var raw = (await terminal.GetInput(Loc.Get("dungeon.issue_give_n_prompt", maxGiveable))).Trim();
+            if (!int.TryParse(raw, out give) || give < 1) return;
+            give = System.Math.Min(give, maxGiveable);
+        }
         else if (countChoice != "1") return;
         give = System.Math.Min(give, maxGiveable);
         if (give <= 0) return;
