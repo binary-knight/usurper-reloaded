@@ -42,55 +42,160 @@ namespace UsurperRemake.Systems
         public volatile string? ActiveBossName;
 
         // ═══════════════════════════════════════════════════════════════════════════
-        // Spawn System — Called from WorldSimService tick loop
+        // The tick (v1.1.4): the boss's clock and the only writer of boss state.
+        // Schedule, spawn, window end, Rally, phase, notices, the town snapshot.
+        // DOCS/WORLD_BOSS_PLAN.md rulings 1 and 3.
         // ═══════════════════════════════════════════════════════════════════════════
 
-        /// <summary>
-        /// Check if conditions are met to spawn a new world boss.
-        /// Called every 30s from WorldSimService tick loop.
-        /// </summary>
-        public async Task CheckSpawnConditions(SqlSaveBackend backend)
+        public const string ScheduleKey = "world_boss_schedule";
+
+        /// <summary>What the town line and /boss show; refreshed by the tick, read by every session.</summary>
+        public sealed class WorldBossSnapshot
+        {
+            public bool Active;
+            public int BossId;
+            public string BossName = "";
+            public string BossTitle = "";
+            public int Level;
+            public double HpPercent;
+            public int Engaged;
+            public int Nights;
+            public DateTime? ExpiresUtc;
+            public string NextBossName = "";
+            public string NextBossTitle = "";
+            public int NextLevel;
+            public DateTime? NextSpawnUtc;
+        }
+
+        public volatile WorldBossSnapshot Snapshot = new();
+
+        private readonly JsonSerializerOptions _scheduleJson = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+
+        private async Task<WorldBossSchedule?> LoadSchedule(SqlSaveBackend backend)
         {
             try
             {
-                // Expire any old bosses first
-                await backend.ExpireWorldBosses();
+                var json = await backend.LoadWorldState(ScheduleKey);
+                return string.IsNullOrEmpty(json) ? null : JsonSerializer.Deserialize<WorldBossSchedule>(json, _scheduleJson);
+            }
+            catch { return null; }
+        }
 
-                // Don't spawn if one is already active
-                var activeBoss = await backend.GetActiveWorldBoss();
-                if (activeBoss != null) return;
+        private Task SaveSchedule(SqlSaveBackend backend, WorldBossSchedule schedule) =>
+            backend.SaveWorldState(ScheduleKey, JsonSerializer.Serialize(schedule, _scheduleJson));
 
-                // Clear notification if boss despawned
-                ActiveBossName = null;
-
-                // Check minimum player count
-                int onlineCount = backend.GetOnlinePlayerCount();
-                if (onlineCount < GameConfig.WorldBossMinPlayersToSpawn) return;
-
-                // Cooldown: don't spawn if a boss was defeated/expired recently
-                var lastBossTime = backend.GetLastWorldBossEndTime();
-                if (lastBossTime.HasValue)
+        /// <summary>
+        /// Called every 30 s from WorldSimService. Order matters: end a passed window first, then
+        /// make sure a schedule exists, spawn when its hour has come, then the live upkeep.
+        /// </summary>
+        public async Task Tick(SqlSaveBackend backend)
+        {
+            try
+            {
+                var now = DateTime.UtcNow;
+                var active = await backend.GetActiveWorldBossAnyTime();
+                if (active != null && active.ExpiresAt <= now)
                 {
-                    double hoursSinceLast = (DateTime.UtcNow - lastBossTime.Value).TotalHours;
-                    if (hoursSinceLast < GameConfig.WorldBossSpawnCooldownHours)
-                    {
-                        return;
-                    }
+                    await EndWindow(backend, active);
+                    active = null;
                 }
 
-                // Pick a random boss
-                var bossDef = WorldBossDatabase.GetRandomBoss();
-                if (bossDef == null) return;
+                var schedule = await LoadSchedule(backend);
+                if (schedule == null || schedule.SpawnedBossId != 0 && active == null && await SpawnedBossIsOver(backend, schedule))
+                {
+                    schedule = await MakeNextSchedule(backend, schedule);
+                }
 
-                // Scale HP based on online player count
-                int avgLevel = backend.GetAverageOnlineLevel();
-                int bossLevel = Math.Max(bossDef.BaseLevel, avgLevel);
-                // Post-beta-launch baseline difficulty correction (15%): brings the
-                // world boss in line with the same scale applied to regular monsters
-                // and Old Gods so server-wide difficulty stays consistent.
-                long scaledHP = (long)(bossDef.BaseHP * (1.0 + GameConfig.WorldBossHPScalePerPlayer * onlineCount) * GameConfig.BaseMonsterDifficultyScale);
+                if (active == null && schedule.SpawnedBossId == 0 && now >= schedule.SpawnUtc)
+                {
+                    active = await SpawnScheduled(backend, schedule);
+                }
 
-                // Create boss data JSON for phase tracking
+                if (schedule.SpawnedBossId == 0 && !schedule.NoticedHourBefore && now >= schedule.SpawnUtc.AddHours(-GameConfig.WorldBossNoticeHoursBefore))
+                {
+                    schedule.NoticedHourBefore = true;
+                    await SaveSchedule(backend, schedule);
+                    NoticeHourBefore(backend, schedule);
+                }
+
+                if (active != null)
+                {
+                    await LiveUpkeep(backend, active);
+                }
+
+                await SettleUnsettled(backend);
+                RefreshSnapshot(backend, active, schedule);
+            }
+            catch (Exception ex)
+            {
+                DebugLogger.Instance.LogError("WORLD_BOSS", $"Tick failed: {ex.Message}");
+            }
+        }
+
+        private async Task<bool> SpawnedBossIsOver(SqlSaveBackend backend, WorldBossSchedule schedule)
+        {
+            var boss = await backend.GetWorldBossById(schedule.SpawnedBossId);
+            return boss == null || boss.Status != "active";
+        }
+
+        /// <summary>The next 8 PM Eastern. A withdrawn boss returns; otherwise the cohort's median level picks one.</summary>
+        private async Task<WorldBossSchedule> MakeNextSchedule(SqlSaveBackend backend, WorldBossSchedule? previous)
+        {
+            var now = DateTime.UtcNow;
+            var spawnUtc = WorldBossMath.NextSpawnUtc(now);
+            if (previous != null && previous.SpawnUtc >= spawnUtc)
+                spawnUtc = WorldBossMath.SpawnUtcFor(previous.SpawnUtc, 1); // never the same hour twice
+            int median = backend.GetActivePlayersMedianLevel(GameConfig.WorldBossActiveDays);
+            var schedule = new WorldBossSchedule { SpawnUtc = spawnUtc, MedianLevel = median, WindowHours = GameConfig.WorldBossWindowHours };
+
+            var withdrawn = await backend.GetWithdrawnWorldBoss();
+            if (withdrawn != null && withdrawn.Nights < GameConfig.WorldBossMaxNights)
+            {
+                schedule.CarriedBossId = withdrawn.Id;
+                schedule.DefinitionId = withdrawn.DefinitionId;
+                schedule.BossLevel = withdrawn.BossLevel;
+            }
+            else
+            {
+                var def = WorldBossMath.PickBoss(median, WorldBossDatabase.GetAllBosses(), _rng);
+                schedule.DefinitionId = def.Id;
+                schedule.BossLevel = WorldBossMath.BossLevelFor(def, median);
+            }
+            await SaveSchedule(backend, schedule);
+            NoticeScheduled(backend, schedule);
+            schedule.NoticedAtReset = true;
+            await SaveSchedule(backend, schedule);
+            DebugLogger.Instance.LogInfo("WORLD_BOSS", $"Scheduled {schedule.DefinitionId} (Lv{schedule.BossLevel}, median {median}) for {schedule.SpawnUtc:u}{(schedule.CarriedBossId != 0 ? " (returning)" : "")}");
+            return schedule;
+        }
+
+        private async Task<WorldBossInfo?> SpawnScheduled(SqlSaveBackend backend, WorldBossSchedule schedule)
+        {
+            var bossDef = WorldBossDatabase.GetBossById(schedule.DefinitionId) ?? WorldBossMath.PickBoss(schedule.MedianLevel, WorldBossDatabase.GetAllBosses(), _rng);
+            int onlineCount = backend.GetOnlinePlayerCount();
+            WorldBossInfo? boss = null;
+
+            if (schedule.CarriedBossId != 0)
+            {
+                if (await backend.ReactivateWorldBoss(schedule.CarriedBossId, GameConfig.WorldBossNightRegenFraction, schedule.WindowHours))
+                {
+                    boss = await backend.GetWorldBossById(schedule.CarriedBossId);
+                    if (boss != null)
+                    {
+                        backend.LogWorldBossEvent(boss.Id, "return", "", $"night={boss.Nights} hp={boss.CurrentHP} online={onlineCount}");
+                        int pct = (int)(100.0 * boss.CurrentHP / Math.Max(1, boss.MaxHP));
+                        MudServer.Instance?.BroadcastLocalized(lang =>
+                            $"\n  *** {Loc.GetIn(lang, "world_boss.returns_broadcast", bossDef.Name, boss.Nights, pct)} ***\n  {Loc.GetIn(lang, "world_boss.type_boss_to_join")}");
+                        if (OnlineStateManager.IsActive)
+                            _ = OnlineStateManager.Instance!.AddNews(Loc.Get("world_boss.returns_broadcast", bossDef.Name, boss.Nights, pct), "world_boss");
+                        DiscordBridge.QueueSystemEvent(Loc.GetIn("en", "world_boss.returns_broadcast", bossDef.Name, boss.Nights, pct));
+                    }
+                }
+            }
+
+            if (boss == null)
+            {
+                int bossLevel = schedule.BossLevel > 0 ? schedule.BossLevel : WorldBossMath.BossLevelFor(bossDef, schedule.MedianLevel);
                 var bossData = new WorldBossRuntimeData
                 {
                     DefinitionId = bossDef.Id,
@@ -101,39 +206,165 @@ namespace UsurperRemake.Systems
                     ScaledAgility = bossDef.BaseAgility + (bossLevel - bossDef.BaseLevel),
                     AttacksPerRound = bossDef.AttacksPerRound
                 };
-                string dataJson = JsonSerializer.Serialize(bossData);
+                long maxHp = WorldBossMath.MaxHP(bossLevel, bossData.ScaledDefence);
+                int id = await backend.SpawnScheduledWorldBoss(bossDef.Name, bossLevel, maxHp, schedule.WindowHours,
+                    JsonSerializer.Serialize(bossData), bossDef.Id, schedule.SpawnUtc, schedule.MedianLevel, onlineCount);
+                if (id <= 0) return null;
+                boss = await backend.GetWorldBossById(id);
+                backend.LogWorldBossEvent(id, "spawn", "", $"level={bossLevel} hp={maxHp} online={onlineCount} median={schedule.MedianLevel}");
+                DebugLogger.Instance.LogInfo("WORLD_BOSS", $"Spawned {bossDef.Name} (Lv{bossLevel}, HP:{maxHp:N0}) with {onlineCount} players online");
+                MudServer.Instance?.BroadcastLocalized(lang =>
+                    $"\n  *** {Loc.GetIn(lang, "world_boss.spawn_broadcast", bossDef.Name, bossDef.Title)} ***\n  {Loc.GetIn(lang, "world_boss.type_boss_to_join")}");
+                if (OnlineStateManager.IsActive)
+                    _ = OnlineStateManager.Instance!.AddNews(Loc.Get("world_boss.spawn_news", bossDef.Name, bossDef.Title), "world_boss");
+                DiscordBridge.QueueSystemEvent(Loc.GetIn("en", "world_boss.spawn_news", bossDef.Name, bossDef.Title));
+            }
 
-                // Spawn it
-                int bossId = await backend.SpawnWorldBoss(
-                    bossDef.Name, bossLevel, scaledHP,
-                    GameConfig.WorldBossDurationHours, dataJson);
+            if (boss != null)
+            {
+                ActiveBossName = bossDef.Name;
+                schedule.SpawnedBossId = boss.Id;
+                await SaveSchedule(backend, schedule);
+            }
+            return boss;
+        }
 
-                if (bossId > 0)
+        /// <summary>The window passed with the boss alive: it withdraws, or leaves after the last night.</summary>
+        private async Task EndWindow(SqlSaveBackend backend, WorldBossInfo boss)
+        {
+            if (!await backend.WithdrawWorldBoss(boss.Id)) return;
+            var bossDef = WorldBossDatabase.GetBossById(boss.DefinitionId);
+            string name = bossDef?.Name ?? boss.BossName;
+            int pct = (int)(100.0 * boss.CurrentHP / Math.Max(1, boss.MaxHP));
+            ActiveBossName = null;
+            backend.LogWorldBossEvent(boss.Id, "withdraw", "", $"night={boss.Nights} hp={boss.CurrentHP} pct={pct}");
+
+            bool leaves = boss.Nights >= GameConfig.WorldBossMaxNights;
+            if (leaves)
+            {
+                await backend.MarkWorldBossLeft(boss.Id);
+                backend.LogWorldBossEvent(boss.Id, "left", "", $"nights={boss.Nights} hp={boss.CurrentHP}");
+                var board = await backend.GetWorldBossDamageLeaderboard(boss.Id, 10);
+                string stood = board.Count == 0 ? Loc.Get("world_boss.nobody") : string.Join(", ", board.Select(e => e.PlayerName));
+                MudServer.Instance?.BroadcastLocalized(lang => $"\n  *** {Loc.GetIn(lang, "world_boss.left_news", name, boss.Nights, stood)} ***");
+                if (OnlineStateManager.IsActive)
+                    _ = OnlineStateManager.Instance!.AddNews(Loc.Get("world_boss.left_news", name, boss.Nights, stood), "world_boss");
+                DiscordBridge.QueueSystemEvent(Loc.GetIn("en", "world_boss.left_news", name, boss.Nights, stood));
+            }
+            else
+            {
+                MudServer.Instance?.BroadcastLocalized(lang => $"\n  *** {Loc.GetIn(lang, "world_boss.withdrew_news", name, pct, boss.Nights)} ***");
+                if (OnlineStateManager.IsActive)
+                    _ = OnlineStateManager.Instance!.AddNews(Loc.Get("world_boss.withdrew_news", name, pct, boss.Nights), "world_boss");
+                DiscordBridge.QueueSystemEvent(Loc.GetIn("en", "world_boss.withdrew_news", name, pct, boss.Nights));
+            }
+        }
+
+        /// <summary>Rally regeneration, the monotonic phase, the peak engaged count.</summary>
+        private async Task LiveUpkeep(SqlSaveBackend backend, WorldBossInfo boss)
+        {
+            long regen = Math.Max(1, (long)(boss.MaxHP * GameConfig.WorldBossRallyRegenPerTick));
+            if (await backend.RallyRegenWorldBoss(boss.Id, regen, GameConfig.WorldBossRallyIdleMinutes))
+                backend.LogWorldBossEvent(boss.Id, "rally", "", $"regen={regen}");
+
+            double hpPct = boss.MaxHP > 0 ? (double)boss.CurrentHP / boss.MaxHP : 1.0;
+            int target = hpPct <= GameConfig.WorldBossPhase3Threshold ? 3 : hpPct <= GameConfig.WorldBossPhase2Threshold ? 2 : 1;
+            if (target > boss.Phase && await backend.RaiseWorldBossPhase(boss.Id, target))
+            {
+                var bossDef = WorldBossDatabase.GetBossById(boss.DefinitionId);
+                string name = bossDef?.Name ?? boss.BossName;
+                backend.LogWorldBossEvent(boss.Id, "phase", "", $"phase={target} hp={boss.CurrentHP}");
+                MudServer.Instance?.BroadcastLocalized(lang =>
+                    $"\n  *** {Loc.GetIn(lang, "world_boss.phase_change_broadcast", name, target, GetPhaseDescriptionIn(lang, target))} ***");
+                DiscordBridge.QueueSystemEvent(Loc.GetIn("en", "world_boss.phase_change_broadcast", name, target, GetPhaseDescriptionIn("en", target)));
+            }
+
+            int engaged = backend.GetWorldBossEngagedCount(boss.Id, GameConfig.WorldBossEngagedMinutes);
+            if (engaged > 0) await backend.UpdateWorldBossPeakEngaged(boss.Id, engaged);
+        }
+
+        /// <summary>Filled in by the settle commit; until then nothing is marked, so nothing is lost.</summary>
+        private Task SettleUnsettled(SqlSaveBackend backend) => Task.CompletedTask;
+
+        private void NoticeScheduled(SqlSaveBackend backend, WorldBossSchedule schedule)
+        {
+            var bossDef = WorldBossDatabase.GetBossById(schedule.DefinitionId);
+            if (bossDef == null) return;
+            string key = schedule.CarriedBossId != 0 ? "world_boss.notice_returns" : "world_boss.notice_scheduled";
+            int hour = GameConfig.WorldBossSpawnHourEastern;
+            string hourText = hour > 12 ? $"{hour - 12} PM" : $"{hour} AM";
+            try
+            {
+                if (OnlineStateManager.IsActive)
+                    _ = OnlineStateManager.Instance!.AddNews(Loc.Get(key, bossDef.Name, bossDef.Title, schedule.BossLevel, hourText), "world_boss");
+                DiscordBridge.QueueSystemEvent(Loc.GetIn("en", key, bossDef.Name, bossDef.Title, schedule.BossLevel, hourText));
+                MudServer.Instance?.BroadcastLocalized(lang => $"\n  {Loc.GetIn(lang, key, bossDef.Name, bossDef.Title, schedule.BossLevel, hourText)}");
+                foreach (var (username, language) in backend.GetRecentActivePlayers(GameConfig.WorldBossActiveDays))
                 {
-                    ActiveBossName = bossDef.Name;
-                    DebugLogger.Instance.LogInfo("WORLD_BOSS", $"Spawned {bossDef.Name} (Lv{bossLevel}, HP:{scaledHP:N0}) with {onlineCount} players online");
-
-                    // Broadcast spawn to all online players, rendered per-recipient in their own
-                    // language. This fires from the world-sim tick (no session context), so a single
-                    // pre-rendered string would fall back to English for everyone -- the bug report.
-                    // BroadcastLocalized renders the announcement in each session's language instead.
-                    // (The boss name/title itself is still English -- boss names are a game-wide
-                    // untranslated layer like monster names, flagged for a separate pass.)
-                    MudServer.Instance?.BroadcastLocalized(lang =>
-                        $"\n  *** {Loc.GetIn(lang, "world_boss.spawn_broadcast", bossDef.Name, bossDef.Title)} ***\n  {Loc.GetIn(lang, "world_boss.type_boss_to_join")}");
-
-                    // Post to news feed
-                    if (OnlineStateManager.IsActive)
-                    {
-                        _ = OnlineStateManager.Instance!.AddNews(
-                            Loc.Get("world_boss.spawn_news", bossDef.Name, bossDef.Title), "world_boss");
-                    }
+                    _ = backend.SendMessage("System", username, "world_boss", Loc.GetIn(language ?? "en", key, bossDef.Name, bossDef.Title, schedule.BossLevel, hourText));
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) { DebugLogger.Instance.LogError("WORLD_BOSS", $"Notice failed: {ex.Message}"); }
+        }
+
+        private void NoticeHourBefore(SqlSaveBackend backend, WorldBossSchedule schedule)
+        {
+            var bossDef = WorldBossDatabase.GetBossById(schedule.DefinitionId);
+            if (bossDef == null) return;
+            MudServer.Instance?.BroadcastLocalized(lang => $"\n  *** {Loc.GetIn(lang, "world_boss.notice_hour", bossDef.Name, bossDef.Title)} ***");
+            DiscordBridge.QueueSystemEvent(Loc.GetIn("en", "world_boss.notice_hour", bossDef.Name, bossDef.Title));
+        }
+
+        private void RefreshSnapshot(SqlSaveBackend backend, WorldBossInfo? active, WorldBossSchedule schedule)
+        {
+            var snap = new WorldBossSnapshot();
+            if (active != null && active.Status == "active")
             {
-                DebugLogger.Instance.LogError("WORLD_BOSS", $"Spawn check failed: {ex.Message}");
+                var def = WorldBossDatabase.GetBossById(active.DefinitionId);
+                snap.Active = true;
+                snap.BossId = active.Id;
+                snap.BossName = def?.Name ?? active.BossName;
+                snap.BossTitle = def?.Title ?? "";
+                snap.Level = active.BossLevel;
+                snap.HpPercent = active.MaxHP > 0 ? 100.0 * active.CurrentHP / active.MaxHP : 0;
+                snap.Engaged = backend.GetWorldBossEngagedCount(active.Id, GameConfig.WorldBossEngagedMinutes);
+                snap.Nights = active.Nights;
+                snap.ExpiresUtc = active.ExpiresAt;
+                ActiveBossName = snap.BossName;
             }
+            else
+            {
+                ActiveBossName = null;
+            }
+            if (schedule.SpawnedBossId == 0)
+            {
+                var next = WorldBossDatabase.GetBossById(schedule.DefinitionId);
+                snap.NextBossName = next?.Name ?? "";
+                snap.NextBossTitle = next?.Title ?? "";
+                snap.NextLevel = schedule.BossLevel;
+                snap.NextSpawnUtc = schedule.SpawnUtc;
+            }
+            Snapshot = snap;
+        }
+
+        /// <summary>"2h 14m" or "14m", localized.</summary>
+        public static string FormatSpan(TimeSpan span)
+        {
+            if (span < TimeSpan.Zero) span = TimeSpan.Zero;
+            int h = (int)span.TotalHours, m = span.Minutes;
+            return h > 0 ? Loc.Get("world_boss.span_hm", h, m) : Loc.Get("world_boss.span_m", Math.Max(1, m));
+        }
+
+        /// <summary>The one status line for the town screen, or null when there is nothing to say.</summary>
+        public string? TownLine()
+        {
+            var snap = Snapshot;
+            var now = DateTime.UtcNow;
+            if (snap.Active)
+                return Loc.Get("world_boss.town_live", snap.BossName, (int)snap.HpPercent, snap.Engaged, FormatSpan((snap.ExpiresUtc ?? now) - now));
+            if (snap.NextSpawnUtc.HasValue && !string.IsNullOrEmpty(snap.NextBossName))
+                return Loc.Get("world_boss.town_countdown", snap.NextBossName, FormatSpan(snap.NextSpawnUtc.Value - now));
+            return null;
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
@@ -167,8 +398,6 @@ namespace UsurperRemake.Systems
             {
                 terminal.ClearScreen();
 
-                // Expire old bosses
-                await backend.ExpireWorldBosses();
                 var boss = await backend.GetActiveWorldBoss();
 
                 if (boss == null || boss.Status != "active")
@@ -215,11 +444,17 @@ namespace UsurperRemake.Systems
             terminal.WriteLine("");
             terminal.SetColor("gray");
             terminal.WriteLine($"  {Loc.Get("world_boss.no_active")}");
-            terminal.WriteLine($"  {Loc.Get("world_boss.appear_when_enough")}");
+            var snap = Snapshot;
+            if (snap.NextSpawnUtc.HasValue && !string.IsNullOrEmpty(snap.NextBossName))
+            {
+                terminal.SetColor("bright_yellow");
+                terminal.WriteLine($"  {Loc.Get("world_boss.next_boss", snap.NextBossName, snap.NextBossTitle, snap.NextLevel, FormatSpan(snap.NextSpawnUtc.Value - DateTime.UtcNow))}");
+            }
             terminal.WriteLine("");
             terminal.SetColor("darkgray");
-            terminal.WriteLine($"  {Loc.Get("world_boss.spawn_info")}");
-            terminal.WriteLine($"  {Loc.Get("world_boss.duration_info")}");
+            int hour = GameConfig.WorldBossSpawnHourEastern;
+            terminal.WriteLine($"  {Loc.Get("world_boss.spawn_info", hour > 12 ? $"{hour - 12} PM" : $"{hour} AM")}");
+            terminal.WriteLine($"  {Loc.Get("world_boss.duration_info", GameConfig.WorldBossWindowHours, GameConfig.WorldBossMaxNights)}");
         }
 
         private void DrawBossStatusScreen(TerminalEmulator terminal, WorldBossInfo boss,
@@ -239,6 +474,11 @@ namespace UsurperRemake.Systems
             {
                 terminal.SetColor("bright_yellow");
                 terminal.WriteLine($"  {Loc.Get("world_boss.phase_label", phase, 3)} — {GetPhaseDescription(phase)}");
+            }
+            if (boss.Nights > 1)
+            {
+                terminal.SetColor("yellow");
+                terminal.WriteLine($"  {Loc.Get("world_boss.night_label", boss.Nights, GameConfig.WorldBossMaxNights)}");
             }
 
             // HP bar
