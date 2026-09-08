@@ -279,6 +279,22 @@ unkilled: the treasury pays a 5 percent ransom (two seats to one; the King is
 a player with a reason to rally) and a news line records who stood. Nothing
 touches dungeon monsters or shops in a patch.
 
+## Deviations recorded during milestone A (2026-09-08)
+
+- The item is not serialized at settle; the reward row freezes the rarity
+  and the item is rolled once at delivery, at the player's level and class.
+  Settle runs on the tick with no Character in hand, and the class-fitted
+  generator needs one. The delivered flag still makes it once.
+- Marks live on the reward row only; no `PlayerData` field until 1.2 has
+  something to spend them on.
+- The next evening's schedule is written the moment a boss ends (window end
+  or kill), about 21 hours of notice, instead of a daily-reset hook.
+- Every world boss row is keyed by the login name (Name1, lowercased), the
+  same key the session table, mail, and the inheritance queue use; the
+  display name is stored beside the row for showing.
+- Delivery flips the row first and then saves the player unthrottled in the
+  same method.
+
 ## Later, by the same council
 
 Cover (Codex), immunity windows by phase (mechanics), per-boss hand-authored

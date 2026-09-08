@@ -29,7 +29,7 @@ namespace UsurperRemake.Systems
             "player_level INTEGER DEFAULT 0", "sessions INTEGER DEFAULT 0", "rounds INTEGER DEFAULT 0", "deaths INTEGER DEFAULT 0",
             "night_damage INTEGER DEFAULT 0", "window_damage INTEGER DEFAULT 0", "paid_nights INTEGER DEFAULT 0",
             "cooldown_until TEXT", "engaged_since_seq INTEGER DEFAULT 0", "last_resolved_seq INTEGER DEFAULT 0",
-            "answers INTEGER DEFAULT 0", "is_npc INTEGER DEFAULT 0",
+            "answers INTEGER DEFAULT 0", "is_npc INTEGER DEFAULT 0", "display_name TEXT DEFAULT ''",
         };
 
         private static void MigrateWorldBossTables(SqliteConnection connection)
@@ -161,7 +161,7 @@ namespace UsurperRemake.Systems
         /// window; clamped to the HP that was actually there. Returns the remaining HP, whether this
         /// call won the kill claim (the status flip), and the damage actually applied (0 when not credited).
         /// </summary>
-        public async Task<(long remainingHp, bool wasKillingBlow, long applied)> RecordWorldBossDamage(int bossId, string playerName, long damage, int playerLevel)
+        public async Task<(long remainingHp, bool wasKillingBlow, long applied)> RecordWorldBossDamage(int bossId, string playerName, long damage, int playerLevel, string displayName = "")
         {
             long remainingHp = 0; bool wasKillingBlow = false; long applied = 0;
             if (damage <= 0) return (remainingHp, wasKillingBlow, applied);
@@ -200,10 +200,11 @@ namespace UsurperRemake.Systems
                 using (var dmgCmd = connection.CreateCommand())
                 {
                     dmgCmd.Transaction = transaction;
-                    dmgCmd.CommandText = @"INSERT INTO world_boss_damage (boss_id, player_name, damage_dealt, hits, player_level, night_damage, window_damage)
-                                          VALUES (@bossId, LOWER(@player), @damage, 1, @level, @damage, @damage)
+                    dmgCmd.CommandText = @"INSERT INTO world_boss_damage (boss_id, player_name, damage_dealt, hits, player_level, night_damage, window_damage, display_name)
+                                          VALUES (@bossId, LOWER(@player), @damage, 1, @level, @damage, @damage, @display)
                                           ON CONFLICT(boss_id, player_name) DO UPDATE SET
                                               damage_dealt = damage_dealt + @damage,
+                                              display_name = CASE WHEN @display <> '' THEN @display ELSE display_name END,
                                               night_damage = COALESCE(night_damage, 0) + @damage,
                                               window_damage = COALESCE(window_damage, 0) + @damage,
                                               hits = hits + 1,
@@ -213,6 +214,7 @@ namespace UsurperRemake.Systems
                     dmgCmd.Parameters.AddWithValue("@player", playerName);
                     dmgCmd.Parameters.AddWithValue("@damage", applied);
                     dmgCmd.Parameters.AddWithValue("@level", playerLevel);
+                    dmgCmd.Parameters.AddWithValue("@display", displayName ?? "");
                     await dmgCmd.ExecuteNonQueryAsync();
                 }
 
@@ -240,17 +242,18 @@ namespace UsurperRemake.Systems
         }
 
         /// <summary>One session ended: counts and the re-entry cooldown on the player's own row.</summary>
-        public async Task RecordWorldBossSession(int bossId, string playerName, int playerLevel, int rounds, bool fell, int cooldownSeconds)
+        public async Task RecordWorldBossSession(int bossId, string playerName, int playerLevel, int rounds, bool fell, int cooldownSeconds, string displayName = "")
         {
             try
             {
                 using var connection = OpenConnection();
                 using var cmd = connection.CreateCommand();
                 // last_hit_at is NULL here on purpose: a session without a hit is not "engaged"
-                cmd.CommandText = @"INSERT INTO world_boss_damage (boss_id, player_name, damage_dealt, hits, player_level, sessions, rounds, deaths, cooldown_until, last_hit_at)
-                                    VALUES (@bossId, LOWER(@player), 0, 0, @level, 1, @rounds, @deaths, datetime('now', '+' || @secs || ' seconds'), NULL)
+                cmd.CommandText = @"INSERT INTO world_boss_damage (boss_id, player_name, damage_dealt, hits, player_level, sessions, rounds, deaths, cooldown_until, last_hit_at, display_name)
+                                    VALUES (@bossId, LOWER(@player), 0, 0, @level, 1, @rounds, @deaths, datetime('now', '+' || @secs || ' seconds'), NULL, @display)
                                     ON CONFLICT(boss_id, player_name) DO UPDATE SET
                                         sessions = COALESCE(sessions, 0) + 1,
+                                        display_name = CASE WHEN @display <> '' THEN @display ELSE display_name END,
                                         rounds = COALESCE(rounds, 0) + @rounds,
                                         deaths = COALESCE(deaths, 0) + @deaths,
                                         player_level = CASE WHEN @level > 0 THEN @level ELSE player_level END,
@@ -261,6 +264,7 @@ namespace UsurperRemake.Systems
                 cmd.Parameters.AddWithValue("@rounds", rounds);
                 cmd.Parameters.AddWithValue("@deaths", fell ? 1 : 0);
                 cmd.Parameters.AddWithValue("@secs", cooldownSeconds);
+                cmd.Parameters.AddWithValue("@display", displayName ?? "");
                 await cmd.ExecuteNonQueryAsync();
             }
             catch (Exception ex) { DebugLogger.Instance.LogError("SQL", $"Failed to record world boss session: {ex.Message}"); }
@@ -451,7 +455,8 @@ namespace UsurperRemake.Systems
             {
                 using var connection = OpenConnection();
                 using var cmd = connection.CreateCommand();
-                cmd.CommandText = @"SELECT id FROM world_bosses WHERE status IN ('defeated', 'withdrawn', 'left') AND COALESCE(settled, 0) = 0;";
+                // A withdrawn boss is paid inside EndWindow before it withdraws; only a kill or a leaving settles.
+                cmd.CommandText = @"SELECT id FROM world_bosses WHERE status IN ('defeated', 'left') AND COALESCE(settled, 0) = 0;";
                 using var reader = cmd.ExecuteReader();
                 while (reader.Read()) ids.Add(reader.GetInt32(0));
             }

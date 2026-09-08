@@ -154,6 +154,59 @@ public class WorldBossSettleTests : IDisposable
         hero.Statistics.WorldBossesKilled.Should().Be(1);
     }
 
+    [Fact]
+    public async Task RowsAreKeyedByTheLoginName_SoAltsAndMarriedPlayersAreFound()
+    {
+        // An alt: login name "rage__alt", shown as "Rage". Married after the kill, so the display
+        // name changes before delivery; and a full pack, so the item goes to the inheritance queue.
+        var boss = await Spawn(hp: 20_000);
+        var alt = Hero("Rage"); alt.Name1 = "rage__alt";
+        WorldBossSystem.RowKey(alt).Should().Be("rage__alt");
+        var output = new MemoryStream();
+        var term = new TerminalEmulator(new ScriptedStream("A\nR\n\n"), output);
+        _sys.SaveHook = _ => Task.FromResult(true);
+        var m = typeof(WorldBossSystem).GetMethod("RunWorldBossCombat", F)!;
+        await (Task)m.Invoke(_sys, new object[] { alt, term, _db, boss })!;
+        var row = (await _db.GetWorldBossDamageLeaderboard(boss.Id, 5)).Single();
+        row.PlayerName.Should().Be("rage__alt", "the login name is the key");
+        row.DisplayName.Should().Be("Rage", "the display name rides beside it");
+        _db.GetWorldBossCooldownSeconds(boss.Id, "rage__alt").Should().BeGreaterThan(0);
+
+        await _db.RecordWorldBossDamage(boss.Id, "rage__alt", 20_000, 40, "Rage");
+        WorldEventSystem.Instance.ClearAllEvents();
+        try { await _sys.SettleKill(_db, (await _db.GetWorldBossById(boss.Id))!); }
+        finally { WorldEventSystem.Instance.ClearAllEvents(); }
+        _db.GetUndeliveredWorldBossRewards("rage__alt").Should().ContainSingle();
+
+        alt.FamilySurname = "Stormborn";
+        alt.DisplayName.Should().NotBe("Rage", "a marriage changed the display name");
+        for (int i = 0; i < 50; i++) alt.Inventory.Add(new Item { Name = $"junk {i}" });
+        await _sys.DeliverWorldBossRewards(alt, _db, new TerminalEmulator(new MemoryStream(), new MemoryStream()));
+        alt.Experience.Should().BeGreaterThan(0, "found by the login name after the marriage");
+        _db.GetUndeliveredWorldBossRewards("rage__alt").Should().BeEmpty();
+        alt.Inventory.Count.Should().Be(50, "the pack was full");
+        _db.GetPendingInheritance("rage__alt").Should().ContainSingle("the item waits under the login name, where login delivery looks");
+    }
+
+    [Fact]
+    public async Task Delivery_SavesThePlayerAfterTheFlagFlips_Once()
+    {
+        var boss = await Spawn(hp: 20_000);
+        await _db.RecordWorldBossDamage(boss.Id, "Hero", 20_000, 40, "Hero");
+        WorldEventSystem.Instance.ClearAllEvents();
+        try { await _sys.SettleKill(_db, (await _db.GetWorldBossById(boss.Id))!); }
+        finally { WorldEventSystem.Instance.ClearAllEvents(); }
+        var hero = Hero("Hero");
+        long xpSeenBySave = -1; int saves = 0;
+        _sys.SaveHook = p => { saves++; xpSeenBySave = p.Experience; return Task.FromResult(true); };
+        var term = new TerminalEmulator(new MemoryStream(), new MemoryStream());
+        await _sys.DeliverWorldBossRewards(hero, _db, term);
+        saves.Should().Be(1, "the save follows the delivery in the same method");
+        xpSeenBySave.Should().Be(hero.Experience).And.BeGreaterThan(0, "the save sees the reward already applied");
+        await _sys.DeliverWorldBossRewards(hero, _db, term);
+        saves.Should().Be(1, "nothing delivered, nothing saved");
+    }
+
     private sealed class ScriptedStream : Stream
     {
         private readonly byte[] _data; private int _pos;
@@ -184,6 +237,7 @@ public class WorldBossSettleTests : IDisposable
         var hero = Hero("Hero");
         var output = new MemoryStream();
         var term = new TerminalEmulator(new ScriptedStream("A\n\n"), output);
+        _sys.SaveHook = _ => Task.FromResult(true);
         WorldEventSystem.Instance.ClearAllEvents();
         try
         {

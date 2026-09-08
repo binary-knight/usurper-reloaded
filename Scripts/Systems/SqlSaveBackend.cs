@@ -6223,7 +6223,7 @@ namespace UsurperRemake.Systems
             using var connection = OpenConnection();
             using var cmd = connection.CreateCommand();
             cmd.CommandText = @"SELECT player_name, damage_dealt, hits, COALESCE(night_damage, 0), COALESCE(player_level, 0),
-                                       COALESCE(rounds, 0), COALESCE(sessions, 0), COALESCE(is_npc, 0)
+                                       COALESCE(rounds, 0), COALESCE(sessions, 0), COALESCE(is_npc, 0), COALESCE(display_name, '')
                                 FROM world_boss_damage
                                 WHERE boss_id = @id AND damage_dealt > 0 ORDER BY damage_dealt DESC LIMIT @limit;";
             cmd.Parameters.AddWithValue("@id", bossId);
@@ -6241,6 +6241,7 @@ namespace UsurperRemake.Systems
                     Rounds = reader.GetInt32(5),
                     Sessions = reader.GetInt32(6),
                     IsNpc = reader.GetInt32(7) != 0,
+                    DisplayName = reader.GetString(8),
                 });
             }
         }

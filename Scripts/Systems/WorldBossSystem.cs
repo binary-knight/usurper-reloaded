@@ -24,6 +24,17 @@ namespace UsurperRemake.Systems
 
         // v1.1.4: cooldowns and re-entry live on the player's world_boss_damage row, never in memory.
 
+        /// <summary>
+        /// The key every world boss row uses: the login name (Name1), lowercased, the same key the
+        /// session table, the mail, and the inheritance queue use. The display name changes with a
+        /// marriage and differs for alts; it is stored beside the row for showing, never for finding.
+        /// </summary>
+        internal static string RowKey(Character player) =>
+            (string.IsNullOrEmpty(player.Name1) ? player.Name2 : player.Name1).ToLowerInvariant();
+
+        /// <summary>The save that must follow a delivery; tests replace it to observe the call.</summary>
+        internal Func<Character, Task<bool>> SaveHook = p => SaveSystem.Instance.AutoSave(p, force: true);
+
         /// <summary>Last known active boss name for notification display. Set on spawn, cleared on death/despawn.</summary>
         public volatile string? ActiveBossName;
 
@@ -226,6 +237,10 @@ namespace UsurperRemake.Systems
         /// <summary>The window passed with the boss alive: it withdraws, or leaves after the last night.</summary>
         private async Task EndWindow(SqlSaveBackend backend, WorldBossInfo boss)
         {
+            // Pay the night first (idempotent through the night bits; damage on an expired row is already
+            // refused), then withdraw. A crash between the two leaves the boss active-and-expired and
+            // the next tick runs EndWindow again.
+            await PayWithdrawal(backend, boss);
             if (!await backend.WithdrawWorldBoss(boss.Id)) return;
             var bossDef = WorldBossDatabase.GetBossById(boss.DefinitionId);
             string name = bossDef?.Name ?? boss.BossName;
@@ -233,7 +248,6 @@ namespace UsurperRemake.Systems
             ActiveBossName = null;
             backend.LogWorldBossEvent(boss.Id, "withdraw", "", $"night={boss.Nights} hp={boss.CurrentHP} pct={pct}");
 
-            await PayWithdrawal(backend, boss);
             bool leaves = boss.Nights >= GameConfig.WorldBossMaxNights;
             if (leaves)
             {
@@ -241,7 +255,7 @@ namespace UsurperRemake.Systems
                 await backend.MarkWorldBossSettled(boss.Id);
                 backend.LogWorldBossEvent(boss.Id, "left", "", $"nights={boss.Nights} hp={boss.CurrentHP}");
                 var board = await backend.GetWorldBossDamageLeaderboard(boss.Id, 10);
-                string stood = board.Count == 0 ? Loc.Get("world_boss.nobody") : string.Join(", ", board.Select(e => e.PlayerName));
+                string stood = board.Count == 0 ? Loc.Get("world_boss.nobody") : string.Join(", ", board.Select(e => e.ShownName));
                 MudServer.Instance?.BroadcastLocalized(lang => $"\n  *** {Loc.GetIn(lang, "world_boss.left_news", name, boss.Nights, stood)} ***");
                 if (OnlineStateManager.IsActive)
                     _ = OnlineStateManager.Instance!.AddNews(Loc.Get("world_boss.left_news", name, boss.Nights, stood), "world_boss");
@@ -293,7 +307,6 @@ namespace UsurperRemake.Systems
                 switch (boss.Status)
                 {
                     case "defeated": await SettleKill(backend, boss); break;
-                    case "withdrawn": await PayWithdrawal(backend, boss); break;
                     case "left": await PayWithdrawal(backend, boss); await backend.MarkWorldBossSettled(id); break;
                 }
             }
@@ -325,10 +338,10 @@ namespace UsurperRemake.Systems
             var scored = board.Select(e => (entry: e, score: WorldBossMath.Score(e.DamageDealt, budget)))
                               .Where(x => WorldBossMath.Qualified(x.score)).ToList();
             int contributors = scored.Count;
-            string mvpName = board.Count > 0 ? board[0].PlayerName : "";
+            string mvpKey = board.Count > 0 ? board[0].PlayerName : "";
             foreach (var (entry, score) in scored)
             {
-                bool mvp = entry.PlayerName == mvpName;
+                bool mvp = entry.PlayerName == mvpKey;
                 int level = Math.Max(1, entry.PlayerLevel);
                 var rarity = WorldBossMath.TierFor(score, mvp, contributors);
                 await backend.InsertWorldBossReward(new WorldBossReward
@@ -344,9 +357,9 @@ namespace UsurperRemake.Systems
                 backend.LogWorldBossEvent(boss.Id, "settle", "", $"outcome=kill qualified={contributors} of {board.Count} budget={budget}");
                 if (board.Count > 0)
                 {
-                    string news = Loc.Get("world_boss.defeat_news", name, board[0].PlayerName, $"{board[0].DamageDealt:N0}", board.Count);
+                    string news = Loc.Get("world_boss.defeat_news", name, board[0].ShownName, $"{board[0].DamageDealt:N0}", board.Count);
                     if (OnlineStateManager.IsActive) await OnlineStateManager.Instance!.AddNews(news, "world_boss");
-                    DiscordBridge.QueueSystemEvent(Loc.GetIn("en", "world_boss.defeat_news", name, board[0].PlayerName, $"{board[0].DamageDealt:N0}", board.Count));
+                    DiscordBridge.QueueSystemEvent(Loc.GetIn("en", "world_boss.defeat_news", name, board[0].ShownName, $"{board[0].DamageDealt:N0}", board.Count));
                 }
                 // The realm celebrates: +10 percent XP for a day through the world-event bonus path.
                 try { WorldEventSystem.Instance.ForceEvent(WorldEventSystem.EventType.WorldBossVictory, DateTime.UtcNow.DayOfYear); }
@@ -403,7 +416,7 @@ namespace UsurperRemake.Systems
         /// </summary>
         public async Task DeliverWorldBossRewards(Character player, SqlSaveBackend backend, TerminalEmulator terminal)
         {
-            string key = player.DisplayName.ToLowerInvariant();
+            string key = RowKey(player);
             var rows = backend.GetUndeliveredWorldBossRewards(key);
             if (rows.Count == 0) return;
             bool headerShown = false;
@@ -456,7 +469,14 @@ namespace UsurperRemake.Systems
                 }
                 backend.LogWorldBossEvent(r.BossId, "deliver", key, $"kind={r.Kind} xp={r.Xp} gold={r.Gold} rarity={r.Rarity}");
             }
-            if (headerShown) terminal.WriteLine("");
+            if (headerShown)
+            {
+                terminal.WriteLine("");
+                // The flag flipped first (no double pay); the save must follow in the same method, unthrottled,
+                // or a dropped connection loses a reward the ledger says was delivered.
+                try { await SaveHook(player); }
+                catch (Exception ex) { DebugLogger.Instance.LogError("WORLD_BOSS", $"Save after reward delivery failed: {ex.Message}"); }
+            }
         }
 
         private async Task NoticeScheduled(SqlSaveBackend backend, WorldBossSchedule schedule)
@@ -591,7 +611,7 @@ namespace UsurperRemake.Systems
 
                 // Show damage leaderboard
                 var leaderboard = await backend.GetWorldBossDamageLeaderboard(boss.Id, 10);
-                DrawLeaderboard(terminal, leaderboard, player.DisplayName);
+                DrawLeaderboard(terminal, leaderboard, RowKey(player));
 
                 // Menu
                 terminal.SetColor("cyan");
@@ -694,7 +714,7 @@ namespace UsurperRemake.Systems
             terminal.WriteLine("");
         }
 
-        private void DrawLeaderboard(TerminalEmulator terminal, List<WorldBossDamageEntry> leaderboard, string playerName)
+        private void DrawLeaderboard(TerminalEmulator terminal, List<WorldBossDamageEntry> leaderboard, string playerKey)
         {
             if (leaderboard.Count == 0) return;
 
@@ -706,14 +726,14 @@ namespace UsurperRemake.Systems
             {
                 var entry = leaderboard[i];
                 double pct = totalDamage > 0 ? (double)entry.DamageDealt / totalDamage * 100 : 0;
-                bool isPlayer = entry.PlayerName.Equals(playerName, StringComparison.OrdinalIgnoreCase);
+                bool isPlayer = entry.PlayerName.Equals(playerKey, StringComparison.OrdinalIgnoreCase);
 
                 string color = i == 0 ? "bright_yellow" : i < 3 ? "yellow" : isPlayer ? "bright_cyan" : "white";
                 string marker = i == 0 ? $" {Loc.Get("world_boss.mvp_tag")}" : "";
                 string youTag = isPlayer ? $" ({Loc.Get("world_boss.you_tag")})" : "";
 
                 terminal.SetColor(color);
-                terminal.WriteLine($"  {i + 1,2}. {entry.PlayerName,-18} {entry.DamageDealt,10:N0} dmg  {pct,5:F1}%{marker}{youTag}");
+                terminal.WriteLine($"  {i + 1,2}. {entry.ShownName,-18} {entry.DamageDealt,10:N0} dmg  {pct,5:F1}%{marker}{youTag}");
             }
             terminal.WriteLine("");
         }
@@ -729,7 +749,7 @@ namespace UsurperRemake.Systems
         private async Task RunWorldBossCombat(Character player, TerminalEmulator terminal,
             SqlSaveBackend backend, WorldBossInfo boss)
         {
-            string playerKey = player.DisplayName.ToLowerInvariant();
+            string playerKey = RowKey(player);
             // v1.1.4: the re-entry cooldown is on the player's row (two minutes after a retreat or the
             // fifty-round rest, five after a fall). There is no lock: retreat, fall, and rest all re-enter.
             int cooldownLeft = backend.GetWorldBossCooldownSeconds(boss.Id, playerKey);
@@ -918,7 +938,7 @@ namespace UsurperRemake.Systems
                         // wasKillingBlow == false (v0.57.9 fix for duplicate kill-credit bug).
                         long toApply = WorldBossMath.Applied(roundDamage, state.Ratio, state.RoundCap);
                         var (remainingHp, wasKillingBlow, applied) = await backend.RecordWorldBossDamage(
-                            currentBoss.Id, playerKey, toApply, player.Level);
+                            currentBoss.Id, playerKey, toApply, player.Level, player.DisplayName);
                         if (applied <= 0)
                         {
                             // Not credited: the row is no longer active inside its window.
@@ -1049,7 +1069,7 @@ namespace UsurperRemake.Systems
 
             // v1.1.4: the session on the player's row: counts and the re-entry cooldown
             int cooldownSeconds = state.Killed ? 0 : state.Died ? GameConfig.WorldBossFallCooldownSeconds : GameConfig.WorldBossRetreatCooldownSeconds;
-            await backend.RecordWorldBossSession(boss.Id, playerKey, player.Level, state.Round, state.Died, cooldownSeconds);
+            await backend.RecordWorldBossSession(boss.Id, playerKey, player.Level, state.Round, state.Died, cooldownSeconds, player.DisplayName);
             backend.LogWorldBossEvent(boss.Id, "session_end", playerKey,
                 $"reason={(state.Killed ? "kill" : state.Died ? "fall" : state.Retreated ? "retreat" : "rest")} rounds={state.Round} damage={state.SessionDamage} level={player.Level} r={state.Ratio:F2}");
 

@@ -357,6 +357,9 @@ namespace UsurperRemake.Systems
         public int Rounds { get; set; }
         public int Sessions { get; set; }
         public bool IsNpc { get; set; }
+        /// <summary>v1.1.4: rows are keyed by the login name; this is what the leaderboard shows.</summary>
+        public string DisplayName { get; set; } = "";
+        public string ShownName => string.IsNullOrEmpty(DisplayName) ? PlayerName : DisplayName;
     }
 
     /// <summary>v1.1.4: one frozen reward per (boss, player, kind, night), written by settle and delivered by the player's own session.</summary>
