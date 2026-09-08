@@ -344,7 +344,26 @@ namespace UsurperRemake.Systems
         public DateTime? LastDamagedAt { get; set; }
         public bool Settled { get; set; }
         public int MedianLevel { get; set; }
+        // v1.1.5 (milestone B): telegraph, stagger, focus; tick-owned except the guarded player increments
+        public string TelegraphId { get; set; } = "";
+        public long TelegraphSeq { get; set; }
+        public DateTime? TelegraphLandsAt { get; set; }
+        public int InterruptsNeeded { get; set; }
+        public int InterruptsDone { get; set; }
+        public DateTime? StaggerUntil { get; set; }
+        public string FocusPlayer { get; set; } = "";
+        public DateTime? FocusUntil { get; set; }
+        public long LastResolvedSeq { get; set; }
+        public string LastResolvedOutcome { get; set; } = "";
+        public bool TelegraphLive => TelegraphSeq > 0 && LastResolvedSeq < TelegraphSeq;
+        public bool Staggered => StaggerUntil.HasValue && StaggerUntil.Value > DateTime.UtcNow;
     }
+
+    /// <summary>v1.1.5: a resolved telegraph as the events table remembers it.</summary>
+    public record WorldBossTelegraphOutcome(long Seq, string Id, string Kind, string Outcome);
+
+    /// <summary>v1.1.5: what one player's damage row knows about telegraphs.</summary>
+    public record WorldBossPlayerTelegraphState(long EngagedSinceSeq, long LastResolvedSeq, long AnsweredSeq, string AnswerKind, long EngagedUntilSeq);
 
     public class WorldBossDamageEntry
     {

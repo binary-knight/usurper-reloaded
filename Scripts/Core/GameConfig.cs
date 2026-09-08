@@ -10,7 +10,7 @@ using System.Collections.Generic;
 public static partial class GameConfig
 {
     // Version information
-    public const string Version = "1.1.4";
+    public const string Version = "1.1.5";
     public const string VersionName = "Regalia"; // 1.1 line: the gear and reward loop
 
     // v0.57.12: Alignment scale cap. Character.Chivalry and Character.Darkness setters clamp to [0, AlignmentCap]
@@ -1201,6 +1201,18 @@ public static partial class GameConfig
     public const double WorldBossWithdrawalPayFraction = 0.25;  // of the night's share (starting)
     public const int WorldBossMvpLegendaryMinHumans = 3;        // starting
     public const int WorldBossNoticeHoursBefore = 1;
+    // v1.1.5 (milestone B): telegraphs, interrupts, stagger, focus (DOCS/WORLD_BOSS_PLAN.md ruling 2)
+    public const int WorldBossTelegraphLandSeconds = 60;        // issue plus two ticks (starting)
+    public const int WorldBossTelegraphGapSeconds = 30;         // one tick after a resolution before the next issue (starting)
+    public const int WorldBossStaggerSeconds = 60;              // a broken channel opens the boss for two ticks (starting)
+    public const int WorldBossInterruptsMax = 2;                // needed = min(this, engaged)
+    public const double WorldBossTelegraphAnsweredPercent = 0.10;   // of the player's max HP (starting)
+    public const double WorldBossTelegraphUnansweredPercent = 0.30; // of the player's max HP (starting)
+    public const int WorldBossFocusWindowSeconds = 60;          // the tick re-picks focus every two ticks (starting)
+    public const int WorldBossChallengeHoldSeconds = 60;        // starting
+    public const double WorldBossFocusMultiplier = 1.5;         // basic attacks on the focused player (starting)
+    public const double WorldBossOffFocusMultiplier = 0.5;      // basic attacks on everyone else (starting)
+    public const int WorldBossRosterLines = 5;                  // names shown on "Fighting now" before "and N more"
 
     // Knighthood bonuses
     public const float KnightDamageBonus = 0.05f;              // +5% damage for knighted players

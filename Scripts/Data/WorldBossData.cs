@@ -7,6 +7,17 @@ namespace UsurperRemake.Data
     /// <summary>
     /// Ability used by a world boss during combat.
     /// </summary>
+    /// <summary>
+    /// v1.1.5 (milestone B): how a telegraphed ability is answered. Append-only.
+    /// Brace: personal; the answer halves the landing to 10 percent of max HP and skips the status.
+    /// Interrupt: shared; enough interrupts before it lands break it and stagger the boss.
+    /// </summary>
+    public enum WorldBossAnswer
+    {
+        Brace = 0,
+        Interrupt = 1,
+    }
+
     public class WorldBossAbility
     {
         public string Name { get; set; } = "";
@@ -17,6 +28,15 @@ namespace UsurperRemake.Data
         public bool IsAoE { get; set; }
         public bool IsUnavoidable { get; set; }
         public float SelfHealPercent { get; set; }
+        /// <summary>
+        /// v1.1.5: explicit answer kind; when unset, unavoidable, healing, and battlefield-wide (AoE)
+        /// abilities are channels, the rest are strikes. Without the AoE rule two bosses (Void Colossus,
+        /// Nidhogg) would never channel at all.
+        /// </summary>
+        public WorldBossAnswer? Answer { get; set; }
+        public WorldBossAnswer Kind => Answer ?? (IsUnavoidable || SelfHealPercent > 0 || IsAoE ? WorldBossAnswer.Interrupt : WorldBossAnswer.Brace);
+        public bool IsChannel => Kind == WorldBossAnswer.Interrupt;
+        public bool IsHeal => SelfHealPercent > 0;
     }
 
     /// <summary>

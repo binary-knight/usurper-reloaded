@@ -237,6 +237,9 @@ namespace UsurperRemake.Systems
         /// <summary>The window passed with the boss alive: it withdraws, or leaves after the last night.</summary>
         private async Task EndWindow(SqlSaveBackend backend, WorldBossInfo boss)
         {
+            // v1.1.5: a telegraph live at the window's end expires with it; the withdraw clears it
+            if (boss.TelegraphLive)
+                backend.LogWorldBossEvent(boss.Id, "telegraph_expired", "", $"{boss.TelegraphId}|window_end", boss.TelegraphSeq);
             // Pay the night first (idempotent through the night bits; damage on an expired row is already
             // refused), then withdraw. A crash between the two leaves the boss active-and-expired and
             // the next tick runs EndWindow again.
@@ -291,6 +294,109 @@ namespace UsurperRemake.Systems
 
             int engaged = backend.GetWorldBossEngagedCount(boss.Id, GameConfig.WorldBossEngagedMinutes);
             if (engaged > 0) await backend.UpdateWorldBossPeakEngaged(boss.Id, engaged);
+
+            await TelegraphUpkeep(backend, boss, engaged);
+            await FocusUpkeep(backend, boss);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // v1.1.5 (milestone B): telegraphs and focus, owned by the tick
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        /// <summary>The fixed cycle for a phase: every ability the phase can use, in definition order.</summary>
+        internal static List<WorldBossAbility> TelegraphCycle(WorldBossDefinition bossDef, int phase)
+        {
+            var list = new List<WorldBossAbility>();
+            if (bossDef.Phase1Abilities != null) list.AddRange(bossDef.Phase1Abilities);
+            if (phase >= 2 && bossDef.Phase2Abilities != null) list.AddRange(bossDef.Phase2Abilities);
+            if (phase >= 3 && bossDef.Phase3Abilities != null) list.AddRange(bossDef.Phase3Abilities);
+            return list;
+        }
+
+        /// <summary>The ability after the current telegraph in the phase's cycle; the first when there is none or the phase changed it.</summary>
+        internal static WorldBossAbility? NextTelegraph(WorldBossDefinition bossDef, int phase, string currentId)
+        {
+            var cycle = TelegraphCycle(bossDef, phase);
+            if (cycle.Count == 0) return null;
+            int i = cycle.FindIndex(a => a.Name == currentId);
+            return cycle[(i + 1) % cycle.Count];
+        }
+
+        internal static WorldBossAbility? FindAbility(WorldBossDefinition bossDef, string id) =>
+            TelegraphCycle(bossDef, 3).FirstOrDefault(a => a.Name == id);
+
+        /// <summary>
+        /// Resolve the live telegraph once it has landed (a channel short of its interrupts lands on
+        /// everyone; one that met them breaks and staggers the boss; a heal that lands heals the pool),
+        /// then, one gap later, issue the next from the phase's cycle. Nothing is issued while nobody
+        /// is engaged. Every step is a guarded write, so two ticks cannot double-resolve or double-issue.
+        /// </summary>
+        private async Task TelegraphUpkeep(SqlSaveBackend backend, WorldBossInfo boss, int engaged)
+        {
+            var bossDef = WorldBossDatabase.GetBossById(boss.DefinitionId);
+            if (bossDef == null) return;
+            var now = DateTime.UtcNow;
+
+            if (boss.TelegraphLive)
+            {
+                if (boss.TelegraphLandsAt.HasValue && boss.TelegraphLandsAt.Value <= now)
+                {
+                    var ability = FindAbility(bossDef, boss.TelegraphId);
+                    bool channel = ability?.IsChannel ?? boss.InterruptsNeeded > 0;
+                    string outcome = channel && boss.InterruptsDone >= boss.InterruptsNeeded && boss.InterruptsNeeded > 0 ? "broken" : "landed";
+                    if (await backend.ResolveWorldBossTelegraph(boss.Id, boss.TelegraphSeq, outcome, GameConfig.WorldBossStaggerSeconds))
+                    {
+                        string kind = channel ? "channel" : "strike";
+                        backend.LogWorldBossEvent(boss.Id, "telegraph_resolved", "",
+                            $"{boss.TelegraphId}|{kind}|{outcome}|{boss.InterruptsDone}/{boss.InterruptsNeeded}|engaged={engaged}", boss.TelegraphSeq);
+                        if (outcome == "landed" && ability != null && ability.IsHeal)
+                        {
+                            long heal = Math.Max(1, (long)(boss.MaxHP * ability.SelfHealPercent));
+                            if (await backend.HealWorldBoss(boss.Id, heal))
+                                backend.LogWorldBossEvent(boss.Id, "heal", "", $"amount={heal}", boss.TelegraphSeq);
+                        }
+                        if (outcome == "broken")
+                        {
+                            string name = bossDef.Name;
+                            TellFighters(backend, boss.Id, null, lang => Loc.GetIn(lang, "world_boss.stagger_broadcast", name));
+                        }
+                    }
+                }
+                return;
+            }
+
+            if (engaged <= 0) return;
+            bool gapPassed = !boss.TelegraphLandsAt.HasValue || boss.TelegraphLandsAt.Value.AddSeconds(GameConfig.WorldBossTelegraphGapSeconds) <= now;
+            if (!gapPassed) return;
+
+            var next = NextTelegraph(bossDef, Math.Max(1, boss.Phase), boss.TelegraphId);
+            if (next == null) return;
+            long seq = boss.TelegraphSeq + 1;
+            int needed = next.IsChannel ? Math.Min(GameConfig.WorldBossInterruptsMax, Math.Max(1, engaged)) : 0;
+            if (await backend.IssueWorldBossTelegraph(boss.Id, next.Name, seq, GameConfig.WorldBossTelegraphLandSeconds, needed))
+                backend.LogWorldBossEvent(boss.Id, "telegraph_issued", "", $"{next.Name}|{(next.IsChannel ? "channel" : "strike")}|needed={needed}|engaged={engaged}", seq);
+        }
+
+        /// <summary>Every focus window the tick re-picks the boss's focus from window damage, unless a Challenge holds it.</summary>
+        private async Task FocusUpkeep(SqlSaveBackend backend, WorldBossInfo boss)
+        {
+            var focus = await backend.RefreshWorldBossFocus(boss.Id, GameConfig.WorldBossFocusWindowSeconds, GameConfig.WorldBossEngagedMinutes);
+            if (focus != null && focus != boss.FocusPlayer)
+                backend.LogWorldBossEvent(boss.Id, "focus", focus, "by=damage");
+        }
+
+        /// <summary>A line to every engaged fighter's session except one, in their own language, printed at their next prompt.</summary>
+        internal static void TellFighters(SqlSaveBackend backend, int bossId, string? exceptKey, Func<string, string> line)
+        {
+            var server = MudServer.Instance;
+            if (server == null) return;
+            foreach (var (key, _) in backend.GetWorldBossEngagedNames(bossId, GameConfig.WorldBossEngagedMinutes))
+            {
+                if (key == exceptKey) continue;
+                if (!server.ActiveSessions.TryGetValue(key, out var session) || session == null) continue;
+                string lang = session.Context?.Language ?? "en";
+                session.EnqueueMessage($"  {line(lang)}");
+            }
         }
 
         /// <summary>
@@ -796,6 +902,18 @@ namespace UsurperRemake.Systems
             bossData.ScaledDefence = Math.Max(0, (long)Math.Round(bossData.ScaledDefence * state.Ratio));
             bossData.CurrentPhase = Math.Max(1, boss.Phase);
 
+            // v1.1.5: the player's row knows which telegraphs are theirs. Entry starts at the live
+            // telegraph, or the next one; anything that landed while they were away is not applied
+            // (leaving costs the re-entry cooldown, which is the price of the dodge).
+            var atEntry = await backend.GetWorldBossById(boss.Id) ?? boss;   // the caller's row may be stale
+            long entrySeq = atEntry.TelegraphLive ? atEntry.TelegraphSeq : atEntry.TelegraphSeq + 1;
+            // The one telegraph that was live when they last left still lands on them (ruling 2: leaving
+            // before a landing and returning after still takes it); nothing issued in between does.
+            var before = backend.GetWorldBossPlayerTelegraphState(boss.Id, playerKey);
+            var carried = backend.GetResolvedWorldBossTelegraphs(boss.Id, before.LastResolvedSeq)
+                .Where(t => t.Seq >= before.EngagedSinceSeq && t.Seq <= before.EngagedUntilSeq && t.Seq <= atEntry.LastResolvedSeq).ToList();
+            await backend.EnsureWorldBossPlayerRow(boss.Id, playerKey, player.Level, player.DisplayName, entrySeq);
+
             // Reset transient combat buffs so leftover buffs from a previous fight (dungeon, etc.)
             // don't carry into the world boss, and so ability/spell buffs applied this fight start clean.
             player.TempAttackBonus = 0;
@@ -868,35 +986,23 @@ namespace UsurperRemake.Systems
                     await ShowPhaseChange(currentBoss.Phase, bossDef, terminal);
                 }
 
-                // ─── Round header ───
-                double hpPct = currentBoss.MaxHP > 0 ? (double)currentBoss.CurrentHP / currentBoss.MaxHP * 100 : 0;
-                string hpColor = hpPct > 50 ? "bright_green" : hpPct > 25 ? "bright_yellow" : "bright_red";
-
-                terminal.SetColor("white");
-                if (GameConfig.ScreenReaderMode)
-                    terminal.WriteLine($"  {Loc.Get("world_boss.round", state.Round)}");
-                else
-                    terminal.WriteLine($"  ─── {Loc.Get("world_boss.round", state.Round)} ───");
-                terminal.SetColor(hpColor);
-                if (GameConfig.ScreenReaderMode)
-                    terminal.WriteLine($"  {Loc.Get("world_boss.boss_hp_label")}: {currentBoss.CurrentHP:N0}/{currentBoss.MaxHP:N0} ({hpPct:F1}%)");
-                else
+                // ─── v1.1.5: what landed since this player's last round (once per seq, by the row) ───
+                foreach (var landed in carried) ApplyLandedTelegraph(landed, before, bossDef, player, terminal, rng);
+                carried.Clear();
+                var mine = backend.GetWorldBossPlayerTelegraphState(currentBoss.Id, playerKey);
+                foreach (var landed in backend.GetResolvedWorldBossTelegraphs(currentBoss.Id, mine.LastResolvedSeq))
                 {
-                    int barFilled = Math.Clamp((int)(hpPct / 5), 0, 20);
-                    string hpBar = new string('█', barFilled) + new string('░', 20 - barFilled);
-                    terminal.WriteLine($"  {Loc.Get("world_boss.boss_hp_label")}: [{hpBar}] {currentBoss.CurrentHP:N0}/{currentBoss.MaxHP:N0} ({hpPct:F1}%)");
+                    if (landed.Seq < mine.EngagedSinceSeq || landed.Seq > currentBoss.LastResolvedSeq) continue;
+                    if (!await backend.AdvanceWorldBossPlayerResolved(currentBoss.Id, playerKey, landed.Seq)) continue;
+                    ApplyLandedTelegraph(landed, mine, bossDef, player, terminal, rng);
                 }
-                terminal.SetColor("cyan");
-                terminal.WriteLine($"  {Loc.Get("world_boss.your_hp_label")}: {player.HP}/{player.MaxHP}  {Loc.Get("world_boss.mana_label")}: {player.Mana}/{player.MaxMana}  {Loc.Get("world_boss.phase_short_label")}: {bossData.CurrentPhase}");
+                if (player.HP <= 0) { ApplyHealersSafety(); break; }
 
-                // Show player status effects
-                if (player.ActiveStatuses.Count > 0)
-                {
-                    var statusList = player.ActiveStatuses.Select(kv => $"{kv.Key}({kv.Value})");
-                    terminal.SetColor("yellow");
-                    terminal.WriteLine($"  {Loc.Get("world_boss.status_label")}: {string.Join(", ", statusList)}");
-                }
-                terminal.WriteLine("");
+                // ─── Round header: boss, you, who is here, the telegraph, the menu (under 20 rows) ───
+                var roster = backend.GetWorldBossEngagedNames(currentBoss.Id, GameConfig.WorldBossEngagedMinutes);
+                int engagedNow = Math.Max(roster.Count, 1);
+                bool focused = engagedNow <= 1 || currentBoss.FocusPlayer == playerKey;
+                DrawRoundHeader(terminal, state, currentBoss, bossDef, bossData, player, roster, playerKey, focused);
 
                 // ─── Process player status effects (DoT, duration tick-down) ───
                 var statusMessages = player.ProcessStatusEffects();
@@ -922,10 +1028,18 @@ namespace UsurperRemake.Systems
                 else
                 {
                     // ─── Player action menu ───
-                    ShowWorldBossActionMenu(terminal, player, state.AbilityCooldowns);
+                    var liveAbility = currentBoss.TelegraphLive ? FindAbility(bossDef, currentBoss.TelegraphId) : null;
+                    ShowWorldBossActionMenu(terminal, player, liveAbility);
                     string input = (await terminal.ReadLineAsync())?.Trim().ToUpper() ?? "A";
 
-                    long roundDamage = await ProcessPlayerAction(input, player, terminal, bossDef, bossData,
+                    // v1.1.5: answers and Challenge cost the round and write only their own column
+                    if (input == "B" || input == "T" || input == "F")
+                    {
+                        await ProcessAnswer(input, player, terminal, backend, currentBoss, liveAbility, bossDef, playerKey, mine);
+                        input = "";
+                    }
+
+                    long roundDamage = input == "" ? 0 : await ProcessPlayerAction(input, player, terminal, bossDef, bossData,
                         rng, state);
 
                     if (state.Retreated) break;
@@ -936,7 +1050,8 @@ namespace UsurperRemake.Systems
                         // for the single caller whose conditional status-flip won the race; other
                         // concurrent callers who bring remainingHp to 0 in the same round see
                         // wasKillingBlow == false (v0.57.9 fix for duplicate kill-credit bug).
-                        long toApply = WorldBossMath.Applied(roundDamage, state.Ratio, state.RoundCap);
+                        long cap = WorldBossMath.RoundCap(state.BossMaxHP, currentBoss.Staggered);
+                        long toApply = WorldBossMath.Applied(roundDamage, state.Ratio, cap);
                         var (remainingHp, wasKillingBlow, applied) = await backend.RecordWorldBossDamage(
                             currentBoss.Id, playerKey, toApply, player.Level, player.DisplayName);
                         if (applied <= 0)
@@ -959,14 +1074,14 @@ namespace UsurperRemake.Systems
                         state.SessionDamage += applied;
 
                         terminal.SetColor("bright_green");
-                        terminal.WriteLine($"  >> {Loc.Get("world_boss.total_round_damage", $"{applied:N0}")}");
-                        if (toApply >= state.RoundCap && roundDamage / Math.Max(0.01, state.Ratio) > state.RoundCap)
+                        terminal.Write($"  >> {Loc.Get("world_boss.total_round_damage", $"{applied:N0}")}");
+                        if (toApply >= cap && roundDamage / Math.Max(0.01, state.Ratio) > cap)
                         {
                             terminal.SetColor("yellow");
-                            terminal.WriteLine($"  >> {Loc.Get("world_boss.round_cap_hit", $"{state.RoundCap:N0}")}");
+                            terminal.Write($"  {Loc.Get("world_boss.round_cap_hit", $"{cap:N0}")}");
                         }
                         terminal.SetColor("gray");
-                        terminal.WriteLine($"  >> {Loc.Get("world_boss.boss_hp_remaining", $"{Math.Max(0, remainingHp):N0}")}");
+                        terminal.WriteLine($"  {Loc.Get("world_boss.boss_hp_remaining", $"{Math.Max(0, remainingHp):N0}")}");
 
                         if (wasKillingBlow)
                         {
@@ -1020,11 +1135,8 @@ namespace UsurperRemake.Systems
                 // ─── Boss actions ───
                 if (player.HP > 0 && !state.Retreated)
                 {
-                    await ProcessBossActions(bossDef, bossData, player, terminal, rng, state, backend);
+                    ProcessBossActions(bossDef, bossData, player, terminal, rng, state, focused);
                 }
-
-                // v1.1.4: the presence aura is gone. The boss's actions carry the danger, and B's
-                // telegraphs will carry it further.
 
                 // Decrement defend counter
                 if (state.DefendingRounds > 0) state.DefendingRounds--;
@@ -1091,80 +1203,232 @@ namespace UsurperRemake.Systems
         // Player Action Processing
         // ═══════════════════════════════════════════════════════════════════════════
 
-        private void ShowWorldBossActionMenu(TerminalEmulator terminal, Character player,
-            Dictionary<string, int> cooldowns)
+        /// <summary>
+        /// v1.1.5: the round header in under twenty rows: the boss line, your line, who is fighting,
+        /// the telegraph with its answer and cost. Plain lines in screen-reader mode.
+        /// </summary>
+        private void DrawRoundHeader(TerminalEmulator terminal, WorldBossCombatState state, WorldBossInfo boss,
+            WorldBossDefinition bossDef, WorldBossRuntimeData bossData, Character player,
+            List<(string key, string display)> roster, string playerKey, bool focused)
         {
+            double hpPct = boss.MaxHP > 0 ? (double)boss.CurrentHP / boss.MaxHP * 100 : 0;
+            string hpColor = hpPct > 50 ? "bright_green" : hpPct > 25 ? "bright_yellow" : "bright_red";
+            string stagger = boss.Staggered ? $"  {Loc.Get("world_boss.staggered_header", (int)Math.Ceiling((boss.StaggerUntil!.Value - DateTime.UtcNow).TotalSeconds))}" : "";
+
+            terminal.WriteLine("");
+            terminal.SetColor("white");
+            terminal.Write(GameConfig.ScreenReaderMode ? $"  {Loc.Get("world_boss.round", state.Round)}  " : $"  ─── {Loc.Get("world_boss.round", state.Round)} ───  ");
+            terminal.SetColor(hpColor);
+            if (GameConfig.ScreenReaderMode)
+                terminal.Write($"{Loc.Get("world_boss.boss_hp_label")}: {boss.CurrentHP:N0}/{boss.MaxHP:N0} ({hpPct:F1}%)");
+            else
+            {
+                int barFilled = Math.Clamp((int)(hpPct / 5), 0, 20);
+                string hpBar = new string('█', barFilled) + new string('░', 20 - barFilled);
+                terminal.Write($"[{hpBar}] {hpPct:F1}%");
+            }
+            terminal.SetColor("gray");
+            terminal.Write($"  {Loc.Get("world_boss.phase_short_label")} {bossData.CurrentPhase}");
+            if (stagger != "") { terminal.SetColor("bright_yellow"); terminal.Write(stagger); }
+            terminal.WriteLine("");
+
+            terminal.SetColor("cyan");
+            terminal.Write($"  {Loc.Get("world_boss.your_hp_label")}: {player.HP}/{player.MaxHP}  {Loc.Get("world_boss.mana_label")}: {player.Mana}/{player.MaxMana}");
+            if (player.ActiveStatuses.Count > 0)
+            {
+                terminal.SetColor("yellow");
+                terminal.Write($"  {Loc.Get("world_boss.status_label")}: {string.Join(", ", player.ActiveStatuses.Select(kv => $"{kv.Key}({kv.Value})"))}");
+            }
+            terminal.WriteLine("");
+
+            // Who is here: grouped players first, then the rest by recency; five names and a count
+            var group = GroupSystem.Instance?.GetGroupFor(playerKey);
+            var grouped = new HashSet<string>(group?.MemberUsernames.Select(u => u.ToLowerInvariant()) ?? Enumerable.Empty<string>());
+            var others = roster.Where(r => r.key != playerKey)
+                .OrderByDescending(r => grouped.Contains(r.key))
+                .Select(r => string.IsNullOrEmpty(r.display) ? r.key : r.display).ToList();
+            terminal.SetColor("gray");
+            if (others.Count == 0)
+                terminal.WriteLine($"  {Loc.Get("world_boss.fighting_alone")}");
+            else
+            {
+                string names = string.Join(", ", others.Take(GameConfig.WorldBossRosterLines));
+                if (others.Count > GameConfig.WorldBossRosterLines) names += $" {Loc.Get("world_boss.and_more", others.Count - GameConfig.WorldBossRosterLines)}";
+                terminal.WriteLine($"  {Loc.Get("world_boss.fighting_now", names)}");
+            }
+            terminal.SetColor(focused ? "bright_red" : "gray");
+            terminal.WriteLine($"  {(focused ? Loc.Get("world_boss.focus_you") : Loc.Get("world_boss.focus_other", FocusName(boss, roster)))}");
+
+            // The telegraph, its answer and its cost
+            if (boss.TelegraphLive)
+            {
+                var ability = FindAbility(bossDef, boss.TelegraphId);
+                string name = ability != null ? bossDef.LocAbilityName(ability) : boss.TelegraphId;
+                int secs = boss.TelegraphLandsAt.HasValue ? (int)Math.Ceiling((boss.TelegraphLandsAt.Value - DateTime.UtcNow).TotalSeconds) : 0;
+                string when = secs > 0 ? Loc.Get("world_boss.lands_in", secs) : Loc.Get("world_boss.telegraph_landing_now");
+                terminal.SetColor("bright_magenta");
+                if (ability?.IsChannel ?? boss.InterruptsNeeded > 0)
+                    terminal.WriteLine($"  {Loc.Get("world_boss.telegraph_channel", bossDef.Name, name, boss.InterruptsDone, boss.InterruptsNeeded, when)}");
+                else
+                    terminal.WriteLine($"  {Loc.Get("world_boss.telegraph_strike", bossDef.Name, name, (int)(GameConfig.WorldBossTelegraphUnansweredPercent * 100), when)}");
+            }
+        }
+
+        private static string FocusName(WorldBossInfo boss, List<(string key, string display)> roster)
+        {
+            var hit = roster.FirstOrDefault(r => r.key == boss.FocusPlayer);
+            return string.IsNullOrEmpty(hit.display) ? (string.IsNullOrEmpty(boss.FocusPlayer) ? "-" : boss.FocusPlayer) : hit.display;
+        }
+
+        /// <summary>v1.1.5: one line replaces the seven-row box; the answer key appears only while a telegraph is live.</summary>
+        private void ShowWorldBossActionMenu(TerminalEmulator terminal, Character player, WorldBossAbility? live)
+        {
+            var abilities = ClassAbilitySystem.GetAvailableAbilities(player);
+            string answer = live == null ? "" : live.IsChannel ? $" {Loc.Get("world_boss.menu_interrupt")}" : $" {Loc.Get("world_boss.menu_brace")}";
+            terminal.SetColor("bright_white");
             if (GameConfig.ScreenReaderMode)
             {
-                terminal.SetColor("bright_white");
-                terminal.WriteLine($"  {Loc.Get("world_boss.choose_action")}");
-                terminal.SetColor("cyan");
-                terminal.WriteLine($"  A. {Loc.Get("world_boss.action_attack")}");
-                terminal.WriteLine($"  C. {Loc.Get("world_boss.action_cast")}");
-                terminal.WriteLine($"  D. {Loc.Get("world_boss.action_defend")}");
-                terminal.WriteLine($"  I. {Loc.Get("world_boss.action_item")}");
-                terminal.WriteLine($"  P. {Loc.Get("world_boss.action_power")}");
-                terminal.WriteLine($"  E. {Loc.Get("world_boss.action_precise")}");
-                var abilities = ClassAbilitySystem.GetAvailableAbilities(player);
-                if (abilities.Count > 0)
-                    terminal.WriteLine($"  L. {Loc.Get("world_boss.action_ability")}  (or 1-9 for quickbar)");
-                terminal.WriteLine($"  R. {Loc.Get("world_boss.action_retreat")}");
+                terminal.WriteLine($"  {Loc.Get("world_boss.menu_line_sr", abilities.Count > 0 ? Loc.Get("world_boss.menu_ability_sr") : "")}{answer}");
             }
             else
             {
-                terminal.SetColor("green");
-                terminal.WriteLine("╔═══════════════════════════════════════╗");
-                terminal.Write("║");
-                terminal.SetColor("bright_white");
-                terminal.Write($"           {Loc.Get("world_boss.choose_action")}          ");
-                terminal.SetColor("green");
-                terminal.WriteLine("║");
-                terminal.WriteLine("╠═══════════════════════════════════════╣");
+                terminal.WriteLine($"  {Loc.Get("world_boss.menu_line", abilities.Count > 0 ? Loc.Get("world_boss.menu_ability") : "")}{answer}");
+            }
+            terminal.SetColor("white");
+            terminal.Write($"  {Loc.Get("world_boss.action_prompt")}");
+        }
 
-                // Basic actions
-                terminal.Write("║ ");
-                terminal.SetColor("bright_white"); terminal.Write("[A]");
-                terminal.SetColor("cyan"); terminal.Write("ttack  ");
-                terminal.SetColor("bright_white"); terminal.Write("[C]");
-                terminal.SetColor("cyan"); terminal.Write("ast Spell  ");
-                terminal.SetColor("bright_white"); terminal.Write("[D]");
-                terminal.SetColor("cyan"); terminal.Write("efend     ");
-                terminal.SetColor("green"); terminal.WriteLine("║");
-
-                terminal.Write("║ ");
-                terminal.SetColor("bright_white"); terminal.Write("[I]");
-                terminal.SetColor("cyan"); terminal.Write("tem    ");
-                terminal.SetColor("bright_white"); terminal.Write("[P]");
-                terminal.SetColor("cyan"); terminal.Write("ower Attack ");
-                terminal.SetColor("bright_white"); terminal.Write("[E]");
-                terminal.SetColor("cyan"); terminal.Write("Precise   ");
-                terminal.SetColor("green"); terminal.WriteLine("║");
-
-                // Class abilities
-                var abilities = ClassAbilitySystem.GetAvailableAbilities(player);
-                if (abilities.Count > 0)
+        /// <summary>
+        /// v1.1.5: Brace, Interrupt, Challenge. Each costs the round. Interrupt is one transaction on
+        /// the shared counter and the player's row (both or neither), so nobody counts twice.
+        /// </summary>
+        private async Task ProcessAnswer(string input, Character player, TerminalEmulator terminal, SqlSaveBackend backend,
+            WorldBossInfo boss, WorldBossAbility? live, WorldBossDefinition bossDef, string playerKey, WorldBossPlayerTelegraphState mine)
+        {
+            string shown = player.DisplayName;
+            if (input == "F")
+            {
+                if (await backend.TryChallengeWorldBoss(boss.Id, playerKey, GameConfig.WorldBossChallengeHoldSeconds))
                 {
-                    terminal.Write("║ ");
-                    terminal.SetColor("bright_white"); terminal.Write("[L]");
-                    terminal.SetColor("cyan"); terminal.Write("Ability ");
-                    terminal.SetColor("bright_white"); terminal.Write("[R]");
-                    terminal.SetColor("cyan"); terminal.Write("etreat                   ");
-                    terminal.SetColor("green"); terminal.WriteLine("║");
+                    terminal.SetColor("bright_red");
+                    terminal.WriteLine($"  {Loc.Get("world_boss.you_challenge", bossDef.Name)}");
+                    backend.LogWorldBossEvent(boss.Id, "focus", playerKey, "by=challenge");
+                    TellFighters(backend, boss.Id, playerKey, lang => Loc.GetIn(lang, "world_boss.fighter_challenges", shown, bossDef.Name));
                 }
                 else
                 {
-                    terminal.Write("║ ");
-                    terminal.SetColor("bright_white"); terminal.Write("[R]");
-                    terminal.SetColor("cyan"); terminal.Write("etreat                              ");
-                    terminal.SetColor("green"); terminal.WriteLine("║");
+                    terminal.SetColor("yellow");
+                    var latest = await backend.GetWorldBossById(boss.Id);
+                    terminal.WriteLine($"  {Loc.Get("world_boss.challenge_held", latest?.FocusPlayer ?? "")}");
                 }
-
-                terminal.SetColor("green");
-                terminal.WriteLine("╚═══════════════════════════════════════╝");
+                return;
             }
 
-            terminal.SetColor("white");
-            terminal.Write($"  {Loc.Get("world_boss.action_prompt")}");
+            if (live == null || !boss.TelegraphLive)
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine($"  {Loc.Get("world_boss.nothing_to_answer")}");
+                return;
+            }
+            if (mine.AnsweredSeq == boss.TelegraphSeq)
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine($"  {Loc.Get("world_boss.already_answered")}");
+                return;
+            }
+            string name = bossDef.LocAbilityName(live);
+            if (input == "T")
+            {
+                if (!live.IsChannel)
+                {
+                    terminal.SetColor("gray");
+                    terminal.WriteLine($"  {Loc.Get("world_boss.nothing_to_interrupt", name)}");
+                    return;
+                }
+                if (await backend.InterruptWorldBoss(boss.Id, boss.TelegraphSeq, playerKey))
+                {
+                    var latest = await backend.GetWorldBossById(boss.Id);
+                    int done = latest?.InterruptsDone ?? boss.InterruptsDone + 1, needed = latest?.InterruptsNeeded ?? boss.InterruptsNeeded;
+                    terminal.SetColor("bright_cyan");
+                    terminal.WriteLine($"  {Loc.Get("world_boss.you_interrupt", name, done, needed)}");
+                    backend.LogWorldBossEvent(boss.Id, "interrupt", playerKey, $"{done}/{needed}", boss.TelegraphSeq);
+                    TellFighters(backend, boss.Id, playerKey, lang => Loc.GetIn(lang, "world_boss.fighter_interrupts", shown, done, needed));
+                }
+                else
+                {
+                    terminal.SetColor("yellow");
+                    terminal.WriteLine($"  {Loc.Get("world_boss.interrupt_late")}");
+                }
+                return;
+            }
+
+            // Brace: personal, no roll, no shared write
+            if (await backend.RecordWorldBossAnswer(boss.Id, playerKey, boss.TelegraphSeq, "brace"))
+            {
+                terminal.SetColor("bright_cyan");
+                terminal.WriteLine($"  {Loc.Get("world_boss.you_brace", name)}");
+                backend.LogWorldBossEvent(boss.Id, "answer", playerKey, "brace", boss.TelegraphSeq);
+                TellFighters(backend, boss.Id, playerKey, lang => Loc.GetIn(lang, "world_boss.fighter_braces", shown));
+            }
+            else
+            {
+                terminal.SetColor("gray");
+                terminal.WriteLine($"  {Loc.Get("world_boss.already_answered")}");
+            }
+        }
+
+        /// <summary>
+        /// v1.1.5: a telegraph landed on this player. Strike: a tenth of max HP if braced, else three
+        /// tenths and the status. Channel landed: three tenths on everyone, halved for the braced,
+        /// with the status; a heal channel only heals (the tick did that). Broken: nothing but the
+        /// stagger. Statuses that stop the player acting are not applied (a player who cannot act
+        /// cannot answer the next one).
+        /// </summary>
+        internal void ApplyLandedTelegraph(WorldBossTelegraphOutcome landed, WorldBossPlayerTelegraphState mine,
+            WorldBossDefinition bossDef, Character player, TerminalEmulator terminal, Random rng)
+        {
+            var ability = FindAbility(bossDef, landed.Id);
+            string name = ability != null ? bossDef.LocAbilityName(ability) : landed.Id;
+            bool answered = mine.AnsweredSeq == landed.Seq && mine.AnswerKind != "";
+            if (landed.Outcome == "broken")
+            {
+                terminal.SetColor("bright_cyan");
+                terminal.WriteLine($"  {Loc.Get("world_boss.channel_broken", bossDef.Name, name)}");
+                return;
+            }
+            if (ability != null && ability.IsHeal)
+            {
+                terminal.SetColor("magenta");
+                terminal.WriteLine($"  {Loc.Get("world_boss.heal_lands", name, bossDef.Name)}");
+                return;
+            }
+            double pct = landed.Kind == "channel"
+                ? (answered ? GameConfig.WorldBossTelegraphUnansweredPercent / 2 : GameConfig.WorldBossTelegraphUnansweredPercent)
+                : (answered ? GameConfig.WorldBossTelegraphAnsweredPercent : GameConfig.WorldBossTelegraphUnansweredPercent);
+            long dmg = Math.Max(1, (long)(player.MaxHP * pct));
+            player.HP = Math.Max(0, player.HP - dmg);
+            terminal.SetColor(answered ? "yellow" : "bright_red");
+            terminal.WriteLine(landed.Kind == "channel"
+                ? $"  {Loc.Get("world_boss.channel_lands", name, $"{dmg:N0}", player.HP, player.MaxHP)}"
+                : answered ? $"  {Loc.Get("world_boss.strike_lands_braced", name, $"{dmg:N0}", player.HP, player.MaxHP)}"
+                           : $"  {Loc.Get("world_boss.strike_lands_full", name, $"{dmg:N0}", player.HP, player.MaxHP)}");
+
+            if (!answered && ability?.AppliedStatus is { } status && status != StatusEffect.None && !status.PreventsAction())
+            {
+                if (player.HasStatusImmunity && player.StatusImmunityDuration > 0 && !ability.IsUnavoidable)
+                {
+                    terminal.SetColor("bright_white");
+                    terminal.WriteLine($"  {Loc.Get("world_boss.resist_effect", status)}");
+                    return;
+                }
+                double resistChance = 30.0 + player.Level * 0.5;
+                if (ability.IsUnavoidable || rng.NextDouble() * 100 >= resistChance)
+                {
+                    player.ApplyStatus(status, ability.StatusDuration);
+                    terminal.SetColor("yellow");
+                    terminal.WriteLine($"  {Loc.Get("world_boss.afflicted_with", status, ability.StatusDuration)}");
+                }
+            }
         }
 
         private async Task<long> ProcessPlayerAction(string input, Character player, TerminalEmulator terminal,
@@ -1650,112 +1914,24 @@ namespace UsurperRemake.Systems
         // Boss AI — Ability selection and attacks
         // ═══════════════════════════════════════════════════════════════════════════
 
-        private async Task ProcessBossActions(WorldBossDefinition bossDef, WorldBossRuntimeData bossData,
-            Character player, TerminalEmulator terminal, Random rng,
-            WorldBossCombatState state, SqlSaveBackend backend)
+        /// <summary>
+        /// v1.1.5: the boss's own action each round is a basic attack, twice in its last phase; the
+        /// abilities are telegraphs now. A basic attack hits the focused player at one and a half
+        /// times, everyone else at half. Defend still doubles defence against it.
+        /// </summary>
+        private void ProcessBossActions(WorldBossDefinition bossDef, WorldBossRuntimeData bossData,
+            Character player, TerminalEmulator terminal, Random rng, WorldBossCombatState state, bool focused)
         {
             int defendingRounds = state.DefendingRounds;
-            // v1.1.4 (milestone A): one action per round, two in phase 3. The ability roll stays
-            // until B's telegraphs replace it.
             int attacks = bossData.CurrentPhase >= 3 ? 2 : 1;
-
+            double mult = focused ? GameConfig.WorldBossFocusMultiplier : GameConfig.WorldBossOffFocusMultiplier;
             for (int i = 0; i < attacks && player.HP > 0; i++)
             {
-                // Select ability for this attack
-                var abilities = GetPhaseAbilities(bossDef, bossData.CurrentPhase);
-                WorldBossAbility? ability = null;
-
-                if (abilities.Count > 0)
-                {
-                    // 60% chance to use an ability, 40% basic attack
-                    if (rng.NextDouble() < 0.6)
-                        ability = abilities[rng.Next(abilities.Count)];
-                }
-
-                if (ability != null)
-                {
-                    await ProcessBossAbility(ability, bossDef, bossData, player, terminal, rng,
-                        defendingRounds, state, backend);
-                }
-                else
-                {
-                    // Basic attack
-                    long bossDmg = CalculateBossBasicDamage(bossData, player, rng, defendingRounds);
-                    player.HP = Math.Max(0, player.HP - bossDmg);
-
-                    terminal.SetColor("bright_red");
-                    terminal.WriteLine($"  {Loc.Get("world_boss.boss_strikes", bossDef.Name, $"{bossDmg:N0}", player.HP, player.MaxHP)}");
-                }
-            }
-        }
-
-        private async Task ProcessBossAbility(WorldBossAbility ability, WorldBossDefinition bossDef,
-            WorldBossRuntimeData bossData, Character player, TerminalEmulator terminal, Random rng,
-            int defendingRounds, WorldBossCombatState state, SqlSaveBackend backend)
-        {
-            terminal.SetColor(bossDef.ThemeColor);
-            terminal.WriteLine($"  {Loc.Get("world_boss.boss_uses_ability", bossDef.Name, bossDef.LocAbilityName(ability))}");
-
-            // Calculate ability damage
-            long baseDmg = CalculateBossBasicDamage(bossData, player, rng, defendingRounds);
-            long abilityDmg = (long)(baseDmg * ability.DamageMultiplier);
-
-            // Unavoidable abilities bypass defense
-            if (ability.IsUnavoidable)
-            {
-                abilityDmg = (long)(bossData.ScaledStrength * ability.DamageMultiplier * (0.8 + rng.NextDouble() * 0.4));
-                if (defendingRounds > 0) abilityDmg = abilityDmg * 3 / 4; // Defending still helps a bit
-            }
-            // v1.1.4: no single ability takes more than the plan's ceiling (30 percent of max HP)
-            abilityDmg = Math.Min(abilityDmg, WorldBossMath.UnavoidableCap(player.MaxHP));
-
-            if (abilityDmg > 0)
-            {
-                player.HP = Math.Max(0, player.HP - abilityDmg);
+                long bossDmg = Math.Max(1, (long)(CalculateBossBasicDamage(bossData, player, rng, defendingRounds) * mult));
+                player.HP = Math.Max(0, player.HP - bossDmg);
                 terminal.SetColor("bright_red");
-                terminal.WriteLine($"  {bossDef.LocAbilityDesc(ability)} ({abilityDmg:N0} {Loc.Get("world_boss.damage_suffix")})");
+                terminal.WriteLine($"  {Loc.Get(focused ? "world_boss.boss_strikes_focused" : "world_boss.boss_strikes", bossDef.Name, $"{bossDmg:N0}", player.HP, player.MaxHP)}");
             }
-
-            // Apply status effect
-            if (ability.AppliedStatus.HasValue && ability.AppliedStatus.Value != StatusEffect.None)
-            {
-                // Iron Will / status-immunity buff fully resists avoidable debuffs.
-                if (player.HasStatusImmunity && player.StatusImmunityDuration > 0 && !ability.IsUnavoidable)
-                {
-                    terminal.SetColor("bright_white");
-                    terminal.WriteLine($"  {Loc.Get("world_boss.resist_effect", ability.AppliedStatus.Value)}");
-                    return;
-                }
-
-                // Status resist check: 30% base resist, +0.5% per player level
-                double resistChance = 30.0 + player.Level * 0.5;
-                if (ability.IsUnavoidable || rng.NextDouble() * 100 >= resistChance)
-                {
-                    player.ApplyStatus(ability.AppliedStatus.Value, ability.StatusDuration);
-                    terminal.SetColor("yellow");
-                    terminal.WriteLine($"  {Loc.Get("world_boss.afflicted_with", ability.AppliedStatus.Value, ability.StatusDuration)}");
-                }
-                else
-                {
-                    terminal.SetColor("cyan");
-                    terminal.WriteLine($"  {Loc.Get("world_boss.resist_effect", ability.AppliedStatus.Value)}");
-                }
-            }
-
-            // Self-heal: v1.1.4, it heals the shared pool, bounded by max HP and only while active.
-            // "Regenerates" used to print and heal nothing.
-            if (ability.SelfHealPercent > 0)
-            {
-                long heal = Math.Max(1, (long)(state.BossMaxHP * ability.SelfHealPercent));
-                if (await backend.HealWorldBoss(state.BossId, heal))
-                {
-                    terminal.SetColor("magenta");
-                    terminal.WriteLine($"  {Loc.Get("world_boss.boss_regenerates", bossDef.Name)} ({heal:N0})");
-                }
-            }
-
-            terminal.SetColor("cyan");
-            terminal.WriteLine($"  {Loc.Get("world_boss.your_hp_label")}: {player.HP}/{player.MaxHP}");
         }
 
         private long CalculateBossBasicDamage(WorldBossRuntimeData bossData, Character player, Random rng,
@@ -1788,16 +1964,6 @@ namespace UsurperRemake.Systems
                 final = Math.Max(1, final - final * player.TempDamageReductionPercent / 100);
 
             return final;
-        }
-
-        private List<WorldBossAbility> GetPhaseAbilities(WorldBossDefinition bossDef, int phase)
-        {
-            var abilities = new List<WorldBossAbility>();
-            // All phases include earlier abilities
-            if (bossDef.Phase1Abilities != null) abilities.AddRange(bossDef.Phase1Abilities);
-            if (phase >= 2 && bossDef.Phase2Abilities != null) abilities.AddRange(bossDef.Phase2Abilities);
-            if (phase >= 3 && bossDef.Phase3Abilities != null) abilities.AddRange(bossDef.Phase3Abilities);
-            return abilities;
         }
 
         // ═══════════════════════════════════════════════════════════════════════════

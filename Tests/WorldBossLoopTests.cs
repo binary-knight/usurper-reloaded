@@ -135,22 +135,18 @@ public class WorldBossLoopTests : IDisposable
     }
 
     [Fact]
-    public async Task NoAbility_TakesMoreThanTheCeiling_AndAHealAbilityHealsThePool()
+    public void NoLandedTelegraph_TakesMoreThanTheCeiling_AndAHealChannelTakesNothingFromThePlayer()
     {
-        var boss = await Spawn(hp: 10_000);
-        await _db.RecordWorldBossDamage(boss.Id, "someone", 5_000, 40);
+        // v1.1.5: the abilities are telegraphs; a landing is a share of the player's max HP, never more than the 30 percent ceiling
         var hero = Hero(40, 1000);
-        var def = WorldBossDatabase.GetBossById("abyssal_leviathan")!;
-        var data = new WorldBossRuntimeData { DefinitionId = def.Id, CurrentPhase = 1, ScaledLevel = 40, ScaledStrength = 100_000, ScaledDefence = 100, AttacksPerRound = 2 };
-        var state = new WorldBossCombatState { BossId = boss.Id, BossMaxHP = boss.MaxHP };
+        var def = WorldBossDatabase.GetBossById("shadowlord_malachar")!;
+        var mine = new WorldBossPlayerTelegraphState(1, 0, 0, "", 0);
         var term = new TerminalEmulator(new MemoryStream(), new MemoryStream());
-        var m = typeof(WorldBossSystem).GetMethod("ProcessBossAbility", F)!;
-        var doom = new WorldBossAbility { Name = "Doom", Description = "x", DamageMultiplier = 3.0f, IsUnavoidable = true };
-        await (Task)m.Invoke(_sys, new object[] { doom, def, data, hero, term, new Random(1), 0, state, _db })!;
-        hero.HP.Should().Be(700, "30 percent of max HP is the ceiling");
-        var heal = new WorldBossAbility { Name = "Dark Pact", Description = "x", DamageMultiplier = 0f, SelfHealPercent = 0.03f };
-        await (Task)m.Invoke(_sys, new object[] { heal, def, data, hero, term, new Random(1), 0, state, _db })!;
-        (await _db.GetWorldBossById(boss.Id))!.CurrentHP.Should().Be(5_300, "three percent of max HP, into the shared pool");
+        _sys.ApplyLandedTelegraph(new WorldBossTelegraphOutcome(1, "Soul Drain", "strike", "landed"), mine, def, hero, term, new Random(1));
+        hero.HP.Should().Be(700, "30 percent of max HP is the ceiling and the unanswered cost");
+        _sys.ApplyLandedTelegraph(new WorldBossTelegraphOutcome(2, "Dark Pact", "channel", "landed"), mine, def, hero, term, new Random(1));
+        hero.HP.Should().Be(700, "a heal channel that lands heals the pool in the tick and costs the player nothing");
+        GameConfig.WorldBossTelegraphUnansweredPercent.Should().BeLessThanOrEqualTo(0.30);
     }
 
     [Fact]
