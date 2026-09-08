@@ -78,6 +78,18 @@ public class ReforgeOwnCopyTests
         back.LifeSteal.Should().Be(5);
     }
 
+    /// <summary>
+    /// The Magic Shop's curse removal rewrites an Equipment in place (IsCursed, bonuses, power). That
+    /// is safe only while no shared template is cursed; curses live on loot, which has its own copy.
+    /// If a cursed shop item is ever added, that path must call EnsureOwnEquipmentCopy first.
+    /// </summary>
+    [Fact]
+    public void NoSharedTemplate_IsCursed()
+    {
+        EquipmentDatabase.GetAll().Where(e => !EquipmentDatabase.IsDynamic(e.Id) && e.IsCursed)
+            .Select(e => $"{e.Id} {e.Name}").Should().BeEmpty("in-place rewrites of a cursed item assume it is a per-copy loot item");
+    }
+
     [Fact]
     public void AnEmptySlot_HasNoCopyToMake()
     {
