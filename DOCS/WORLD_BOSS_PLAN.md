@@ -71,9 +71,9 @@ participate and fix the fighting mechanics so it isn't just silly."
   writes it to `world_state` (`world_boss_schedule`: definition, level,
   spawn UTC, window, carried boss id and HP), so there is a 25-hour countdown.
   The online-count trigger and the start-based cooldown go.
-- **Window: 3 hours** (starting; the seats said 6, 3, and 2). Log attendance
-  by Eastern hour and weekday; the hour and a second window for Europe are a
-  maintainer decision below.
+- **Window: 3 hours** (starting; council decision 2). Log attendance by
+  Eastern hour and weekday; a European window waits on that log (council
+  decision 1).
 - **Pick** by the median level of players active in the last seven days
   (`json_extract(player_data, '$.player.level')`, pattern at
   `SqlSaveBackend.cs:2764`), excluding bosses whose base level exceeds the
@@ -156,8 +156,7 @@ blind `UpdateWorldBossData` overwrite go; phase may lag a tick.
 ### 3. The boss meets each player at their level; no lock, no aura
 
 - **Normalisation** (Codex's class-neutral reference; the participation seat
-  required it as a hand-off; the mechanics and supervisor seats kept raw
-  damage and are the dissent). Let `N(L) = 2L + 1.5 L^1.05`, the at-level monster strength formula at
+  required it as a hand-off; settled one-sided by council decision 5). Let `N(L) = 2L + 1.5 L^1.05`, the at-level monster strength formula at
   `MonsterGenerator.cs:254` taken on the raw level (that site feeds it a
   soft-capped level above 50 to stop deep-floor one-shots, which does not
   apply to a ratio), and `r = N(playerLevel) / N(bossLevel)`, frozen per
