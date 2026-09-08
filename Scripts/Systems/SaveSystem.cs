@@ -227,15 +227,17 @@ namespace UsurperRemake.Systems
         /// <summary>
         /// Auto-save the current game state with rotation (keeps 5 most recent autosaves)
         /// </summary>
-        public async Task<bool> AutoSave(Character player)
+        public async Task<bool> AutoSave(Character player, bool force = false)
         {
             if (player == null) return false;
 
             // Throttle autosaves in online/MUD mode — the full save serializes ~5 MB of player data
             // plus ~18 MB of NPC data and writes to SQLite, taking several seconds.
             // Only save every 60 seconds instead of on every location redraw.
+            // v1.1.4: force skips the throttle for a write that must land (a reward delivered after
+            // its ledger row was flipped).
             string throttleKey = AutoSaveThrottleKey(player);
-            if (UsurperRemake.BBS.DoorMode.IsOnlineMode)
+            if (UsurperRemake.BBS.DoorMode.IsOnlineMode && !force)
             {
                 var last = _lastAutoSaveByKey.GetValueOrDefault(throttleKey, DateTime.MinValue);
                 var elapsed = (DateTime.UtcNow - last).TotalSeconds;

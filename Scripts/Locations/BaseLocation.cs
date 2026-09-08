@@ -51,8 +51,6 @@ public abstract class BaseLocation
     private static int _lastCompanionDeathCheckDay = -1;
 
     // World boss notification tracking — static so it persists across location changes
-    private static string? _lastNotifiedBossName = null;
-    private static DateTime _lastBossNotifyTime = DateTime.MinValue;
 
     // Ambient message state (MUD mode only)
     private DateTime _lastAmbientTime = DateTime.MinValue;
@@ -852,28 +850,14 @@ public abstract class BaseLocation
                 terminal.WriteLine($"*** {Loc.Get("base.system_message")}: {broadcast} ***", "bright_red");
             }
 
-            // World boss active notification (online mode)
-            // Shows once when a new boss spawns, then reminds every 5 minutes
-            if (UsurperRemake.BBS.DoorMode.IsOnlineMode && currentPlayer.Level >= 10)
+            // v1.1.4: one world boss status line (countdown before, live status during), from the tick's snapshot
+            if (UsurperRemake.BBS.DoorMode.IsOnlineMode && currentPlayer.Level >= GameConfig.WorldBossMinLevel)
             {
-                var activeBossName = WorldBossSystem.Instance.ActiveBossName;
-                if (!string.IsNullOrEmpty(activeBossName))
+                var bossLine = WorldBossSystem.Instance.TownLine();
+                if (bossLine != null)
                 {
-                    bool isNewBoss = _lastNotifiedBossName != activeBossName;
-                    bool reminderDue = (DateTime.Now - _lastBossNotifyTime).TotalMinutes >= 5;
-                    if (isNewBoss || reminderDue)
-                    {
-                        _lastNotifiedBossName = activeBossName;
-                        _lastBossNotifyTime = DateTime.Now;
-                        terminal.WriteLine("");
-                        terminal.SetColor("bright_red");
-                        terminal.WriteLine($"  *** {Loc.Get("base.world_boss_rampaging", activeBossName)} ***");
-                    }
-                }
-                else
-                {
-                    // Boss died or despawned — reset so next boss triggers immediately
-                    _lastNotifiedBossName = null;
+                    terminal.SetColor(WorldBossSystem.Instance.Snapshot.Active ? "bright_red" : "yellow");
+                    terminal.WriteLine($"  {bossLine}");
                 }
             }
 

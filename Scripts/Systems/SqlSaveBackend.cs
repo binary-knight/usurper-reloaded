@@ -39,7 +39,7 @@ namespace UsurperRemake.Systems
     /// Implements both ISaveBackend (core save/load) and IOnlineSaveBackend (online features).
     /// Uses WAL mode for concurrent read/write safety.
     /// </summary>
-    public class SqlSaveBackend : IOnlineSaveBackend
+    public partial class SqlSaveBackend : IOnlineSaveBackend
     {
         // --- Alt Character Helpers ---
         public static string GetAltKey(string accountUsername) =>
@@ -845,6 +845,8 @@ namespace UsurperRemake.Systems
                 migCmd.ExecuteNonQuery();
             }
             catch { /* Column already exists - expected */ }
+
+            MigrateWorldBossTables(connection); // v1.1.4
 
             DebugLogger.Instance.LogInfo("SQL", $"Database initialized at {databasePath}");
         }
@@ -6203,107 +6205,14 @@ namespace UsurperRemake.Systems
         catch (Exception ex) { DebugLogger.Instance.LogError("SQL", $"Failed to spawn world boss: {ex.Message}"); return -1; }
     }
 
-    public async Task<WorldBossInfo?> GetActiveWorldBoss()
-    {
-        try
-        {
-            using var connection = OpenConnection();
-            using var cmd = connection.CreateCommand();
-            cmd.CommandText = @"SELECT id, boss_name, boss_level, max_hp, current_hp, started_at, expires_at, boss_data_json
-                                FROM world_bosses WHERE status = 'active' AND expires_at > datetime('now')
-                                ORDER BY started_at DESC LIMIT 1;";
-            using var reader = await cmd.ExecuteReaderAsync();
-            if (await reader.ReadAsync())
-            {
-                return new WorldBossInfo
-                {
-                    Id = reader.GetInt32(0),
-                    BossName = reader.GetString(1),
-                    BossLevel = reader.GetInt32(2),
-                    MaxHP = reader.GetInt64(3),
-                    CurrentHP = reader.GetInt64(4),
-                    StartedAt = DateTime.TryParse(reader.GetString(5), out var st) ? st : DateTime.Now,
-                    ExpiresAt = DateTime.TryParse(reader.GetString(6), out var et) ? et : DateTime.Now,
-                    BossDataJson = reader.IsDBNull(7) ? "{}" : reader.GetString(7)
-                };
-            }
-        }
-        catch (Exception ex) { DebugLogger.Instance.LogError("SQL", $"Failed to get world boss: {ex.Message}"); }
-        return null;
-    }
+    public Task<WorldBossInfo?> GetActiveWorldBoss() =>
+        QueryOneWorldBoss("WHERE status = 'active' AND expires_at > datetime('now') ORDER BY started_at DESC");
 
-    /// <summary>
-    /// Apply a player's damage to the shared world-boss HP pool and return the remaining HP
-    /// along with a flag indicating whether this specific call delivered the killing blow.
-    /// The killing-blow flag is set atomically via a conditional status flip so that when two
-    /// concurrent players bring HP to zero in the same round, only one is credited with the
-    /// kill. The other sees remainingHp == 0 but wasKillingBlow == false. Fixes v0.57.9 report
-    /// where two players both received "killing blow" broadcasts for the same boss.
-    /// </summary>
+    /// <summary>v1.1.4: the old shape, kept for callers that do not know the player's level.</summary>
     public async Task<(long remainingHp, bool wasKillingBlow)> RecordWorldBossDamage(int bossId, string playerName, long damage)
     {
-        long remainingHp = 0;
-        bool wasKillingBlow = false;
-        try
-        {
-            using var connection = OpenConnection();
-            using var transaction = connection.BeginTransaction();
-
-            // Update boss HP
-            using (var updateCmd = connection.CreateCommand())
-            {
-                updateCmd.Transaction = transaction;
-                updateCmd.CommandText = @"UPDATE world_bosses SET current_hp = MAX(0, current_hp - @damage)
-                                         WHERE id = @id AND status = 'active';";
-                updateCmd.Parameters.AddWithValue("@id", bossId);
-                updateCmd.Parameters.AddWithValue("@damage", damage);
-                await updateCmd.ExecuteNonQueryAsync();
-            }
-
-            // Upsert player damage
-            using (var dmgCmd = connection.CreateCommand())
-            {
-                dmgCmd.Transaction = transaction;
-                dmgCmd.CommandText = @"INSERT INTO world_boss_damage (boss_id, player_name, damage_dealt, hits)
-                                      VALUES (@bossId, LOWER(@player), @damage, 1)
-                                      ON CONFLICT(boss_id, player_name) DO UPDATE SET
-                                          damage_dealt = damage_dealt + @damage,
-                                          hits = hits + 1,
-                                          last_hit_at = datetime('now');";
-                dmgCmd.Parameters.AddWithValue("@bossId", bossId);
-                dmgCmd.Parameters.AddWithValue("@player", playerName);
-                dmgCmd.Parameters.AddWithValue("@damage", damage);
-                await dmgCmd.ExecuteNonQueryAsync();
-            }
-
-            // Get remaining HP
-            using (var hpCmd = connection.CreateCommand())
-            {
-                hpCmd.Transaction = transaction;
-                hpCmd.CommandText = "SELECT current_hp FROM world_bosses WHERE id = @id;";
-                hpCmd.Parameters.AddWithValue("@id", bossId);
-                remainingHp = Convert.ToInt64(hpCmd.ExecuteScalar() ?? 0);
-            }
-
-            // If HP hit zero, try to atomically claim the kill by flipping status active → defeated.
-            // Only ONE caller whose transaction wins this race will get affected_rows == 1; every
-            // other caller who sees remainingHp == 0 will get 0 rows (status is already 'defeated').
-            // That row-count is the authoritative "I killed it" signal — remainingHp alone isn't.
-            if (remainingHp <= 0)
-            {
-                using var defeatCmd = connection.CreateCommand();
-                defeatCmd.Transaction = transaction;
-                defeatCmd.CommandText = @"UPDATE world_bosses SET status = 'defeated'
-                                          WHERE id = @id AND status = 'active';";
-                defeatCmd.Parameters.AddWithValue("@id", bossId);
-                int rowsAffected = await defeatCmd.ExecuteNonQueryAsync();
-                wasKillingBlow = rowsAffected == 1;
-            }
-
-            transaction.Commit();
-        }
-        catch (Exception ex) { DebugLogger.Instance.LogError("SQL", $"Failed to record world boss damage: {ex.Message}"); }
-        return (remainingHp, wasKillingBlow);
+        var (remaining, kill, _) = await RecordWorldBossDamage(bossId, playerName, damage, 0);
+        return (remaining, kill);
     }
 
     public async Task<List<WorldBossDamageEntry>> GetWorldBossDamageLeaderboard(int bossId, int limit = 20)
@@ -6313,8 +6222,10 @@ namespace UsurperRemake.Systems
         {
             using var connection = OpenConnection();
             using var cmd = connection.CreateCommand();
-            cmd.CommandText = @"SELECT player_name, damage_dealt, hits FROM world_boss_damage
-                                WHERE boss_id = @id ORDER BY damage_dealt DESC LIMIT @limit;";
+            cmd.CommandText = @"SELECT player_name, damage_dealt, hits, COALESCE(night_damage, 0), COALESCE(player_level, 0),
+                                       COALESCE(rounds, 0), COALESCE(sessions, 0), COALESCE(is_npc, 0), COALESCE(display_name, '')
+                                FROM world_boss_damage
+                                WHERE boss_id = @id AND damage_dealt > 0 ORDER BY damage_dealt DESC LIMIT @limit;";
             cmd.Parameters.AddWithValue("@id", bossId);
             cmd.Parameters.AddWithValue("@limit", limit);
             using var reader = await cmd.ExecuteReaderAsync();
@@ -6324,46 +6235,18 @@ namespace UsurperRemake.Systems
                 {
                     PlayerName = reader.GetString(0),
                     DamageDealt = reader.GetInt64(1),
-                    Hits = reader.GetInt32(2)
+                    Hits = reader.GetInt32(2),
+                    NightDamage = reader.GetInt64(3),
+                    PlayerLevel = reader.GetInt32(4),
+                    Rounds = reader.GetInt32(5),
+                    Sessions = reader.GetInt32(6),
+                    IsNpc = reader.GetInt32(7) != 0,
+                    DisplayName = reader.GetString(8),
                 });
             }
         }
         catch (Exception ex) { DebugLogger.Instance.LogError("SQL", $"Failed to get boss damage leaderboard: {ex.Message}"); }
         return entries;
-    }
-
-    public async Task ExpireWorldBosses()
-    {
-        try
-        {
-            using var connection = OpenConnection();
-            using var cmd = connection.CreateCommand();
-            cmd.CommandText = @"UPDATE world_bosses SET status = 'expired'
-                                WHERE status = 'active' AND expires_at <= datetime('now');";
-            await cmd.ExecuteNonQueryAsync();
-        }
-        catch (Exception ex) { DebugLogger.Instance.LogError("SQL", $"Failed to expire world bosses: {ex.Message}"); }
-    }
-
-    public DateTime? GetLastWorldBossEndTime()
-    {
-        try
-        {
-            using var connection = OpenConnection();
-            using var cmd = connection.CreateCommand();
-            // Get the most recent defeated or expired boss end time
-            // For defeated: use started_at + 1 hour (approximate defeat time is within the window)
-            // For expired: use expires_at
-            // Simpler: just get started_at of the most recent boss of any status
-            cmd.CommandText = @"SELECT started_at FROM world_bosses
-                                WHERE status IN ('defeated', 'expired')
-                                ORDER BY started_at DESC LIMIT 1;";
-            var result = cmd.ExecuteScalar();
-            if (result != null && DateTime.TryParse(result.ToString(), out var lastStart))
-                return lastStart;
-        }
-        catch (Exception ex) { DebugLogger.Instance.LogError("SQL", $"Failed to get last world boss time: {ex.Message}"); }
-        return null;
     }
 
     public async Task UpdateWorldBossData(int bossId, string bossDataJson)

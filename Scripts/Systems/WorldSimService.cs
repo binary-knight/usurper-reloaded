@@ -135,8 +135,8 @@ namespace UsurperRemake.Systems
                         // Check for 7 PM ET world daily reset
                         CheckWorldDailyReset();
 
-                        // Check world boss spawn conditions
-                        await WorldBossSystem.Instance.CheckSpawnConditions(sqlBackend);
+                        // v1.1.4: the world boss tick (schedule, spawn, window end, Rally, phase, notices)
+                        await WorldBossSystem.Instance.Tick(sqlBackend);
 
                         // Log status every 10 ticks
                         if (tickCount % 10 == 0)

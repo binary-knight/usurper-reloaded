@@ -77,7 +77,10 @@ namespace UsurperRemake.Systems
             EclipseDarkness,
             MeteorShower,
             AncientRelicFound,
-            ProphetArrives
+            ProphetArrives,
+
+            // v1.1.4: a world boss fell; +10 percent XP for a day (append-only)
+            WorldBossVictory
         }
 
         /// <summary>
@@ -530,6 +533,13 @@ namespace UsurperRemake.Systems
                     evt.Title = "Prophet Arrives";
                     evt.Description = "A mysterious prophet speaks of doom and glory.";
                     evt.DaysRemaining = _random.Next(3, 7);
+                    evt.Effects["xp"] = 1.1f;
+                    break;
+
+                case EventType.WorldBossVictory:
+                    evt.Title = Loc.Get("world_boss.victory_event_title");
+                    evt.Description = Loc.Get("world_boss.victory_event_desc");
+                    evt.DaysRemaining = 1;
                     evt.Effects["xp"] = 1.1f;
                     break;
             }
