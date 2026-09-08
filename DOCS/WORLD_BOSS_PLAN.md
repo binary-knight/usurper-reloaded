@@ -397,9 +397,11 @@ and `wb-supervisor-*`.
    the ransom returns with a rally reward for the King attached.
 5. **Normalisation stands, one-sided** (four seats for protecting low
    levels; the mechanics seat conceded on its own table, where a level 20
-   hits the Titan for 1 to 3; the supervisor's refinement adopted: `r`
-   applies only below the boss's level, so a veteran keeps the edge the
-   majority never argued against and the cap bounds it). Proves it wrong:
+   hits the Titan for 1 to 3). The supervisor's one-sided refinement, `r`
+   only below the boss's level with a veteran fighting raw under the cap,
+   was then put to the other three seats as a yes/no after the supervisor
+   pointed out that adopting it on inference would break the tally rule:
+   Codex yes, mechanics yes, participation yes. Four to none. Proves it wrong:
    on nights with three or more contributors, an above-level damage share
    over 60 percent while below-level `s` stays under 0.25 means the
    asymmetry is wrong and full two-sided `r` is the fallback; and applied
