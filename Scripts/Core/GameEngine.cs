@@ -3015,6 +3015,11 @@ public partial class GameEngine
                 // so the player can free up space and re-trigger delivery.
                 await DeliverPendingInheritance(sqlBackend);
 
+                // v1.1.4: world boss rewards settled while this player was offline (or by another
+                // session) are delivered here, by the owning session, each row flipped once.
+                try { if (currentPlayer != null) await WorldBossSystem.Instance.DeliverWorldBossRewards(currentPlayer, sqlBackend, terminal); }
+                catch (Exception ex) { DebugLogger.Instance.LogError("WORLD_BOSS", $"Reward delivery at login failed: {ex.Message}"); }
+
                 // v0.65.0: deliver any player-to-player bank wire transfers queued
                 // while this player was offline. The net amount (already minus the
                 // bank fee) is auto-deposited into their bank account. The recipient's

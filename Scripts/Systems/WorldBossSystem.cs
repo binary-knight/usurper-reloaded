@@ -233,10 +233,12 @@ namespace UsurperRemake.Systems
             ActiveBossName = null;
             backend.LogWorldBossEvent(boss.Id, "withdraw", "", $"night={boss.Nights} hp={boss.CurrentHP} pct={pct}");
 
+            await PayWithdrawal(backend, boss);
             bool leaves = boss.Nights >= GameConfig.WorldBossMaxNights;
             if (leaves)
             {
                 await backend.MarkWorldBossLeft(boss.Id);
+                await backend.MarkWorldBossSettled(boss.Id);
                 backend.LogWorldBossEvent(boss.Id, "left", "", $"nights={boss.Nights} hp={boss.CurrentHP}");
                 var board = await backend.GetWorldBossDamageLeaderboard(boss.Id, 10);
                 string stood = board.Count == 0 ? Loc.Get("world_boss.nobody") : string.Join(", ", board.Select(e => e.PlayerName));
@@ -277,8 +279,185 @@ namespace UsurperRemake.Systems
             if (engaged > 0) await backend.UpdateWorldBossPeakEngaged(boss.Id, engaged);
         }
 
-        /// <summary>Filled in by the settle commit; until then nothing is marked, so nothing is lost.</summary>
-        private Task SettleUnsettled(SqlSaveBackend backend) => Task.CompletedTask;
+        /// <summary>
+        /// The tick finishes what a crash or a killer's session left: kill rewards for a defeated
+        /// boss, withdrawal pay for a withdrawn one (idempotent through the night bits), and the
+        /// settled flag for one that left.
+        /// </summary>
+        private async Task SettleUnsettled(SqlSaveBackend backend)
+        {
+            foreach (int id in backend.GetUnsettledWorldBossIds())
+            {
+                var boss = await backend.GetWorldBossById(id);
+                if (boss == null) continue;
+                switch (boss.Status)
+                {
+                    case "defeated": await SettleKill(backend, boss); break;
+                    case "withdrawn": await PayWithdrawal(backend, boss); break;
+                    case "left": await PayWithdrawal(backend, boss); await backend.MarkWorldBossSettled(id); break;
+                }
+            }
+        }
+
+        private static long BudgetFor(WorldBossInfo boss)
+        {
+            long scaledDef = 0;
+            try
+            {
+                var data = JsonSerializer.Deserialize<WorldBossRuntimeData>(boss.BossDataJson);
+                scaledDef = data?.ScaledDefence ?? 0;
+            }
+            catch { }
+            return WorldBossMath.PerPlayerBudget(boss.BossLevel, scaledDef);
+        }
+
+        /// <summary>
+        /// Kill rewards (ruling 4): one frozen row per qualified human, by effort at their own level,
+        /// with the together bonus, items by score, Legendary only for the MVP of three or more.
+        /// Insert-or-ignore rows, then the settled flag; running twice writes nothing new.
+        /// </summary>
+        public async Task SettleKill(SqlSaveBackend backend, WorldBossInfo boss)
+        {
+            var bossDef = WorldBossDatabase.GetBossById(boss.DefinitionId);
+            string name = bossDef?.Name ?? boss.BossName;
+            var board = (await backend.GetWorldBossDamageLeaderboard(boss.Id, 200)).Where(e => !e.IsNpc).ToList();
+            long budget = BudgetFor(boss);
+            var scored = board.Select(e => (entry: e, score: WorldBossMath.Score(e.DamageDealt, budget)))
+                              .Where(x => WorldBossMath.Qualified(x.score)).ToList();
+            int contributors = scored.Count;
+            string mvpName = board.Count > 0 ? board[0].PlayerName : "";
+            foreach (var (entry, score) in scored)
+            {
+                bool mvp = entry.PlayerName == mvpName;
+                int level = Math.Max(1, entry.PlayerLevel);
+                var rarity = WorldBossMath.TierFor(score, mvp, contributors);
+                await backend.InsertWorldBossReward(new WorldBossReward
+                {
+                    BossId = boss.Id, BossName = name, PlayerName = entry.PlayerName, Night = boss.Nights, Kind = "kill",
+                    Xp = WorldBossMath.KillXP(level, score, contributors), Gold = WorldBossMath.KillGold(level, score, contributors),
+                    Fame = GameConfig.WorldBossFameQualified + (mvp ? GameConfig.WorldBossFameMvpExtra : 0),
+                    Rarity = (int)rarity, Marks = 1 + (int)rarity, Score = score, Mvp = mvp, DamageDealt = entry.DamageDealt,
+                });
+            }
+            if (await backend.MarkWorldBossSettled(boss.Id))
+            {
+                backend.LogWorldBossEvent(boss.Id, "settle", "", $"outcome=kill qualified={contributors} of {board.Count} budget={budget}");
+                if (board.Count > 0)
+                {
+                    string news = Loc.Get("world_boss.defeat_news", name, board[0].PlayerName, $"{board[0].DamageDealt:N0}", board.Count);
+                    if (OnlineStateManager.IsActive) await OnlineStateManager.Instance!.AddNews(news, "world_boss");
+                    DiscordBridge.QueueSystemEvent(Loc.GetIn("en", "world_boss.defeat_news", name, board[0].PlayerName, $"{board[0].DamageDealt:N0}", board.Count));
+                }
+                // The realm celebrates: +10 percent XP for a day through the world-event bonus path.
+                try { WorldEventSystem.Instance.ForceEvent(WorldEventSystem.EventType.WorldBossVictory, DateTime.UtcNow.DayOfYear); }
+                catch (Exception ex) { DebugLogger.Instance.LogError("WORLD_BOSS", $"Victory event failed: {ex.Message}"); }
+                NotifyOnlineRewards(scored.Select(x => x.entry.PlayerName));
+            }
+        }
+
+        /// <summary>Withdrawal pay: a quarter of the night's share, once per player per night through the bit.</summary>
+        public async Task PayWithdrawal(SqlSaveBackend backend, WorldBossInfo boss)
+        {
+            var bossDef = WorldBossDatabase.GetBossById(boss.DefinitionId);
+            string name = bossDef?.Name ?? boss.BossName;
+            var board = (await backend.GetWorldBossDamageLeaderboard(boss.Id, 200)).Where(e => !e.IsNpc && e.NightDamage > 0).ToList();
+            long budget = BudgetFor(boss);
+            var scored = board.Select(e => (entry: e, score: WorldBossMath.Score(e.NightDamage, budget)))
+                              .Where(x => WorldBossMath.Qualified(x.score)).ToList();
+            int contributors = scored.Count;
+            var paid = new List<string>();
+            foreach (var (entry, score) in scored)
+            {
+                if (!await backend.ClaimWorldBossNightPay(boss.Id, entry.PlayerName, boss.Nights)) continue;
+                int level = Math.Max(1, entry.PlayerLevel);
+                await backend.InsertWorldBossReward(new WorldBossReward
+                {
+                    BossId = boss.Id, BossName = name, PlayerName = entry.PlayerName, Night = boss.Nights, Kind = "withdraw",
+                    Xp = WorldBossMath.WithdrawalXP(level, score, contributors), Gold = WorldBossMath.WithdrawalGold(level, score, contributors),
+                    Fame = 5, Rarity = 0, Marks = 0, Score = score, Mvp = false, DamageDealt = entry.NightDamage,
+                });
+                paid.Add(entry.PlayerName);
+            }
+            if (paid.Count > 0)
+            {
+                backend.LogWorldBossEvent(boss.Id, "withdraw_pay", "", $"night={boss.Nights} paid={paid.Count}");
+                NotifyOnlineRewards(paid);
+            }
+        }
+
+        /// <summary>Tell online players rewards are waiting; their own session delivers them.</summary>
+        private static void NotifyOnlineRewards(IEnumerable<string> playerKeys)
+        {
+            if (MudServer.Instance == null) return;
+            foreach (var key in playerKeys)
+            {
+                if (MudServer.Instance.ActiveSessions.TryGetValue(key.ToLowerInvariant(), out var session))
+                    session.EnqueueMessage($"\n  *** {Loc.GetIn(session.Context?.Language ?? "en", "world_boss.rewards_waiting")} ***");
+            }
+        }
+
+        /// <summary>
+        /// Delivery by the owning session, at login and on the /boss screen: XP, gold, fame, statistics,
+        /// achievements, and the item (rolled at the player's level and class with the frozen rarity;
+        /// a full pack sends it to the inheritance queue). Each row flips delivered once.
+        /// </summary>
+        public async Task DeliverWorldBossRewards(Character player, SqlSaveBackend backend, TerminalEmulator terminal)
+        {
+            string key = player.DisplayName.ToLowerInvariant();
+            var rows = backend.GetUndeliveredWorldBossRewards(key);
+            if (rows.Count == 0) return;
+            bool headerShown = false;
+            foreach (var r in rows)
+            {
+                if (!await backend.MarkWorldBossRewardDelivered(r.Id)) continue;
+                if (!headerShown)
+                {
+                    headerShown = true;
+                    terminal.WriteLine("");
+                    terminal.SetColor("bright_yellow");
+                    terminal.WriteLine(GameConfig.ScreenReaderMode ? $"  {Loc.Get("world_boss.rewards_delivered_header")}" : $"  ═══ {Loc.Get("world_boss.rewards_delivered_header")} ═══");
+                }
+                player.Experience += r.Xp;
+                player.Gold += r.Gold;
+                player.Fame += r.Fame;
+                terminal.SetColor("white");
+                terminal.WriteLine(r.Kind == "kill"
+                    ? $"  {Loc.Get("world_boss.reward_kind_kill", r.BossName, r.Night, (int)(r.Score * 100), r.Mvp ? Loc.Get("world_boss.tier_mvp") : Loc.Get("world_boss.tier_contributor"))}"
+                    : $"  {Loc.Get("world_boss.reward_kind_withdraw", r.BossName, r.Night)}");
+                terminal.WriteLine($"  {Loc.Get("world_boss.reward_xp", $"{r.Xp:N0}")}  {Loc.Get("world_boss.reward_gold", $"{r.Gold:N0}")}  {Loc.Get("world_boss.reward_fame", r.Fame)}");
+
+                var boss = await backend.GetWorldBossById(r.BossId);
+                var bossDef = boss != null ? WorldBossDatabase.GetBossById(boss.DefinitionId) : null;
+                if (r.Kind == "kill")
+                {
+                    player.Statistics.RecordWorldBossKill(bossDef?.Id ?? r.BossName, r.DamageDealt, r.Mvp);
+                    AchievementSystem.TryUnlock(player, "world_boss_first");
+                    if (player.Statistics.UniqueWorldBossTypes.Count >= 5) AchievementSystem.TryUnlock(player, "world_boss_5_unique");
+                    if (player.Statistics.WorldBossesKilled >= 25) AchievementSystem.TryUnlock(player, "world_boss_25_total");
+                    if (r.Mvp) AchievementSystem.TryUnlock(player, "world_boss_mvp");
+
+                    var item = LootGenerator.GenerateWorldBossLoot(Math.Max(1, player.Level), (LootGenerator.ItemRarity)r.Rarity, bossDef?.Element ?? "", player.Class);
+                    if (item != null)
+                    {
+                        if ((player.Inventory?.Count ?? 0) < 50)
+                        {
+                            player.Inventory!.Add(item);
+                            terminal.SetColor((LootGenerator.ItemRarity)r.Rarity >= LootGenerator.ItemRarity.Legendary ? "bright_yellow" : (LootGenerator.ItemRarity)r.Rarity >= LootGenerator.ItemRarity.Epic ? "bright_magenta" : "bright_cyan");
+                            terminal.WriteLine($"  {Loc.Get("world_boss.reward_loot")}: {LootGenerator.GetUnidentifiedName(item)}");
+                        }
+                        else
+                        {
+                            var opts = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, IncludeFields = true };
+                            backend.QueueInheritance(key, r.BossName, JsonSerializer.Serialize(item, opts));
+                            terminal.SetColor("gray");
+                            terminal.WriteLine($"  {Loc.Get("world_boss.reward_item_queued", LootGenerator.GetUnidentifiedName(item))}");
+                        }
+                    }
+                }
+                backend.LogWorldBossEvent(r.BossId, "deliver", key, $"kind={r.Kind} xp={r.Xp} gold={r.Gold} rarity={r.Rarity}");
+            }
+            if (headerShown) terminal.WriteLine("");
+        }
 
         private async Task NoticeScheduled(SqlSaveBackend backend, WorldBossSchedule schedule)
         {
@@ -387,6 +566,9 @@ namespace UsurperRemake.Systems
                 await Task.Delay(1500);
                 return;
             }
+
+            // v1.1.4: rewards from a boss settled while this player was away, or by another session
+            await DeliverWorldBossRewards(player, backend, terminal);
 
             while (true)
             {
@@ -792,10 +974,11 @@ namespace UsurperRemake.Systems
                                 _ = OnlineStateManager.Instance!.AddNews(
                                     Loc.Get("world_boss.defeat_broadcast", bossDef.Name, player.DisplayName), "world_boss");
 
-                            // Distribute rewards to all contributors (iterates the full leaderboard,
-                            // so every contributor gets paid — not just the killer)
-                            await DistributeWorldBossRewards(currentBoss.Id, bossDef, currentBoss.MaxHP,
-                                currentBoss.BossLevel, backend, player, terminal);
+                            // v1.1.4: settle writes the frozen reward rows (the tick would too, after a
+                            // crash); this session delivers its own, and online players are told.
+                            var defeated = await backend.GetWorldBossById(currentBoss.Id);
+                            if (defeated != null) await SettleKill(backend, defeated);
+                            await DeliverWorldBossRewards(player, backend, terminal);
                             break;
                         }
                         else if (remainingHp <= 0)
@@ -803,8 +986,8 @@ namespace UsurperRemake.Systems
                             // Boss died this round but another player landed the killing blow.
                             // Exit cleanly with no broadcast, no duplicate news, no duplicate
                             // reward distribution. Our damage was already recorded on the
-                            // leaderboard above — the killer's DistributeWorldBossRewards call
-                            // will reward us on the next DB read.
+                            // leaderboard above; the killer's settle (or the tick's) writes our
+                            // reward row and this session delivers it on the next /boss visit.
                             ActiveBossName = null;
                             state.Killed = true;
                             terminal.SetColor("yellow");
@@ -1636,212 +1819,8 @@ namespace UsurperRemake.Systems
         };
 
         // ═══════════════════════════════════════════════════════════════════════════
-        // Reward Distribution — Contribution-based rewards for all participants
-        // ═══════════════════════════════════════════════════════════════════════════
-
-        private async Task DistributeWorldBossRewards(int bossId, WorldBossDefinition bossDef,
-            long bossMaxHP, int bossLevel, SqlSaveBackend backend,
-            Character killingPlayer, TerminalEmulator killingTerminal)
-        {
-            try
-            {
-                var leaderboard = await backend.GetWorldBossDamageLeaderboard(bossId, 100);
-                if (leaderboard.Count == 0) return;
-
-                long totalDamage = leaderboard.Sum(e => e.DamageDealt);
-                int totalContributors = leaderboard.Count;
-
-                // Calculate reward tiers
-                int top3Cutoff = Math.Min(3, totalContributors);
-                int top25Cutoff = Math.Max(top3Cutoff, totalContributors / 4);
-                int top50Cutoff = Math.Max(top25Cutoff, totalContributors / 2);
-
-                for (int i = 0; i < leaderboard.Count; i++)
-                {
-                    var entry = leaderboard[i];
-                    double contribution = totalDamage > 0 ? (double)entry.DamageDealt / totalDamage : 0;
-
-                    // Determine reward tier
-                    float xpMult, goldMult;
-                    LootGenerator.ItemRarity minRarity;
-                    string tierName;
-
-                    if (i == 0)
-                    {
-                        xpMult = GameConfig.WorldBossMVPXPMult;
-                        goldMult = GameConfig.WorldBossMVPXPMult;
-                        minRarity = LootGenerator.ItemRarity.Legendary;
-                        tierName = Loc.Get("world_boss.tier_mvp");
-                    }
-                    else if (i < top3Cutoff)
-                    {
-                        xpMult = GameConfig.WorldBossTop3XPMult;
-                        goldMult = GameConfig.WorldBossTop3XPMult;
-                        minRarity = LootGenerator.ItemRarity.Epic;
-                        tierName = Loc.Get("world_boss.tier_top3");
-                    }
-                    else if (i < top25Cutoff)
-                    {
-                        xpMult = GameConfig.WorldBossTop25XPMult;
-                        goldMult = GameConfig.WorldBossTop25XPMult;
-                        minRarity = LootGenerator.ItemRarity.Rare;
-                        tierName = Loc.Get("world_boss.tier_top25");
-                    }
-                    else if (i < top50Cutoff)
-                    {
-                        xpMult = GameConfig.WorldBossTop50XPMult;
-                        goldMult = GameConfig.WorldBossTop50XPMult;
-                        minRarity = LootGenerator.ItemRarity.Uncommon;
-                        tierName = Loc.Get("world_boss.tier_top50");
-                    }
-                    else
-                    {
-                        xpMult = GameConfig.WorldBossBaseXPMult;
-                        goldMult = GameConfig.WorldBossBaseXPMult;
-                        minRarity = LootGenerator.ItemRarity.Common;
-                        tierName = Loc.Get("world_boss.tier_contributor");
-                    }
-
-                    // Calculate rewards
-                    long baseXP = GameConfig.WorldBossBaseXPPerLevel * bossLevel;
-                    long baseGold = GameConfig.WorldBossBaseGoldPerLevel * bossLevel;
-                    long xpReward = (long)(baseXP * xpMult);
-                    long goldReward = (long)(baseGold * goldMult);
-
-                    // Check if this is the killing player (they're still online, apply directly)
-                    bool isKillingPlayer = entry.PlayerName.Equals(
-                        killingPlayer.DisplayName, StringComparison.OrdinalIgnoreCase);
-
-                    if (isKillingPlayer)
-                    {
-                        // Apply directly to the killing player
-                        killingPlayer.Experience += xpReward;
-                        killingPlayer.Gold += goldReward;
-                        killingPlayer.Fame += 25; // Fame from world boss kill
-
-                        // Generate and give loot item
-                        var lootItem = LootGenerator.GenerateWorldBossLoot(
-                            bossLevel, minRarity, bossDef.Element, killingPlayer.Class);
-
-                        killingTerminal.SetColor("bright_yellow");
-                        killingTerminal.WriteLine($"\n  ═══ {Loc.Get("world_boss.rewards_header", tierName)} ═══");
-                        killingTerminal.SetColor("white");
-                        killingTerminal.WriteLine($"  {Loc.Get("world_boss.reward_xp", $"{xpReward:N0}")}");
-                        killingTerminal.WriteLine($"  {Loc.Get("world_boss.reward_gold", $"{goldReward:N0}")}");
-
-                        if (lootItem != null)
-                        {
-                            if (killingPlayer is Player kp)
-                            {
-                                kp.Inventory.Add(lootItem);
-                                // Color based on item value as a proxy for rarity
-                                bool hasLegendary = lootItem.LootEffects.Any(e => e.EffectType == (int)LootGenerator.SpecialEffect.BossSlayer);
-                                bool hasEpic = lootItem.LootEffects.Any(e => e.EffectType == (int)LootGenerator.SpecialEffect.TitanResolve);
-                                string rarityColor = hasLegendary ? "bright_yellow" : hasEpic ? "bright_magenta" : "bright_cyan";
-                                killingTerminal.SetColor(rarityColor);
-                                killingTerminal.WriteLine($"  {Loc.Get("world_boss.reward_loot")}: {LootGenerator.GetUnidentifiedName(lootItem)}");
-                            }
-                        }
-
-                        // Record stats
-                        if (killingPlayer is Player kpStats)
-                        {
-                            kpStats.Statistics.RecordWorldBossKill(bossDef.Id, entry.DamageDealt, i == 0);
-                            // Check all world boss achievements
-                            AchievementSystem.TryUnlock(killingPlayer, "world_boss_first");
-                            if (kpStats.Statistics.UniqueWorldBossTypes.Count >= 5)
-                                AchievementSystem.TryUnlock(killingPlayer, "world_boss_5_unique");
-                            if (kpStats.Statistics.WorldBossesKilled >= 25)
-                                AchievementSystem.TryUnlock(killingPlayer, "world_boss_25_total");
-                            if (i == 0)
-                                AchievementSystem.TryUnlock(killingPlayer, "world_boss_mvp");
-                        }
-                    }
-                    else
-                    {
-                        // Check if this player is online — if so, apply in-memory to avoid
-                        // race condition with SQL add (session save would double-count)
-                        var session = FindOnlineSession(entry.PlayerName);
-                        bool isOnline = session?.Context?.Engine?.CurrentPlayer != null;
-
-                        if (!isOnline)
-                        {
-                            // Offline player: apply via SQL (will be loaded on next login)
-                            await backend.AddXPToPlayer(entry.PlayerName, xpReward);
-                            await backend.AddGoldToPlayer(entry.PlayerName, goldReward);
-                        }
-
-                        // Send notification message
-                        string msg = Loc.Get("world_boss.reward_message", $"{xpReward:N0}", $"{goldReward:N0}", tierName, $"{entry.DamageDealt:N0}");
-                        await backend.SendMessage("System", entry.PlayerName, "world_boss", msg);
-
-                        // Deliver rewards and loot to online player's session
-                        if (isOnline)
-                        {
-                            var onlinePlayer = session!.Context!.Engine!.CurrentPlayer!;
-
-                            // Apply rewards in-memory only (saved with next session save)
-                            onlinePlayer.Experience += xpReward;
-                            onlinePlayer.Gold += goldReward;
-                            onlinePlayer.Fame += 15; // Fame from world boss participation
-
-                            var lootItem = LootGenerator.GenerateWorldBossLoot(
-                                bossLevel, minRarity, bossDef.Element,
-                                onlinePlayer.Class);
-
-                            if (lootItem != null)
-                            {
-                                onlinePlayer.Inventory.Add(lootItem);
-                                session.EnqueueMessage(
-                                    $"\n  *** {Loc.Get("world_boss.rewards_notification_loot", tierName, $"{xpReward:N0}", $"{goldReward:N0}", LootGenerator.GetUnidentifiedName(lootItem))} ***");
-                            }
-                            else
-                            {
-                                session.EnqueueMessage(
-                                    $"\n  *** {Loc.Get("world_boss.rewards_notification", tierName, $"{xpReward:N0}", $"{goldReward:N0}")} ***");
-                            }
-
-                            // Record stats for online players
-                            if (onlinePlayer is Player opStats)
-                            {
-                                opStats.Statistics.RecordWorldBossKill(bossDef.Id, entry.DamageDealt, i == 0);
-                                AchievementSystem.TryUnlock(onlinePlayer, "world_boss_first");
-                                if (opStats.Statistics.UniqueWorldBossTypes.Count >= 5)
-                                    AchievementSystem.TryUnlock(onlinePlayer, "world_boss_5_unique");
-                                if (opStats.Statistics.WorldBossesKilled >= 25)
-                                    AchievementSystem.TryUnlock(onlinePlayer, "world_boss_25_total");
-                                if (i == 0)
-                                    AchievementSystem.TryUnlock(onlinePlayer, "world_boss_mvp");
-                            }
-                        }
-                    }
-                }
-
-                // Post summary to news
-                if (OnlineStateManager.IsActive)
-                {
-                    string mvpName = leaderboard.Count > 0 ? leaderboard[0].PlayerName : Loc.Get("world_boss.unknown");
-                    _ = OnlineStateManager.Instance!.AddNews(
-                        Loc.Get("world_boss.defeat_news", bossDef.Name, mvpName, $"{leaderboard[0].DamageDealt:N0}", totalContributors), "world_boss");
-                }
-            }
-            catch (Exception ex)
-            {
-                DebugLogger.Instance.LogError("WORLD_BOSS", $"Reward distribution failed: {ex.Message}");
-            }
-        }
-
-        // ═══════════════════════════════════════════════════════════════════════════
         // Helper Methods
         // ═══════════════════════════════════════════════════════════════════════════
-
-        private PlayerSession? FindOnlineSession(string playerName)
-        {
-            if (MudServer.Instance == null) return null;
-            var key = playerName.ToLowerInvariant();
-            MudServer.Instance.ActiveSessions.TryGetValue(key, out var session);
-            return session;
-        }
 
         /// <summary>v1.1.4: equipped slots only; a boss-slayer blade in the bag used to count.</summary>
         public static bool HasSpecialEffect(Character player, LootGenerator.SpecialEffect effect)

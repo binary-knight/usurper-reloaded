@@ -1214,14 +1214,6 @@ public static partial class GameConfig
     public const int WorldBossMaxRoundsPerSession = 50;         // the rest point: summary, autosave, re-entry after the cooldown
     public const float WorldBossPhase2Threshold = 0.65f;        // Phase 2 at 65% HP
     public const float WorldBossPhase3Threshold = 0.30f;        // Phase 3 at 30% HP
-    // Retired in v1.1.4; deleted with the settle rewrite (milestone A, commit 4).
-    public const float WorldBossMVPXPMult = 3.0f;
-    public const float WorldBossTop3XPMult = 2.5f;
-    public const float WorldBossTop25XPMult = 2.0f;
-    public const float WorldBossTop50XPMult = 1.5f;
-    public const float WorldBossBaseXPMult = 1.0f;
-    public const long WorldBossBaseXPPerLevel = 10;
-    public const long WorldBossBaseGoldPerLevel = 200;
 
     // Faction System (v0.40.2)
     public const string FactionInitiatorCrown = "The Crown";
