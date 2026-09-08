@@ -14,6 +14,8 @@ namespace UsurperReborn.Tests;
 /// base line preserved when no layer fires, and the recent-line cache
 /// not crashing on repeated calls.
 /// </summary>
+// issue #131: sets the static GameConfig.Language; never beside another class that reads it
+[Collection("SharedGameSingletons")]
 public class DialogueEnhancerTests
 {
     [Fact]
