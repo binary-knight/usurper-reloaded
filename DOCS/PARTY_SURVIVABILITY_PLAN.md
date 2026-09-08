@@ -149,7 +149,77 @@ targeting; dressing cannot be refilled by reload, dismissal, or revisiting;
 and seeded comparisons of ally deaths, player deaths, party potion use, and
 targeting concentration before and after.
 
-## Decisions for the maintainer
+## Council rulings (2026-09-08)
+
+The maintainer asked the council (the implementing agent, Codex on gpt-6-astra,
+the supervisor session, and an independent design agent working in the tree)
+to settle the open decisions among itself. Majority ruled, with the code
+breaking ties. Receipts: `~/usurper/evidence/codex/council-raw-*.txt`.
+
+1. **Stances.** Balanced is what PR #134 shipped, not a retune: the default
+   must not move on the day the counters arrive. Aggressive and Cautious
+   bracket it.
+
+   | Behaviour | Aggressive | Balanced (default) | Cautious |
+   |---|---:|---:|---:|
+   | Emergency self-potion | 25% | 30% | 40% |
+   | Potion on the most injured | 45% | 50% | 60% |
+   | Defensive ability first | 35% | 40% | 55% |
+   | Brace with nothing left | 30% | 35% | 50% |
+   | Taunt | as today | as today | never |
+   | Ordinary target weight | x1.00 | x1.00 | x0.70 |
+
+   Thresholds strictly below; in every column self-potion < brace <
+   defensive-first < most-injured. The taunt row carries no HP number: today
+   a tank taunts whenever nothing is taunted, and since PR #134 a wounded
+   tank with a shield affordable shields instead; Balanced keeps that, and
+   "never" is the Cautious change of will (the skill toggle remains for
+   per-ability control). The generic wounded-target bonus leaves ordinary
+   weighting for everyone, player included: a braced ally under a quarter
+   health was the likeliest target in the room because the wounded and
+   defending bonuses stacked on it, a spiral PR #134's brace made worse. No
+   predator flag exists on monsters; it is a data item for the second
+   release with the downed state. The +40 defending weight stays for the
+   player (Defend is how the player pulls hits off an ally) and for
+   Aggressive allies; a Balanced or Cautious brace is self-protection and
+   adds nothing. The x0.70 applies to the final weight before the floor of
+   ten. Stances persist keyed like the ability toggles, missing means
+   Balanced, set from the dungeon party menu and the Inn's party management.
+   Say-why lines on a change only, three of them: holds the taunt, hangs
+   back, keeps the last potion. (Dissent recorded: the design agent would give
+   the +40 to the player only.)
+2. **Downed state.** Second release, no minimal form: death is dispatched
+   from three pairs of sites, `IsAlive` is tested about forty times in the
+   combat loop, and the companion HP mirror and the world cascade key on that
+   moment. Ship it as designed after one release of counters says how often
+   allies actually die. Unanimous.
+3. **Field dressing.** 1.1.4, not 1.1.3: the only item that adds a persisted
+   per-ally resource and heals without potions, with the least grounded
+   numbers. Recorded for then: 60 percent of max HP per completed Inn or Home
+   rest, per victory the least of 20 percent, up to 70 percent, and the
+   remainder; rest only, not the daily reset (the daily potion refill is
+   already the daily gift); stored per ally id on the player's save; the
+   player excluded. (Dissent recorded: the design agent would ship it now at
+   100 percent per rest with a daily grant.)
+4. **Shared belt.** Off by default, persisted; at most two borrowed healing
+   potions across the party per fight; never below three for the player;
+   borrowing only when the ally's own potions are gone, only for the ally's
+   own emergency, never for a third party; it costs the ally's action and
+   never sets the player's potion cooldown. Bulk give extends the existing
+   1-or-all prompt with a count. (Dissent recorded: the design agent would
+   hold automatic borrowing for the second release and reserve five.)
+5. **1.1.3 ships:** stances with the targeting changes and say-why; the fight
+   summary and the low-health warning before a voluntary fight; the belt and
+   bulk give; the floor guard as a warning at eleven or more levels below the
+   player that offers Cautious without silently switching it; the
+   one-personal-potion rule (an ally with exactly one potion keeps it unless
+   the player is below thirty percent). Also fixed on the way: every ally
+   potion was recorded in the player's own statistics. Known limit: the
+   Electron client has no party menu, so stances have no UI there; Balanced
+   equals today's behaviour, so nothing is lost. Exclusions: grouped players,
+   mercenaries, echoes.
+
+## Decisions the council was asked to settle (see rulings above)
 
 1. The stance numbers in the table, and whether the wounded-target bonus
    leaves the ordinary weighting.
