@@ -210,9 +210,18 @@ public class WorldBossTelegraphTests : IDisposable
     {
         var boss = await Spawn();
         (await _db.IssueWorldBossTelegraph(boss.Id, "Whirlpool", 1, 60, 2)).Should().BeTrue();
-        var results = await Task.WhenAll(Enumerable.Range(0, 16).Select(_ => Task.Run(() => _db.TryInterruptWorldBoss(boss.Id, 1))));
+        for (int i = 0; i < 16; i++) await _db.EnsureWorldBossPlayerRow(boss.Id, $"p{i}", 40, $"P{i}", 1);
+        var results = await Task.WhenAll(Enumerable.Range(0, 16).Select(i => Task.Run(() => _db.InterruptWorldBoss(boss.Id, 1, $"p{i}"))));
         results.Count(x => x).Should().Be(2);
         (await Row(boss.Id)).InterruptsDone.Should().Be(2);
+        // both or neither: the same player again is refused by their own row, and the counter does not move
+        (await _db.IssueWorldBossTelegraph(boss.Id, "Tsunami", 2, 60, 2)).Should().BeFalse("seq 1 is live");
+        Sql("UPDATE world_bosses SET interrupts_done = 0 WHERE id = @id;", boss.Id);
+        string winner = Enumerable.Range(0, 16).First(i => results[i]) is int w ? $"p{w}" : "p0";
+        (await _db.InterruptWorldBoss(boss.Id, 1, winner)).Should().BeFalse("already answered this seq");
+        (await Row(boss.Id)).InterruptsDone.Should().Be(0, "the counter write was rolled back with the refused mark");
+        (await _db.InterruptWorldBoss(boss.Id, 1, "nobody")).Should().BeFalse("no row, no count");
+        (await Row(boss.Id)).InterruptsDone.Should().Be(0);
     }
 
     // ───────────────────────────── the loop ─────────────────────────────
@@ -354,6 +363,7 @@ public class WorldBossTelegraphTests : IDisposable
         var hero = Hero("Nightly", 40, 5000);
         await Fight(hero, boss, "A\nR\n\n");
         _db.GetWorldBossPlayerTelegraphState(boss.Id, "nightly").EngagedUntilSeq.Should().Be(1);
+        (await Row(boss.Id)).FocusUntil.Should().NotBeNull("someone else's Challenge hold is not Nightly's to drop");
 
         (await _db.WithdrawWorldBoss(boss.Id)).Should().BeTrue();
         (await _db.ReactivateWorldBoss(boss.Id, 0.2, 3)).Should().BeTrue();
@@ -413,6 +423,51 @@ public class WorldBossTelegraphTests : IDisposable
         Sql("UPDATE world_bosses SET focus_until = datetime('now', '-1 seconds'), window_started_at = datetime('now', '-100 seconds') WHERE id = @id;", boss.Id);
         await _db.RecordWorldBossDamage(boss.Id, "big", 900, 40, "Big");
         (await _db.RefreshWorldBossFocus(boss.Id, 60, 2)).Should().Be("big");
+    }
+
+    [Fact]
+    public async Task AChallengeHold_DropsWhenTheChallengerLeaves_AndTheExitSeqIsTheRowsOwn()
+    {
+        var boss = await Spawn();
+        var hero = Hero("Decoy", 40, 5000);
+        // Challenge, then a telegraph issues during think time, then retreat: the exit seq is the row's, not the cached round's
+        (await _db.IssueWorldBossTelegraph(boss.Id, "Tidal Surge", 1, 60, 0)).Should().BeTrue();
+        AgeLanding(boss.Id); await Upkeep(await Row(boss.Id), 1);
+        Sql("UPDATE world_bosses SET telegraph_lands_at = datetime('now', '-100 seconds') WHERE id = @id;", boss.Id);
+        var output = new MemoryStream();
+        var input = new IssueOnReadStream("F\nR\n\n", () => _db.IssueWorldBossTelegraph(boss.Id, "Frost Bolt", 2, 60, 0).GetAwaiter().GetResult());
+        var term = new TerminalEmulator(input, output);
+        var m = typeof(WorldBossSystem).GetMethod("RunWorldBossCombat", F)!;
+        await (Task)m.Invoke(_sys, new object[] { hero, term, _db, boss })!;
+        term.StreamWriterInternal!.Flush();
+        var text = Ansi.Replace(Encoding.UTF8.GetString(output.ToArray()), "");
+        text.Should().Contain(Loc.Get("world_boss.you_challenge", "The Abyssal Leviathan"));
+        var r = await Row(boss.Id);
+        r.FocusPlayer.Should().Be("decoy", "focus stays until the tick re-picks");
+        r.FocusUntil.Should().BeNull("the hold is dropped with the retreat");
+        (await _db.TryChallengeWorldBoss(boss.Id, "other", 60)).Should().BeTrue("nobody holds it");
+        _db.GetWorldBossPlayerTelegraphState(boss.Id, "decoy").EngagedUntilSeq.Should().Be(2, "Frost Bolt issued while Decoy was at the prompt still lands on them");
+    }
+
+    /// <summary>A scripted stream that runs a callback on the second read (between the first and second prompts).</summary>
+    private sealed class IssueOnReadStream : Stream
+    {
+        private readonly byte[] _data; private int _pos; private int _reads; private readonly Action _onSecondRead;
+        public IssueOnReadStream(string script, Action onSecondRead) { _data = Encoding.UTF8.GetBytes(script); _onSecondRead = onSecondRead; }
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            if (++_reads == 2) _onSecondRead();
+            if (_pos >= _data.Length) return 0;
+            int nl = Array.IndexOf(_data, (byte)'\n', _pos);
+            int n = Math.Min(count, (nl < 0 ? _data.Length : nl + 1) - _pos); Array.Copy(_data, _pos, buffer, offset, n); _pos += n; return n;
+        }
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken ct) => Task.FromResult(Read(buffer, offset, count));
+        public override bool CanRead => true; public override bool CanSeek => false; public override bool CanWrite => false;
+        public override long Length => _data.Length; public override long Position { get => _pos; set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override long Seek(long o, SeekOrigin s) => throw new NotSupportedException();
+        public override void SetLength(long v) => throw new NotSupportedException();
+        public override void Write(byte[] b, int o, int c) => throw new NotSupportedException();
     }
 
     [Fact]

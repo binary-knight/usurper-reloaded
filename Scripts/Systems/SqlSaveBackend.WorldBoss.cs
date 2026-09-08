@@ -262,7 +262,12 @@ namespace UsurperRemake.Systems
         }
 
         /// <summary>One session ended: counts and the re-entry cooldown on the player's own row.</summary>
-        public async Task RecordWorldBossSession(int bossId, string playerName, int playerLevel, int rounds, bool fell, int cooldownSeconds, string displayName = "", long exitSeq = 0)
+        /// <summary>
+        /// Session end: counts, the re-entry cooldown, engaged cleared, the telegraph live or last on the
+        /// boss row at this moment as engaged_until_seq (read here, not from the session's cached round),
+        /// and a Challenge hold this player held is dropped.
+        /// </summary>
+        public async Task RecordWorldBossSession(int bossId, string playerName, int playerLevel, int rounds, bool fell, int cooldownSeconds, string displayName = "")
         {
             try
             {
@@ -270,10 +275,11 @@ namespace UsurperRemake.Systems
                 using var cmd = connection.CreateCommand();
                 // last_hit_at is NULL here on purpose: a session without a hit is not "engaged"
                 cmd.CommandText = @"INSERT INTO world_boss_damage (boss_id, player_name, damage_dealt, hits, player_level, sessions, rounds, deaths, cooldown_until, last_hit_at, display_name, engaged_until_seq)
-                                    VALUES (@bossId, LOWER(@player), 0, 0, @level, 1, @rounds, @deaths, datetime('now', '+' || @secs || ' seconds'), NULL, @display, @exit)
+                                    VALUES (@bossId, LOWER(@player), 0, 0, @level, 1, @rounds, @deaths, datetime('now', '+' || @secs || ' seconds'), NULL, @display,
+                                            (SELECT COALESCE(telegraph_seq, 0) FROM world_bosses WHERE id = @bossId))
                                     ON CONFLICT(boss_id, player_name) DO UPDATE SET
                                         sessions = COALESCE(sessions, 0) + 1,
-                                        engaged_until_seq = @exit,
+                                        engaged_until_seq = (SELECT COALESCE(telegraph_seq, 0) FROM world_bosses WHERE id = @bossId),
                                         last_hit_at = NULL,
                                         display_name = CASE WHEN @display <> '' THEN @display ELSE display_name END,
                                         rounds = COALESCE(rounds, 0) + @rounds,
@@ -286,9 +292,13 @@ namespace UsurperRemake.Systems
                 cmd.Parameters.AddWithValue("@rounds", rounds);
                 cmd.Parameters.AddWithValue("@deaths", fell ? 1 : 0);
                 cmd.Parameters.AddWithValue("@secs", cooldownSeconds);
-                cmd.Parameters.AddWithValue("@exit", exitSeq);
                 cmd.Parameters.AddWithValue("@display", displayName ?? "");
                 await cmd.ExecuteNonQueryAsync();
+                using var drop = connection.CreateCommand();
+                drop.CommandText = "UPDATE world_bosses SET focus_until = NULL WHERE id = @bossId AND focus_player = LOWER(@player);";
+                drop.Parameters.AddWithValue("@bossId", bossId);
+                drop.Parameters.AddWithValue("@player", playerName);
+                await drop.ExecuteNonQueryAsync();
             }
             catch (Exception ex) { DebugLogger.Instance.LogError("SQL", $"Failed to record world boss session: {ex.Message}"); }
         }
@@ -527,6 +537,43 @@ namespace UsurperRemake.Systems
               WHERE id = @id AND status = 'active' AND telegraph_seq = @seq AND COALESCE(last_resolved_seq, 0) < @seq
                 AND COALESCE(interrupts_done, 0) < COALESCE(interrupts_needed, 0) AND telegraph_lands_at > datetime('now');",
             ("@id", bossId), ("@seq", seq));
+
+        /// <summary>
+        /// A player's Interrupt as one transaction: the shared counter (guarded on seq, unresolved,
+        /// short of its need, not yet landed) and the player's own answer (guarded on seq), both or
+        /// neither. So a player is never counted twice, and never counted without their mark.
+        /// </summary>
+        public async Task<bool> InterruptWorldBoss(int bossId, long seq, string playerName)
+        {
+            try
+            {
+                using var connection = OpenConnection();
+                using var transaction = connection.BeginTransaction();
+                using (var counter = connection.CreateCommand())
+                {
+                    counter.Transaction = transaction;
+                    counter.CommandText = @"UPDATE world_bosses SET interrupts_done = COALESCE(interrupts_done, 0) + 1
+                        WHERE id = @id AND status = 'active' AND telegraph_seq = @seq AND COALESCE(last_resolved_seq, 0) < @seq
+                          AND COALESCE(interrupts_done, 0) < COALESCE(interrupts_needed, 0) AND telegraph_lands_at > datetime('now');";
+                    counter.Parameters.AddWithValue("@id", bossId);
+                    counter.Parameters.AddWithValue("@seq", seq);
+                    if (counter.ExecuteNonQuery() == 0) { transaction.Rollback(); return false; }
+                }
+                using (var mark = connection.CreateCommand())
+                {
+                    mark.Transaction = transaction;
+                    mark.CommandText = @"UPDATE world_boss_damage SET answered_seq = @seq, answer_kind = 'interrupt', answers = COALESCE(answers, 0) + 1, last_hit_at = datetime('now')
+                        WHERE boss_id = @id AND player_name = LOWER(@player) AND COALESCE(answered_seq, 0) < @seq;";
+                    mark.Parameters.AddWithValue("@id", bossId);
+                    mark.Parameters.AddWithValue("@seq", seq);
+                    mark.Parameters.AddWithValue("@player", playerName);
+                    if (mark.ExecuteNonQuery() == 0) { transaction.Rollback(); return false; }
+                }
+                transaction.Commit();
+                return true;
+            }
+            catch (Exception ex) { DebugLogger.Instance.LogError("SQL", $"Interrupt failed: {ex.Message}"); return false; }
+        }
 
         /// <summary>The player's answer on their own row, once per seq; survives a retreat.</summary>
         public Task<bool> RecordWorldBossAnswer(int bossId, string playerName, long seq, string kind) => GuardedWorldBossUpdate(

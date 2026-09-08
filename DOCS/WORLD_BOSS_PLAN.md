@@ -304,6 +304,26 @@ touches dungeon monsters or shops in a patch.
   evening's door. Entering and answering count as engaged (`last_hit_at`),
   so a player who only braces is on the roster and in the interrupt need;
   leaving clears it, so a player who retreated is not.
+- Which bosses channel when (strikes/channels per phase, cycles cumulative):
+  Leviathan 2/0, 1/1, 1/1; Void Colossus 2/0, 1/1, 1/1; Malachar 2/0, 1/1,
+  1/1; Crimson Wyrm 1/1, 1/1, 1/1; Vareth 1/1, 1/1, 1/1; Iron Titan 1/1, 1/1,
+  1/1; Nidhogg 2/0, 1/1, 2/0; Nameless Horror 2/0, 2/0, 0/2. Every boss keeps
+  a strike in phase 1, so Brace never disappears; every boss has a channel by
+  phase 2 except the Nameless Horror, whose first channels (Cosmic Horror,
+  Devour Reality) come under 30 percent.
+- The seq a player "left in" is read from the boss row at session end, not
+  from the session's last round, so a telegraph issued while they sat at the
+  prompt and then retreated still follows them.
+- Interrupt is one transaction: the shared counter and the player's mark,
+  both or neither, so nobody counts twice and nobody counts unmarked.
+- A retreat drops a Challenge hold the retreating player held, so a
+  challenge-and-retreat cannot keep everyone else at half damage.
+- An interrupter is halved on a channel that still lands, the same as a
+  bracer: the answer cost the round either way.
+- Resolve and its event are two writes; a crash between them loses that
+  landing and its heal (the lenient direction).
+- Focus is empty until the first sixty-second refresh, so with two or more
+  fighting everyone is off-focus at half damage for the first minute.
 - Resolved telegraphs are remembered in `world_boss_events` (kind
   `telegraph_resolved`, the seq, and `id|kind|outcome|done/needed|engaged`);
   the loop reads outcomes back from there. No new table.

@@ -913,7 +913,6 @@ namespace UsurperRemake.Systems
             var carried = backend.GetResolvedWorldBossTelegraphs(boss.Id, before.LastResolvedSeq)
                 .Where(t => t.Seq >= before.EngagedSinceSeq && t.Seq <= before.EngagedUntilSeq && t.Seq <= atEntry.LastResolvedSeq).ToList();
             await backend.EnsureWorldBossPlayerRow(boss.Id, playerKey, player.Level, player.DisplayName, entrySeq);
-            state.LastSeenSeq = atEntry.TelegraphSeq;
 
             // Reset transient combat buffs so leftover buffs from a previous fight (dungeon, etc.)
             // don't carry into the world boss, and so ability/spell buffs applied this fight start clean.
@@ -988,7 +987,6 @@ namespace UsurperRemake.Systems
                 }
 
                 // ─── v1.1.5: what landed since this player's last round (once per seq, by the row) ───
-                state.LastSeenSeq = currentBoss.TelegraphSeq;
                 foreach (var landed in carried) ApplyLandedTelegraph(landed, before, bossDef, player, terminal, rng);
                 carried.Clear();
                 var mine = backend.GetWorldBossPlayerTelegraphState(currentBoss.Id, playerKey);
@@ -1183,7 +1181,7 @@ namespace UsurperRemake.Systems
 
             // v1.1.4: the session on the player's row: counts and the re-entry cooldown
             int cooldownSeconds = state.Killed ? 0 : state.Died ? GameConfig.WorldBossFallCooldownSeconds : GameConfig.WorldBossRetreatCooldownSeconds;
-            await backend.RecordWorldBossSession(boss.Id, playerKey, player.Level, state.Round, state.Died, cooldownSeconds, player.DisplayName, state.LastSeenSeq);
+            await backend.RecordWorldBossSession(boss.Id, playerKey, player.Level, state.Round, state.Died, cooldownSeconds, player.DisplayName);
             backend.LogWorldBossEvent(boss.Id, "session_end", playerKey,
                 $"reason={(state.Killed ? "kill" : state.Died ? "fall" : state.Retreated ? "retreat" : "rest")} rounds={state.Round} damage={state.SessionDamage} level={player.Level} r={state.Ratio:F2}");
 
@@ -1301,9 +1299,8 @@ namespace UsurperRemake.Systems
         }
 
         /// <summary>
-        /// v1.1.5: Brace, Interrupt, Challenge. Each costs the round. Interrupt increments the shared
-        /// counter first (guarded on seq, need, and landing time), then marks the player's row, so a
-        /// crash between the two undercounts the player, never the channel.
+        /// v1.1.5: Brace, Interrupt, Challenge. Each costs the round. Interrupt is one transaction on
+        /// the shared counter and the player's row (both or neither), so nobody counts twice.
         /// </summary>
         private async Task ProcessAnswer(string input, Character player, TerminalEmulator terminal, SqlSaveBackend backend,
             WorldBossInfo boss, WorldBossAbility? live, WorldBossDefinition bossDef, string playerKey, WorldBossPlayerTelegraphState mine)
@@ -1348,9 +1345,8 @@ namespace UsurperRemake.Systems
                     terminal.WriteLine($"  {Loc.Get("world_boss.nothing_to_interrupt", name)}");
                     return;
                 }
-                if (await backend.TryInterruptWorldBoss(boss.Id, boss.TelegraphSeq))
+                if (await backend.InterruptWorldBoss(boss.Id, boss.TelegraphSeq, playerKey))
                 {
-                    await backend.RecordWorldBossAnswer(boss.Id, playerKey, boss.TelegraphSeq, "interrupt");
                     var latest = await backend.GetWorldBossById(boss.Id);
                     int done = latest?.InterruptsDone ?? boss.InterruptsDone + 1, needed = latest?.InterruptsNeeded ?? boss.InterruptsNeeded;
                     terminal.SetColor("bright_cyan");
@@ -2062,8 +2058,6 @@ namespace UsurperRemake.Systems
         public long RoundCap { get; set; } = long.MaxValue;
         public int BossId { get; set; }
         public long BossMaxHP { get; set; }
-        // v1.1.5: the telegraph seq this session last saw; written to the row at exit
-        public long LastSeenSeq { get; set; }
     }
 
     public class WorldBossRuntimeData

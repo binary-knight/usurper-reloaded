@@ -63,7 +63,7 @@ the fight, the boss's currency and vendor (1.2), the trophy (1.3).
 
 ## Tests
 
-1,149 passing, up from 1,134. `WorldBossTelegraphTests` drives the tick and
+1,150 passing, up from 1,134. `WorldBossTelegraphTests` drives the tick and
 the fight against a real database: the tick issues from the cycle only while
 someone is engaged and never over a live telegraph, resolves a landing once,
 breaks a channel that met its need and staggers the boss, heals the pool once;
