@@ -1163,7 +1163,8 @@ public class WeaponShopLocation : BaseLocation
         WriteSectionHeader(Loc.Get("weapon_shop.reforge_title"), "bright_magenta");
         terminal.WriteLine("");
 
-        var weapon = currentPlayer.GetEquipment(EquipmentSlot.MainHand);
+        // issue #112: reforge the player's own copy, never the shop's shared template
+        var weapon = currentPlayer.EnsureOwnEquipmentCopy(EquipmentSlot.MainHand);
         if (weapon == null)
         {
             terminal.WriteLine(Loc.Get("weapon_shop.reforge_no_weapon"), "red");

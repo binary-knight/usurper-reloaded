@@ -6,6 +6,8 @@ namespace UsurperReborn.Tests;
 /// <summary>
 /// Unit tests for GameConfig constants and configuration
 /// </summary>
+// issue #131: sets the static GameConfig.Language; never beside another class that reads it
+[Collection("SharedGameSingletons")]
 public class GameConfigTests
 {
     [Fact]

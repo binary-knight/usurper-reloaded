@@ -106,6 +106,8 @@ public static class EquipmentDatabase
 
     // Dynamic equipment starts at high ID to avoid conflicts
     private const int DynamicEquipmentStart = 100000;
+    /// <summary>A per-copy item (loot, a registered clone); anything below is a shared template.</summary>
+    public static bool IsDynamic(int id) => id >= DynamicEquipmentStart;
     private static int _nextDynamicId = DynamicEquipmentStart;
     private static readonly object _lock = new object();
 

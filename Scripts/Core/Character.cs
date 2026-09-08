@@ -1552,6 +1552,26 @@ public class Character
     }
 
     /// <summary>
+    /// issue #112: the equipped item in a slot as this character's own copy. A weapon bought at the
+    /// shop and equipped at the counter carries the shop's shared template ID; anything that
+    /// rewrites its stats (the reforge) would rewrite the template for every player in the process
+    /// and be lost on restart, because template IDs are never saved as dynamic equipment. This
+    /// clones the template into a dynamic copy and re-points the slot, once. Loot already has its
+    /// own copy and is returned as is.
+    /// </summary>
+    public Equipment? EnsureOwnEquipmentCopy(EquipmentSlot slot)
+    {
+        if (!EquippedItems.TryGetValue(slot, out var id) || id <= 0) return null;
+        var current = EquipmentDatabase.GetById(id);
+        if (current == null) return null;
+        if (EquipmentDatabase.IsDynamic(id)) return current;
+        var copy = current.Clone();
+        EquipmentDatabase.RegisterDynamic(copy);
+        EquippedItems[slot] = copy.Id;
+        return copy;
+    }
+
+    /// <summary>
     /// Unequip item from a specific slot
     /// </summary>
     public Equipment? UnequipSlot(EquipmentSlot slot)
