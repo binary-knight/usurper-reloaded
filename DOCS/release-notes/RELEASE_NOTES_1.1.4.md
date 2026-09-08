@@ -10,8 +10,8 @@ shared interrupts, a boss that focuses whoever is hurting it), is 1.1.5.
 
 ## Why
 
-A player asked why nobody fought the world boss. The code review answered
-plainly: nobody could. Spawn HP carried the global 2.25 difficulty scale on
+The world boss fights were, in the maintainer's words, pretty hokey, and
+nobody fought them. The code review answered why: nobody could. Spawn HP carried the global 2.25 difficulty scale on
 top of the base, so the smallest boss with two players online was 462
 thousand HP; a level-40 Warrior died in ten to fourteen rounds to the
 unavoidable aura, potions cost the round, and the one-session lock meant

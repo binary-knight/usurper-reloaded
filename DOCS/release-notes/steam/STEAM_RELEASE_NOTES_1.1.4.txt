@@ -1,6 +1,6 @@
 [h1]Usurper Reborn 1.1.4 - At the Gates[/h1]
 
-Somebody asked why nobody fights the world boss. The honest answer was that nobody could. The numbers had the smallest boss at nearly half a million hit points, the aura killed a level 40 in a dozen rounds, and you got one session per boss. Three players together took off a few percent. So this release is the first half of a proper redo: the boss shows up on a schedule you can see, it can be killed by the people who turn up, and it pays them for it. The fight itself, with attacks you can read and answer, is the next release.
+I have thought the world boss fights were hokey for a while, and nobody was fighting them. When I finally sat down with the numbers, the honest answer was that nobody could. The numbers had the smallest boss at nearly half a million hit points, the aura killed a level 40 in a dozen rounds, and you got one session per boss. Three players together took off a few percent. So this release is the first half of a proper redo: the boss shows up on a schedule you can see, it can be killed by the people who turn up, and it pays them for it. The fight itself, with attacks you can read and answer, is the next release.
 
 [h2]It comes every evening[/h2]
 
