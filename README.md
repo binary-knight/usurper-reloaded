@@ -340,6 +340,7 @@ Join Discord for discussions, feedback, and updates: **https://discord.gg/EZhwgD
 - BBS FOSSIL mode not natively supported (use `--stdio` flag for FOSSIL-based BBSes via host pipe).
 - Steam features only work when the game is launched through the Steam client.
 - The Electron graphical client is optional and still incomplete; the terminal client is the supported way to play.
+- The Electron client has no party menu: ally stances and the shared potion belt are set from the terminal client.
 - World news feed entries are stored pre-rendered in English. Interface, dialogue, and gameplay text are fully localized in all five languages; the news feed is not yet.
 - Auto-updater for Linux x64 BBS deployments doesn't currently apply the update (under investigation).
 

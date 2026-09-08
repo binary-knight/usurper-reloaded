@@ -86,7 +86,9 @@ its behaviour because of its stance it says so once per fight ("hangs back",
 The downed state with rescue, withdrawal from a fight, the "wait here" order,
 and the finite field dressing after fights are designed in the plan and held
 for the next release, together, because they change what death means and
-belong in one piece.
+belong in one piece. The Electron client has no party menu, so stances and
+the belt toggle are set from the terminal client; the behaviour itself applies
+everywhere.
 
 ## Tests
 

@@ -35,6 +35,6 @@ Someone told me their companion took nine of ten hits in a fight. That is the ta
 [*]Going down a floor with an ally eleven or more levels below you warns you and offers to set them Cautious. Nothing changes without asking.
 [/list]
 
-The downed state, where a fallen ally can be rescued instead of dying, is designed and is the next release. It changes what death means, so it gets its own.
+The downed state, where a fallen ally can be rescued instead of dying, is designed and is the next release. It changes what death means, so it gets its own. Stances and the belt toggle live in the terminal client's party menu; the desktop client has no party menu yet.
 
 If something here feels wrong at the table, /bug in game with what you were doing.
