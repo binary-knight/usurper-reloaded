@@ -133,3 +133,38 @@ public class TeammateDefensePriorityTests
         return dir?.FullName ?? throw new System.IO.DirectoryNotFoundException("repo root");
     }
 }
+
+[Collection("SharedGameSingletons")]
+public class TeammateTauntVersusShieldTests
+{
+    /// <summary>A wounded tank with a shield and a taunt both affordable, and no monster taunted,
+    /// must pick the shield: the taunt block may not overwrite the low-health choice.</summary>
+    [Fact]
+    public async System.Threading.Tasks.Task WoundedTank_PicksTheShield_NotTheTaunt()
+    {
+        var owner = new Character { Name2 = "Hero", Class = CharacterClass.Warrior, Race = CharacterRace.Human, Level = 20, HP = 300, MaxHP = 300 };
+        var tank = new Character
+        {
+            Name2 = "Aldric", Class = CharacterClass.Paladin, Race = CharacterRace.Human, Level = 20,
+            HP = 30, MaxHP = 100, CurrentCombatStamina = 100, Mana = 0, MaxMana = 0,
+        };
+        tank.EquippedItems[EquipmentSlot.OffHand] = EquipmentDatabase.GetShields().First().Id; // Shield Wall and Aura of Protection require a shield
+        var term = new TerminalEmulator(new System.IO.MemoryStream(), new System.IO.MemoryStream());
+        var engine = new CombatEngine(term);
+        var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+        typeof(CombatEngine).GetField("_combatOwner", flags)!.SetValue(engine, owner);
+        typeof(CombatEngine).GetField("currentPlayer", flags)!.SetValue(engine, owner);
+        typeof(CombatEngine).GetField("currentTeammates", flags)!.SetValue(engine, new List<Character> { tank });
+        var monsters = new List<Monster> { new Monster { Name = "Ogre", Level = 15, HP = 400, MaxHP = 400, Strength = 30 } };
+        var result = new CombatResult { Player = owner, Monsters = monsters, Teammates = new List<Character> { tank }, CombatLog = new List<string>() };
+
+        var method = typeof(CombatEngine).GetMethod("TryTeammateClassAbility", flags)!;
+        bool used = await (System.Threading.Tasks.Task<bool>)method.Invoke(engine, new object[] { tank, monsters, result })!;
+        used.Should().BeTrue("a level-20 Paladin at 30 percent has shields and a taunt affordable");
+
+        var cooldowns = (Dictionary<string, Dictionary<string, int>>)typeof(CombatEngine).GetField("teammateCooldowns", flags)!.GetValue(engine)!;
+        var mine = cooldowns.Values.Single();
+        mine.Keys.Should().Contain(k => k == "aura_of_protection" || k == "shield_wall", "the shield was used");
+        mine.Keys.Should().NotContain("thundering_roar", "a taunt draws more hits onto a teammate who is already at 30 percent");
+    }
+}

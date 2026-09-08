@@ -18812,7 +18812,7 @@ public partial class CombatEngine
                 // Prefer AoE taunt (Thundering Roar), then single taunt
                 var tauntAbility = affordableAbilities.FirstOrDefault(a => a.SpecialEffect == "aoe_taunt")
                     ?? affordableAbilities.FirstOrDefault(a => a.SpecialEffect == "taunt");
-                if (tauntAbility != null)
+                if (tauntAbility != null && chosenAbility == null) // v1.2: never over a wounded teammate's shield
                     chosenAbility = tauntAbility;
             }
         }
