@@ -1,0 +1,18 @@
+# Smoke test for the two seats: npm run ping. Seconds, not minutes.
+description: council seats answer
+prompts:
+  - "Reply with exactly the word PONG and nothing else."
+providers:
+  - id: file://providers/codex.js
+    label: codex
+    config:
+      model: gpt-6-astra
+      effort: low
+  - id: file://providers/claude.js
+    label: claude
+tests:
+  - vars:
+      name: ping
+    assert:
+      - type: icontains
+        value: PONG
