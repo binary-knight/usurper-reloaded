@@ -1,0 +1,33 @@
+[h1]Usurper Reborn 1.1.4 - At the Gates[/h1]
+
+Somebody asked why nobody fights the world boss. The honest answer was that nobody could. The numbers had the smallest boss at nearly half a million hit points, the aura killed a level 40 in a dozen rounds, and you got one session per boss. Three players together took off a few percent. So this release is the first half of a proper redo: the boss shows up on a schedule you can see, it can be killed by the people who turn up, and it pays them for it. The fight itself, with attacks you can read and answer, is the next release.
+
+[h2]It comes every evening[/h2]
+
+[list]
+[*]8 PM Eastern, every day, whether anyone is online or not. The town screen counts down and names it. Everyone who played in the last week gets a mail, the news and Discord carry it, and there is a call one hour before.
+[*]It is picked to suit the people actually playing: never more than ten levels above the median of the last week.
+[*]Three-hour window. If it survives, it withdraws with its wounds and comes back the next evening a little healed, for up to three nights. Then it leaves, and the news names everyone who stood.
+[/list]
+
+[h2]It can be killed[/h2]
+
+[list]
+[*]Its health is a budget: three fighters' worth of a window at its level. Nobody logging into town makes it harder.
+[*]It meets you at your level. Below its level, you fight it as if it were yours and your blows count in full. A level 15 lands the same wound as a level 80 who fights equally well. Per-round blows are capped so no single caster carries the whole raid.
+[*]No lock, no aura. Retreat, fall, or rest at fifty rounds and come back after a short cooldown. A fall still does not kill you. The boss acts once a round, twice at the end, and nothing takes more than thirty percent of your health in one hit.
+[*]Leave it alone for ten minutes and it starts to heal, so it dies to people fighting it, not to a slow chip across days.
+[/list]
+
+[h2]It pays[/h2]
+
+[list]
+[*]Rewards by how much of the budget you delivered, at your own level: about an hour in the dungeon for a full contributor, capped at half a level, plus gold, plus a bonus for every other person who fought. Items by contribution, not rank, rolled at your level; the MVP of a real crowd gets Legendary.
+[*]A boss that withdraws pays a quarter share for the night.
+[*]Rewards are settled into a ledger and handed to you by your own session at login or at /boss, once, with the statistics and achievements offline players used to be denied.
+[*]When a boss dies, everyone gets ten percent more experience for a day.
+[/list]
+
+Also fixed: "regenerates" now actually heals the boss, boss-slayer gear only counts when equipped, and the boss screen no longer claims bosses last one hour.
+
+If something here feels wrong at the table, /bug in game with what you were doing.
