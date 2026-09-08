@@ -10503,6 +10503,11 @@ public class DungeonLocation : BaseLocation
                     terminal.SetColor("cyan");
                     terminal.Write($"  {Loc.Get("dungeon.mp_label")}:{tm.Mana}/{tm.MaxMana}");
                 }
+                if (TeammateStances.TakesOrders(tm))
+                {
+                    terminal.SetColor("gray");
+                    terminal.Write($"  {Loc.Get("dungeon.stance_label", Loc.Get(TeammateStances.NameKey(TeammateStances.Get(GetCurrentPlayer(), tm))))}");
+                }
                 terminal.WriteLine("");
 
                 // Show equipped weapon and body armor on one line
@@ -10528,7 +10533,7 @@ public class DungeonLocation : BaseLocation
 
             terminal.WriteLine("");
             terminal.SetColor("cyan");
-            terminal.WriteLine($"  [#] {Loc.Get("dungeon.view_equip_member")}  [S] {Loc.Get("dungeon.skills_member_option")}  [I] {Loc.Get("party_inv.menu_dungeon")}  [Q] {Loc.Get("dungeon.back")}");
+            terminal.WriteLine($"  [#] {Loc.Get("dungeon.view_equip_member")}  [S] {Loc.Get("dungeon.skills_member_option")}  [T] {Loc.Get("dungeon.tactics_member_option")}  [I] {Loc.Get("party_inv.menu_dungeon")}  [Q] {Loc.Get("dungeon.back")}");
             terminal.WriteLine("");
             terminal.SetColor("cyan");
             terminal.Write(Loc.Get("ui.choice"));
@@ -10548,6 +10553,11 @@ public class DungeonLocation : BaseLocation
             if (choice == "S")
             {
                 await PromptManageTeammateSkills();
+                continue;
+            }
+            if (choice == "T")
+            {
+                await PromptManageTeammateStance(); // v1.1.3
                 continue;
             }
 
@@ -10589,6 +10599,60 @@ public class DungeonLocation : BaseLocation
     /// spouses, and echoes (edits the player's per-teammate toggles). Grouped live players
     /// are excluded -- they control their own skills.
     /// </summary>
+    /// <summary>v1.1.3 (council ruling 1): pick a party member and set their tactics.</summary>
+    private async Task PromptManageTeammateStance()
+    {
+        var owner = GetCurrentPlayer();
+        var eligible = teammates.Where(t => t != null && TeammateStances.TakesOrders(t)).ToList();
+        if (eligible.Count == 0)
+        {
+            terminal.SetColor("yellow");
+            terminal.WriteLine(Loc.Get("dungeon.skills_no_members"));
+            await Task.Delay(1500);
+            return;
+        }
+        terminal.ClearScreen();
+        WriteBoxHeader(Loc.Get("dungeon.tactics_pick_header"), "bright_cyan", 51);
+        terminal.WriteLine("");
+        for (int i = 0; i < eligible.Count; i++)
+        {
+            var t = eligible[i];
+            terminal.SetColor("bright_yellow"); terminal.Write($"  [{i + 1}] ");
+            terminal.SetColor("white");
+            terminal.WriteLine($"{t.DisplayName} - {Loc.Get(TeammateStances.NameKey(TeammateStances.Get(owner, t)))}");
+        }
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        var input = (await terminal.GetInput(Loc.Get("ui.choice"))).Trim();
+        if (!int.TryParse(input, out int idx) || idx < 1 || idx > eligible.Count) return;
+        var member = eligible[idx - 1];
+        var chosen = await PromptStanceChoice(member.DisplayName);
+        if (chosen == null) return;
+        TeammateStances.Set(owner, TeammateStances.KeyFor(member), chosen.Value);
+        terminal.SetColor("bright_green");
+        terminal.WriteLine(Loc.Get("dungeon.stance_set", member.DisplayName, Loc.Get(TeammateStances.NameKey(chosen.Value))));
+        try { await SaveSystem.Instance.AutoSave(owner); } catch { /* best-effort */ }
+        await Task.Delay(1200);
+    }
+
+    /// <summary>The three presets with one line each; null when the player backs out.</summary>
+    internal async Task<TeammateStance?> PromptStanceChoice(string memberName)
+    {
+        terminal.WriteLine("");
+        terminal.SetColor("white");
+        terminal.WriteLine(Loc.Get("dungeon.stance_prompt", memberName));
+        foreach (var (key, stance) in new[] { ("1", TeammateStance.Aggressive), ("2", TeammateStance.Balanced), ("3", TeammateStance.Cautious) })
+        {
+            terminal.SetColor("bright_yellow"); terminal.Write($"  [{key}] ");
+            terminal.SetColor("white"); terminal.Write(Loc.Get(TeammateStances.NameKey(stance)));
+            terminal.SetColor("gray"); terminal.WriteLine($"  {Loc.Get(TeammateStances.NameKey(stance) + ".desc")}");
+        }
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        var pick = (await terminal.GetInput(Loc.Get("ui.choice"))).Trim();
+        return pick switch { "1" => TeammateStance.Aggressive, "2" => TeammateStance.Balanced, "3" => TeammateStance.Cautious, _ => null };
+    }
+
     private async Task PromptManageTeammateSkills()
     {
         // Grouped LIVE players control their own skills; non-companions need a stable

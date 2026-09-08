@@ -2881,6 +2881,38 @@ public class InnLocation : BaseLocation
     /// <summary>
     /// Manage your recruited companions
     /// </summary>
+    /// <summary>v1.1.3 (council ruling 1): set a recruited companion's tactics from the Inn.</summary>
+    private async Task SetCompanionTactics(List<Companion> companions)
+    {
+        terminal.WriteLine("");
+        for (int i = 0; i < companions.Count; i++)
+        {
+            var stance = currentPlayer.TeammateStances.TryGetValue(TeammateStances.KeyForCompanion(companions[i].Id), out int raw) && Enum.IsDefined(typeof(TeammateStance), raw)
+                ? (TeammateStance)raw : TeammateStance.Balanced;
+            terminal.SetColor("bright_yellow"); terminal.Write($"  [{i + 1}] ");
+            terminal.SetColor("white"); terminal.WriteLine($"{companions[i].Name} - {Loc.Get(TeammateStances.NameKey(stance))}");
+        }
+        terminal.WriteLine("");
+        var input = (await terminal.GetInput(Loc.Get("ui.choice"))).Trim();
+        if (!int.TryParse(input, out int idx) || idx < 1 || idx > companions.Count) return;
+        var c = companions[idx - 1];
+        terminal.WriteLine("");
+        terminal.WriteLine(Loc.Get("dungeon.stance_prompt", c.Name), "white");
+        foreach (var (key, stance) in new[] { ("1", TeammateStance.Aggressive), ("2", TeammateStance.Balanced), ("3", TeammateStance.Cautious) })
+        {
+            terminal.SetColor("bright_yellow"); terminal.Write($"  [{key}] ");
+            terminal.SetColor("white"); terminal.Write(Loc.Get(TeammateStances.NameKey(stance)));
+            terminal.SetColor("gray"); terminal.WriteLine($"  {Loc.Get(TeammateStances.NameKey(stance) + ".desc")}");
+        }
+        var pick = (await terminal.GetInput(Loc.Get("ui.choice"))).Trim();
+        TeammateStance? chosen = pick switch { "1" => TeammateStance.Aggressive, "2" => TeammateStance.Balanced, "3" => TeammateStance.Cautious, _ => null };
+        if (chosen == null) return;
+        TeammateStances.Set(currentPlayer, TeammateStances.KeyForCompanion(c.Id), chosen.Value);
+        terminal.WriteLine(Loc.Get("dungeon.stance_set", c.Name, Loc.Get(TeammateStances.NameKey(chosen.Value))), "bright_green");
+        try { await SaveSystem.Instance.AutoSave(currentPlayer); } catch { /* best-effort */ }
+        await Task.Delay(1200);
+    }
+
     private async Task ManageParty()
     {
         var allCompanions = CompanionSystem.Instance.GetAllCompanions()
@@ -2985,6 +3017,10 @@ public class InnLocation : BaseLocation
             terminal.SetColor("cyan");
             terminal.WriteLine($" {Loc.Get("inn.switch_companions")}");
             terminal.SetColor("bright_yellow");
+            terminal.Write("  [T]");
+            terminal.SetColor("cyan");
+            terminal.WriteLine($" {Loc.Get("inn.tactics_option")}");
+            terminal.SetColor("bright_yellow");
             terminal.Write("  [0]");
             terminal.SetColor("yellow");
             terminal.WriteLine(Loc.Get("inn.return_to_bar"));
@@ -2998,6 +3034,11 @@ public class InnLocation : BaseLocation
             if (choice.ToUpper() == "S")
             {
                 await SwitchActiveCompanions(allCompanions);
+                continue;
+            }
+            if (choice.ToUpper() == "T")
+            {
+                await SetCompanionTactics(allCompanions); // v1.1.3
                 continue;
             }
 

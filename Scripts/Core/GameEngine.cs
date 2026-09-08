@@ -5412,6 +5412,7 @@ public partial class GameEngine
             // Noble Title
             NobleTitle = playerData.NobleTitle,
             FamilySurname = playerData.FamilySurname ?? "", // v0.65.1 marriage surname
+            TeammateStances = playerData.TeammateStances ?? new(), // v1.1.3
             TeammateDisabledAbilities = playerData.TeammateDisabledAbilities ?? new(), // v0.65.1 team skill toggles
             TeammateDisabledSpells = playerData.TeammateDisabledSpells ?? new(),
             // Migration: pre-0.54.6 saves stored IsKnighted as a computed property.

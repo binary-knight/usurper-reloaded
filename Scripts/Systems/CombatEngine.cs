@@ -68,14 +68,30 @@ public partial class CombatEngine
 
     internal static bool IsWoundedForDefense(Character c) =>
         c.MaxHP > 0 && (double)c.HP / c.MaxHP < GameConfig.TeammateDefensivePriorityHpPercent;
+    internal bool IsWoundedForDefense(Character c, TeammatePolicy policy) =>
+        c.MaxHP > 0 && (double)c.HP / c.MaxHP < policy.DefensiveFirst;
 
     /// <summary>v1.2: a teammate below TeammateDefendHpPercent with no heal or defensive ability
     /// left braces for the round (half incoming damage) instead of swinging. Cleared at round end
     /// like the player's Defend.</summary>
+    /// <summary>v1.1.3: the acting policy for a teammate, from the combat owner's stance map.</summary>
+    internal TeammatePolicy PolicyFor(Character teammate) =>
+        TeammateStances.PolicyFor(TeammateStances.Get(_combatOwner ?? currentPlayer, teammate));
+
+    // v1.1.3: say-why lines print on a change of behaviour, once per fight per teammate
+    private readonly HashSet<string> _saidWhy = new();
+    private bool SayWhyOnce(Character teammate, string what)
+    {
+        if (!_saidWhy.Add(TeammateStances.KeyFor(teammate) + "|" + what)) return false;
+        terminal.SetColor("gray");
+        terminal.WriteLine($"  {Loc.Get(what, teammate.DisplayName)}");
+        return true;
+    }
+
     internal bool TryTeammateDefend(Character teammate)
     {
         if (teammate.IsDefending || teammate.MaxHP <= 0) return false;
-        if ((double)teammate.HP / teammate.MaxHP >= GameConfig.TeammateDefendHpPercent) return false;
+        if ((double)teammate.HP / teammate.MaxHP >= PolicyFor(teammate).Brace) return false;
         teammate.IsDefending = true;
         if (!teammate.ActiveStatuses.ContainsKey(StatusEffect.Defending))
             teammate.ActiveStatuses[StatusEffect.Defending] = 1;
@@ -789,6 +805,7 @@ public partial class CombatEngine
         teammateCooldowns.Clear();
         _lowAlliesAtTurnStart.Clear();
         _ownerAidedThisTurn = false;
+        _saidWhy.Clear();
 
         // Ensure equipment stat bonuses are current before combat begins.
         // Equipment changes (equip/unequip, loot pickup, NPC sync) can leave
@@ -6663,7 +6680,7 @@ public partial class CombatEngine
         if (healAction) return;
 
         // v1.2: wounded, a teammate looks for a shield before it casts an attack spell
-        if (IsWoundedForDefense(teammate) && await TryTeammateClassAbility(teammate, monsterList, result)) return;
+        if (IsWoundedForDefense(teammate, PolicyFor(teammate)) && await TryTeammateClassAbility(teammate, monsterList, result)) return;
         // Check if teammate should cast an offensive spell
         var spellAction = await TryTeammateOffensiveSpell(teammate, monsterList, result);
         if (spellAction) return;
@@ -18050,7 +18067,7 @@ public partial class CombatEngine
         }
 
         // v1.2: wounded, a teammate looks for a shield before it casts an attack spell
-        if (IsWoundedForDefense(teammate) && await TryTeammateClassAbility(teammate, monsters, result))
+        if (IsWoundedForDefense(teammate, PolicyFor(teammate)) && await TryTeammateClassAbility(teammate, monsters, result))
         {
             return;
         }
@@ -18158,8 +18175,9 @@ public partial class CombatEngine
         // v1.2: about to die, a teammate drinks its own potion first; the old order potioned the
         // most injured party member and returned, so a teammate at 20 percent handed its last
         // potion to an ally at 45 and kept fighting.
+        var policy = PolicyFor(teammate); // v1.1.3: stance thresholds
         double ownPercent = (double)teammate.HP / Math.Max(1, teammate.MaxHP);
-        if (hasPotion && ownPercent < GameConfig.TeammateEmergencySelfHealHpPercent)
+        if (hasPotion && ownPercent < policy.EmergencySelfPotion)
         {
             return await TeammateHealWithPotion(teammate, teammate, result);
         }
@@ -18196,14 +18214,14 @@ public partial class CombatEngine
         }
 
         // Use potion if no spells or low mana and target is below 50% HP
-        if (hasPotion && injuredPercent < 0.50)
+        if (hasPotion && injuredPercent < policy.PotionMostInjured) // v1.1.3: stance threshold
         {
             return await TeammateHealWithPotion(teammate, mostInjured, result);
         }
 
         // Self-preservation: if the teammate themselves is below 50% HP, use a potion
         double selfPercent = (double)teammate.HP / teammate.MaxHP;
-        if (hasPotion && selfPercent < 0.50)
+        if (hasPotion && selfPercent < policy.PotionMostInjured) // v1.1.3: stance threshold
         {
             return await TeammateHealWithPotion(teammate, teammate, result);
         }
@@ -18791,11 +18809,27 @@ public partial class CombatEngine
         // Tanks should establish aggro before anything else. This skips the 50% gate.
         // v1.2: a wounded teammate reaches for a shield or a sidestep before anything else,
         // ahead of the tank's taunt and of the use-chance roll.
-        if (teammateHpPercent < GameConfig.TeammateDefensivePriorityHpPercent)
+        var stancePolicy = PolicyFor(teammate); // v1.1.3
+        if (!stancePolicy.MayTaunt)
+        {
+            // Cautious never starts a taunt, through the tank block or the random pool
+            // (Thundering Roar is a Debuff with an aoe_taunt effect and would be drawn there).
+            var withoutTaunts = affordableAbilities.Where(a => a.SpecialEffect == null || !a.SpecialEffect.Contains("taunt")).ToList();
+            if (withoutTaunts.Count < affordableAbilities.Count)
+            {
+                SayWhyOnce(teammate, "combat.teammate_holds_taunt");
+                affordableAbilities = withoutTaunts;
+                if (affordableAbilities.Count == 0) return false;
+            }
+        }
+        if (teammateHpPercent < stancePolicy.DefensiveFirst)
         {
             var lifeSavers = SelectDefensiveAbilities(affordableAbilities);
             if (lifeSavers.Count > 0)
+            {
                 chosenAbility = lifeSavers.OrderByDescending(a => a.LevelRequired).First();
+                SayWhyOnce(teammate, "combat.teammate_hangs_back");
+            }
         }
         bool isTankClass = teammate.Class == CharacterClass.Warrior || teammate.Class == CharacterClass.Paladin
             || teammate.Class == CharacterClass.Barbarian;
@@ -18813,7 +18847,7 @@ public partial class CombatEngine
                 var tauntAbility = affordableAbilities.FirstOrDefault(a => a.SpecialEffect == "aoe_taunt")
                     ?? affordableAbilities.FirstOrDefault(a => a.SpecialEffect == "taunt");
                 if (tauntAbility != null && chosenAbility == null) // v1.2: never over a wounded teammate's shield
-                    chosenAbility = tauntAbility;
+                    chosenAbility = tauntAbility; // v1.1.3: a Cautious ally's taunts were filtered out above
             }
         }
 
@@ -19274,17 +19308,17 @@ public partial class CombatEngine
         else if (character.MaxHP < 100)
             baseWeight -= 20;
 
-        // Low HP modifier - monsters may finish off weakened targets
-        double hpPercent = (double)character.HP / Math.Max(1, character.MaxHP);
-        if (hpPercent < 0.25)
-            baseWeight += 25; // Monsters smell blood
-        else if (hpPercent < 0.5)
-            baseWeight += 10;
-
-        // Defending characters draw aggro (they're actively blocking)
-        if (character.IsDefending)
+        // v1.1.3 (council ruling 1): the wounded-target bonus is gone from ordinary weighting.
+        // Stacked with the defending bonus it made a braced ally under a quarter health the
+        // likeliest target in the room; a flagged predator behaviour may bring it back later.
+        // Defending draws aggro for the player (Defend is how the player pulls hits off an
+        // ally) and for Aggressive allies; a Balanced or Cautious brace is self-protection.
+        bool isOwner = ReferenceEquals(character, _combatOwner) || ReferenceEquals(character, currentPlayer);
+        var stance = isOwner ? TeammateStance.Balanced : TeammateStances.Get(_combatOwner ?? currentPlayer, character);
+        if (character.IsDefending && (isOwner || stance == TeammateStance.Aggressive))
             baseWeight += 40;
-
+        if (!isOwner)
+            baseWeight = (int)Math.Round(baseWeight * TeammateStances.PolicyFor(stance).TargetWeightMultiplier);
         // Ensure minimum weight of 10
         return Math.Max(10, baseWeight);
     }
