@@ -237,6 +237,9 @@ namespace UsurperRemake.Systems
         /// <summary>The window passed with the boss alive: it withdraws, or leaves after the last night.</summary>
         private async Task EndWindow(SqlSaveBackend backend, WorldBossInfo boss)
         {
+            // v1.1.5: a telegraph live at the window's end expires with it; the withdraw clears it
+            if (boss.TelegraphLive)
+                backend.LogWorldBossEvent(boss.Id, "telegraph_expired", "", $"{boss.TelegraphId}|window_end", boss.TelegraphSeq);
             // Pay the night first (idempotent through the night bits; damage on an expired row is already
             // refused), then withdraw. A crash between the two leaves the boss active-and-expired and
             // the next tick runs EndWindow again.

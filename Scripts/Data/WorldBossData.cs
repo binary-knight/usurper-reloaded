@@ -28,9 +28,13 @@ namespace UsurperRemake.Data
         public bool IsAoE { get; set; }
         public bool IsUnavoidable { get; set; }
         public float SelfHealPercent { get; set; }
-        /// <summary>v1.1.5: explicit answer kind; when unset, unavoidable and healing abilities are channels, the rest are strikes.</summary>
+        /// <summary>
+        /// v1.1.5: explicit answer kind; when unset, unavoidable, healing, and battlefield-wide (AoE)
+        /// abilities are channels, the rest are strikes. Without the AoE rule two bosses (Void Colossus,
+        /// Nidhogg) would never channel at all.
+        /// </summary>
         public WorldBossAnswer? Answer { get; set; }
-        public WorldBossAnswer Kind => Answer ?? (IsUnavoidable || SelfHealPercent > 0 ? WorldBossAnswer.Interrupt : WorldBossAnswer.Brace);
+        public WorldBossAnswer Kind => Answer ?? (IsUnavoidable || SelfHealPercent > 0 || IsAoE ? WorldBossAnswer.Interrupt : WorldBossAnswer.Brace);
         public bool IsChannel => Kind == WorldBossAnswer.Interrupt;
         public bool IsHeal => SelfHealPercent > 0;
     }

@@ -344,6 +344,46 @@ public class WorldBossTelegraphTests : IDisposable
         (n0 - bare.HP).Should().BeInRange(1500, 1510, "thirty percent");
     }
 
+    [Fact]
+    public async Task ATelegraphLiveAtWindowEnd_ExpiresWithIt_AndNothingLandsTheNextEvening()
+    {
+        var boss = await Spawn();
+        (await _db.IssueWorldBossTelegraph(boss.Id, "Whirlpool", 1, 60, 2)).Should().BeTrue();
+        (await _db.TryInterruptWorldBoss(boss.Id, 1)).Should().BeTrue();
+        (await _db.TryChallengeWorldBoss(boss.Id, "someone", 60)).Should().BeTrue();
+        var hero = Hero("Nightly", 40, 5000);
+        await Fight(hero, boss, "A\nR\n\n");
+        _db.GetWorldBossPlayerTelegraphState(boss.Id, "nightly").EngagedUntilSeq.Should().Be(1);
+
+        (await _db.WithdrawWorldBoss(boss.Id)).Should().BeTrue();
+        (await _db.ReactivateWorldBoss(boss.Id, 0.2, 3)).Should().BeTrue();
+        var r = await Row(boss.Id);
+        r.TelegraphLive.Should().BeFalse("the withdraw marked it resolved");
+        r.FocusPlayer.Should().BeEmpty(); r.Staggered.Should().BeFalse();
+        await Upkeep(r, 1);
+        _db.GetResolvedWorldBossTelegraphs(boss.Id, 0).Should().BeEmpty("nothing resolved, nothing lands");
+        (await Row(boss.Id)).TelegraphSeq.Should().Be(2, "a fresh telegraph from the cycle instead");
+        ClearCooldown(boss.Id);
+        long before = hero.HP;
+        var text = await Fight(hero, boss, "A\nR\n\n");
+        text.Should().NotContain("Whirlpool lands");
+        (before - hero.HP).Should().BeInRange(0, 10);
+    }
+
+    [Fact]
+    public async Task EveryBoss_HasAChannel_AndEnteringOrAnsweringCountsAsEngaged()
+    {
+        foreach (var def in WorldBossDatabase.GetAllBosses())
+            WorldBossSystem.TelegraphCycle(def, 3).Should().Contain(a => a.IsChannel, $"{def.Id} needs something to interrupt");
+        var boss = await Spawn();
+        (await _db.IssueWorldBossTelegraph(boss.Id, "Tidal Surge", 1, 60, 0)).Should().BeTrue();
+        await Fight(Hero("Quiet", 40, 5000), boss, "B\nR\n\n");
+        // the session end clears last_hit_at; the answer inside the session had set it, so the roster saw them
+        _db.GetWorldBossEngagedNames(boss.Id, 2).Should().BeEmpty("left");
+        await _db.EnsureWorldBossPlayerRow(boss.Id, "quiet", 40, "Quiet", 1);
+        _db.GetWorldBossEngagedNames(boss.Id, 2).Should().ContainSingle(n => n.key == "quiet", "entering counts, before a swing");
+    }
+
     // ───────────────────────────── focus ─────────────────────────────
 
     [Fact]
@@ -402,7 +442,9 @@ public class WorldBossTelegraphTests : IDisposable
             await _db.RecordWorldBossDamage(boss.Id, name, 10, 40, name.ToUpperInvariant());
         var hero = Hero("Reader", 40, 5000);
         hero.ApplyStatus(StatusEffect.Slow, 3);
+        AgeLanding(boss.Id);   // past its time, not yet resolved by a tick
         var text = await Fight(hero, boss, "A\nR\n\n");
+        text.Should().Contain(Loc.Get("world_boss.telegraph_landing_now"), "lands_at is a floor: the header says so instead of a negative countdown");
         var lines = text.Split('\n');
         int r1 = Array.FindIndex(lines, l => l.Contains(Loc.Get("world_boss.round", 1)));
         int r2 = Array.FindIndex(lines, l => l.Contains(Loc.Get("world_boss.round", 2)));

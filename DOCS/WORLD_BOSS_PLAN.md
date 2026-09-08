@@ -295,6 +295,48 @@ touches dungeon monsters or shops in a patch.
 - Delivery flips the row first and then saves the player unthrottled in the
   same method.
 
+## Deviations recorded during milestone B (2026-09-08)
+
+- Battlefield-wide (`IsAoE`) abilities are channels beside the unavoidable and
+  healing ones; without that, Void Colossus and Nidhogg never channel.
+- A telegraph live at the window's end expires with it: the withdraw marks it
+  resolved and clears the stagger and the focus, so nothing lands at the next
+  evening's door. Entering and answering count as engaged (`last_hit_at`),
+  so a player who only braces is on the roster and in the interrupt need;
+  leaving clears it, so a player who retreated is not.
+- Resolved telegraphs are remembered in `world_boss_events` (kind
+  `telegraph_resolved`, the seq, and `id|kind|outcome|done/needed|engaged`);
+  the loop reads outcomes back from there. No new table.
+- Re-entry: the damage row records `engaged_until_seq` when a session ends
+  (the telegraph live, or last, at that moment). A returning player takes at
+  most that one landing; nothing issued during the absence is theirs. The
+  plan's "still takes it" is bounded to one, so a player gone twenty minutes
+  does not meet six landings at the door.
+- The player's answer is on their damage row (`answered_seq`, `answer_kind`),
+  guarded on the seq. Interrupt writes the shared counter first and the
+  player's row second, so a crash between the two undercounts the player,
+  never the channel.
+- A landing never applies a status that stops the player acting (stun,
+  freeze, paralysis): a player who cannot act cannot answer the next one.
+  Other statuses apply only to an unanswered landing, with the old resist
+  roll.
+- A heal channel that lands heals the pool once, in the tick, and costs the
+  players nothing; its small damage multiplier is ignored.
+- The tick issues only while at least one human is engaged, never over a
+  live telegraph, and one gap after the last landing: sixty seconds to land,
+  thirty of gap, sixty of stagger, so a telegraph every three or four ticks.
+  A strike needs no interrupts; a channel needs min(2, engaged).
+- Focus is refreshed in one transaction every sixty seconds: the top window
+  damage among engaged humans takes it unless a Challenge holds it; the
+  window's damage is then zeroed. Challenge holds sixty seconds. Focus is
+  last-writer-wins by design. Alone means focused, from the engaged count,
+  not the column.
+- A stagger raises the per-round cap by half; it does not stop the boss's
+  basic attack. The boss's own action is a basic attack only, twice in its
+  last phase.
+- Other fighters see a player's Brace, Interrupt, and Challenge, and the
+  boss's stagger, as a line at their next prompt, in their own language.
+
 ## Later, by the same council
 
 Cover (Codex), immunity windows by phase (mechanics), per-boss hand-authored

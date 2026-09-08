@@ -274,6 +274,7 @@ namespace UsurperRemake.Systems
                                     ON CONFLICT(boss_id, player_name) DO UPDATE SET
                                         sessions = COALESCE(sessions, 0) + 1,
                                         engaged_until_seq = @exit,
+                                        last_hit_at = NULL,
                                         display_name = CASE WHEN @display <> '' THEN @display ELSE display_name END,
                                         rounds = COALESCE(rounds, 0) + @rounds,
                                         deaths = COALESCE(deaths, 0) + @deaths,
@@ -340,7 +341,8 @@ namespace UsurperRemake.Systems
 
         /// <summary>Window over, boss alive: it withdraws with its HP. True once.</summary>
         public Task<bool> WithdrawWorldBoss(int bossId) => GuardedWorldBossUpdate(
-            @"UPDATE world_bosses SET status = 'withdrawn', ended_at = datetime('now'), hp_at_end = current_hp
+            @"UPDATE world_bosses SET status = 'withdrawn', ended_at = datetime('now'), hp_at_end = current_hp,
+                  last_resolved_seq = COALESCE(telegraph_seq, 0), telegraph_lands_at = NULL, interrupts_done = 0, stagger_until = NULL, focus_player = '', focus_until = NULL
               WHERE id = @id AND status = 'active';", ("@id", bossId));
 
         /// <summary>A withdrawn boss returns for another night, regenerated; night damage starts over. True once per night.</summary>
@@ -528,7 +530,7 @@ namespace UsurperRemake.Systems
 
         /// <summary>The player's answer on their own row, once per seq; survives a retreat.</summary>
         public Task<bool> RecordWorldBossAnswer(int bossId, string playerName, long seq, string kind) => GuardedWorldBossUpdate(
-            @"UPDATE world_boss_damage SET answered_seq = @seq, answer_kind = @kind, answers = COALESCE(answers, 0) + 1
+            @"UPDATE world_boss_damage SET answered_seq = @seq, answer_kind = @kind, answers = COALESCE(answers, 0) + 1, last_hit_at = datetime('now')
               WHERE boss_id = @id AND player_name = LOWER(@player) AND COALESCE(answered_seq, 0) < @seq;",
             ("@id", bossId), ("@player", playerName), ("@seq", seq), ("@kind", kind));
 
@@ -544,8 +546,9 @@ namespace UsurperRemake.Systems
                 using var connection = OpenConnection();
                 using var cmd = connection.CreateCommand();
                 cmd.CommandText = @"INSERT INTO world_boss_damage (boss_id, player_name, damage_dealt, hits, player_level, display_name, last_hit_at, engaged_since_seq, last_resolved_seq)
-                                    VALUES (@id, LOWER(@player), 0, 0, @level, @display, NULL, @seq, @seq - 1)
+                                    VALUES (@id, LOWER(@player), 0, 0, @level, @display, datetime('now'), @seq, @seq - 1)
                                     ON CONFLICT(boss_id, player_name) DO UPDATE SET
+                                        last_hit_at = datetime('now'),
                                         engaged_since_seq = @seq,
                                         last_resolved_seq = MAX(COALESCE(last_resolved_seq, 0), @seq - 1),
                                         player_level = CASE WHEN @level > 0 THEN @level ELSE player_level END,
