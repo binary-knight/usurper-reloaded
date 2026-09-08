@@ -1,0 +1,29 @@
+[h1]Usurper Reborn 1.1.5 - Hold the Line[/h1]
+
+Last release made the world boss show up on time, made it killable, and made it pay. This one makes fighting it a game. Before, the boss's turn was a die roll: sixty percent of the time some ability, picked at random, with nothing to do about it but drink. Now it tells you what it is about to do, and the round gives you a way to answer, and some answers need more than one of you.
+
+[h2]It telegraphs[/h2]
+
+[list]
+[*]Every couple of minutes the boss readies its next move from a fixed cycle. The round shows it, its answer, its cost, and how long until it lands.
+[*]A Strike is yours. Brace and it lands for a tenth of your health. Ignore it and it lands for three tenths and brings its status.
+[*]A Channel is everyone's: anything battlefield-wide, unavoidable, or healing. If enough of you Interrupt before it lands (two, or one if you are alone), it breaks and the boss staggers: for the next minute every blow lands half again as hard. Unbroken, it lands on everyone fighting, halved for anyone who braced, and a healing channel heals the boss.
+[*]Leave while a telegraph is up and it still lands on you when you return. What it readied while you were gone is not yours.
+[*]A landing never stuns, freezes, or paralyses you. If you cannot act, you cannot answer the next one.
+[/list]
+
+[h2]It focuses[/h2]
+
+[list]
+[*]Every minute the boss turns on whoever hurt it most in that minute, hitting them half again as hard and everyone else half as hard. Alone, that is always you.
+[*]Challenge it to take its focus for a minute so a wounded friend can breathe.
+[/list]
+
+[h2]The screen[/h2]
+
+[list]
+[*]Under twenty rows a round: the boss, you, who is fighting beside you (your group first), the telegraph, and a one-line menu in place of the old box.
+[*]When you brace, interrupt, or challenge, the other fighters see it at their next prompt, in their own language.
+[/list]
+
+If something here feels wrong at the table, /bug in game with what you were doing.
