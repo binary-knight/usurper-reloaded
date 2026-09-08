@@ -134,15 +134,18 @@ blind `UpdateWorldBossData` overwrite go; phase may lag a tick.
   read that count; the in-memory sets go.
 - **Focus** (supervisor; kept as the one single-seat mechanic because it is
   the only one where the boss answers who is present, finding 1). The tick
-  sets `focus_player` to the top damage over the last two ticks (needs a
-  `last_window_damage` column) unless a **Challenge** action took it (guarded
+  sets `focus_player` to the top `window_damage` (a column players add to
+  with the same UPDATE that adds `damage_dealt`; the tick zeroes it and
+  `window_started_at` every two ticks, so a write after the zeroing belongs
+  to the next window) unless a **Challenge** action took it (guarded
   update, 60-second hold). Basic attacks hit the focused player at x1.5 and
   everyone else at x0.5 (starting). The top dealer draws the boss; a tank can
   pull it off a caster on purpose; alone means always focused.
 - **Basic attacks.** One per round (two in phase 3) at stat damage through
   the existing formula, floor 20 percent of strength, times the focus
-  multiplier. The 60 percent ability roll and the aura are deleted; the
-  telegraphs carry the lethality the aura carried.
+  multiplier. The 60 percent ability roll goes; the telegraphs carry the
+  lethality the aura carried. (The count reduction and the aura's deletion
+  are milestone A; the focus multiplier and the roll's removal are B.)
 - **The screen.** Header (HP bar or plain percent, phase, stagger timer),
   your line, "Fighting now" capped at five names plus "and N more", the
   telegraph line with its answer and count, a one-line menu replacing the
@@ -154,17 +157,27 @@ blind `UpdateWorldBossData` overwrite go; phase may lag a tick.
 
 - **Normalisation** (Codex's class-neutral reference; the participation seat
   required it as a hand-off; the mechanics and supervisor seats kept raw
-  damage and are the dissent). Let `N(L) = 2L + 1.5 L^1.05`, the at-level
-  monster strength (`MonsterGenerator.cs:254`), and `r = N(playerLevel) /
-  N(bossLevel)`. For that player's rounds the boss's strength and defence are
-  multiplied by `r`; the player's native damage is divided by `r` before it
-  is written to the row. A level 15 who hits like a level 15 lands the same
+  damage and are the dissent). Let `N(L) = 2L + 1.5 L^1.05`, the at-level monster strength formula at
+  `MonsterGenerator.cs:254` taken on the raw level (that site feeds it a
+  soft-capped level above 50 to stop deep-floor one-shots, which does not
+  apply to a ratio), and `r = N(playerLevel) / N(bossLevel)`, frozen per
+  session from the `player_level` column at entry and never recomputed.
+  **One-sided** (council decision 5): `r` applies only when the player is
+  below the boss's level. For that player's rounds the boss's strength and
+  defence are multiplied by `r`, and the player's native damage is divided
+  by `r` before it is written to the row; a player at or above the boss's
+  level fights it raw under the per-round cap, so level keeps its edge at
+  the top and the cap bounds it. Pinned values for the budget test: r(15 vs
+  40) = 0.37, so a level 15 lands (70 - 18) / 0.37 = 142 applied against
+  the level-40 reference's 120; a capped player does at most 1.35 x
+  PerPlayerBudget per window. A level 15 who hits like a level 15 lands the same
   wound as a level 80 who hits like a level 80; better gear and a stronger
   build still land more, because native damage above the at-level norm is
   preserved. Without this a level 20 hits the Iron Titan for 1 to 3 (the
   mechanics seat's own table) and the reward formula would pay effort the
   player cannot deliver.
-- **Per-round cap: 0.6 percent of max HP** (starting), x1.5 while staggered.
+- **Per-round cap: 0.6 percent of max HP** on *applied* damage, after the
+  division by `r` (starting), x1.5 while staggered.
   This is the class-gap fix: a level-80 Magician's 5,700 per cast (about 22
   times a Warrior's round) becomes the cap; a Warrior is under it.
 - **HP is a kill budget, not a population multiplier** (four seats). `MaxHP =
@@ -180,8 +193,12 @@ blind `UpdateWorldBossData` overwrite go; phase may lag a tick.
   the v0.60 exploit was free chip damage against a boss that never healed).
   A determined solo on a quiet night is the intended path. What answers the
   exploit is **Rally**: after ten minutes with no damage the tick regenerates
-  0.5 percent of max HP per tick (starting), phase never reverting; and the
-  nightly carry-over regeneration below. Codex's 60 percent share cap and the
+  0.5 percent of max HP per tick (starting), only while `status = 'active'`
+  (the nightly 20 percent is the only regeneration between windows), with
+  the tick's phase write as `phase = max(current, threshold phase)` so HP
+  climbing back over 65 percent leaves phase 2 in place; and the nightly
+  carry-over regeneration below. No row cooldown can trigger Rally (two and
+  five minutes against ten), so a working solo never sees it. Codex's 60 percent share cap and the
   mechanics seat's 150-round budget are the dissent; both would make quiet
   nights unkillable again.
 - **Sessions.** The 50-round boundary stays as a rest point (summary,
@@ -193,8 +210,12 @@ blind `UpdateWorldBossData` overwrite go; phase may lag a tick.
   its HP (`status = 'withdrawn'`), returns at the next schedule regenerated
   20 percent (starting), up to three nights, then leaves. The tick
   reactivates a withdrawn row before spawning a new one; the damage table
-  accumulates under one boss id; withdrawal pay carries a paid-night marker
-  per player so a crash cannot pay twice.
+  accumulates under one boss id with `night_damage` zeroed at reactivation.
+  Contribution `s` is per boss for the kill and per night for withdrawal
+  pay; the contributor count is per night. Withdrawal pay is one guarded
+  write, `UPDATE ... SET paid_nights = paid_nights | @bit WHERE (paid_nights
+  & @bit) = 0`, with the row count as the pay signal, so a crash cannot pay
+  twice.
 
 ### 4. Rewards: effort, at the player's level, delivered the same online or offline
 
@@ -230,7 +251,9 @@ blind `UpdateWorldBossData` overwrite go; phase may lag a tick.
   delivers: online through the owning session at a save point; offline
   through `pending_inheritance` for the item (`SqlSaveBackend.cs:715`,
   delivered by `GameEngine.cs:4190`) and `AddXPToPlayer` for the rest, with
-  statistics, fame, and achievements credited either way. The killer's
+  statistics, fame, and achievements credited either way. Delivery flips
+  `delivered` by `UPDATE ... WHERE delivered = 0` keyed to the row count;
+  `settled` protects settle, not delivery. The killer's
   session does not own payout; the tick finishes an unsettled boss after a
   crash. Damage is credited only when the boss update touched an active row,
   clamped to remaining HP.
@@ -269,11 +292,16 @@ the Player District (1.3).
 
 **A. Killable and known.** Schedule, pick, notice chain, town line, `/boss`
 countdown, loc fixes; HP budget; normalisation and the per-round cap; lock
-and aura deleted, cooldowns on the row, the 50-round rest; Rally; carry-over;
-rewards, settle, offline delivery, the accounting fixes; logging; tests. If
-the release stops here, the random ability roll stays and the aura stays at
-half strength (starting), because the random abilities alone threaten nobody
-above level 40.
+and aura deleted, cooldowns on the row, the 50-round rest; the boss's
+actions cut to one per round (two in phase 3) with the random ability roll
+kept and unavoidables capped at 30 percent of the player's max HP
+(starting), the same ceiling B's telegraphs use; Rally; carry-over; rewards,
+settle, offline delivery, the accounting fixes; every column B needs in the
+same migration; logging; tests. The supervisor's check: with the aura at
+half strength and three basics per round, a level-40 Warrior still fell in
+10 to 15 rounds and the 75-round budget assumption failed, so the aura goes
+in A and the count comes down in A. A alone is a damage race a player can
+win with potions; B makes it a fight.
 
 **B. A fight.** Tick-owned telegraphs with Strike and Channel, interrupts and
 stagger, the heal channel, Focus and Challenge, the compact round screen,
@@ -286,11 +314,15 @@ the roster, grouped-player names.
 | Schedule, tomorrow's boss | `world_state` key | tick |
 | Phase, scaled stats, telegraph id/seq/lands_at, needed, stagger_until, focus_player, focus_until | columns on `world_bosses` (guarded `ALTER TABLE`, pattern `SqlSaveBackend.cs:770`) | tick; Challenge writes focus |
 | `interrupts_done`, `current_hp`, `last_damaged_at` | `world_bosses` | players, guarded UPDATE |
-| `engaged_since_seq`, `last_resolved_seq`, `cooldown_until`, `sessions`, `rounds`, `deaths`, `player_level`, `last_window_damage`, `paid_nights` | `world_boss_damage` | the player's own row |
+| `engaged_since_seq`, `last_resolved_seq`, `cooldown_until`, `sessions`, `rounds`, `deaths`, `player_level`, `night_damage`, `window_damage`, `paid_nights` (integer bitmask) | `world_boss_damage` | the player's own row |
 | Reward rows: player, xp, gold, item json, rarity, fame, marks, settled, delivered | new `world_boss_rewards` | settle |
 | `world_boss_events(boss_id, seq, kind, player, detail, at)` | new table | tick and loop |
-| `JoinedSeq`, defend rounds, ability cooldowns | `WorldBossCombatState` | session |
+| `JoinedSeq` (a cache of `engaged_since_seq`; the row is authoritative), `r`, defend rounds, ability cooldowns | `WorldBossCombatState` | session |
 | Nothing new on `PlayerData` | | |
+
+Rule: mutable shared state is a column; immutable-after-spawn data (the
+definition id, the scaled stats) may stay in `boss_data_json`, since nothing
+read-edit-writes it. `window_started_at` sits on `world_bosses`.
 
 `world_bosses` also gains `def_id`, `scheduled_at`, `window_index`,
 `nights`, `median_level`, `online_at_spawn`, `first_hit_at`, `killed_at`,
@@ -315,7 +347,8 @@ the roster, grouped-player names.
 - Door pager: a round under 20 rows; screen reader gets the telegraph and its
   answer as plain lines. All text through loc keys, five languages.
 - Tests before merge (none exist today): budget arithmetic at 35, 40, 80
-  under the new model; telegraph resolution idempotent by seq across
+  under the new model with the pinned `r` values; `r` frozen per session;
+  `paid_nights` and `delivered` are single guarded writes; telegraph resolution idempotent by seq across
   reconnects; the interrupt counter cannot exceed `needed` under concurrent
   updates; focus is last-writer-wins by design and the test says so; regen
   never exceeds max HP; damage never credited to an inactive boss; settle is
@@ -331,14 +364,45 @@ per channel; sessions per player (the solo question); regen as a share of max
 HP; reward XP as a fraction of next-level cost by level; notice effectiveness
 (mailed players who logged in during the window). One query per question.
 
-## Decisions for the maintainer
+## Council decisions (2026-09-08)
 
-1. The hour. 8 PM Eastern serves a US evening and excludes Europe. One
-   window, or a second at a European hour with the same boss.
-2. The window length: 3 hours as planned, or the current 6.
-3. Whether 1.1.4 ships both milestones or stops at A and ships B as 1.1.5.
-4. Whether the ransom on a boss that leaves (5 percent of the treasury)
-   stands, since the King is a player.
-5. The normalisation rule ("the boss meets each player at their level")
-   means an over-levelled player gets no edge from level alone, only from
-   gear and build. Two seats preferred raw damage.
+The maintainer read the plan and asked the council to make the five
+decisions it had left him. Four seats voted (Codex, the mechanics agent, the
+participation agent, the supervisor); each ruling carries the number that
+would prove it wrong. Ballots under `~/usurper/evidence/codex/wb-decisions-*`
+and `wb-supervisor-*`.
+
+1. **One window, 8 PM Eastern** (four seats). The only audience evidence in
+   the repository is North American; a second window would split a 2-to-10
+   peak and feed Rally between them. Add a European window when logins by
+   Eastern hour show a second peak between 1 and 4 PM, or more than 20 to
+   25 percent of active players log in during a European evening or carry a
+   non-English language column (starting thresholds).
+2. **Three hours** (three seats; Codex kept six for late arrivals). The
+   window's job is concentration. Proves it wrong: more than 20 percent of
+   engaged players first hit in the final 30 minutes, or withdrawals under
+   10 percent HP on more than a third of nights; then 4 hours, not 6.
+3. **1.1.4 is milestone A; B follows as 1.1.5** (three seats), with B's
+   columns in A's migration. The supervisor voted for both together on the
+   code fact that A as first written left survivability at today's 10 to 15
+   rounds; the plan now moves the attack-count cut and the aura's deletion
+   into A, which answers that, and records the supervisor's view that the
+   mechanics are what the maintainer called silly, so B should follow
+   without a gap. Proves A wrong: a kill rate under 25 to 30 percent with
+   two or more humans present, or median rounds per session above 40.
+4. **No ransom; the news line and the unbroken list** (three seats; the
+   participation seat kept the 5 percent). The King is one player, and the
+   loss would charge that player for everyone else's absence through a
+   system the boss code has never touched. Proves it wrong: more than 25 to
+   30 percent of bosses leaving after three nights in the first month; then
+   the ransom returns with a rally reward for the King attached.
+5. **Normalisation stands, one-sided** (four seats for protecting low
+   levels; the mechanics seat conceded on its own table, where a level 20
+   hits the Titan for 1 to 3; the supervisor's refinement adopted: `r`
+   applies only below the boss's level, so a veteran keeps the edge the
+   majority never argued against and the cap bounds it). Proves it wrong:
+   on nights with three or more contributors, an above-level damage share
+   over 60 percent while below-level `s` stays under 0.25 means the
+   asymmetry is wrong and full two-sided `r` is the fallback; and applied
+   damage per round by level band, logged before the cap, with the low band
+   under 0.5x or over 1.5x the at-level band meaning `r` is mis-scaled.
