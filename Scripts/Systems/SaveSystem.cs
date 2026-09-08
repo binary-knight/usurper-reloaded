@@ -676,7 +676,8 @@ namespace UsurperRemake.Systems
                 IsKnighted = player.IsKnighted,
                 FamilySurname = player.FamilySurname, // v0.65.1 marriage surname
                 TeammateDisabledAbilities = player.TeammateDisabledAbilities, // v0.65
-                TeammateStances = player.TeammateStances, // v1.1.3.1 team skill toggles
+                TeammateStances = player.TeammateStances, // v1.1.3
+                SharedPotionBelt = player.SharedPotionBelt, // v1.1.3
                 TeammateDisabledSpells = player.TeammateDisabledSpells,
 
                 // v0.60.11: Anchor Road Gauntlet champion tier.

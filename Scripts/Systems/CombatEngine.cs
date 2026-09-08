@@ -74,9 +74,56 @@ public partial class CombatEngine
     /// <summary>v1.2: a teammate below TeammateDefendHpPercent with no heal or defensive ability
     /// left braces for the round (half incoming damage) instead of swinging. Cleared at round end
     /// like the player's Defend.</summary>
+    /// <summary>v1.1.3 (council ruling 5): one line per ally after a fight. Records survive an
+    /// ally's death because they are keyed by the character, not by the live list.</summary>
+    internal void PrintPartyFightSummary(CombatResult result)
+    {
+        var allies = (currentTeammates ?? new List<Character>())
+            .Concat(_allyStats.Keys).Distinct()
+            .Where(t => t != null && !t.IsGroupedPlayer).ToList();
+        if (allies.Count == 0) return;
+        terminal.WriteLine("");
+        terminal.SetColor("cyan");
+        terminal.WriteLine($"  {Loc.Get("combat.party_summary_header")}");
+        foreach (var ally in allies)
+        {
+            var s = StatsFor(ally);
+            string potions = s.PotionsFromPlayer > 0
+                ? $"{s.PotionsDrunk} ({s.PotionsFromPlayer} {Loc.Get("combat.party_summary_yours")})"
+                : s.PotionsDrunk.ToString();
+            terminal.SetColor(!ally.IsAlive ? "red" : (ally.HP * 10 < ally.MaxHP * 3 ? "yellow" : "white"));
+            terminal.WriteLine($"  {Loc.Get("combat.party_summary_line", ally.DisplayName, ally.HP, ally.MaxHP, s.Targeted, s.HitsLanded, s.HpLost, potions)}");
+        }
+    }
+
     /// <summary>v1.1.3: the acting policy for a teammate, from the combat owner's stance map.</summary>
     internal TeammatePolicy PolicyFor(Character teammate) =>
         TeammateStances.PolicyFor(TeammateStances.Get(_combatOwner ?? currentPlayer, teammate));
+
+    // v1.1.3 (council ruling 5): per-fight party bookkeeping for the fight summary
+    internal sealed class AllyFightStats
+    {
+        public int Targeted, HitsLanded, PotionsDrunk, PotionsFromPlayer;
+        public long HpLost;
+    }
+    private readonly Dictionary<Character, AllyFightStats> _allyStats = new();
+    internal AllyFightStats StatsFor(Character ally)
+    {
+        if (!_allyStats.TryGetValue(ally, out var s)) { s = new AllyFightStats(); _allyStats[ally] = s; }
+        return s;
+    }
+    internal void RecordAllyHit(Character ally, long damage)
+    {
+        var s = StatsFor(ally); s.HitsLanded++; s.HpLost += Math.Max(0, damage);
+    }
+    // v1.1.3 (council ruling 4): the shared potion belt, at most this many borrowed per fight
+    private int _borrowedThisFight;
+    internal const int BeltBorrowCapPerFight = 2;
+    internal const int BeltPlayerReserve = 3;
+    internal bool CanBorrowFromBelt(Character owner, Character teammate) =>
+        owner.SharedPotionBelt && !teammate.IsGroupedPlayer && !teammate.IsEcho
+        && teammate.Healing <= 0 && _borrowedThisFight < BeltBorrowCapPerFight
+        && owner.Healing > BeltPlayerReserve;
 
     // v1.1.3: say-why lines print on a change of behaviour, once per fight per teammate
     private readonly HashSet<string> _saidWhy = new();
@@ -806,6 +853,8 @@ public partial class CombatEngine
         _lowAlliesAtTurnStart.Clear();
         _ownerAidedThisTurn = false;
         _saidWhy.Clear();
+        _allyStats.Clear();
+        _borrowedThisFight = 0;
 
         // Ensure equipment stat bonuses are current before combat begins.
         // Equipment changes (equip/unequip, loot pickup, NPC sync) can leave
@@ -4903,6 +4952,7 @@ public partial class CombatEngine
             if (targetChoice != null && targetChoice != player)
             {
                 if (targetChoice.IsGroupedPlayer) _lastMonsterTargetedGroupPlayer = true;
+                StatsFor(targetChoice).Targeted++; // v1.1.3
                 await MonsterAttacksCompanion(monster, targetChoice, result, liveMonsterList);
                 return;
             }
@@ -4911,6 +4961,7 @@ public partial class CombatEngine
             {
                 var fallbackTarget = aliveTeammates[random.Next(aliveTeammates.Count)];
                 if (fallbackTarget.IsGroupedPlayer) _lastMonsterTargetedGroupPlayer = true;
+                StatsFor(fallbackTarget).Targeted++; // v1.1.3
                 await MonsterAttacksCompanion(monster, fallbackTarget, result, liveMonsterList);
                 return;
             }
@@ -18181,6 +18232,15 @@ public partial class CombatEngine
         {
             return await TeammateHealWithPotion(teammate, teammate, result);
         }
+        var beltOwner = _combatOwner ?? currentPlayer;
+        if (!hasPotion && ownPercent < policy.EmergencySelfPotion && beltOwner != null && CanBorrowFromBelt(beltOwner, teammate))
+        {
+            return await TeammateHealWithPotion(teammate, teammate, result, fromPlayerBelt: true); // v1.1.3: the shared belt
+        }
+
+        // v1.1.3 (council ruling 5): an ally with exactly one potion keeps it for themselves,
+        // unless the player is the one about to die.
+        bool keepsLastPotion = hasPotion && teammate.Healing == 1;
 
         // Classes that prioritize healing
         bool isHealerClass = teammate.Class == CharacterClass.Cleric ||
@@ -18216,7 +18276,12 @@ public partial class CombatEngine
         // Use potion if no spells or low mana and target is below 50% HP
         if (hasPotion && injuredPercent < policy.PotionMostInjured) // v1.1.3: stance threshold
         {
-            return await TeammateHealWithPotion(teammate, mostInjured, result);
+            bool playerCritical = mostInjured != null && mostInjured == currentPlayer
+                && (double)currentPlayer.HP / Math.Max(1, currentPlayer.MaxHP) < GameConfig.TeammateEmergencySelfHealHpPercent;
+            if (keepsLastPotion && mostInjured != teammate && !playerCritical)
+                SayWhyOnce(teammate, "combat.teammate_keeps_last_potion"); // v1.1.3: one personal potion
+            else
+                return await TeammateHealWithPotion(teammate, mostInjured, result);
         }
 
         // Self-preservation: if the teammate themselves is below 50% HP, use a potion
@@ -18383,14 +18448,28 @@ public partial class CombatEngine
     /// <summary>
     /// Teammate uses a healing potion on a party member
     /// </summary>
-    private async Task<bool> TeammateHealWithPotion(Character teammate, Character target, CombatResult result)
+    private async Task<bool> TeammateHealWithPotion(Character teammate, Character target, CombatResult result, bool fromPlayerBelt = false)
     {
-        if (teammate.Healing <= 0)
+        if (fromPlayerBelt)
         {
-            return false;
+            // v1.1.3 (council ruling 4): the ally drinks one of the player's potions. The player's
+            // potion cooldown is untouched: it is the ally drinking, not the player.
+            var owner = _combatOwner ?? currentPlayer;
+            if (owner == null || !CanBorrowFromBelt(owner, teammate)) return false;
+            owner.Healing--;
+            _borrowedThisFight++;
+            StatsFor(teammate).PotionsFromPlayer++;
         }
+        else
+        {
+            if (teammate.Healing <= 0)
+            {
+                return false;
+            }
 
-        teammate.Healing--;
+            teammate.Healing--;
+        }
+        StatsFor(teammate).PotionsDrunk++;
 
         // Potion heals a fixed amount plus some randomness (same formula as player potions)
         int healAmount = 30 + teammate.Level * 5 + random.Next(10, 30);
@@ -18398,17 +18477,18 @@ public partial class CombatEngine
         target.HP = Math.Min(target.MaxHP, target.HP + healAmount);
         long actualHeal = target.HP - oldHP;
 
-        // Track statistics if this is the player using a potion or being healed
-        if (currentPlayer != null)
-        {
-            currentPlayer.Statistics.RecordPotionUsed(actualHeal);
-        }
+        // v1.1.3: a teammate's potion is the teammate's. It used to be recorded in the player's
+        // own potion statistics whoever drank it.
 
         terminal.WriteLine("");
         terminal.SetColor("bright_cyan");
 
         string targetName = target == currentPlayer ? "you" : target.DisplayName;
-        if (target == teammate)
+        if (fromPlayerBelt)
+        {
+            terminal.WriteLine(Loc.Get("combat.teammate_borrows_potion", teammate.DisplayName));
+        }
+        else if (target == teammate)
         {
             terminal.WriteLine(Loc.Get("combat.teammate_drinks_potion", teammate.DisplayName));
         }
@@ -19313,7 +19393,9 @@ public partial class CombatEngine
         // likeliest target in the room; a flagged predator behaviour may bring it back later.
         // Defending draws aggro for the player (Defend is how the player pulls hits off an
         // ally) and for Aggressive allies; a Balanced or Cautious brace is self-protection.
-        bool isOwner = ReferenceEquals(character, _combatOwner) || ReferenceEquals(character, currentPlayer);
+        // v1.1.3: grouped players Defend through the player action path and take no orders, so
+        // they are owner-like here: the +40 stays and no stance multiplier applies.
+        bool isOwner = ReferenceEquals(character, _combatOwner) || ReferenceEquals(character, currentPlayer) || character.IsGroupedPlayer;
         var stance = isOwner ? TeammateStance.Balanced : TeammateStances.Get(_combatOwner ?? currentPlayer, character);
         if (character.IsDefending && (isOwner || stance == TeammateStance.Aggressive))
             baseWeight += 40;
@@ -19379,6 +19461,7 @@ public partial class CombatEngine
                             actualDmg = Math.Max(actualDmg, (long)(monster.Level * 1.5));
                         actualDmg = CapTeammateDamageInOldGodFight(companion, actualDmg);
                         if (companion.IsDefending) actualDmg = Math.Max(1, actualDmg / 2); // v1.2: brace covers specials too
+                        RecordAllyHit(companion, actualDmg); // v1.1.3
                         companion.HP = Math.Max(0, companion.HP - actualDmg);
                         terminal.WriteLine($"{companion.DisplayName} takes {actualDmg} damage!", "red");
                         result.CombatLog.Add($"{monster.Name} uses {abilityName} on {companion.DisplayName} for {actualDmg}");
@@ -19411,6 +19494,7 @@ public partial class CombatEngine
                             dmg = Math.Max(dmg, (long)(monster.Level * 1.5));
                         dmg = CapTeammateDamageInOldGodFight(companion, dmg);
                         if (companion.IsDefending) dmg = Math.Max(1, dmg / 2); // v1.2: brace covers life drain too
+                        RecordAllyHit(companion, dmg); // v1.1.3
                         companion.HP = Math.Max(0, companion.HP - dmg);
                         if (abilityResult.LifeStealPercent > 0)
                         {
@@ -19511,6 +19595,7 @@ public partial class CombatEngine
                     // Generate direct damage so these thematic attacks still hurt companions.
                     long bossDmg = (long)(monster.Level * 2) + random.Next(0, monster.Level);
                     bossDmg = CapTeammateDamageInOldGodFight(companion, bossDmg);
+                    RecordAllyHit(companion, bossDmg); // v1.1.3
                     companion.HP = Math.Max(0, companion.HP - bossDmg);
                     terminal.SetColor("bright_red");
                     terminal.WriteLine($"{monster.Name} unleashes {abilityName}!");
@@ -19635,6 +19720,7 @@ public partial class CombatEngine
         actualDamage = CapTeammateDamageInOldGodFight(companion, actualDamage);
 
         // Apply damage to companion
+        RecordAllyHit(companion, actualDamage); // v1.1.3
         companion.HP = Math.Max(0, companion.HP - actualDamage);
 
         terminal.SetColor(ColorRole.Notice);
@@ -20425,6 +20511,7 @@ public partial class CombatEngine
         }
 
         terminal.WriteLine(Loc.Get("combat.gold_label", $"{adjustedGold:N0}"));
+        PrintPartyFightSummary(result); // v1.1.3 (council ruling 5)
 
         // Show bonus from world events if any
         if (adjustedExp > totalExp || adjustedGold > totalGold)

@@ -2098,6 +2098,8 @@ public class Character
     // v1.1.3: per-teammate tactics (TeammateStance as int, append-only), keyed like the toggles
     // above; a missing entry is Balanced. See TeammateStances.
     public Dictionary<string, int> TeammateStances { get; set; } = new();
+    // v1.1.3 (council ruling 4): allies out of potions may drink from the player's, two per fight
+    public bool SharedPotionBelt { get; set; }
 
     /// <summary>
     /// v0.65.1: stable key for the owner's per-teammate skill-toggle dicts. Prefers the
