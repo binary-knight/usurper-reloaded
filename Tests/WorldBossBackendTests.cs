@@ -84,6 +84,10 @@ public class WorldBossBackendTests : IDisposable
         board[0].DamageDealt.Should().Be(300, "the boss keeps its wounds across nights");
         board[0].NightDamage.Should().Be(0, "night damage starts over");
 
+        (await _db.RallyRegenWorldBoss(id, 50, 10)).Should().BeFalse("a returned boss keeps its wounds until someone hits it");
+        Exec("UPDATE world_bosses SET last_damaged_at = datetime('now', '-11 minutes'), window_started_at = datetime('now', '-12 minutes') WHERE id = @id;", id);
+        (await _db.RallyRegenWorldBoss(id, 50, 10)).Should().BeTrue("a hit this window, then ten idle minutes");
+
         (await _db.MarkWorldBossLeft(id)).Should().BeFalse("only a withdrawn boss leaves");
         (await _db.WithdrawWorldBoss(id)).Should().BeTrue();
         (await _db.MarkWorldBossLeft(id)).Should().BeTrue();
@@ -97,7 +101,7 @@ public class WorldBossBackendTests : IDisposable
         (await _db.RallyRegenWorldBoss(id, 50, 10)).Should().BeFalse("never hit: nothing to regenerate");
         await _db.RecordWorldBossDamage(id, "Hero", 400, 40);
         (await _db.RallyRegenWorldBoss(id, 50, 10)).Should().BeFalse("hit a moment ago");
-        Exec("UPDATE world_bosses SET last_damaged_at = datetime('now', '-11 minutes') WHERE id = @id;", id);
+        Exec("UPDATE world_bosses SET last_damaged_at = datetime('now', '-11 minutes'), window_started_at = datetime('now', '-12 minutes') WHERE id = @id;", id);
         (await _db.RallyRegenWorldBoss(id, 50, 10)).Should().BeTrue();
         (await _db.GetWorldBossById(id))!.CurrentHP.Should().Be(650);
         (await _db.RallyRegenWorldBoss(id, 5000, 10)).Should().BeTrue();
@@ -134,6 +138,18 @@ public class WorldBossBackendTests : IDisposable
 
         (await _db.MarkWorldBossSettled(id)).Should().BeTrue();
         (await _db.MarkWorldBossSettled(id)).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ConcurrentBlows_NeverDoubleCreditOverkill_AndOneKillingBlow()
+    {
+        int id = await Spawn(hp: 100);
+        var a = _db.RecordWorldBossDamage(id, "A", 80, 40);
+        var b = _db.RecordWorldBossDamage(id, "B", 80, 40);
+        var results = await Task.WhenAll(a, b);
+        (results[0].applied + results[1].applied).Should().Be(100, "the clamp is serialised under the write lock");
+        results.Count(r => r.wasKillingBlow).Should().Be(1);
+        (await _db.GetWorldBossDamageLeaderboard(id, 10)).Sum(e => e.DamageDealt).Should().Be(100);
     }
 
     [Fact]

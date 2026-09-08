@@ -1214,15 +1214,7 @@ public static partial class GameConfig
     public const int WorldBossMaxRoundsPerSession = 50;         // the rest point: summary, autosave, re-entry after the cooldown
     public const float WorldBossPhase2Threshold = 0.65f;        // Phase 2 at 65% HP
     public const float WorldBossPhase3Threshold = 0.30f;        // Phase 3 at 30% HP
-    // Retired in v1.1.4; deleted with the loop rewrite (milestone A, commits 2 and 3).
-    public const int WorldBossMinPlayersToSpawn = 2;
-    public const double WorldBossSpawnCooldownHours = 8.0;
-    public const int WorldBossDurationHours = 6;
-    public const int WorldBossDeathCooldownSeconds = 60;
-    public const float WorldBossHPScalePerPlayer = 0.07f;
-    public const float WorldBossAuraBaseDamage = 0.05f;
-    public const float WorldBossAuraPhase2Mult = 1.5f;
-    public const float WorldBossAuraPhase3Mult = 2.0f;
+    // Retired in v1.1.4; deleted with the settle rewrite (milestone A, commit 4).
     public const float WorldBossMVPXPMult = 3.0f;
     public const float WorldBossTop3XPMult = 2.5f;
     public const float WorldBossTop25XPMult = 2.0f;

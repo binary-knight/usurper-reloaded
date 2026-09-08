@@ -22,21 +22,7 @@ namespace UsurperRemake.Systems
 
         private readonly Random _rng = new();
 
-        // Per-player death cooldown tracking (username -> UTC time when they can re-enter)
-        private readonly Dictionary<string, DateTime> _deathCooldowns = new();
-
-        // v0.60.0 alpha audit: per-spawn engagement lock. Players were soloing
-        // world bosses by fight->leave->heal->return. The boss HP is persistent
-        // but the player's HP isn't, so a tank build could chip the boss down
-        // across multiple sessions trivially. Now: once you engage a world
-        // boss, leaving (any way except killing it) locks you out of further
-        // engagements with THIS spawn. Encourages commit-to-the-fight gameplay
-        // and forces actual coordination for HP-heavy bosses. Keyed by
-        // bossId so each new spawn starts fresh; in-memory only (server
-        // restart resets, which is fine -- restart is rare and the worst case
-        // is a few extra players get a second chance).
-        private readonly System.Collections.Concurrent.ConcurrentDictionary<int, HashSet<string>> _engagedThisSpawn = new();
-        private readonly object _engagedLock = new();
+        // v1.1.4: cooldowns and re-entry live on the player's world_boss_damage row, never in memory.
 
         /// <summary>Last known active boss name for notification display. Set on spawn, cleared on death/despawn.</summary>
         public volatile string? ActiveBossName;
@@ -106,7 +92,15 @@ namespace UsurperRemake.Systems
                     schedule = await MakeNextSchedule(backend, schedule);
                 }
 
-                if (active == null && schedule.SpawnedBossId == 0 && now >= schedule.SpawnUtc)
+                if (active == null && schedule.SpawnedBossId == 0 && now >= schedule.SpawnUtc.AddHours(schedule.WindowHours))
+                {
+                    // The whole window passed with the server down: no late spawn after every notice said
+                    // one hour; the schedule rolls forward and the countdown tells the truth in the morning.
+                    backend.LogWorldBossEvent(0, "missed", "", $"def={schedule.DefinitionId} spawn={schedule.SpawnUtc:u}");
+                    DebugLogger.Instance.LogWarning("WORLD_BOSS", $"Missed the {schedule.SpawnUtc:u} window for {schedule.DefinitionId}; rescheduling");
+                    schedule = await MakeNextSchedule(backend, schedule);
+                }
+                else if (active == null && schedule.SpawnedBossId == 0 && now >= schedule.SpawnUtc)
                 {
                     active = await SpawnScheduled(backend, schedule);
                 }
@@ -162,7 +156,7 @@ namespace UsurperRemake.Systems
                 schedule.BossLevel = WorldBossMath.BossLevelFor(def, median);
             }
             await SaveSchedule(backend, schedule);
-            NoticeScheduled(backend, schedule);
+            await NoticeScheduled(backend, schedule);
             schedule.NoticedAtReset = true;
             await SaveSchedule(backend, schedule);
             DebugLogger.Instance.LogInfo("WORLD_BOSS", $"Scheduled {schedule.DefinitionId} (Lv{schedule.BossLevel}, median {median}) for {schedule.SpawnUtc:u}{(schedule.CarriedBossId != 0 ? " (returning)" : "")}");
@@ -286,22 +280,22 @@ namespace UsurperRemake.Systems
         /// <summary>Filled in by the settle commit; until then nothing is marked, so nothing is lost.</summary>
         private Task SettleUnsettled(SqlSaveBackend backend) => Task.CompletedTask;
 
-        private void NoticeScheduled(SqlSaveBackend backend, WorldBossSchedule schedule)
+        private async Task NoticeScheduled(SqlSaveBackend backend, WorldBossSchedule schedule)
         {
             var bossDef = WorldBossDatabase.GetBossById(schedule.DefinitionId);
             if (bossDef == null) return;
             string key = schedule.CarriedBossId != 0 ? "world_boss.notice_returns" : "world_boss.notice_scheduled";
-            int hour = GameConfig.WorldBossSpawnHourEastern;
-            string hourText = hour > 12 ? $"{hour - 12} PM" : $"{hour} AM";
             try
             {
                 if (OnlineStateManager.IsActive)
-                    _ = OnlineStateManager.Instance!.AddNews(Loc.Get(key, bossDef.Name, bossDef.Title, schedule.BossLevel, hourText), "world_boss");
-                DiscordBridge.QueueSystemEvent(Loc.GetIn("en", key, bossDef.Name, bossDef.Title, schedule.BossLevel, hourText));
-                MudServer.Instance?.BroadcastLocalized(lang => $"\n  {Loc.GetIn(lang, key, bossDef.Name, bossDef.Title, schedule.BossLevel, hourText)}");
+                    await OnlineStateManager.Instance!.AddNews(Loc.Get(key, bossDef.Name, bossDef.Title, schedule.BossLevel, Loc.Get("world_boss.spawn_hour_text")), "world_boss");
+                DiscordBridge.QueueSystemEvent(Loc.GetIn("en", key, bossDef.Name, bossDef.Title, schedule.BossLevel, Loc.GetIn("en", "world_boss.spawn_hour_text")));
+                MudServer.Instance?.BroadcastLocalized(lang => $"\n  {Loc.GetIn(lang, key, bossDef.Name, bossDef.Title, schedule.BossLevel, Loc.GetIn(lang, "world_boss.spawn_hour_text"))}");
+                // Awaited one by one: hundreds of fire-and-forget inserts would contend with the tick's own writes.
                 foreach (var (username, language) in backend.GetRecentActivePlayers(GameConfig.WorldBossActiveDays))
                 {
-                    _ = backend.SendMessage("System", username, "world_boss", Loc.GetIn(language ?? "en", key, bossDef.Name, bossDef.Title, schedule.BossLevel, hourText));
+                    string lang = string.IsNullOrEmpty(language) ? "en" : language;
+                    await backend.SendMessage("System", username, "world_boss", Loc.GetIn(lang, key, bossDef.Name, bossDef.Title, schedule.BossLevel, Loc.GetIn(lang, "world_boss.spawn_hour_text")));
                 }
             }
             catch (Exception ex) { DebugLogger.Instance.LogError("WORLD_BOSS", $"Notice failed: {ex.Message}"); }
@@ -452,8 +446,7 @@ namespace UsurperRemake.Systems
             }
             terminal.WriteLine("");
             terminal.SetColor("darkgray");
-            int hour = GameConfig.WorldBossSpawnHourEastern;
-            terminal.WriteLine($"  {Loc.Get("world_boss.spawn_info", hour > 12 ? $"{hour - 12} PM" : $"{hour} AM")}");
+            terminal.WriteLine($"  {Loc.Get("world_boss.spawn_info", Loc.Get("world_boss.spawn_hour_text"))}");
             terminal.WriteLine($"  {Loc.Get("world_boss.duration_info", GameConfig.WorldBossWindowHours, GameConfig.WorldBossMaxNights)}");
         }
 
@@ -554,35 +547,15 @@ namespace UsurperRemake.Systems
         private async Task RunWorldBossCombat(Character player, TerminalEmulator terminal,
             SqlSaveBackend backend, WorldBossInfo boss)
         {
-            // Check death cooldown
             string playerKey = player.DisplayName.ToLowerInvariant();
-            if (_deathCooldowns.TryGetValue(playerKey, out var cooldownEnd) && DateTime.UtcNow < cooldownEnd)
+            // v1.1.4: the re-entry cooldown is on the player's row (two minutes after a retreat or the
+            // fifty-round rest, five after a fall). There is no lock: retreat, fall, and rest all re-enter.
+            int cooldownLeft = backend.GetWorldBossCooldownSeconds(boss.Id, playerKey);
+            if (cooldownLeft > 0)
             {
-                int secsLeft = (int)(cooldownEnd - DateTime.UtcNow).TotalSeconds;
                 terminal.SetColor("red");
-                terminal.WriteLine($"\n  {Loc.Get("world_boss.death_cooldown", secsLeft)}");
+                terminal.WriteLine($"\n  {Loc.Get("world_boss.death_cooldown", cooldownLeft)}");
                 await Task.Delay(2000);
-                return;
-            }
-
-            // v0.60.0 alpha audit: per-spawn engagement lockout. Check FIRST
-            // (read-only) so the HP=0 / data-error bounces below don't trip
-            // it. The actual mark-as-engaged write happens once we're past
-            // those entry validations.
-            var engagedSet = _engagedThisSpawn.GetOrAdd(boss.Id, _ => new HashSet<string>());
-            bool alreadyEngaged;
-            lock (_engagedLock)
-            {
-                alreadyEngaged = engagedSet.Contains(playerKey);
-            }
-            if (alreadyEngaged)
-            {
-                terminal.SetColor("dark_red");
-                terminal.WriteLine($"\n  You have already faced this god and chose to leave.");
-                terminal.WriteLine($"  No second chance is given. Wait for the next.");
-                terminal.SetColor("gray");
-                terminal.WriteLine($"  (Your damage already dealt still counts on the leaderboard.)");
-                await Task.Delay(2500);
                 return;
             }
 
@@ -605,19 +578,21 @@ namespace UsurperRemake.Systems
                 return;
             }
 
-            // v0.60.0: now that all entry validations have passed, mark this
-            // player as having engaged. From this point on, leaving the fight
-            // (any way except killing the boss) locks them out for this spawn.
-            // A disconnect mid-combat still counts as "you committed and bailed"
-            // -- the dict is in-memory and survives the player's session ending.
-            lock (_engagedLock)
-            {
-                engagedSet.Add(playerKey);
-            }
-
             // Combat state
             var state = new WorldBossCombatState();
             var rng = Random.Shared;
+
+            // v1.1.4 (council decision 5): the boss meets a player below its level at theirs. r is
+            // frozen for the session; the session's copy of the scaled stats carries it, and the
+            // player's native damage is divided by r before the row write. At or above the boss's
+            // level r is 1 and the per-round cap on applied damage bounds the top.
+            state.Ratio = WorldBossMath.Ratio(player.Level, boss.BossLevel);
+            state.RoundCap = WorldBossMath.RoundCap(boss.MaxHP);
+            state.BossId = boss.Id;
+            state.BossMaxHP = boss.MaxHP;
+            bossData.ScaledStrength = Math.Max(1, (long)Math.Round(bossData.ScaledStrength * state.Ratio));
+            bossData.ScaledDefence = Math.Max(0, (long)Math.Round(bossData.ScaledDefence * state.Ratio));
+            bossData.CurrentPhase = Math.Max(1, boss.Phase);
 
             // Reset transient combat buffs so leftover buffs from a previous fight (dungeon, etc.)
             // don't carry into the world boss, and so ability/spell buffs applied this fight start clean.
@@ -640,7 +615,10 @@ namespace UsurperRemake.Systems
                 terminal.WriteLine($"  {line}");
 
             terminal.SetColor("gray");
-            terminal.WriteLine($"  {Loc.Get("world_boss.phase_label", bossData.CurrentPhase, 3)} -- {Loc.Get("world_boss.prepare_yourself")}\n");
+            terminal.WriteLine($"  {Loc.Get("world_boss.phase_label", bossData.CurrentPhase, 3)} -- {Loc.Get("world_boss.prepare_yourself")}");
+            if (state.Ratio < 1.0)
+                terminal.WriteLine($"  {Loc.Get("world_boss.meets_at_level")}");
+            terminal.WriteLine("");
             await Task.Delay(1000);
 
             // Non-lethal "downed" outcome shared by the status-DoT path and the boss-damage
@@ -657,14 +635,13 @@ namespace UsurperRemake.Systems
                 terminal.SetColor("gray");
                 terminal.WriteLine($"  {Loc.Get("world_boss.total_damage_before_fall", $"{state.SessionDamage:N0}")}");
 
-                // Revive with 25% HP, apply cooldown -- no resurrection consumed.
+                // Revive with 25% HP; the cooldown goes on the row when the session is recorded.
                 player.HP = Math.Max(1, player.MaxHP / 4);
-                _deathCooldowns[playerKey] = DateTime.UtcNow.AddSeconds(GameConfig.WorldBossDeathCooldownSeconds);
 
                 terminal.SetColor("cyan");
                 terminal.WriteLine($"  {Loc.Get("world_boss.healers_safety", player.HP, player.MaxHP)}");
                 terminal.SetColor("yellow");
-                terminal.WriteLine($"  {Loc.Get("world_boss.must_wait", GameConfig.WorldBossDeathCooldownSeconds)}");
+                terminal.WriteLine($"  {Loc.Get("world_boss.must_wait", GameConfig.WorldBossFallCooldownSeconds)}");
             }
 
             while (state.Round < GameConfig.WorldBossMaxRoundsPerSession && player.HP > 0 && !state.Retreated)
@@ -682,13 +659,12 @@ namespace UsurperRemake.Systems
                     break;
                 }
 
-                // Update phase from DB (another player may have triggered a phase change)
-                var latestData = DeserializeRuntimeData(currentBoss.BossDataJson);
-                if (latestData != null)
-                    bossData.CurrentPhase = latestData.CurrentPhase;
-
-                // Check for phase transitions
-                await CheckPhaseTransition(currentBoss, bossData, bossDef, backend, terminal);
+                // v1.1.4: the tick owns the phase; the loop shows the change when it sees it
+                if (currentBoss.Phase > bossData.CurrentPhase)
+                {
+                    bossData.CurrentPhase = currentBoss.Phase;
+                    await ShowPhaseChange(currentBoss.Phase, bossDef, terminal);
+                }
 
                 // ─── Round header ───
                 double hpPct = currentBoss.MaxHP > 0 ? (double)currentBoss.CurrentHP / currentBoss.MaxHP * 100 : 0;
@@ -758,18 +734,42 @@ namespace UsurperRemake.Systems
                         // for the single caller whose conditional status-flip won the race; other
                         // concurrent callers who bring remainingHp to 0 in the same round see
                         // wasKillingBlow == false (v0.57.9 fix for duplicate kill-credit bug).
-                        var (remainingHp, wasKillingBlow) = await backend.RecordWorldBossDamage(
-                            currentBoss.Id, playerKey, roundDamage);
-                        state.SessionDamage += roundDamage;
+                        long toApply = WorldBossMath.Applied(roundDamage, state.Ratio, state.RoundCap);
+                        var (remainingHp, wasKillingBlow, applied) = await backend.RecordWorldBossDamage(
+                            currentBoss.Id, playerKey, toApply, player.Level);
+                        if (applied <= 0)
+                        {
+                            // Not credited: the row is no longer active inside its window.
+                            var latest = await backend.GetWorldBossById(currentBoss.Id);
+                            terminal.SetColor("yellow");
+                            if (latest?.Status == "defeated")
+                            {
+                                ActiveBossName = null;
+                                state.Killed = true;
+                                terminal.WriteLine($"\n  *** {Loc.Get("world_boss.already_defeated", bossDef.Name)} ***");
+                            }
+                            else
+                            {
+                                terminal.WriteLine($"\n  {Loc.Get("world_boss.window_closed", bossDef.Name)}");
+                            }
+                            break;
+                        }
+                        state.SessionDamage += applied;
 
                         terminal.SetColor("bright_green");
-                        terminal.WriteLine($"  >> {Loc.Get("world_boss.total_round_damage", $"{roundDamage:N0}")}");
+                        terminal.WriteLine($"  >> {Loc.Get("world_boss.total_round_damage", $"{applied:N0}")}");
+                        if (toApply >= state.RoundCap && roundDamage / Math.Max(0.01, state.Ratio) > state.RoundCap)
+                        {
+                            terminal.SetColor("yellow");
+                            terminal.WriteLine($"  >> {Loc.Get("world_boss.round_cap_hit", $"{state.RoundCap:N0}")}");
+                        }
                         terminal.SetColor("gray");
                         terminal.WriteLine($"  >> {Loc.Get("world_boss.boss_hp_remaining", $"{Math.Max(0, remainingHp):N0}")}");
 
                         if (wasKillingBlow)
                         {
                             ActiveBossName = null;
+                            state.Killed = true;
                             terminal.SetColor("bright_green");
                             terminal.WriteLine($"\n  *** {Loc.Get("world_boss.has_been_defeated", bossDef.Name)} ***");
                             terminal.SetColor("yellow");
@@ -806,6 +806,7 @@ namespace UsurperRemake.Systems
                             // leaderboard above — the killer's DistributeWorldBossRewards call
                             // will reward us on the next DB read.
                             ActiveBossName = null;
+                            state.Killed = true;
                             terminal.SetColor("yellow");
                             terminal.WriteLine($"\n  *** {Loc.Get("world_boss.already_defeated", bossDef.Name)} ***");
                             break;
@@ -816,33 +817,11 @@ namespace UsurperRemake.Systems
                 // ─── Boss actions ───
                 if (player.HP > 0 && !state.Retreated)
                 {
-                    await ProcessBossActions(bossDef, bossData, player, terminal, rng,
-                        state.DefendingRounds);
+                    await ProcessBossActions(bossDef, bossData, player, terminal, rng, state, backend);
                 }
 
-                // ─── Presence aura (unavoidable damage each round) ───
-                if (player.HP > 0 && !state.Retreated)
-                {
-                    float auraMult = bossData.CurrentPhase switch
-                    {
-                        2 => GameConfig.WorldBossAuraPhase2Mult,
-                        3 => GameConfig.WorldBossAuraPhase3Mult,
-                        _ => 1.0f
-                    };
-                    float auraPercent = bossDef.AuraBaseDamagePercent * auraMult;
-                    long auraDamage = Math.Max(1, (long)(player.MaxHP * auraPercent));
-
-                    // Defending reduces aura damage by 50%
-                    if (state.DefendingRounds > 0)
-                        auraDamage = auraDamage / 2;
-
-                    player.HP = Math.Max(0, player.HP - auraDamage);
-
-                    terminal.SetColor("magenta");
-                    terminal.WriteLine($"  {Loc.Get("world_boss.aura_damage", bossDef.Name, $"{auraDamage:N0}")}");
-                    terminal.SetColor("cyan");
-                    terminal.WriteLine($"  {Loc.Get("world_boss.your_hp_label")}: {player.HP}/{player.MaxHP}");
-                }
+                // v1.1.4: the presence aura is gone. The boss's actions carry the danger, and B's
+                // telegraphs will carry it further.
 
                 // Decrement defend counter
                 if (state.DefendingRounds > 0) state.DefendingRounds--;
@@ -884,6 +863,12 @@ namespace UsurperRemake.Systems
                 terminal.WriteLine($"\n  {Loc.Get("world_boss.max_rounds", GameConfig.WorldBossMaxRoundsPerSession)}");
                 terminal.WriteLine($"  {Loc.Get("world_boss.step_back")}");
             }
+
+            // v1.1.4: the session on the player's row: counts and the re-entry cooldown
+            int cooldownSeconds = state.Killed ? 0 : state.Died ? GameConfig.WorldBossFallCooldownSeconds : GameConfig.WorldBossRetreatCooldownSeconds;
+            await backend.RecordWorldBossSession(boss.Id, playerKey, player.Level, state.Round, state.Died, cooldownSeconds);
+            backend.LogWorldBossEvent(boss.Id, "session_end", playerKey,
+                $"reason={(state.Killed ? "kill" : state.Died ? "fall" : state.Retreated ? "retreat" : "rest")} rounds={state.Round} damage={state.SessionDamage} level={player.Level} r={state.Ratio:F2}");
 
             // Session summary
             terminal.WriteLine("");
@@ -1042,7 +1027,7 @@ namespace UsurperRemake.Systems
         }
 
         private long CalculatePlayerDamage(Character player, WorldBossDefinition bossDef,
-            WorldBossRuntimeData bossData, Random rng)
+            WorldBossRuntimeData bossData, Random rng, bool allowCrit = true)
         {
             // Active attack buff (Battle Cry / Focus / spell buffs) — only while its duration holds.
             long atkBonus = player.TempAttackBonusDuration > 0 ? player.TempAttackBonus : 0;
@@ -1059,7 +1044,7 @@ namespace UsurperRemake.Systems
             // Real critical-hit chance (DEX + equipment crit bonus), matching the main combat engine
             // so gear and DEX investment actually pay off here instead of the old flat 5-50% curve.
             int critChance = StatEffectsSystem.GetCriticalHitChance(player.Dexterity, player.GetEquipmentCritChanceBonus());
-            if (rng.Next(100) < critChance)
+            if (allowCrit && rng.Next(100) < critChance)
                 damage = (long)(damage * 1.5);
 
             // BossSlayer bonus: +10% damage if any equipped item has BossSlayer effect
@@ -1089,8 +1074,9 @@ namespace UsurperRemake.Systems
         private long CalculatePreciseStrikeDamage(Character player, WorldBossDefinition bossDef,
             WorldBossRuntimeData bossData, Random rng, TerminalEmulator terminal)
         {
-            // Always hits, higher crit chance (double normal), but 80% base damage
-            long baseDamage = (long)(CalculatePlayerDamage(player, bossDef, bossData, rng) * 0.8);
+            // Always hits, higher crit chance (double normal), but 80% base damage.
+            // v1.1.4: one crit roll, the doubled one below; the base used to roll the ordinary crit too.
+            long baseDamage = (long)(CalculatePlayerDamage(player, bossDef, bossData, rng, allowCrit: false) * 0.8);
 
             // Extra crit check — double the real DEX/equipment crit chance, capped at 95%
             int critChance = Math.Min(95, StatEffectsSystem.GetCriticalHitChance(player.Dexterity, player.GetEquipmentCritChanceBonus()) * 2);
@@ -1463,11 +1449,12 @@ namespace UsurperRemake.Systems
 
         private async Task ProcessBossActions(WorldBossDefinition bossDef, WorldBossRuntimeData bossData,
             Character player, TerminalEmulator terminal, Random rng,
-            int defendingRounds)
+            WorldBossCombatState state, SqlSaveBackend backend)
         {
-            // Boss gets multiple attacks per round
-            int attacks = bossData.AttacksPerRound;
-            if (bossData.CurrentPhase >= 3) attacks++; // Extra attack in phase 3
+            int defendingRounds = state.DefendingRounds;
+            // v1.1.4 (milestone A): one action per round, two in phase 3. The ability roll stays
+            // until B's telegraphs replace it.
+            int attacks = bossData.CurrentPhase >= 3 ? 2 : 1;
 
             for (int i = 0; i < attacks && player.HP > 0; i++)
             {
@@ -1485,7 +1472,7 @@ namespace UsurperRemake.Systems
                 if (ability != null)
                 {
                     await ProcessBossAbility(ability, bossDef, bossData, player, terminal, rng,
-                        defendingRounds);
+                        defendingRounds, state, backend);
                 }
                 else
                 {
@@ -1501,7 +1488,7 @@ namespace UsurperRemake.Systems
 
         private async Task ProcessBossAbility(WorldBossAbility ability, WorldBossDefinition bossDef,
             WorldBossRuntimeData bossData, Character player, TerminalEmulator terminal, Random rng,
-            int defendingRounds)
+            int defendingRounds, WorldBossCombatState state, SqlSaveBackend backend)
         {
             terminal.SetColor(bossDef.ThemeColor);
             terminal.WriteLine($"  {Loc.Get("world_boss.boss_uses_ability", bossDef.Name, bossDef.LocAbilityName(ability))}");
@@ -1516,6 +1503,8 @@ namespace UsurperRemake.Systems
                 abilityDmg = (long)(bossData.ScaledStrength * ability.DamageMultiplier * (0.8 + rng.NextDouble() * 0.4));
                 if (defendingRounds > 0) abilityDmg = abilityDmg * 3 / 4; // Defending still helps a bit
             }
+            // v1.1.4: no single ability takes more than the plan's ceiling (30 percent of max HP)
+            abilityDmg = Math.Min(abilityDmg, WorldBossMath.UnavoidableCap(player.MaxHP));
 
             if (abilityDmg > 0)
             {
@@ -1550,11 +1539,16 @@ namespace UsurperRemake.Systems
                 }
             }
 
-            // Self-heal
+            // Self-heal: v1.1.4, it heals the shared pool, bounded by max HP and only while active.
+            // "Regenerates" used to print and heal nothing.
             if (ability.SelfHealPercent > 0)
             {
-                terminal.SetColor("magenta");
-                terminal.WriteLine($"  {Loc.Get("world_boss.boss_regenerates", bossDef.Name)}");
+                long heal = Math.Max(1, (long)(state.BossMaxHP * ability.SelfHealPercent));
+                if (await backend.HealWorldBoss(state.BossId, heal))
+                {
+                    terminal.SetColor("magenta");
+                    terminal.WriteLine($"  {Loc.Get("world_boss.boss_regenerates", bossDef.Name)} ({heal:N0})");
+                }
             }
 
             terminal.SetColor("cyan");
@@ -1607,48 +1601,23 @@ namespace UsurperRemake.Systems
         // Phase Transitions
         // ═══════════════════════════════════════════════════════════════════════════
 
-        private async Task CheckPhaseTransition(WorldBossInfo boss, WorldBossRuntimeData bossData,
-            WorldBossDefinition bossDef, SqlSaveBackend backend, TerminalEmulator terminal)
+        /// <summary>v1.1.4: the tick raised the phase; this session shows it once.</summary>
+        private async Task ShowPhaseChange(int newPhase, WorldBossDefinition bossDef, TerminalEmulator terminal)
         {
-            if (boss.MaxHP <= 0) return;
-
-            double hpPercent = (double)boss.CurrentHP / boss.MaxHP;
-            int newPhase = bossData.CurrentPhase;
-
-            if (hpPercent <= GameConfig.WorldBossPhase3Threshold && bossData.CurrentPhase < 3)
-                newPhase = 3;
-            else if (hpPercent <= GameConfig.WorldBossPhase2Threshold && bossData.CurrentPhase < 2)
-                newPhase = 2;
-
-            if (newPhase != bossData.CurrentPhase)
+            terminal.SetColor("bright_yellow");
+            terminal.WriteLine("");
+            terminal.WriteLine($"  *** {Loc.Get("world_boss.phase_label", newPhase, 3)} — {GetPhaseDescription(newPhase)} ***");
+            string[]? dialogue = newPhase == 2 ? bossDef.LocPhase2() : bossDef.LocPhase3();
+            if (dialogue != null)
             {
-                bossData.CurrentPhase = newPhase;
-
-                // Save phase to DB for other players
-                string dataJson = JsonSerializer.Serialize(bossData);
-                await backend.UpdateWorldBossData(boss.Id, dataJson);
-
-                // Display phase transition
-                terminal.SetColor("bright_yellow");
-                terminal.WriteLine("");
-                terminal.WriteLine($"  *** {Loc.Get("world_boss.phase_label", newPhase, 3)} — {GetPhaseDescription(newPhase)} ***");
-
-                string[]? dialogue = newPhase == 2 ? bossDef.LocPhase2() : bossDef.LocPhase3();
-                if (dialogue != null)
+                terminal.SetColor(bossDef.ThemeColor);
+                foreach (var line in dialogue)
                 {
-                    terminal.SetColor(bossDef.ThemeColor);
-                    foreach (var line in dialogue)
-                    {
-                        terminal.WriteLine($"  {line}");
-                        await Task.Delay(800);
-                    }
+                    terminal.WriteLine($"  {line}");
+                    await Task.Delay(800);
                 }
-                terminal.WriteLine("");
-
-                // Broadcast phase change
-                MudServer.Instance?.BroadcastLocalized(lang =>
-                    $"\n  *** {Loc.GetIn(lang, "world_boss.phase_change_broadcast", bossDef.Name, newPhase, GetPhaseDescriptionIn(lang, newPhase))} ***");
             }
+            terminal.WriteLine("");
         }
 
         private string GetPhaseDescription(int phase) => phase switch
@@ -1874,17 +1843,16 @@ namespace UsurperRemake.Systems
             return session;
         }
 
+        /// <summary>v1.1.4: equipped slots only; a boss-slayer blade in the bag used to count.</summary>
         public static bool HasSpecialEffect(Character player, LootGenerator.SpecialEffect effect)
         {
-            int effectId = (int)effect;
-
-            // Check all items in inventory with the effect — equipped items will have
-            // the effect applied through CombatEngine's equipment processing, but for
-            // world boss combat we check LootEffects directly on inventory items
-            foreach (var item in player.Inventory)
+            foreach (var kvp in player.EquippedItems)
             {
-                if (item.LootEffects != null && item.LootEffects.Any(e => e.EffectType == effectId))
-                    return true;
+                if (kvp.Value <= 0) continue;
+                var eq = EquipmentDatabase.GetById(kvp.Value);
+                if (eq == null) continue;
+                if (effect == LootGenerator.SpecialEffect.BossSlayer && eq.HasBossSlayer) return true;
+                if (effect == LootGenerator.SpecialEffect.TitanResolve && eq.HasTitanResolve) return true;
             }
             return false;
         }
@@ -1919,6 +1887,12 @@ namespace UsurperRemake.Systems
         public bool Died { get; set; }
         public Dictionary<string, int> AbilityCooldowns { get; } = new();
         public int DefendingRounds { get; set; }
+        // v1.1.4
+        public bool Killed { get; set; }
+        public double Ratio { get; set; } = 1.0;
+        public long RoundCap { get; set; } = long.MaxValue;
+        public int BossId { get; set; }
+        public long BossMaxHP { get; set; }
     }
 
     public class WorldBossRuntimeData

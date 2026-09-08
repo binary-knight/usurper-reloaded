@@ -115,6 +115,23 @@ public class WorldBossTickTests : IDisposable
     }
 
     [Fact]
+    public async Task AWindowMissedWhileDown_IsNotSpawnedLate_ItRollsForward()
+    {
+        await _sys.Tick(_db);
+        var s = await Schedule();
+        s.SpawnUtc = DateTime.UtcNow.AddHours(-4);
+        await _db.SaveWorldState(WorldBossSystem.ScheduleKey, JsonSerializer.Serialize(s, Json));
+        await _sys.Tick(_db);
+        (await _db.GetActiveWorldBoss()).Should().BeNull("every notice said one hour; no spawn at 2 AM");
+        var next = await Schedule();
+        next.SpawnUtc.Should().BeAfter(DateTime.UtcNow);
+        next.SpawnedBossId.Should().Be(0);
+        using var c = new SqliteConnection($"Data Source={_path};Pooling=true"); c.Open();
+        using var cmd = c.CreateCommand(); cmd.CommandText = "SELECT COUNT(*) FROM world_boss_events WHERE kind = 'missed';";
+        Convert.ToInt32(cmd.ExecuteScalar()).Should().Be(1);
+    }
+
+    [Fact]
     public async Task LiveUpkeep_RaisesThePhaseOnce_AndRallyRegeneratesOnlyWhenIdle()
     {
         await _sys.Tick(_db);
@@ -127,7 +144,7 @@ public class WorldBossTickTests : IDisposable
         long hpBefore = (await _db.GetWorldBossById(boss.Id))!.CurrentHP;
         await _sys.Tick(_db);
         (await _db.GetWorldBossById(boss.Id))!.CurrentHP.Should().Be(hpBefore, "hit a moment ago: no Rally");
-        Exec("UPDATE world_bosses SET last_damaged_at = datetime('now', '-11 minutes') WHERE id = @id;", boss.Id);
+        Exec("UPDATE world_bosses SET last_damaged_at = datetime('now', '-11 minutes'), window_started_at = datetime('now', '-12 minutes') WHERE id = @id;", boss.Id);
         await _sys.Tick(_db);
         var after = (await _db.GetWorldBossById(boss.Id))!;
         after.CurrentHP.Should().Be(hpBefore + Math.Max(1, (long)(boss.MaxHP * 0.005)));

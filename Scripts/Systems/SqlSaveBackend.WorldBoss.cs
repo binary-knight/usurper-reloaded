@@ -350,12 +350,17 @@ namespace UsurperRemake.Systems
         public Task<bool> MarkWorldBossLeft(int bossId) => GuardedWorldBossUpdate(
             @"UPDATE world_bosses SET status = 'left', ended_at = datetime('now') WHERE id = @id AND status = 'withdrawn';", ("@id", bossId));
 
-        /// <summary>Rally: regenerate only while active and idle for the given minutes. True when it regenerated.</summary>
+        /// <summary>
+        /// Rally: regenerate only while active, after a hit inside the current window, and idle for the
+        /// given minutes. Idle time from a previous night never counts, so a returned boss keeps its
+        /// wounds until someone hits it (the nightly 20 percent is the only regeneration between windows).
+        /// </summary>
         public Task<bool> RallyRegenWorldBoss(int bossId, long amount, int idleMinutes) => GuardedWorldBossUpdate(
             @"UPDATE world_bosses SET current_hp = MIN(max_hp, current_hp + @n), regen_total = COALESCE(regen_total, 0) + (MIN(max_hp, current_hp + @n) - current_hp)
               WHERE id = @id AND status = 'active' AND current_hp < max_hp AND current_hp > 0
-                AND (last_damaged_at IS NULL OR last_damaged_at < datetime('now', '-' || @m || ' minutes'))
-                AND first_hit_at IS NOT NULL;",
+                AND last_damaged_at IS NOT NULL
+                AND last_damaged_at >= COALESCE(window_started_at, started_at)
+                AND last_damaged_at < datetime('now', '-' || @m || ' minutes');",
             ("@id", bossId), ("@n", amount), ("@m", idleMinutes));
 
         /// <summary>Phase only ever rises. True when it rose.</summary>
