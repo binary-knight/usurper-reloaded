@@ -850,8 +850,9 @@ public abstract class BaseLocation
                 terminal.WriteLine($"*** {Loc.Get("base.system_message")}: {broadcast} ***", "bright_red");
             }
 
-            // v1.1.4: one world boss status line (countdown before, live status during), from the tick's snapshot
-            if (UsurperRemake.BBS.DoorMode.IsOnlineMode && currentPlayer.Level >= GameConfig.WorldBossMinLevel)
+            // v1.1.4: one world boss status line (countdown before, live status during), from the tick's snapshot.
+            // v1.1.6: on Main Street only; on every screen it was spam.
+            if (LocationId == GameLocation.MainStreet && UsurperRemake.BBS.DoorMode.IsOnlineMode && currentPlayer.Level >= GameConfig.WorldBossMinLevel)
             {
                 var bossLine = WorldBossSystem.Instance.TownLine();
                 if (bossLine != null)
