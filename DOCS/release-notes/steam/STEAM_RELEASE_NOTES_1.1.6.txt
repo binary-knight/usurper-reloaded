@@ -1,0 +1,3 @@
+[h1]Usurper Reborn 1.1.6[/h1]
+
+A small one. The world boss countdown and status line was showing on every screen in town, which was spam. It is on Main Street only now. /boss still shows it from anywhere, and the mail, the news, Discord, and the call an hour before are unchanged.
