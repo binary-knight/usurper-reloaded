@@ -31,9 +31,13 @@ class CodexProvider {
     try { output = fs.readFileSync(last, 'utf8'); fs.unlinkSync(last); } catch { /* no last message */ }
     if (r.code !== 0 && !output) return { error: `codex exited ${r.code}: ${r.stderr.slice(-500)} (raw: ${r.rawPath})` };
     const tokens = /tokens used\s*:?\s*([\d,]+)/i.exec(r.stdout);
+    // On a box where bubblewrap cannot create user namespaces (AppArmor's
+    // apparmor_restrict_unprivileged_userns = 1), Codex's sandbox never starts: the seat answers from
+    // the inlined brief alone and has no tree access. Every receipt on this machine so far says so.
+    const sandbox = !/needs access to create user namespaces/i.test(r.stdout + r.stderr);
     return {
       output,
-      metadata: { model: header[1], effort: header[2], tokensUsed: tokens ? tokens[1] : undefined, raw: r.rawPath },
+      metadata: { model: header[1], effort: header[2], tokensUsed: tokens ? tokens[1] : undefined, sandbox, raw: r.rawPath },
     };
   }
 }

@@ -57,6 +57,9 @@ tests:
     assert:
       - type: javascript
         value: file://assertions/cited-files-exist.js
+      # this brief too says every number is a starting setting unless derived
+      - type: javascript
+        value: file://assertions/numbers-carry-a-class.js
 
 evaluateOptions:
   maxConcurrency: 1

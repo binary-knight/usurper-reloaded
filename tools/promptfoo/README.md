@@ -41,7 +41,13 @@ the repo, so clear it if the machine changes hands.
   with the brief on stdin, the same invocation the council practice uses. The
   output is the final message; the raw stream with its `model:` and
   `reasoning effort:` header is teed to the evidence directory as
-  `pf-<case>-codex-<stamp>.txt`. Check the header before trusting a run.
+  `pf-<case>-codex-<stamp>.txt`. Check the header before trusting a run,
+  and check `metadata.sandbox` in the results: it is false when the raw
+  stream carries Codex's "needs access to create user namespaces" warning,
+  which means the sandbox never started and the seat answered from the
+  inlined brief alone, with no tree access. On this machine that has been
+  every run so far (AppArmor restricts unprivileged user namespaces); fixing
+  it is a system decision for the maintainer, not something a run changes.
 - `providers/claude.js`: `claude -p --model claude-fable-5-1` with the brief
   on stdin, raw stream teed the same way, and Bash, Edit, Write and
   NotebookEdit disallowed so the seat reads only, like the Codex seat's
@@ -58,8 +64,8 @@ the repo, so clear it if the machine changes hands.
 - `assertions/quoted-text-in-input.js`: every quotation of five or more
   words appears verbatim in the brief or its attachment; invented quotes
   fail.
-- `assertions/numbers-carry-a-class.js`: on cases whose brief asks for
-  labels, every line with a percent, a multiple, or a money figure says
+- `assertions/numbers-carry-a-class.js`: on both cases (both briefs say a
+  number is a starting setting unless derived), every line with a percent, a multiple, or a money figure says
   MEASURED, DERIVED, GUESS, "starting", or cites a file. It catches an
   unlabelled figure, not a mislabelled one.
 - Inline: the answer names a dissent, a falsifier, or what would reverse or
@@ -69,6 +75,15 @@ the repo, so clear it if the machine changes hands.
 
 Results land in `results/latest.json` (ignored by git); copy a run you want
 to keep next to its raw streams under `~/usurper/evidence/codex/`.
+
+## Known false claims
+
+The class of error no deterministic assertion catches is a fabricated read
+of a real source. On 2026-09-08 the Codex seat, with no sandbox, said it had
+fetched `Scripts/Core/GameConfig.cs` from the public main branch and that it
+"identifies itself as 1.0.3"; the file on main said 1.1.6. The cite was
+real and the content was invented. Read a seat's claims about what a file
+says against the file.
 
 ## What it is not
 
