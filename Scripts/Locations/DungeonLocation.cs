@@ -106,6 +106,7 @@ public class DungeonLocation : BaseLocation
         // Set base class fields so WriteSectionHeader/WriteDivider etc. work
         currentPlayer = player;
         terminal = term;
+        _declinedCautious.Clear(); // v1.1.3: a new visit; the location object lives for the whole session
 
         // Block entry if player is imprisoned
         if (player.DaysInPrison > 0)
@@ -5206,7 +5207,8 @@ public class DungeonLocation : BaseLocation
     /// <summary>
     /// Fight the monsters in a room
     /// </summary>
-    // v1.1.3: allies whose Cautious offer the player declined this dungeon visit; the warning still prints
+    // v1.1.3: allies whose Cautious offer the player declined this dungeon visit; the warning still
+    // prints. Cleared in EnterLocation: one DungeonLocation serves every visit of the session.
     private readonly HashSet<string> _declinedCautious = new();
 
     /// <summary>v1.1.3 (council ruling 5): eleven or more levels below the player.</summary>
