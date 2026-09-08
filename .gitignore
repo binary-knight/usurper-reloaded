@@ -70,8 +70,10 @@ nul
 *.env
 !*.env.example
 
-# Dev/localization tooling scripts (not part of the game)
-tools/
+# Dev/localization tooling scripts (not part of the game); tools/promptfoo is committed (its own
+# .gitignore drops node_modules and results)
+tools/*
+!tools/promptfoo/
 DOCS/FEEDBACK_PLAN_0.56.0.md
 AGENTS.md
 __pycache__/

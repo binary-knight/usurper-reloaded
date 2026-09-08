@@ -1,0 +1,65 @@
+# Council briefs through the council's model seats.
+#
+# A promptfoo run is not a council seat: it checks whether a brief produced a usable ruling from
+# each model (cites real files, answers every question under its number, names its dissent, gives
+# numbers). The tally rule stays majority of four with the code breaking ties.
+#
+# Run from this directory: npm run eval   (one case at a time, no cache, telemetry off)
+# Never `promptfoo share`: the briefs are the maintainer's design work.
+description: Usurper Reborn council briefs
+
+prompts:
+  - file://prompts/council.txt
+
+providers:
+  - id: file://providers/codex.js
+    label: codex gpt-6-astra high
+    config:
+      model: gpt-6-astra
+      effort: high
+  - id: file://providers/claude.js
+    label: claude-fable-5-1
+    config:
+      model: claude-fable-5-1
+
+defaultTest:
+  assert:
+    - type: javascript
+      value: file://assertions/answers-every-question.js
+    - type: javascript
+      value: file://assertions/quoted-text-in-input.js
+    - type: javascript
+      value: /dissent|disagree|would change|against the plan|reverse|overturn|prove\w* .{0,8}wrong|falsif/i.test(output)
+      metric: names-dissent
+    # A floor, not a signal: line numbers and dates alone can satisfy it.
+    - type: javascript
+      value: (output.match(/\d+/g) || []).length >= 10
+      metric: concrete-numbers
+
+tests:
+  - description: world boss, the five maintainer decisions (a 600-word budget on a 400-word ask; numbers labelled, the plan attached)
+    vars:
+      name: wb-decisions
+      brief: file://briefs/wb-decisions.md
+      attachment: file://../../DOCS/WORLD_BOSS_PLAN.md
+    assert:
+      - type: javascript
+        value: output.split(/\s+/).length <= 600
+        metric: word-budget
+      # the brief says numbers are starting settings unless derived, so every figure carries a class
+      - type: javascript
+        value: file://assertions/numbers-carry-a-class.js
+  - description: world boss, the design brief (eight findings, seven questions; a ruling about this code names the code)
+    vars:
+      name: wb-brief
+      brief: file://briefs/wb-brief.md
+      attachment: ""
+    assert:
+      - type: javascript
+        value: file://assertions/cited-files-exist.js
+      # this brief too says every number is a starting setting unless derived
+      - type: javascript
+        value: file://assertions/numbers-carry-a-class.js
+
+evaluateOptions:
+  maxConcurrency: 1

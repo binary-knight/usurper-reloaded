@@ -1,0 +1,15 @@
+{
+  "name": "usurper-promptfoo",
+  "version": "1.0.0",
+  "description": "promptfoo evals for the council briefs (see README.md)",
+  "scripts": {
+    "ping": "PROMPTFOO_DISABLE_TELEMETRY=1 promptfoo eval -c ping.yaml --no-cache --max-concurrency 1",
+    "eval": "PROMPTFOO_DISABLE_TELEMETRY=1 promptfoo eval -c promptfooconfig.yaml --no-cache --max-concurrency 1 -o results/latest.json",
+    "view": "PROMPTFOO_DISABLE_TELEMETRY=1 promptfoo view"
+  },
+  "type": "commonjs",
+  "devDependencies": {
+    "promptfoo": "0.122.2"
+  },
+  "private": true
+}
