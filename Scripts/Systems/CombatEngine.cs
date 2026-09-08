@@ -54,6 +54,34 @@ public partial class CombatEngine
     private readonly HashSet<Character> _lowAlliesAtTurnStart = new();
     private bool _ownerAidedThisTurn;
 
+    /// <summary>v1.2: abilities that keep a wounded teammate alive: Defense-type, evasive
+    /// sidesteps and smoke, and buffs that raise defense or reduce damage.</summary>
+    internal static List<ClassAbilitySystem.ClassAbility> SelectDefensiveAbilities(IEnumerable<ClassAbilitySystem.ClassAbility> abilities)
+    {
+        var evasive = new HashSet<string> { "dodge_next", "evasion", "smoke", "party_smoke_screen" };
+        return abilities.Where(a =>
+                a.Type == ClassAbilitySystem.AbilityType.Defense
+                || evasive.Contains(a.SpecialEffect)
+                || (a.Type == ClassAbilitySystem.AbilityType.Buff && a.DefenseBonus > 0))
+            .ToList();
+    }
+
+    internal static bool IsWoundedForDefense(Character c) =>
+        c.MaxHP > 0 && (double)c.HP / c.MaxHP < GameConfig.TeammateDefensivePriorityHpPercent;
+
+    /// <summary>v1.2: a teammate below TeammateDefendHpPercent with no heal or defensive ability
+    /// left braces for the round (half incoming damage) instead of swinging. Cleared at round end
+    /// like the player's Defend.</summary>
+    internal bool TryTeammateDefend(Character teammate)
+    {
+        if (teammate.IsDefending || teammate.MaxHP <= 0) return false;
+        if ((double)teammate.HP / teammate.MaxHP >= GameConfig.TeammateDefendHpPercent) return false;
+        teammate.IsDefending = true;
+        if (!teammate.ActiveStatuses.ContainsKey(StatusEffect.Defending))
+            teammate.ActiveStatuses[StatusEffect.Defending] = 1;
+        return true;
+    }
+
     /// <summary>Called as the combat owner's chosen action starts: which allies were below half
     /// HP, and whether the action was aid to an ally.</summary>
     internal void NoteOwnerTurn(Character actor, IEnumerable<Character>? teammates, CombatAction action)
@@ -902,6 +930,10 @@ public partial class CombatEngine
                     teammate.MagicACBonus = 0;
                     teammate.DodgeNextAttack = false;
                     teammate.HasBloodlust = false;
+                    // v1.2: a brace on the round the last monster fell skips the round-end clear
+                    // (victory breaks the round loop), same leak the player's IsDefending had.
+                    teammate.IsDefending = false;
+                    teammate.ActiveStatuses.Remove(StatusEffect.Defending);
                     teammate.HasStatusImmunity = false;
                     teammate.StatusImmunityDuration = 0;
                     teammate.DeathsEmbraceActive = false;
@@ -6630,6 +6662,8 @@ public partial class CombatEngine
         var healAction = await TryTeammateHealAction(teammate, allPartyMembers, result);
         if (healAction) return;
 
+        // v1.2: wounded, a teammate looks for a shield before it casts an attack spell
+        if (IsWoundedForDefense(teammate) && await TryTeammateClassAbility(teammate, monsterList, result)) return;
         // Check if teammate should cast an offensive spell
         var spellAction = await TryTeammateOffensiveSpell(teammate, monsterList, result);
         if (spellAction) return;
@@ -6637,6 +6671,15 @@ public partial class CombatEngine
         // Check if teammate should use a class ability
         var abilityAction = await TryTeammateClassAbility(teammate, monsterList, result);
         if (abilityAction) return;
+        // v1.2: nothing left to heal or shield with and badly hurt: brace instead of swinging
+        if (TryTeammateDefend(teammate))
+        {
+            terminal.SetColor("cyan");
+            terminal.WriteLine(Loc.Get("combat.teammate_defends", teammate.DisplayName));
+            result.CombatLog.Add($"{teammate.DisplayName} braces for the next attack.");
+            await Task.Delay(GetCombatDelay(600));
+            return;
+        }
 
         // Otherwise, basic attack
         var (swings, windfuryProc) = GetAttackCount(teammate);
@@ -18006,6 +18049,11 @@ public partial class CombatEngine
             return; // Healing action was taken
         }
 
+        // v1.2: wounded, a teammate looks for a shield before it casts an attack spell
+        if (IsWoundedForDefense(teammate) && await TryTeammateClassAbility(teammate, monsters, result))
+        {
+            return;
+        }
         // Check if teammate should cast an offensive spell
         var spellAction = await TryTeammateOffensiveSpell(teammate, monsters, result);
         if (spellAction)
@@ -18018,6 +18066,15 @@ public partial class CombatEngine
         if (abilityAction)
         {
             return; // Ability was used
+        }
+        // v1.2: nothing left to heal or shield with and badly hurt: brace instead of swinging
+        if (TryTeammateDefend(teammate))
+        {
+            terminal.SetColor("cyan");
+            terminal.WriteLine(Loc.Get("combat.teammate_defends", teammate.DisplayName));
+            result.CombatLog.Add($"{teammate.DisplayName} braces for the next attack.");
+            await Task.Delay(GetCombatDelay(600));
+            return;
         }
 
         // Otherwise, attack the weakest monster
@@ -18097,6 +18154,15 @@ public partial class CombatEngine
         // Check if teammate can heal with spells (any class with mana and healing spells)
         bool canHealWithSpells = teammate.Mana > 10 && GetBestHealSpell(teammate) != null;
         bool hasPotion = teammate.Healing > 0;
+
+        // v1.2: about to die, a teammate drinks its own potion first; the old order potioned the
+        // most injured party member and returned, so a teammate at 20 percent handed its last
+        // potion to an ally at 45 and kept fighting.
+        double ownPercent = (double)teammate.HP / Math.Max(1, teammate.MaxHP);
+        if (hasPotion && ownPercent < GameConfig.TeammateEmergencySelfHealHpPercent)
+        {
+            return await TeammateHealWithPotion(teammate, teammate, result);
+        }
 
         // Classes that prioritize healing
         bool isHealerClass = teammate.Class == CharacterClass.Cleric ||
@@ -18723,6 +18789,14 @@ public partial class CombatEngine
 
         // PRIORITY 1: Tank role — taunt immediately if no monsters are taunted
         // Tanks should establish aggro before anything else. This skips the 50% gate.
+        // v1.2: a wounded teammate reaches for a shield or a sidestep before anything else,
+        // ahead of the tank's taunt and of the use-chance roll.
+        if (teammateHpPercent < GameConfig.TeammateDefensivePriorityHpPercent)
+        {
+            var lifeSavers = SelectDefensiveAbilities(affordableAbilities);
+            if (lifeSavers.Count > 0)
+                chosenAbility = lifeSavers.OrderByDescending(a => a.LevelRequired).First();
+        }
         bool isTankClass = teammate.Class == CharacterClass.Warrior || teammate.Class == CharacterClass.Paladin
             || teammate.Class == CharacterClass.Barbarian;
         bool isTankCompanion = teammate.IsCompanion && teammate.CompanionId.HasValue &&
@@ -18738,7 +18812,7 @@ public partial class CombatEngine
                 // Prefer AoE taunt (Thundering Roar), then single taunt
                 var tauntAbility = affordableAbilities.FirstOrDefault(a => a.SpecialEffect == "aoe_taunt")
                     ?? affordableAbilities.FirstOrDefault(a => a.SpecialEffect == "taunt");
-                if (tauntAbility != null)
+                if (tauntAbility != null && chosenAbility == null) // v1.2: never over a wounded teammate's shield
                     chosenAbility = tauntAbility;
             }
         }
@@ -19270,6 +19344,7 @@ public partial class CombatEngine
                         if (monster.IsBoss)
                             actualDmg = Math.Max(actualDmg, (long)(monster.Level * 1.5));
                         actualDmg = CapTeammateDamageInOldGodFight(companion, actualDmg);
+                        if (companion.IsDefending) actualDmg = Math.Max(1, actualDmg / 2); // v1.2: brace covers specials too
                         companion.HP = Math.Max(0, companion.HP - actualDmg);
                         terminal.WriteLine($"{companion.DisplayName} takes {actualDmg} damage!", "red");
                         result.CombatLog.Add($"{monster.Name} uses {abilityName} on {companion.DisplayName} for {actualDmg}");
@@ -19301,6 +19376,7 @@ public partial class CombatEngine
                         if (monster.IsBoss)
                             dmg = Math.Max(dmg, (long)(monster.Level * 1.5));
                         dmg = CapTeammateDamageInOldGodFight(companion, dmg);
+                        if (companion.IsDefending) dmg = Math.Max(1, dmg / 2); // v1.2: brace covers life drain too
                         companion.HP = Math.Max(0, companion.HP - dmg);
                         if (abilityResult.LifeStealPercent > 0)
                         {
@@ -19798,7 +19874,9 @@ public partial class CombatEngine
                 });
                 terminal.WriteLine($"  {Loc.Get("combat.ally_death_could_have_helped", npc.DisplayName)}", "yellow");
             }
-            wasPermadeath = WorldSimulator.Instance?.MarkNPCDead(worldNpc, GameConfig.PermadeathChancePlayerKill,
+            // v1.2: an ally who dies in the player's party rolls the team rate (2 percent), not
+            // the "player killed an NPC" rate (8 percent) this passed since v0.42.
+            wasPermadeath = WorldSimulator.Instance?.MarkNPCDead(worldNpc, GameConfig.PermadeathChanceDungeonTeam,
                 killerName, deathLocation) ?? false;
             worldNpc.IsInConversation = savedEngaged;
             worldNpc.Team = savedTeam;
@@ -24434,6 +24512,16 @@ public partial class CombatEngine
             player.DelugeCooldown--;
 
         // Decrement teammate ability cooldowns
+        // v1.2: a teammate's Defend lasts one round, like the player's
+        if (currentTeammates != null)
+        {
+            foreach (var tm in currentTeammates)
+            {
+                if (!tm.IsDefending) continue;
+                tm.IsDefending = false;
+                tm.ActiveStatuses.Remove(StatusEffect.Defending);
+            }
+        }
         foreach (var tcEntry in teammateCooldowns.Values)
         {
             var tcKeys = tcEntry.Keys.ToList();
