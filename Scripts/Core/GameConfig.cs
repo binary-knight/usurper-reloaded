@@ -1171,17 +1171,36 @@ public static partial class GameConfig
     public const float GroupXPPenaltyMinimum = 0.10f;           // 31+ level gap: 10% XP (floor)
 
     // ============================================================
-    // World Boss System (v0.48.2) — Online Mode Only
+    // World Boss System (v0.48.2; redone in v1.1.4, DOCS/WORLD_BOSS_PLAN.md)
     // ============================================================
-    public const int WorldBossMinPlayersToSpawn = 2;            // Min online players to trigger spawn
-    public const int WorldBossSpawnCooldownTicks = 120;         // ~1 hour (120 ticks * 30s) between bosses (unused, see Hours)
-    // v0.60.0 alpha audit: 92% of bosses (387/422) expired without being
-    // killed during alpha. Spawned during empty hours, fight window too short
-    // for the offline cohort to even notice. Bumping cooldown so spawns are
-    // less frequent (less wasted spawns), extending the fight window to give
-    // peak-hour players room to coordinate, and dropping HP scaling so the
-    // bosses are actually killable by 2-3 players instead of demanding 5+.
-    public const double WorldBossSpawnCooldownHours = 8.0;      // was 4.0 -- fewer wasted spawns
+    // Every value marked "starting" is a starting setting to be tuned from the world_boss_* log.
+    public const int WorldBossSpawnHourEastern = 20;            // 8 PM ET daily, whether or not anyone is online (council decision 1)
+    public const int WorldBossWindowHours = 3;                  // starting (council decision 2)
+    public const int WorldBossActiveDays = 7;                   // the cohort whose median level picks the boss
+    public const int WorldBossPickLevelSlack = 10;              // exclude bosses whose base level exceeds the median by more
+    public const int WorldBossKillBudgetPlayers = 3;            // MaxHP = this x PerPlayerBudget(bossLevel)
+    public const double WorldBossAbilityFactor = 1.8;           // reference fighter's ability multiplier
+    public const int WorldBossRoundsPerWindow = 75;             // starting
+    public const double WorldBossPerRoundCapPercent = 0.006;    // of MaxHP, on applied damage (starting)
+    public const double WorldBossUnavoidableCapPercent = 0.30;  // of the player's max HP (starting)
+    public const int WorldBossRallyIdleMinutes = 10;            // starting
+    public const double WorldBossRallyRegenPerTick = 0.005;     // of MaxHP per 30 s tick while idle (starting)
+    public const double WorldBossNightRegenFraction = 0.20;     // starting
+    public const int WorldBossMaxNights = 3;                    // starting
+    public const int WorldBossRetreatCooldownSeconds = 120;     // after a retreat or the 50-round rest (starting)
+    public const int WorldBossFallCooldownSeconds = 300;        // after a fall (starting)
+    public const int WorldBossEngagedMinutes = 2;               // a hit inside this window means engaged
+    public const double WorldBossQualifyScore = 0.10;           // starting
+    public const double WorldBossXPPerHourFactor = 450;         // 15 x L^1.5 per monster x ~30 fights an hour (derived)
+    public const double WorldBossGoldFactor = 150;              // starting
+    public const double WorldBossXPCapOfNextLevel = 0.5;        // starting
+    public const double WorldBossTogetherBonusPerAlly = 0.10;   // starting
+    public const double WorldBossTogetherBonusCap = 1.5;        // starting
+    public const int WorldBossFameQualified = 15;
+    public const int WorldBossFameMvpExtra = 10;
+    public const double WorldBossWithdrawalPayFraction = 0.25;  // of the night's share (starting)
+    public const int WorldBossMvpLegendaryMinHumans = 3;        // starting
+    public const int WorldBossNoticeHoursBefore = 1;
 
     // Knighthood bonuses
     public const float KnightDamageBonus = 0.05f;              // +5% damage for knighted players
@@ -1191,24 +1210,26 @@ public static partial class GameConfig
     public const float GrandChampionDamageBonus = 0.03f;       // +3% damage for Lv 80+ Gauntlet completers
     public const float GrandChampionDefenseBonus = 0.03f;      // +3% defense for Lv 80+ Gauntlet completers
     public const int KnightFameDecayResistance = 2;            // Fame loss reduced by this amount for knights
-    public const int WorldBossDurationHours = 6;                // was 1 -- fight window extended for peak-hour pile-on
     public const int WorldBossMinLevel = 10;                    // Min player level to participate
-    public const int WorldBossMaxRoundsPerSession = 50;         // Max combat rounds per session
-    public const int WorldBossDeathCooldownSeconds = 60;        // Cooldown after dying before re-entry
-    public const float WorldBossHPScalePerPlayer = 0.07f;       // was 0.10 -- HP eased so 2-3 players can finish
-    public const float WorldBossAuraBaseDamage = 0.05f;         // 5% MaxHP unavoidable damage per round
-    public const float WorldBossAuraPhase2Mult = 1.5f;          // Aura x1.5 in Phase 2
-    public const float WorldBossAuraPhase3Mult = 2.0f;          // Aura x2.0 in Phase 3
+    public const int WorldBossMaxRoundsPerSession = 50;         // the rest point: summary, autosave, re-entry after the cooldown
     public const float WorldBossPhase2Threshold = 0.65f;        // Phase 2 at 65% HP
     public const float WorldBossPhase3Threshold = 0.30f;        // Phase 3 at 30% HP
-    // Reward multipliers by contribution rank
-    public const float WorldBossMVPXPMult = 3.0f;               // #1 damage dealer
-    public const float WorldBossTop3XPMult = 2.5f;              // Top 3
-    public const float WorldBossTop25XPMult = 2.0f;             // Top 25%
-    public const float WorldBossTop50XPMult = 1.5f;             // Top 50%
-    public const float WorldBossBaseXPMult = 1.0f;              // Any contributor
-    public const long WorldBossBaseXPPerLevel = 10;             // XP = bossLevel * playerLevel * this
-    public const long WorldBossBaseGoldPerLevel = 200;          // Gold = bossLevel * this
+    // Retired in v1.1.4; deleted with the loop rewrite (milestone A, commits 2 and 3).
+    public const int WorldBossMinPlayersToSpawn = 2;
+    public const double WorldBossSpawnCooldownHours = 8.0;
+    public const int WorldBossDurationHours = 6;
+    public const int WorldBossDeathCooldownSeconds = 60;
+    public const float WorldBossHPScalePerPlayer = 0.07f;
+    public const float WorldBossAuraBaseDamage = 0.05f;
+    public const float WorldBossAuraPhase2Mult = 1.5f;
+    public const float WorldBossAuraPhase3Mult = 2.0f;
+    public const float WorldBossMVPXPMult = 3.0f;
+    public const float WorldBossTop3XPMult = 2.5f;
+    public const float WorldBossTop25XPMult = 2.0f;
+    public const float WorldBossTop50XPMult = 1.5f;
+    public const float WorldBossBaseXPMult = 1.0f;
+    public const long WorldBossBaseXPPerLevel = 10;
+    public const long WorldBossBaseGoldPerLevel = 200;
 
     // Faction System (v0.40.2)
     public const string FactionInitiatorCrown = "The Crown";

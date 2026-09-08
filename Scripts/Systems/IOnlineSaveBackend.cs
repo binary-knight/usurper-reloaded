@@ -337,6 +337,13 @@ namespace UsurperRemake.Systems
         public DateTime ExpiresAt { get; set; }
         public string Status { get; set; } = "active";
         public string BossDataJson { get; set; } = "{}";
+        // v1.1.4: tick-owned columns
+        public int Phase { get; set; } = 1;
+        public int Nights { get; set; } = 1;
+        public string DefinitionId { get; set; } = "";
+        public DateTime? LastDamagedAt { get; set; }
+        public bool Settled { get; set; }
+        public int MedianLevel { get; set; }
     }
 
     public class WorldBossDamageEntry
@@ -344,6 +351,32 @@ namespace UsurperRemake.Systems
         public string PlayerName { get; set; } = "";
         public long DamageDealt { get; set; }
         public int Hits { get; set; }
+        // v1.1.4
+        public long NightDamage { get; set; }
+        public int PlayerLevel { get; set; }
+        public int Rounds { get; set; }
+        public int Sessions { get; set; }
+        public bool IsNpc { get; set; }
+    }
+
+    /// <summary>v1.1.4: one frozen reward per (boss, player, kind, night), written by settle and delivered by the player's own session.</summary>
+    public class WorldBossReward
+    {
+        public long Id { get; set; }
+        public int BossId { get; set; }
+        public string BossName { get; set; } = "";
+        public string PlayerName { get; set; } = "";
+        public int Night { get; set; }
+        public string Kind { get; set; } = "kill"; // kill | withdraw
+        public long Xp { get; set; }
+        public long Gold { get; set; }
+        public int Fame { get; set; }
+        public string ItemJson { get; set; } = "";
+        public int Rarity { get; set; }
+        public int Marks { get; set; }
+        public double Score { get; set; }
+        public bool Mvp { get; set; }
+        public long DamageDealt { get; set; }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
