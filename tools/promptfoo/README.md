@@ -12,7 +12,7 @@ of "treat the output as leads to verify against the tree".
 
 ## Setup
 
-Node 20 or newer, and the two CLIs logged in on this machine: `codex` (the
+Node 22.22 or newer (promptfoo's engine floor), and the two CLIs logged in on this machine: `codex` (the
 OpenAI Codex CLI, `codex exec` with the ChatGPT login) and `claude` (Claude
 Code). No API keys are used or needed.
 

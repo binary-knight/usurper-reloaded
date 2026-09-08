@@ -23,7 +23,11 @@ function questionNumbers(brief) {
   return runs.length > 0 ? runs[runs.length - 1] : [];
 }
 
-const marker = /^(?:#+\s*|\*\*\s*|>\s*)?(?:Q|Question\s*|Decision\s*|Ruling\s*)?(\d+)\s*(?:[.):]|[—–-]|\b)/i;
+// A heading or a bold run may carry the number bare ("## 1 The hour"); an unindented plain line
+// must follow it with punctuation or a dash, so prose that starts with a digit ("3 hours is right")
+// does not count as an answer.
+const headedMarker = /^(?:#+\s*|\*\*\s*|>\s*)?(?:Q|Question\s*|Decision\s*|Ruling\s*)?(\d+)\s*(?:[.):]|[—–-]|\b)/i;
+const plainMarker = /^(?:Q|Question\s*|Decision\s*|Ruling\s*)?(\d+)\s*(?:[.):]|[—–-])/i;
 
 function answeredNumbers(output) {
   const answered = new Set();
@@ -32,7 +36,7 @@ function answeredNumbers(output) {
     const bold = /^\s*\*\*/.test(line);
     const unindented = /^\S/.test(line);
     if (!heading && !bold && !unindented) continue;
-    const m = marker.exec(line.replace(/^\s+/, ''));
+    const m = (heading || bold ? headedMarker : plainMarker).exec(line.replace(/^\s+/, ''));
     if (m) answered.add(Number(m[1]));
   }
   return answered;

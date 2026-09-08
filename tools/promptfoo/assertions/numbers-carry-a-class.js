@@ -5,7 +5,7 @@
 'use strict';
 
 const numberRe = /(\d+(?:\.\d+)?\s*%|\b\d+(?:\.\d+)?\s*x\b|\$\s*\d)/i;
-const classRe = /\b(MEASURED|DERIVED|GUESS|starting)\b|\b[A-Z][A-Za-z0-9_]*\.(?:cs|md|json)(?::\d+)?\b|\b(?:Scripts|DOCS|Tests)\/[^\s)]+/;
+const classRe = /\b(MEASURED|DERIVED|GUESS|[Ss]tarting)\b|\b[A-Z][A-Za-z0-9_]*\.(?:cs|md|json)(?::\d+)?\b|\b(?:Scripts|DOCS|Tests)\/[^\s)]+/;
 
 module.exports = (output) => {
   const lines = String(output || '').split('\n');

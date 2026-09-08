@@ -9,7 +9,7 @@ const path = require('path');
 
 const repoRoot = path.resolve(__dirname, '..', '..', '..');
 const searchRoots = ['Scripts', 'Tests', 'DOCS', 'Localization', 'web', 'tools', '.github'];
-const pathRe = /\b(?:Scripts|DOCS|Tests|Localization|web|tools|\.github)\/[A-Za-z0-9_./-]*[A-Za-z0-9_]\.(?:cs|md|json|txt|js|yml|yaml|html|py|csproj)(?::(\d+))?\b/g;
+const pathRe = /(?:\b(?:Scripts|DOCS|Tests|Localization|web|tools)|(?<![\w.])\.github)\/[A-Za-z0-9_./-]*[A-Za-z0-9_]\.(?:cs|md|json|txt|js|yml|yaml|html|py|csproj)(?::(\d+))?\b/g;
 const bareRe = /\b([A-Z][A-Za-z0-9_.]*\.(?:cs|csproj))(?::(\d+))?\b/g;
 
 let index = null;
@@ -31,7 +31,10 @@ function basenameIndex() {
 }
 
 function lineCount(file) {
-  try { return fs.readFileSync(file, 'utf8').split('\n').length; } catch { return 0; }
+  try {
+    const lines = fs.readFileSync(file, 'utf8').split('\n');
+    return lines.length - (lines[lines.length - 1] === '' ? 1 : 0);
+  } catch { return 0; }
 }
 
 module.exports = (output) => {
