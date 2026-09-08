@@ -141,6 +141,24 @@ public class PartySurvivabilityTests
     }
 
     [Fact]
+    public void BossChannel_CountsAsAHit_NotAsTargeting_AndNeverOverkill()
+    {
+        var (engine, owner) = Engine();
+        var sturdy = Ally(100, 100, potions: 0);
+        var frail = Ally(5, 100, potions: 0);
+        var boss = new Monster { Name = "Old One", Level = 30, HP = 1000, MaxHP = 1000, Strength = 20, IsBoss = true, IsChanneling = true, ChannelingRoundsLeft = 1, ChannelingAbilityName = "Doom" };
+        var result = new CombatResult { Player = owner, Monsters = new List<Monster> { boss }, Teammates = new List<Character> { sturdy, frail }, CombatLog = new List<string>() };
+        typeof(CombatEngine).GetMethod("ProcessBossChannel", F)!.Invoke(engine, new object[] { boss, owner, result });
+        sturdy.HP.Should().BeLessThan(100, "the channel landed");
+        var s = engine.StatsFor(sturdy);
+        s.HitsLanded.Should().Be(1);
+        s.HpLost.Should().Be(100 - sturdy.HP);
+        s.Targeted.Should().Be(0, "an area effect is not a targeting choice");
+        frail.HP.Should().Be(0);
+        engine.StatsFor(frail).HpLost.Should().Be(5, "overkill is not HP lost");
+    }
+
+    [Fact]
     public void GroupedPlayerDefend_KeepsThePlus40_AndNoMultiplier()
     {
         var (engine, owner) = Engine();

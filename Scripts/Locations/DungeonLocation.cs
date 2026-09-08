@@ -5206,6 +5206,9 @@ public class DungeonLocation : BaseLocation
     /// <summary>
     /// Fight the monsters in a room
     /// </summary>
+    // v1.1.3: allies whose Cautious offer the player declined this dungeon visit; the warning still prints
+    private readonly HashSet<string> _declinedCautious = new();
+
     /// <summary>v1.1.3 (council ruling 5): eleven or more levels below the player.</summary>
     internal static bool IsOutleveled(Character player, Character ally) => player.Level - ally.Level >= 11;
 
@@ -6712,8 +6715,9 @@ public class DungeonLocation : BaseLocation
                 if (TeammateStances.Get(player, t) == TeammateStance.Cautious) continue;
                 terminal.WriteLine("");
                 terminal.WriteLine($"  {Loc.Get("dungeon.ally_outleveled_warning", t.DisplayName, player.Level - t.Level)}", "yellow");
+                if (_declinedCautious.Contains(TeammateStances.KeyFor(t))) continue; // warned, asked once this visit
                 var answer = await terminal.GetInput(Loc.Get("dungeon.offer_cautious_prompt", t.DisplayName));
-                if (!GameConfig.IsAffirmative(answer)) continue;
+                if (!GameConfig.IsAffirmative(answer)) { _declinedCautious.Add(TeammateStances.KeyFor(t)); continue; }
                 TeammateStances.Set(player, TeammateStances.KeyFor(t), TeammateStance.Cautious);
                 terminal.WriteLine(Loc.Get("dungeon.stance_set", t.DisplayName, Loc.Get(TeammateStances.NameKey(TeammateStance.Cautious))), "bright_green");
                 try { await SaveSystem.Instance.AutoSave(player); } catch { /* best-effort */ }

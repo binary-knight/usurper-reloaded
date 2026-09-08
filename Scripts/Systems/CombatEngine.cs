@@ -114,7 +114,8 @@ public partial class CombatEngine
     }
     internal void RecordAllyHit(Character ally, long damage)
     {
-        var s = StatsFor(ally); s.HitsLanded++; s.HpLost += Math.Max(0, damage);
+        // actual HP lost: overkill is not counted
+        var s = StatsFor(ally); s.HitsLanded++; s.HpLost += Math.Clamp(damage, 0, Math.Max(0, ally.HP));
     }
     // v1.1.3 (council ruling 4): the shared potion belt, at most this many borrowed per fight
     private int _borrowedThisFight;
@@ -28771,6 +28772,7 @@ public partial class CombatEngine
                 {
                     long tmDmg = Math.Max(1, damage - (long)(Math.Sqrt(tm.Defence) * 3));
                     tmDmg = CapTeammateDamageInOldGodFight(tm, tmDmg);
+                    RecordAllyHit(tm, tmDmg); // v1.1.3: the channel hits everyone; not a targeting choice
                     tm.HP = Math.Max(0, tm.HP - tmDmg);
                     terminal.WriteLine($"  {tm.DisplayName} takes {tmDmg} damage!");
                 }
